@@ -4,40 +4,37 @@ import { useState, useEffect } from 'react';
 import { Sun, Moon } from 'lucide-react';
 
 export default function ThemeToggle() {
-  const [mounted, setMounted] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
-
-  useEffect(() => {
-    setMounted(true);
-    if (typeof window === 'undefined') return;
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined') return 'light';
     const saved = localStorage.getItem('theme') as 'light' | 'dark' | null;
-    if (saved) setTheme(saved);
-    else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) setTheme('dark');
+    if (saved) return saved;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
 
-    // respond to system changes while mounted
-    const mql = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = (e: MediaQueryListEvent) => {
-      // only follow system if user hasn't explicitly saved a preference
-      const savedPref = localStorage.getItem('theme');
-      if (!savedPref) setTheme(e.matches ? 'dark' : 'light');
-    };
-    if (mql && mql.addEventListener) mql.addEventListener('change', handler);
-    else if (mql && mql.addListener) mql.addListener(handler);
-
-    return () => {
-      if (mql && mql.removeEventListener) mql.removeEventListener('change', handler as any);
-      else if (mql && mql.removeListener) mql.removeListener(handler as any);
-    };
-  }, []);
-
+  // apply theme to document and persist
   useEffect(() => {
-    if (!mounted) return;
+    if (typeof document === 'undefined') return;
     const root = document.documentElement;
     root.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
     if (theme === 'dark') root.classList.add('dark');
     else root.classList.remove('dark');
     localStorage.setItem('theme', theme);
-  }, [theme, mounted]);
+  }, [theme]);
+
+  // respond to system changes while mounted
+  useEffect(() => {
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => {
+      const savedPref = localStorage.getItem('theme');
+      if (!savedPref) setTheme(e.matches ? 'dark' : 'light');
+    };
+    if (mql && 'addEventListener' in mql) mql.addEventListener('change', handler as EventListener);
+    else if (mql && 'addListener' in mql) (mql as MediaQueryList).addListener(handler as unknown as EventListener);
+    return () => {
+      if (mql && 'removeEventListener' in mql) mql.removeEventListener('change', handler as EventListener);
+      else if (mql && 'removeListener' in mql) (mql as MediaQueryList).removeListener(handler as unknown as EventListener);
+    };
+  }, []);
 
   // cross-tab sync
   useEffect(() => {
@@ -49,8 +46,6 @@ export default function ThemeToggle() {
     window.addEventListener('storage', handler);
     return () => window.removeEventListener('storage', handler);
   }, []);
-
-  if (!mounted) return null;
 
   const isDark = theme === 'dark';
 

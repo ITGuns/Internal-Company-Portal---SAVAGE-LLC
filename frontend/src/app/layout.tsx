@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import Sidebar from "../components/Sidebar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,7 +28,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        {/* Inline script ensures initial theme is applied before React hydrates to avoid flash/mismatch */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');var r=document.documentElement;if(t==='dark'){r.setAttribute('data-theme','dark');r.classList.add('dark');}else if(t==='light'){r.setAttribute('data-theme','light');r.classList.remove('dark');}else{var m=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(m){r.setAttribute('data-theme','dark');r.classList.add('dark');}else{r.setAttribute('data-theme','light');r.classList.remove('dark');}}}catch(e){} })();`,
+          }}
+        />
+
+        <Sidebar />
+        <div className="min-h-screen pl-64 pt-[112px] bg-[var(--background)] text-[var(--foreground)]">{children}</div>
       </body>
     </html>
   );

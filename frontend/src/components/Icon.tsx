@@ -1,7 +1,7 @@
 import React from 'react'
 
 type IconProps = {
-  component: React.ComponentType<{ className?: string; size?: number | string; ariaHidden?: boolean }>
+  component: React.ComponentType<{ className?: string; size?: number | string; 'aria-hidden'?: boolean }>
   size?: number | string
   className?: string
   /** If true, the icon is decorative and hidden from assistive tech */
@@ -9,7 +9,7 @@ type IconProps = {
 }
 
 export default function Icon({ component: Component, size = 16, className, decorative = true }: IconProps) {
-  const ariaProps: Record<string, any> = {
+  const ariaProps: React.AriaAttributes = {
     'aria-hidden': decorative,
   }
 
