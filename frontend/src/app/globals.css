@@ -15,6 +15,15 @@ body {
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --muted: #6b7280;
+  --card-bg: #f8fafc;
+  --border: #e5e7eb;
+  --accent: #7c3aed; /* brand accent */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(16,24,40,0.06);
 }
 
 @theme inline {
@@ -26,9 +35,32 @@ body {
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0b1220;
+    --foreground: #e6eef8;
+    --muted: #9aa6b2;
+    --card-bg: #071026;
+    --border: #172033;
+    --accent: #9b6cff;
   }
+}
+
+/* Allow runtime theme switching via `data-theme="dark"` or the `dark` class on <html> */
+html[data-theme="dark"], html.dark {
+  --background: #0b1220;
+  --foreground: #e6eef8;
+  --muted: #9aa6b2;
+  --card-bg: #071026;
+  --border: #172033;
+  --accent: #9b6cff;
+}
+
+html[data-theme="light"] {
+  --background: #ffffff;
+  --foreground: #171717;
+  --muted: #6b7280;
+  --card-bg: #f8fafc;
+  --border: #e5e7eb;
+  --accent: #7c3aed;
 }
 
 body {
@@ -36,3 +68,31 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Utility classes for tokens */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.muted { color: var(--muted); }
+.accent { color: var(--accent); }
+
+/* Improve keyboard focus visibility */
+:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Give interactive chrome a higher stacking context so dev overlays don't block clicks */
+header, aside, main {
+  position: relative;
+  z-index: 10;
+}
+
+/* Better input placeholder contrast and focus */
+input::placeholder { color: var(--muted); }
+input:focus { box-shadow: 0 0 0 4px rgba(124,58,237,0.12); }
+

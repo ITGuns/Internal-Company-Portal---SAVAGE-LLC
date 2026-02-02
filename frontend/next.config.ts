@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   reactCompiler: true,
+  // Keep config minimal so the default Turbopack dev server can run.
 };
 
 export default nextConfig;

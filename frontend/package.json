@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "optimize:icons": "svgo -f src/assets/icons -o src/assets/icons",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -19,15 +20,19 @@
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "@svgr/webpack": "^8.1.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.23",
+    "axe-core": "^4.11.1",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.5",
+    "playwright": "^1.58.1",
     "postcss": "^8.5.6",
+    "svgo": "^3.0.0",
     "tailwindcss": "^4.1.18",
     "typescript": "^5"
   }
