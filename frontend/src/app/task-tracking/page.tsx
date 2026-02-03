@@ -1,4 +1,6 @@
-import React from 'react'
+"use client"
+
+import React, { useState } from 'react'
 import Header from '@/components/Header'
 import { Filter, SortAsc, Users, List, Grid, Calendar, Plus, MoreHorizontal } from 'lucide-react'
 
@@ -53,15 +55,47 @@ function BoardCard({ task }: { task: Task }) {
 }
 
 export default function TaskTrackingPage() {
+  const [tasks, setTasks] = useState<Record<string, Task[]>>(sample)
+  const [showModal, setShowModal] = useState(false)
+
+  // new task form state
+  const [title, setTitle] = useState('')
+  const [subtitle, setSubtitle] = useState('')
+  const [assignee, setAssignee] = useState('')
+  const [when, setWhen] = useState('')
+  const [priority, setPriority] = useState<Task['priority']>('Med')
+
+  function openNewTask() {
+    setShowModal(true)
+  }
+
+  function closeModal() {
+    setShowModal(false)
+    setTitle('')
+    setSubtitle('')
+    setAssignee('')
+    setWhen('')
+    setPriority('Med')
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!title.trim()) return
+    const id = `n${Date.now()}`
+    const newTask: Task = { id, title: title.trim(), subtitle: subtitle.trim() || undefined, assignee: assignee || undefined, when: when || undefined, priority }
+    setTasks(prev => ({ ...prev, todo: [newTask, ...prev.todo] }))
+    closeModal()
+  }
+
   return (
-    <main style={{ minHeight: 'calc(100vh - 9rem)' }} className="bg-[var(--background)] text-[var(--foreground)]">
+    <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-6 pt-0">
         <Header title="Task Tracking" subtitle="Track and manage tasks, assignments, and progress." />
 
         <div className="mt-6">
           {/* top controls */}
           <div className="flex items-center gap-3 mb-4">
-            <button className="px-3 py-2 rounded-md flex items-center gap-2" style={{ backgroundColor: 'var(--foreground)', color: 'var(--background)' }}>
+            <button onClick={openNewTask} className="px-3 py-2 rounded-md flex items-center gap-2" style={{ backgroundColor: 'var(--foreground)', color: 'var(--background)' }}>
               <Plus className="w-4 h-4" />
               New Task
             </button>
@@ -87,8 +121,7 @@ export default function TaskTrackingPage() {
                     <MoreHorizontal className="w-4 h-4 text-[var(--muted)]" />
                   </div>
                   <div className="p-3 bg-[var(--card-surface)] min-h-[320px]">
-                    {sample.todo.map(t => <BoardCard key={t.id} task={t} />)}
-                    <div className="text-center text-sm text-[var(--muted)] mt-2">+ Add task</div>
+                    {tasks.todo.map(t => <BoardCard key={t.id} task={t} />)}
                   </div>
                 </div>
               </div>
@@ -100,8 +133,7 @@ export default function TaskTrackingPage() {
                     <MoreHorizontal className="w-4 h-4 text-[var(--muted)]" />
                   </div>
                   <div className="p-3 bg-[var(--card-surface)] min-h-[320px]">
-                    {sample.inprogress.map(t => <BoardCard key={t.id} task={t} />)}
-                    <div className="text-center text-sm text-[var(--muted)] mt-2">+ Add task</div>
+                    {tasks.inprogress.map(t => <BoardCard key={t.id} task={t} />)}
                   </div>
                 </div>
               </div>
@@ -113,8 +145,7 @@ export default function TaskTrackingPage() {
                     <MoreHorizontal className="w-4 h-4 text-[var(--muted)]" />
                   </div>
                   <div className="p-3 bg-[var(--card-surface)] min-h-[320px]">
-                    {sample.review.map(t => <BoardCard key={t.id} task={t} />)}
-                    <div className="text-center text-sm text-[var(--muted)] mt-2">+ Add task</div>
+                    {tasks.review.map(t => <BoardCard key={t.id} task={t} />)}
                   </div>
                 </div>
               </div>
@@ -126,7 +157,7 @@ export default function TaskTrackingPage() {
                     <MoreHorizontal className="w-4 h-4 text-[var(--muted)]" />
                   </div>
                   <div className="p-3 bg-[var(--card-surface)] min-h-[320px]">
-                    {sample.done.map(t => <BoardCard key={t.id} task={t} />)}
+                    {tasks.done.map(t => <BoardCard key={t.id} task={t} />)}
                   </div>
                 </div>
               </div>
@@ -134,6 +165,83 @@ export default function TaskTrackingPage() {
           </div>
         </div>
       </div>
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed z-50 flex items-start justify-center bg-gray-100/80 pt-20" style={{ top: 0, left: '16rem', right: 0, bottom: 0 }}>
+          <div className="bg-[var(--card-bg)] rounded-lg w-full max-w-2xl p-6 max-h-[80vh] overflow-y-auto shadow-lg">
+            <div className="flex items-start justify-between">
+              <h3 className="text-lg font-semibold mb-2">Create New Task</h3>
+              <button onClick={closeModal} aria-label="Close" className="text-[var(--muted)] hover:text-[var(--foreground)]">✕</button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm mb-1">Task Name</label>
+                <input value={title} onChange={e => setTitle(e.target.value)} placeholder="What needs to be done?" className="w-full p-3 rounded border border-[var(--border)] bg-[var(--background)]" required />
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1">Description</label>
+                <textarea value={subtitle} onChange={e => setSubtitle(e.target.value)} placeholder="Tell us more about this task..." className="w-full p-3 rounded border border-[var(--border)] bg-[var(--background)] h-28" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm mb-1">Department</label>
+                  <select className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]">
+                    <option>Sales</option>
+                    <option>Marketing</option>
+                    <option>Engineering</option>
+                    <option>HR</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm mb-1">Priority</label>
+                  <select value={priority} onChange={e => setPriority(e.target.value as Task['priority'])} className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]">
+                    <option>Low</option>
+                    <option>Med</option>
+                    <option>High</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm mb-1">Assign To</label>
+                  <select value={assignee} onChange={e => setAssignee(e.target.value)} className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]">
+                    <option value="">Unassigned</option>
+                    <option>John Smith</option>
+                    <option>Emma Wilson</option>
+                    <option>Michael Chen</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm mb-1">Due Date</label>
+                  <input type="date" value={when} onChange={e => setWhen(e.target.value)} className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1">Status</label>
+                <select className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]">
+                  <option>To Do</option>
+                  <option>In Progress</option>
+                  <option>Review</option>
+                  <option>Completed</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <button type="button" onClick={closeModal} className="px-3 py-2 rounded bg-[var(--card-bg)] border border-[var(--border)]">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded bg-[var(--foreground)] text-[var(--background)]">Create New Task</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </main>
   )
 }

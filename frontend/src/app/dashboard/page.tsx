@@ -48,7 +48,7 @@ function ChatMessage({ who, text, time }: { who: string; text: string; time: str
 
 export default function DashboardPage() {
   return (
-    <main style={{ minHeight: 'calc(100vh - 10rem)' }} className="bg-[var(--background)] text-[var(--foreground)]">
+    <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-6 pt-3">
         <Header />
 

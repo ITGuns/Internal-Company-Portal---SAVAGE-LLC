@@ -94,7 +94,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
   }, [])
 
   return (
-    <header ref={headerRef} className="fixed top-0 left-64 right-0 z-35 flex items-center justify-between h-25 pl-4 pr-6 bg-[var(--background)]">
+    <header ref={headerRef} className="fixed top-0 left-64 right-0 z-35 flex items-center justify-between h-25 pl-7 pr-6 bg-[var(--background)]">
       <div className="flex items-center gap-4">
         {/* left area: allow explicit title, else show dashboard greeting or brand */}
         {title ? (
