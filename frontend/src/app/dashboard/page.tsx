@@ -48,8 +48,8 @@ function ChatMessage({ who, text, time }: { who: string; text: string; time: str
 
 export default function DashboardPage() {
   return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <div className="p-6">
+    <main style={{ minHeight: 'calc(100vh - 10rem)' }} className="bg-[var(--background)] text-[var(--foreground)]">
+      <div className="p-6 pt-3">
         <Header />
 
         <div className="mt-1 grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -59,7 +59,7 @@ export default function DashboardPage() {
                 <h3 className="font-semibold text-sm">Quick Links</h3>
               </div>
 
-              <div className="p-4 grid gap-3">
+              <div className="p-4 grid gap-3 bg-[var(--card-surface)]">
                 <QuickLink title="Discord Server" subtitle="Join the conversation" />
                 <QuickLink title="Google Drive" subtitle="Access shared files" />
                 <QuickLink title="Shared Resources" subtitle="Company documents" />
@@ -71,7 +71,7 @@ export default function DashboardPage() {
                 <h3 className="font-semibold text-sm">Company Chat</h3>
               </div>
 
-              <div className="p-4 max-h-64 overflow-y-auto">
+              <div className="p-4 max-h-64 overflow-y-auto chat-scroll bg-[var(--card-surface)]">
                 <ChatMessage who="Alex Martinez" time="9:42 AM" text="Good morning team! Ready for the sprint planning?" />
                 <ChatMessage who="Emma Wilson" time="9:45 AM" text="Yes! I've prepared the user stories for review." />
                 <ChatMessage who="James Cooper" time="9:48 AM" text="Can someone share the Q1 metrics dashboard link?" />
@@ -90,7 +90,7 @@ export default function DashboardPage() {
                 <a href="/announcements" className="text-sm text-[var(--muted)] hover:underline">View All</a>
               </div>
 
-              <div className="px-6 py-0 divide-y divide-[var(--border)]">
+              <div className="px-6 py-0 divide-y divide-[var(--border)] bg-[var(--card-surface)]">
                 <AnnouncementItem author="Michael Chen" title="Q1 All-Hands Meeting - Tomorrow at 2 PM" when="2 hours ago" body="Don't forget to join us tomorrow for the quarterly review. We'll be discussing achievements and goals for Q2." />
                 <AnnouncementItem author="HR Department" title="New Benefits Package Available" when="5 hours ago" body="We're excited to announce enhanced health benefits starting next month. Check your email for details." />
                 <AnnouncementItem author="IT Department" title="System Maintenance Scheduled" when="Yesterday" body="Planned maintenance this Saturday from 2-4 AM EST. Services may be temporarily unavailable." />
@@ -104,7 +104,7 @@ export default function DashboardPage() {
                   <a href="/shoutouts" className="text-sm text-[var(--muted)] hover:underline">View All</a>
                 </div>
 
-                <div className="p-4 space-y-3">
+                <div className="p-4 space-y-3 bg-[var(--card-surface)]">
                   <div className="p-3 bg-[var(--card-bg)] rounded border border-[var(--border)]">
                     <div className="flex items-start gap-4">
                       <div className="w-9 h-9 flex items-center justify-center rounded text-[var(--accent)] bg-[color:var(--accent)/8]">
@@ -138,7 +138,7 @@ export default function DashboardPage() {
                     <h4 className="font-semibold">Quick Actions</h4>
                   </div>
 
-                  <div className="p-4 grid grid-cols-2 gap-3 items-start">
+                  <div className="p-4 grid grid-cols-2 gap-3 items-start bg-[var(--card-surface)]">
                     <button className="py-2 px-3 bg-[var(--background)] rounded text-[var(--foreground)]">New Task</button>
                     <button className="py-2 px-3 bg-[var(--background)] rounded text-[var(--foreground)]">Schedule</button>
                     <button className="py-2 px-3 bg-[var(--background)] rounded text-[var(--foreground)]">Announce</button>

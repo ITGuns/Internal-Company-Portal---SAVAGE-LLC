@@ -17,13 +17,15 @@ body {
   --foreground: #171717;
   --muted: #6b7280;
   --card-bg: #f8fafc;
+  --card-surface: #f3f4f6;
   --border: #e5e7eb;
-  --accent: #7c3aed; /* brand accent */
+  --accent: #c03333; /* brand accent */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
   --shadow-md: 0 4px 12px rgba(16,24,40,0.06);
+  --nav-hover-shadow: rgba(16,24,40,0.03);
 }
 
 @theme inline {
@@ -39,8 +41,10 @@ body {
     --foreground: #e6eef8;
     --muted: #9aa6b2;
     --card-bg: #071026;
+    --card-surface: #07172a;
     --border: #172033;
-    --accent: #9b6cff;
+    --accent: #c03333;
+    --nav-hover-shadow: rgba(255,255,255,0.02);
   }
 }
 
@@ -50,8 +54,9 @@ html[data-theme="dark"], html.dark {
   --foreground: #e6eef8;
   --muted: #9aa6b2;
   --card-bg: #071026;
+  --card-surface: #07172a;
   --border: #172033;
-  --accent: #9b6cff;
+  --accent: #c03333;
 }
 
 html[data-theme="light"] {
@@ -59,8 +64,9 @@ html[data-theme="light"] {
   --foreground: #171717;
   --muted: #6b7280;
   --card-bg: #f8fafc;
+  --card-surface: #ebebeb;
   --border: #e5e7eb;
-  --accent: #7c3aed;
+  --accent: #c03333;
 }
 
 body {
@@ -95,4 +101,67 @@ header, aside, main {
 /* Better input placeholder contrast and focus */
 input::placeholder { color: var(--muted); }
 input:focus { box-shadow: 0 0 0 4px rgba(124,58,237,0.12); }
+
+/* Theme-aware custom scrollbar for chat and other scrollable cards */
+.chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--card-bg);
+}
+.chat-scroll::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+.chat-scroll::-webkit-scrollbar-track {
+  background: var(--card-bg);
+}
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 8px;
+  border: 3px solid var(--card-bg);
+}
+.chat-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Sidebar / nav interaction animations (prefers-reduced-motion safe) */
+.nav-animated {
+  will-change: transform, background-color;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-animated {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+/* Explicit hover/pressed background so nav items show a gray surface in both themes */
+.nav-animated {
+  background-color: transparent;
+  transition-property: background-color, transform, filter;
+  transition-duration: 160ms;
+  transition-timing-function: ease-out;
+}
+
+.nav-animated:hover,
+.nav-animated:focus-visible {
+  background-color: var(--card-surface);
+  box-shadow: inset 0 0 0 1px var(--nav-hover-shadow);
+}
+
+.nav-animated:active {
+  /* slightly darken on press for tactile feedback */
+  filter: brightness(0.96);
+  transform: translateY(1px) scale(0.995);
+}
+
+/* Keep reduced-motion users from seeing transform/filters */
+@media (prefers-reduced-motion: reduce) {
+  .nav-animated:hover,
+  .nav-animated:active {
+    background-color: var(--card-surface);
+    filter: none !important;
+    transform: none !important;
+  }
+}
 

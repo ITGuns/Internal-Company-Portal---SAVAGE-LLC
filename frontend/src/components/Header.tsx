@@ -8,7 +8,7 @@ import ThemeToggle from './ThemeToggle'
 import UserAvatar from '../assets/icons/UserAvatar'
 import { Bell, Search, Settings } from 'lucide-react'
 
-export default function Header() {
+export default function Header({ title, subtitle }: { title?: string; subtitle?: string }) {
   const pathname = usePathname() || '/'
 
   const isDashboard = pathname === '/' || pathname === '/dashboard'
@@ -96,10 +96,15 @@ export default function Header() {
   return (
     <header ref={headerRef} className="fixed top-0 left-64 right-0 z-35 flex items-center justify-between h-25 pl-4 pr-6 bg-[var(--background)]">
       <div className="flex items-center gap-4">
-        {/* left area: show page title on dashboard, brand on other pages */}
-        {isDashboard ? (
+        {/* left area: allow explicit title, else show dashboard greeting or brand */}
+        {title ? (
           <div className="text-left">
-            <h2 className="text-xl font-semibold">Welcome back, Jade</h2>
+            <h2 className="text-xl font-semibold">{title}</h2>
+            {subtitle ? <div className="text-sm text-[var(--muted)] mt-1">{subtitle}</div> : null}
+          </div>
+        ) : isDashboard ? (
+          <div className="text-left">
+            <h2 className="text-xl font-semibold">Welcome back, User</h2>
             <div className="text-sm text-[var(--muted)]">Here's what's happening today</div>
           </div>
         ) : (
@@ -111,16 +116,7 @@ export default function Header() {
       </div>
 
       <div className="flex items-center gap-3">
-        {/* on non-dashboard pages show search and add task */}
-        {!isDashboard && (
-          <div className="hidden sm:flex items-center bg-base-200 rounded p-2 gap-2">
-            <Search className="w-4 h-4 opacity-60" />
-            <input aria-label="Search" className="bg-transparent outline-none" placeholder="Search..." />
-          </div>
-        )}
-
-        {/* Add Task only on non-dashboard pages */}
-        {!isDashboard && <IconButton label="Add Task" />}
+        {/* Search and Add Task intentionally removed for a cleaner header */}
 
         <ThemeToggle />
 
