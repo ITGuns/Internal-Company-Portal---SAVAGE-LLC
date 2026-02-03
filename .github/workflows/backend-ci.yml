@@ -1,0 +1,44 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - 'backend/**'
+  pull_request:
+    branches: [ "main", "master" ]
+    paths:
+      - 'backend/**'
+
+defaults:
+  run:
+    working-directory: ./backend
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Generate Prisma Client
+      # We don't use the npm script 'prisma:generate' because it expects a .env file
+      # We just need the generated client for the build to pass
+      run: npx prisma generate
+
+    - name: Build
+      run: npm run build
