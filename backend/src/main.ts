@@ -5,6 +5,7 @@ import passport from 'passport'
 import { AppModule } from './app.module'
 import { TasksController } from './tasks/tasks.controller'
 import { UsersController } from './users/users.controller'
+import { DepartmentsController } from './departments/departments.controller'
 import { AuthController } from './auth/auth.controller'
 import { config, validateConfig } from './config/env.config'
 import { PrismaService } from './database/prisma.service'
@@ -55,6 +56,9 @@ async function bootstrap() {
 
   const tasksController = new TasksController()
   app.use('/api/tasks', tasksController.router())
+
+  const departmentsController = new DepartmentsController()
+  app.use('/api/departments', departmentsController.router())
 
   app.listen(config.port, () => {
     // eslint-disable-next-line no-console
