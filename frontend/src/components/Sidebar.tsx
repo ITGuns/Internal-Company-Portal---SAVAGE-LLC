@@ -1,6 +1,6 @@
 "use client"
 
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 // cSpell:ignore Tatom
 
 import Link from 'next/link'
@@ -9,7 +9,6 @@ import UserAvatar from '../assets/icons/UserAvatar'
 import {
   Home,
   Grid,
-  Calendar,
   Users,
   MessageSquare,
   DollarSign,
@@ -43,12 +42,60 @@ function NavItem({ icon: Icon, label, badge, href }: { icon: React.ComponentType
   )
 }
 
+function SidebarDepartment({ dept, roles }: { dept: string; roles: string[] }) {
+  const pathname = usePathname() || '/'
+  const [open, setOpen] = useState(false)
+
+  const base = "nav-animated w-full text-left flex items-center gap-3 px-3 py-2 rounded-md group transform transition-colors transition-transform duration-150 ease-out border border-transparent hover:bg-gray-50 dark:hover:bg-white/5 hover:border-[var(--border)] active:translate-y-[1px] active:scale-[0.995] active:bg-gray-100 dark:active:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400"
+
+  return (
+    <div>
+      <button onClick={() => setOpen(open => !open)} className={base} aria-expanded={open}>
+        <span className="flex-1">{dept}</span>
+        <span className="text-sm text-muted">{roles.length}</span>
+      </button>
+      {open && roles.length > 0 && (
+        <div className="ml-4 mt-1 space-y-1">
+          {roles.map(r => (
+            <Link key={r} href={`/departments/${encodeURIComponent(dept)}/${encodeURIComponent(r)}`} className="block px-3 py-2 rounded-md nav-animated text-sm text-muted hover:bg-gray-50 dark:hover:bg-white/5">
+              {r}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Sidebar() {
   const pathname = usePathname() || '/'
   const isDashboard = pathname === '/' || pathname === '/dashboard'
+  const asideRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    const el = asideRef.current
+    if (!el) return
+
+    function setSidebarWidth() {
+      const rect = el.getBoundingClientRect()
+      // expose the exact width so overlays can align to the content area
+      document.documentElement.style.setProperty('--sidebar-width', `${rect.width}px`)
+      document.documentElement.style.setProperty('--sidebar-right', `${rect.right}px`)
+    }
+
+    setSidebarWidth()
+    const ro = new ResizeObserver(setSidebarWidth)
+    ro.observe(el)
+    window.addEventListener('resize', setSidebarWidth)
+
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', setSidebarWidth)
+    }
+  }, [])
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-64 bg-transparent pr-0 z-50">
+    <aside ref={asideRef} className="fixed left-0 top-0 h-full w-64 bg-transparent pr-0 z-50">
       {/* vertical divider recreated as an absolute element so other borders can align to it */}
       <div data-sidebar-divider className="absolute right-0 top-0 bottom-0 w-px z-50 bg-[var(--border)]" />
       <div className="flex flex-col h-full">
@@ -73,7 +120,6 @@ export default function Sidebar() {
           <nav className="space-y-1 mb-4">
             <NavItem href="/dashboard" icon={Home} label="Dashboard" />
             <NavItem href="/task-tracking" icon={Grid} label="Task Tracking" />
-            <NavItem href="/task-calendar" icon={Calendar} label="Task Calendar" />
             <NavItem href="/payroll-calendar" icon={DollarSign} label="Payroll Calendar" />
             <NavItem href="/announcements" icon={Megaphone} label="Announcements" />
             <NavItem href="/daily-logs" icon={Users} label="Daily Logs" />
@@ -84,28 +130,29 @@ export default function Sidebar() {
             <NavItem href="/company-chat" icon={MessageSquare} label="Company Chat" />
             <NavItem href="/private-messages" icon={Mail} label="Private Messages" badge={3} />
             <NavItem href="/whiteboard" icon={Grid} label="Whiteboard" />
-            <NavItem href="/discord" icon={MoreHorizontal} label="Discord" />
+            <NavItem href="discord://" icon={MoreHorizontal} label="Discord" />
           </nav>
 
           <div className="text-xs text-muted uppercase px-2 mb-2">Departments</div>
           <nav className="space-y-1 mb-6">
-            {
-              (() => {
-                const pathname = usePathname() || '/' 
-                const isOpsActive = pathname === '/operations' || pathname.startsWith('/operations')
-                const opsClass = `nav-animated w-full text-left flex items-center gap-3 px-3 py-2 rounded-md group transform transition-colors transition-transform duration-150 ease-out border border-transparent hover:bg-gray-50 dark:hover:bg-white/5 hover:border-[var(--border)] active:translate-y-[1px] active:scale-[0.995] active:bg-gray-100 dark:active:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400`
-                const opsStyle: React.CSSProperties | undefined = isOpsActive
-                  ? { backgroundColor: 'var(--card-surface)', boxShadow: 'inset 0 0 0 1px var(--nav-hover-shadow)' }
-                  : undefined
-                return (
-                  <Link href="/operations" className={opsClass} aria-current={isOpsActive ? 'page' : undefined} style={opsStyle}>
-                    <span className="w-2 h-2 bg-gray-400 rounded-full inline-block" />
-                    <span className="flex-1">Operations</span>
-                    <span className="text-sm text-muted">12</span>
-                  </Link>
-                )
-              })()
-            }
+            {/* Departments list rendered below */}
+              {
+                (() => {
+                  const departmentRoles: Record<string, string[]> = {
+                    'Owners / Founders': [],
+                    'Project Managers': ['Project Manager', 'Operations Manager'],
+                    'Website Developers': ['Frontend Developer', 'Backend / Technical Developer'],
+                    'Payroll / Finance': ['Bookkeeping', 'Contractor & Salary Payments'],
+                    'Operations': ['Fulfillment / Logistics VA', 'Inventory VA', 'Customer Experience (CX) VA'],
+                    'Digital Marketing': ['Digital Marketing Lead / Marketing VA', 'Media Buyer / Ads Specialist', 'Content Creator / Designer', 'Email & SMS Marketer', 'Influencer / Social Media VA'],
+                    'Analytics / Data': ['Analytics / Data VA'],
+                    'Automation / Tech': ['Automation / Tech VA'],
+                  }
+                  return Object.keys(departmentRoles).map((dept) => (
+                    <SidebarDepartment key={dept} dept={dept} roles={departmentRoles[dept]} />
+                  ))
+                })()
+              }
           </nav>
         </div>
 

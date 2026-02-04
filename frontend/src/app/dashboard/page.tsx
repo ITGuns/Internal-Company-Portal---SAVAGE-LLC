@@ -1,6 +1,6 @@
 import React from 'react'
 import Header from '@/components/Header'
-import { Star, Trophy } from 'lucide-react'
+import { Star, Trophy, Send } from 'lucide-react'
 
 function QuickLink({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
@@ -78,7 +78,12 @@ export default function DashboardPage() {
               </div>
 
               <div className="px-6 py-4">
-                <input className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]" placeholder="Type a message..." />
+                <div className="flex items-center gap-3">
+                  <input aria-label="Type a message" className="flex-1 p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]" placeholder="Type a message..." />
+                  <button aria-label="Send message" className="p-2 rounded bg-[var(--card-bg)] border border-[var(--border)] hover:shadow-sm">
+                    <Send className="w-4 h-4 text-[var(--foreground)]" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
