@@ -1,6 +1,7 @@
 import express, { Request, Response, Router } from 'express'
 import { UsersService } from './users.service'
 import { authenticateToken } from '../auth/auth.middleware'
+import { emailService } from '../email/email.service'
 
 export class UsersController {
     private service = new UsersService()
@@ -86,6 +87,18 @@ export class UsersController {
                 }
 
                 const user = await this.service.create({ email, name, avatar })
+
+                // Send welcome email (async, don't block response)
+                const loginUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+                emailService.sendWelcomeEmail(
+                    user.email,
+                    user.name || 'New User',
+                    `${loginUrl}/login`
+                ).catch(err => {
+                    console.error('Failed to send welcome email:', err)
+                    // Don't fail user creation if email fails
+                })
+
                 res.status(201).json(user)
             } catch (error) {
                 res.status(500).json({ error: 'Failed to create user' })
