@@ -1,5 +1,6 @@
 import 'reflect-metadata'
 import express, { Request, Response, NextFunction } from 'express'
+import { createServer } from 'http' // Added for Socket.io
 import bodyParser from 'body-parser'
 import passport from 'passport'
 import { AppModule } from './app.module'
@@ -8,9 +9,13 @@ import { UsersController } from './users/users.controller'
 import { DepartmentsController } from './departments/departments.controller'
 import { EmailController } from './email/email.controller'
 import { AuthController } from './auth/auth.controller'
+import { AnnouncementsController } from './announcements/announcements.controller'
+import { DailyLogsController } from './daily-logs/daily-logs.controller'
+import { PayrollController } from './payroll/payroll.controller'
 import { config, validateConfig } from './config/env.config'
 import { PrismaService } from './database/prisma.service'
 import { initializePassport } from './auth/passport.config'
+import { notificationService } from './notifications/socket.service' // Service for real-time updates
 
 async function bootstrap() {
   // Validate environment configuration
@@ -23,6 +28,11 @@ async function bootstrap() {
   initializePassport()
 
   const app = express()
+  const httpServer = createServer(app) // Create HTTP server
+
+  // Initialize Notification Service (Socket.io)
+  notificationService.initialize(httpServer)
+
   app.use(bodyParser.json())
   app.use(passport.initialize())
 
@@ -31,6 +41,7 @@ async function bootstrap() {
     res.header('Access-Control-Allow-Origin', config.corsOrigin)
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    res.header('Access-Control-Allow-Credentials', 'true') // Added for Socket.io
     if (req.method === 'OPTIONS') {
       return res.sendStatus(200)
     }
@@ -64,10 +75,21 @@ async function bootstrap() {
   const emailController = new EmailController()
   app.use('/api/email', emailController.router())
 
+  const announcementsController = new AnnouncementsController()
+  app.use('/api/announcements', announcementsController.router())
 
-  app.listen(config.port, () => {
+  const dailyLogsController = new DailyLogsController()
+  app.use('/api/daily-logs', dailyLogsController.router())
+
+  const payrollController = new PayrollController()
+  app.use('/api/payroll', payrollController.router())
+
+
+  // Listen on HTTP Server instead of App
+  httpServer.listen(config.port, () => {
     // eslint-disable-next-line no-console
     console.log(`🚀 Backend listening on http://localhost:${config.port}`)
+    console.log(`📡 Socket.io server initialized`)
     console.log(`📝 Environment: ${config.nodeEnv}`)
     console.log(`🔐 OAuth endpoints:`)
     console.log(`   - Google: http://localhost:${config.port}/auth/google`)

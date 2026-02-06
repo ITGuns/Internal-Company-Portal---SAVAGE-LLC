@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Sidebar from "../components/Sidebar";
+import { SocketProvider } from "../context/SocketContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,8 +36,10 @@ export default function RootLayout({
           }}
         />
 
-        <Sidebar />
-        <div className="min-h-screen pl-64 pt-[112px] bg-[var(--background)] text-[var(--foreground)]">{children}</div>
+        <SocketProvider>
+          <Sidebar />
+          <div className="min-h-screen pl-64 pt-[112px] bg-[var(--background)] text-[var(--foreground)]">{children}</div>
+        </SocketProvider>
       </body>
     </html>
   );
