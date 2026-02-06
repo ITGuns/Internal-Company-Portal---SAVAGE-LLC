@@ -6,13 +6,24 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 
-type EventType = "payday" | "holiday" | "deadline";
+type EventType = "payday" | "holiday" | "deadline" | "time";
 
 export default function PayrollCalendarPage() {
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [viewMode, setViewMode] = useState<"monthly" | "annual">("monthly");
   const calendarRef = useRef<any>(null);
   const [currentTitle, setCurrentTitle] = useState<string>("February 2026");
+  const [clockedIn, setClockedIn] = useState(false);
+  const [timeEntries, setTimeEntries] = useState<
+    Array<{ id: string; start: string; end?: string; durationMin?: number }>
+  >([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [manualDate, setManualDate] = useState<string>(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [manualIn, setManualIn] = useState<string>("09:00");
+  const [manualOut, setManualOut] = useState<string>("17:00");
+  const [manualNotes, setManualNotes] = useState<string>("");
 
   const events = useMemo(() => {
     return [
@@ -43,6 +54,37 @@ export default function PayrollCalendarPage() {
     ];
   }, []);
 
+  const displayEvents = useMemo(() => {
+    const derived = timeEntries.map((e) => {
+      const date = e.start.slice(0, 10);
+      const mins =
+        e.durationMin != null
+          ? e.durationMin
+          : e.end
+            ? Math.max(
+                0,
+                Math.round(
+                  (new Date(e.end).getTime() - new Date(e.start).getTime()) /
+                    60000,
+                ),
+              )
+            : undefined;
+      const title =
+        mins != null
+          ? mins >= 60
+            ? `${Math.round(mins / 60)}h`
+            : `${mins}m`
+          : "IN";
+      return {
+        id: `time-${e.id}`,
+        title,
+        start: date,
+        extendedProps: { type: "time" as EventType },
+      };
+    });
+    return [...events, ...derived];
+  }, [events, timeEntries]);
+
   const stats = useMemo(() => {
     const payday = events.filter(
       (e) => e.extendedProps.type === "payday",
@@ -60,6 +102,7 @@ export default function PayrollCalendarPage() {
     if (t === "payday") return "bg-emerald-500/90";
     if (t === "holiday") return "bg-red-500/90";
     if (t === "deadline") return "bg-amber-500/90";
+    if (t === "time") return "bg-sky-500/90";
     return "bg-slate-400";
   }
 
@@ -77,34 +120,8 @@ export default function PayrollCalendarPage() {
         <div className="mt-6">
           <div className="flex items-center gap-4 mb-4">
             <div className="flex items-center gap-2">
-              <div className="inline-flex rounded-md bg-transparent p-0 border border-transparent">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("monthly")}
-                  aria-pressed={viewMode === "monthly"}
-                  className={`px-3 py-2 rounded-l-md border text-sm ${
-                    viewMode === "monthly"
-                      ? "bg-[var(--card-bg)] border-[var(--accent)] text-[var(--foreground)]"
-                      : "bg-[var(--background)] border border-[var(--border)] text-[var(--muted)]"
-                  }`}
-                >
-                  Monthly View
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("annual")}
-                  aria-pressed={viewMode === "annual"}
-                  className={`px-3 py-2 rounded-r-md border text-sm ${
-                    viewMode === "annual"
-                      ? "bg-[var(--card-bg)] border-[var(--accent)] text-[var(--foreground)]"
-                      : "bg-[var(--background)] border border-[var(--border)] text-[var(--muted)]"
-                  }`}
-                >
-                  Annual Overview
-                </button>
-              </div>
+              {/* view toggles left side (kept minimal) */}
             </div>
-
             <div className="ml-auto flex items-center gap-2">
               <button
                 onClick={() => {
@@ -206,7 +223,7 @@ export default function PayrollCalendarPage() {
                     initialView="dayGridMonth"
                     initialDate="2026-02-01"
                     headerToolbar={false}
-                    events={events}
+                    events={displayEvents}
                     eventContent={(arg) => {
                       const evt: any = arg.event;
                       const t = evt.extendedProps?.type as
@@ -232,80 +249,361 @@ export default function PayrollCalendarPage() {
                     height={600}
                   />
                 </div>
+                {showAddModal ? (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div
+                      className="absolute inset-0 bg-black/40"
+                      onClick={() => setShowAddModal(false)}
+                    />
+                    <div className="bg-[var(--card-surface)] w-full max-w-md rounded shadow p-6 z-10">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="text-lg font-semibold">
+                          Add Time Entry
+                        </div>
+                        <button
+                          onClick={() => setShowAddModal(false)}
+                          className="text-[var(--muted)]"
+                          aria-label="Close add time entry"
+                        >
+                          ✖
+                        </button>
+                      </div>
+
+                      <label className="block text-xs text-[var(--muted)]">
+                        Date
+                      </label>
+                      <input
+                        type="date"
+                        value={manualDate}
+                        onChange={(e) => setManualDate(e.target.value)}
+                        className="w-full border rounded px-3 py-2 mt-1 mb-3 bg-[var(--card-bg)]"
+                      />
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-[var(--muted)]">
+                            Time In
+                          </label>
+                          <input
+                            type="time"
+                            value={manualIn}
+                            onChange={(e) => setManualIn(e.target.value)}
+                            className="w-full border rounded px-3 py-2 mt-1 bg-[var(--card-bg)]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-[var(--muted)]">
+                            Time Out
+                          </label>
+                          <input
+                            type="time"
+                            value={manualOut}
+                            onChange={(e) => setManualOut(e.target.value)}
+                            className="w-full border rounded px-3 py-2 mt-1 bg-[var(--card-bg)]"
+                          />
+                        </div>
+                      </div>
+
+                      <label className="block text-xs text-[var(--muted)] mt-3">
+                        Notes (optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={manualNotes}
+                        onChange={(e) => setManualNotes(e.target.value)}
+                        placeholder="e.g. Overtime, client meeting..."
+                        className="w-full border rounded px-3 py-2 mt-1 bg-[var(--card-bg)]"
+                      />
+
+                      <div className="mt-4 flex items-center gap-3">
+                        <button
+                          onClick={() => {
+                            try {
+                              const startIso = new Date(
+                                `${manualDate}T${manualIn}`,
+                              ).toISOString();
+                              const endIso = manualOut
+                                ? new Date(
+                                    `${manualDate}T${manualOut}`,
+                                  ).toISOString()
+                                : undefined;
+                              const durationMin = endIso
+                                ? Math.max(
+                                    0,
+                                    Math.round(
+                                      (new Date(endIso).getTime() -
+                                        new Date(startIso).getTime()) /
+                                        60000,
+                                    ),
+                                  )
+                                : undefined;
+                              const id = String(Date.now());
+                              setTimeEntries((s) => [
+                                {
+                                  id,
+                                  start: startIso,
+                                  end: endIso,
+                                  durationMin,
+                                },
+                                ...s,
+                              ]);
+                              setShowAddModal(false);
+                              setManualNotes("");
+                            } catch (err) {
+                              // ignore invalid date/time
+                            }
+                          }}
+                          className="flex-1 bg-emerald-600 text-white rounded py-2"
+                        >
+                          + Add Entry
+                        </button>
+                        <button
+                          onClick={() => setShowAddModal(false)}
+                          className="px-4 py-2 border rounded"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               <div>
                 <div className="rounded border border-[var(--border)] bg-[var(--card-surface)] p-4 mb-4">
-                  <div className="text-sm font-semibold">Event Details</div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold">Time Clock</div>
+                    {clockedIn ? (
+                      <div className="inline-flex items-center gap-2 bg-emerald-600 text-white text-xs px-2 py-1 rounded-full">
+                        <span className="w-2 h-2 rounded-full bg-white/90 animate-pulse inline-block" />
+                        <span>Clocked In</span>
+                      </div>
+                    ) : null}
+                  </div>
                   <div className="mt-3 text-sm text-[var(--muted)]">
+                    <div className="flex items-center gap-3 mb-3">
+                      {!clockedIn ? (
+                        <button
+                          onClick={() => {
+                            const now = new Date();
+                            const id = String(now.getTime());
+                            setTimeEntries((s) => [
+                              { id, start: now.toISOString() },
+                              ...s,
+                            ]);
+                            setClockedIn(true);
+                          }}
+                          className="px-4 py-2 rounded bg-emerald-600 text-white"
+                        >
+                          ⏱️ Clock In
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            const now = new Date();
+                            setTimeEntries((s) => {
+                              const copy = [...s];
+                              const idx = copy.findIndex((e) => !e.end);
+                              if (idx !== -1) {
+                                const entry = { ...copy[idx] };
+                                entry.end = now.toISOString();
+                                entry.durationMin = Math.max(
+                                  0,
+                                  Math.round(
+                                    (new Date(entry.end).getTime() -
+                                      new Date(entry.start).getTime()) /
+                                      60000,
+                                  ),
+                                );
+                                copy[idx] = entry;
+                              }
+                              return copy;
+                            });
+                            setClockedIn(false);
+                          }}
+                          className="px-4 py-2 rounded bg-red-600 text-white"
+                        >
+                          ⏹️ Clock Out
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => setShowAddModal(true)}
+                        className="px-3 py-2 rounded border bg-[var(--card-bg)]"
+                      >
+                        + Manual
+                      </button>
+                    </div>
+
+                    <div className="mb-3">
+                      <div className="text-xs text-[var(--muted)]">
+                        Today's Total
+                      </div>
+                      <div className="text-lg font-semibold">
+                        {(() => {
+                          const today = new Date().toISOString().slice(0, 10);
+                          const mins = timeEntries.reduce((acc, e) => {
+                            const startDay = e.start.slice(0, 10);
+                            if (startDay !== today) return acc;
+                            if (e.durationMin != null)
+                              return acc + e.durationMin;
+                            const end = e.end ? new Date(e.end) : new Date();
+                            return (
+                              acc +
+                              Math.max(
+                                0,
+                                Math.round(
+                                  (end.getTime() -
+                                    new Date(e.start).getTime()) /
+                                    60000,
+                                ),
+                              )
+                            );
+                          }, 0);
+                          return `${mins}m`;
+                        })()}
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-[var(--muted)] mb-2">
+                      TODAY'S ENTRIES
+                    </div>
+                    <ul className="space-y-2">
+                      {(() => {
+                        const today = new Date().toISOString().slice(0, 10);
+                        return timeEntries
+                          .filter((e) => e.start.slice(0, 10) === today)
+                          .map((e) => {
+                            const start = new Date(e.start);
+                            const end = e.end ? new Date(e.end) : null;
+                            const label = end
+                              ? `${start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                              : `${start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - --:--`;
+                            const mins =
+                              e.durationMin != null
+                                ? e.durationMin
+                                : end
+                                  ? Math.max(
+                                      0,
+                                      Math.round(
+                                        (end.getTime() - start.getTime()) /
+                                          60000,
+                                      ),
+                                    )
+                                  : 0;
+                            return (
+                              <li
+                                key={e.id}
+                                className="flex items-center justify-between gap-3"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <span className="w-2 h-2 rounded-full bg-sky-500" />
+                                  <div className="text-sm">{label}</div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <div className="text-xs text-[var(--muted)]">
+                                    {end ? `${mins}m` : "In progress"}
+                                  </div>
+                                  <button
+                                    aria-label="Delete entry"
+                                    onClick={() =>
+                                      setTimeEntries((s) =>
+                                        s.filter((x) => x.id !== e.id),
+                                      )
+                                    }
+                                    className="p-1 rounded border bg-[var(--card-bg)] text-[var(--muted)] hover:bg-red-600 hover:text-white"
+                                  >
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      className="w-4 h-4"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M19 7l-1 12a2 2 0 01-2 2H8a2 2 0 01-2-2L5 7m5-4h4a1 1 0 011 1v1H9V4a1 1 0 011-1z"
+                                      />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </li>
+                            );
+                          });
+                      })()}
+                    </ul>
+                  </div>
+                </div>
+                <div className="rounded border border-[var(--border)] bg-[var(--card-surface)] p-4 mb-4">
+                  <div className="text-sm font-semibold">
+                    {selectedEvent && selectedEvent.date
+                      ? new Date(
+                          selectedEvent.date as string,
+                        ).toLocaleDateString(undefined, {
+                          weekday: "long",
+                          month: "long",
+                          day: "numeric",
+                        })
+                      : "Event Details"}
+                  </div>
+                  <div className="mt-3">
                     {selectedEvent && selectedEvent.date ? (
                       (() => {
                         const dateStr = selectedEvent.date as string;
                         const eventsForDate = events.filter(
                           (e: any) => e.start === dateStr,
                         );
-                        return (
-                          <div>
-                            <div className="text-base font-medium mb-3">
-                              {new Date(dateStr).toLocaleDateString(undefined, {
-                                weekday: "long",
-                                month: "long",
-                                day: "numeric",
-                                year: "numeric",
-                              })}
-                            </div>
-                            {eventsForDate.length ? (
-                              eventsForDate.map((e: any) => (
+                        return eventsForDate.length ? (
+                          eventsForDate.map((e: any) => (
+                            <div
+                              key={e.id}
+                              className="p-3 bg-[var(--card-bg)] border border-[var(--border)] rounded mb-3"
+                            >
+                              <div className="flex items-start gap-3">
                                 <div
-                                  key={e.id}
-                                  className="p-3 bg-[var(--card-bg)] border border-[var(--border)] rounded mb-3"
+                                  className={`w-10 h-10 flex items-center justify-center rounded-full text-white text-sm ${e.extendedProps?.type === "payday" ? "bg-emerald-500" : e.extendedProps?.type === "holiday" ? "bg-red-500" : "bg-amber-500"}`}
                                 >
-                                  <div className="flex items-start gap-3">
-                                    <div
-                                      className={`w-10 h-10 flex items-center justify-center rounded-full text-white text-sm ${e.extendedProps?.type === "payday" ? "bg-emerald-500" : e.extendedProps?.type === "holiday" ? "bg-red-500" : "bg-amber-500"}`}
-                                    >
-                                      {e.extendedProps?.type === "payday"
-                                        ? "$"
-                                        : e.extendedProps?.type === "holiday"
-                                          ? "✖"
-                                          : "⏱"}
-                                    </div>
-                                    <div className="flex-1">
-                                      <div className="flex items-center justify-between">
-                                        <div className="font-medium">
-                                          {e.title}
-                                        </div>
-                                        <div className="text-xs px-2 py-1 rounded-full bg-[var(--card-surface)] text-[var(--muted)]">
-                                          {String(
-                                            e.extendedProps?.type || "",
-                                          ).replace(/^[a-z]/, (c) =>
-                                            c.toUpperCase(),
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className="text-xs text-[var(--muted)] mt-2">
-                                        {e.description ||
-                                          (e.extendedProps?.type === "payday"
-                                            ? "Employees will receive their paycheck on this date."
-                                            : e.extendedProps?.type ===
-                                                "holiday"
-                                              ? "Company-observed holiday."
-                                              : "Deadline for payroll-related tasks.")}
-                                      </div>
+                                  {e.extendedProps?.type === "payday"
+                                    ? "$"
+                                    : e.extendedProps?.type === "holiday"
+                                      ? "✖"
+                                      : "⏱"}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <div className="font-medium">{e.title}</div>
+                                    <div className="text-xs px-2 py-1 rounded-full bg-[var(--card-surface)] text-[var(--muted)]">
+                                      {String(
+                                        e.extendedProps?.type || "",
+                                      ).replace(/^[a-z]/, (c) =>
+                                        c.toUpperCase(),
+                                      )}
                                     </div>
                                   </div>
+                                  <div className="text-xs text-[var(--muted)] mt-2">
+                                    {e.description ||
+                                      (e.extendedProps?.type === "payday"
+                                        ? "Employees will receive their paycheck on this date."
+                                        : e.extendedProps?.type === "holiday"
+                                          ? "Company-observed holiday."
+                                          : "Deadline for payroll-related tasks.")}
+                                  </div>
                                 </div>
-                              ))
-                            ) : (
-                              <div className="text-[var(--muted)]">
-                                No events on this date.
                               </div>
-                            )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-[var(--muted)]">
+                            No events on this date.
                           </div>
                         );
                       })()
                     ) : (
-                      <div>Select a date on the calendar to view details.</div>
+                      <div className="text-[var(--muted)]">
+                        Select a date on the calendar to view details.
+                      </div>
                     )}
                   </div>
                 </div>
