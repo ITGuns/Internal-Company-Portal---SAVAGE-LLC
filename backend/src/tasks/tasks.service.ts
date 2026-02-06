@@ -20,6 +20,12 @@ export interface UpdateTaskDto {
   assigneeId?: string
 }
 
+// Task with relations type
+export type TaskWithRelations = Task & {
+  department: { id: string; name: string; driveId: string | null; createdAt: Date; updatedAt: Date } | null
+  assignee: { id: string; email: string; name: string | null; avatar: string | null } | null
+}
+
 export class TasksService {
   private prisma: PrismaClient
 
@@ -132,7 +138,7 @@ export class TasksService {
   /**
    * Create new task
    */
-  async create(data: CreateTaskDto): Promise<Task> {
+  async create(data: CreateTaskDto): Promise<TaskWithRelations> {
     return this.prisma.task.create({
       data: {
         title: data.title,
@@ -152,13 +158,13 @@ export class TasksService {
           },
         },
       },
-    })
+    }) as Promise<TaskWithRelations>
   }
 
   /**
    * Update task
    */
-  async update(id: string, data: UpdateTaskDto): Promise<Task> {
+  async update(id: string, data: UpdateTaskDto): Promise<TaskWithRelations> {
     return this.prisma.task.update({
       where: { id },
       data: {
@@ -179,7 +185,7 @@ export class TasksService {
           },
         },
       },
-    })
+    }) as Promise<TaskWithRelations>
   }
 
   /**

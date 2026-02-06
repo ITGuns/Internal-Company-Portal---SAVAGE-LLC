@@ -1,6 +1,7 @@
 import express, { Request, Response, Router } from 'express'
 import { TasksService, TaskStatus } from './tasks.service'
 import { authenticateToken } from '../auth/auth.middleware'
+import { emailService } from '../email/email.service'
 
 export class TasksController {
   private service = new TasksService()
@@ -120,6 +121,25 @@ export class TasksController {
           assigneeId,
         })
 
+        // Send task assigned email if there's an assignee (async, don't block response)
+        if (task.assignee && task.department) {
+          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+          emailService.sendTaskAssignedEmail(
+            task.assignee.email,
+            {
+              userName: task.assignee.name || 'Team Member',
+              taskTitle: task.title,
+              taskDescription: task.description || 'No description provided',
+              assignedBy: 'Admin', // TODO: Get from authenticated user context
+              taskUrl: `${frontendUrl}/tasks/${task.id}`,
+              departmentName: task.department.name
+            }
+          ).catch(err => {
+            console.error('Failed to send task assignment email:', err)
+            // Don't fail task creation if email fails
+          })
+        }
+
         res.status(201).json(task)
       } catch (error: any) {
         if (error.code === 'P2003') {
@@ -150,6 +170,25 @@ export class TasksController {
           departmentId,
           assigneeId,
         })
+
+        // Send status changed email if status was updated and assignee exists
+        if (status && existingTask.status !== status && task.assignee) {
+          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+          emailService.sendTaskStatusChangedEmail(
+            task.assignee.email,
+            {
+              userName: task.assignee.name || 'Team Member',
+              taskTitle: task.title,
+              oldStatus: existingTask.status,
+              newStatus: status,
+              changedBy: 'Admin', // TODO: Get from authenticated user context
+              taskUrl: `${frontendUrl}/tasks/${task.id}`
+            }
+          ).catch(err => {
+            console.error('Failed to send status change email:', err)
+            // Don't fail task update if email fails
+          })
+        }
 
         res.json(task)
       } catch (error: any) {
