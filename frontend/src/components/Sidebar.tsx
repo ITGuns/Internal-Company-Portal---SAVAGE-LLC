@@ -77,7 +77,9 @@ export default function Sidebar() {
     if (!el) return
 
     function setSidebarWidth() {
-      const rect = el.getBoundingClientRect()
+      const curr = asideRef.current
+      if (!curr) return
+      const rect = curr.getBoundingClientRect()
       // expose the exact width so overlays can align to the content area
       document.documentElement.style.setProperty('--sidebar-width', `${rect.width}px`)
       document.documentElement.style.setProperty('--sidebar-right', `${rect.right}px`)

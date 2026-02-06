@@ -9,9 +9,5 @@ type IconProps = {
 }
 
 export default function Icon({ component: Component, size = 16, className, decorative = true }: IconProps) {
-  const ariaProps: React.AriaAttributes = {
-    'aria-hidden': decorative,
-  }
-
-  return <Component className={className} size={size} {...ariaProps} />
+  return <Component className={className} size={size} aria-hidden={decorative} />
 }

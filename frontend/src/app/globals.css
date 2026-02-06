@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 /* Basic defaults - daisyUI classes available */
-html, body {
+html,
+body {
   height: 100%;
 }
 
@@ -23,10 +24,10 @@ body {
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 12px rgba(16,24,40,0.06);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.06);
   --header-height: 9rem;
-  --nav-hover-shadow: rgba(16,24,40,0.03);
+  --nav-hover-shadow: rgba(16, 24, 40, 0.03);
 }
 
 @theme inline {
@@ -45,12 +46,13 @@ body {
     --card-surface: #07172a;
     --border: #172033;
     --accent: #c03333;
-    --nav-hover-shadow: rgba(255,255,255,0.02);
+    --nav-hover-shadow: rgba(255, 255, 255, 0.02);
   }
 }
 
 /* Allow runtime theme switching via `data-theme="dark"` or the `dark` class on <html> */
-html[data-theme="dark"], html.dark {
+html[data-theme="dark"],
+html.dark {
   --background: #0b1220;
   --foreground: #e6eef8;
   --muted: #9aa6b2;
@@ -85,8 +87,12 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
-.muted { color: var(--muted); }
-.accent { color: var(--accent); }
+.muted {
+  color: var(--muted);
+}
+.accent {
+  color: var(--accent);
+}
 
 /* Improve keyboard focus visibility */
 :focus {
@@ -95,14 +101,20 @@ body {
 }
 
 /* Give interactive chrome a higher stacking context so dev overlays don't block clicks */
-header, aside, main {
+header,
+aside,
+main {
   position: relative;
   z-index: 10;
 }
 
 /* Better input placeholder contrast and focus */
-input::placeholder { color: var(--muted); }
-input:focus { box-shadow: 0 0 0 4px rgba(124,58,237,0.12); }
+input::placeholder {
+  color: var(--muted);
+}
+input:focus {
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.12);
+}
 
 /* Theme-aware custom scrollbar for chat and other scrollable cards */
 .chat-scroll {
@@ -182,7 +194,10 @@ input:focus { box-shadow: 0 0 0 4px rgba(124,58,237,0.12); }
     border-radius: 0.5rem;
     box-shadow: none;
     font-weight: 600;
-    transition: background-color 120ms ease, color 120ms ease, transform 60ms ease;
+    transition:
+      background-color 120ms ease,
+      color 120ms ease,
+      transform 60ms ease;
   }
   .fc .fc-button:hover,
   .fc .fc-button:focus {
@@ -214,7 +229,8 @@ input:focus { box-shadow: 0 0 0 4px rgba(124,58,237,0.12); }
   }
 
   /* Ensure toolbar background remains transparent and inherits page surface */
-  .fc .fc-toolbar, .fc .fc-toolbar-chunk {
+  .fc .fc-toolbar,
+  .fc .fc-toolbar-chunk {
     background: transparent;
   }
 }
@@ -226,7 +242,8 @@ input:focus { box-shadow: 0 0 0 4px rgba(124,58,237,0.12); }
   --fc-event-border: var(--border);
 }
 
-.fc .fc-daygrid-event, .fc .fc-event {
+.fc .fc-daygrid-event,
+.fc .fc-event {
   background: var(--fc-event-bg) !important;
   color: var(--fc-event-color) !important;
   border: 1px solid var(--fc-event-border) !important;
@@ -243,7 +260,11 @@ input:focus { box-shadow: 0 0 0 4px rgba(124,58,237,0.12); }
 
 .fc .fc-daygrid-event:hover,
 .fc .fc-event:hover {
-  background: color-mix(in srgb, var(--fc-event-bg) 85%, var(--foreground) 15%) !important;
+  background: color-mix(
+    in srgb,
+    var(--fc-event-bg) 85%,
+    var(--foreground) 15%
+  ) !important;
   transform: translateY(-1px);
 }
 
@@ -255,4 +276,122 @@ html.dark .fc .fc-daygrid-event {
   border-color: var(--border) !important;
 }
 
+/* Theme-aware native date picker and calendar icon styles
+   - Make the native calendar picker visible on dark backgrounds by applying
+     a filter in dark mode. Also ensure SVG calendar icons inherit a readable
+     color from the theme variables. */
+input[type="date"] {
+  color: var(--foreground);
+  background: var(--card-surface);
+}
 
+/* Chrome/Safari native calendar icon */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  /* allow the indicator to inherit contrast via filter variable */
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  margin-right: 0.25rem;
+  filter: var(--date-indicator-filter, none);
+  opacity: 0.95;
+}
+
+/* Make a theme variable available for dark mode adjustments */
+:root {
+  --date-indicator-filter: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --date-indicator-filter: invert(1) brightness(1.8) contrast(1.1);
+  }
+}
+
+/* Also support runtime theme switching via data-theme or .dark class */
+html[data-theme="dark"],
+html.dark {
+  --date-indicator-filter: invert(1) brightness(1.8) contrast(1.1);
+}
+
+/* If a calendar button uses a lucide SVG, ensure it inherits readable color */
+.date-picker-btn,
+.date-picker-btn svg,
+.date-picker-icon {
+  color: var(--muted);
+}
+html[data-theme="dark"] .date-picker-btn,
+html.dark .date-picker-btn,
+html[data-theme="dark"] .date-picker-icon,
+html.dark .date-picker-icon {
+  color: var(--muted);
+}
+
+/* When a control needs stronger contrast, use foreground color */
+.date-picker-btn.contrast,
+.date-picker-icon.contrast {
+  color: var(--foreground);
+}
+
+/* Priority option colors */
+select.priority-select option.priority-low {
+  background: #facc15;
+  color: #000;
+}
+select.priority-select option.priority-med {
+  background: #fb923c;
+  color: #000;
+}
+select.priority-select option.priority-high {
+  background: #ef4444;
+  color: #fff;
+}
+
+/* Dark mode adjustments for option backgrounds (some browsers ignore option styling) */
+html[data-theme="dark"] select.priority-select option.priority-low {
+  background: #facc15;
+  color: #000;
+}
+html[data-theme="dark"] select.priority-select option.priority-med {
+  background: #fb923c;
+  color: #000;
+}
+html[data-theme="dark"] select.priority-select option.priority-high {
+  background: #ef4444;
+  color: #fff;
+}
+
+/* Also color the selected control border via inline style from React; fallback: use box-shadow tint */
+select.priority-select {
+  box-shadow: 0 0 0 1px transparent inset;
+}
+
+/* Small priority dot used in lists, boards, and calendar events */
+.priority-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+.priority-dot.low {
+  background: #facc15;
+}
+.priority-dot.med {
+  background: #fb923c;
+}
+.priority-dot.high {
+  background: #ef4444;
+}
+
+/* ensure visibility in dark mode (same colors are fine, but keep contrast) */
+html[data-theme="dark"] .priority-dot.low {
+  background: #facc15;
+}
+html[data-theme="dark"] .priority-dot.med {
+  background: #fb923c;
+}
+html[data-theme="dark"] .priority-dot.high {
+  background: #ef4444;
+}
