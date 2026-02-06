@@ -137,6 +137,38 @@ input:focus {
   background: var(--muted);
 }
 
+/* Sidebar scrollbar: themed for light and dark modes */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--card-bg);
+}
+.sidebar-scroll::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Dark-mode adjustments for better contrast */
+html[data-theme="dark"] .sidebar-scroll::-webkit-scrollbar-thumb,
+html.dark .sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.06);
+  border: 3px solid var(--card-surface);
+}
+html[data-theme="dark"] .sidebar-scroll {
+  scrollbar-color: rgba(255,255,255,0.06) var(--card-surface);
+}
+
 /* Sidebar / nav interaction animations (prefers-reduced-motion safe) */
 .nav-animated {
   will-change: transform, background-color;

@@ -117,7 +117,7 @@ export default function Sidebar() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto mt-0 px-2">
+        <div className="flex-1 overflow-y-auto mt-0 px-2 sidebar-scroll">
           <div className="text-xs text-muted uppercase mt-4 px-2 mb-2">Main</div>
           <nav className="space-y-1 mb-4">
             <NavItem href="/dashboard" icon={Home} label="Dashboard" />
@@ -142,7 +142,7 @@ export default function Sidebar() {
                 (() => {
                   const departmentRoles: Record<string, string[]> = {
                     'Owners / Founders': [],
-                    'Project Managers': ['Project Manager', 'Operations Manager'],
+                    'Project Managers': ['Operations Manager', 'Digital Marketing Lead'],
                     'Website Developers': ['Frontend Developer', 'Backend / Technical Developer'],
                     'Payroll / Finance': ['Bookkeeping', 'Contractor & Salary Payments'],
                     'Operations': ['Fulfillment / Logistics VA', 'Inventory VA', 'Customer Experience (CX) VA'],

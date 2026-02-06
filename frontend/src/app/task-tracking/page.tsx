@@ -111,7 +111,15 @@ export default function TaskTrackingPage() {
 
   const departmentRoles: Record<string, string[]> = {
     "Owners / Founders": [],
-    "Project Managers": ["Project Manager", "Operations Manager"],
+    "Project Managers": [
+      "Fullfillment / Logistics VA",
+      "Inventory VA",
+      "Customer Experience (CX) VA",
+      "Media Buyer / Ads Specialist",
+      "Content Creator / Designer",
+      "Email & SMS Marketer",
+      "Influencer / Social Media VA",
+    ],
     "Website Developers": [
       "Frontend Developer",
       "Backend / Technical Developer",
@@ -671,11 +679,15 @@ export default function TaskTrackingPage() {
                       </div>
                       <div className="p-3 bg-[var(--card-bg)] border border-[var(--border)] rounded flex items-center justify-between">
                         <div className="text-sm">In Progress</div>
-                        <div className="text-lg font-semibold">{inprogress}</div>
+                        <div className="text-lg font-semibold">
+                          {inprogress}
+                        </div>
                       </div>
                       <div className="p-3 bg-[var(--card-bg)] border border-[var(--border)] rounded flex items-center justify-between">
                         <div className="text-sm">Overdue</div>
-                        <div className="text-lg font-semibold">{overdue.length}</div>
+                        <div className="text-lg font-semibold">
+                          {overdue.length}
+                        </div>
                       </div>
                     </div>
                   </div>
