@@ -113,6 +113,41 @@ export class AuthController {
             })
         })
 
+        // Dev Login (Only for development)
+        router.post('/dev-login', async (req: Request, res: Response) => {
+            if (process.env.NODE_ENV === 'production') {
+                return res.status(404).json({ error: 'Not available in production' })
+            }
+
+            try {
+                // Import dynamically to avoid circular dependencies issues if any
+                const { prisma } = await import('../database/prisma.service');
+
+                const email = req.body.email || 'john.doe@savage.com'
+                const user = await prisma.user.findUnique({
+                    where: { email }
+                })
+
+                if (!user) {
+                    return res.status(404).json({ error: 'Dev user not found' })
+                }
+
+                const tokens = JwtService.generateTokenPair({
+                    userId: user.id,
+                    email: user.email,
+                    name: user.name || undefined,
+                })
+
+                res.json({
+                    success: true,
+                    user,
+                    tokens
+                })
+            } catch (error) {
+                res.status(500).json({ error: 'Dev login failed' })
+            }
+        })
+
         return router
     }
 }

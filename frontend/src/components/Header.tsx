@@ -6,10 +6,14 @@ import BrandLogo from '../assets/icons/BrandLogo'
 import IconButton from './IconButton'
 import ThemeToggle from './ThemeToggle'
 import UserAvatar from '../assets/icons/UserAvatar'
+import NotificationList from './NotificationList'
 import { Bell, Search, Settings } from 'lucide-react'
+import { useSocket } from '@/context/SocketContext'
 
 export default function Header({ title, subtitle }: { title?: string; subtitle?: string }) {
   const pathname = usePathname() || '/'
+  const { unreadCount, notifications, markAsRead, markAllAsRead, clearNotifications, connect, isConnected } = useSocket()
+  const [showNotifications, setShowNotifications] = useState(false)
 
   const isDashboard = pathname === '/' || pathname === '/dashboard'
   const headerRef = useRef<HTMLElement | null>(null)
@@ -19,6 +23,8 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
   const [debugMode, setDebugMode] = useState(false)
   const [debugInfo, setDebugInfo] = useState<{ headerLeft: number; headerWidth: number; dividerRight: number | null } | null>(null)
 
+
+  // Ensure outline updates on mount and resize
   useEffect(() => {
     function updateOutline() {
       const headerEl = headerRef.current
@@ -124,9 +130,31 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
           <Settings className="w-5 h-5" />
         </button>
 
-        <button aria-label="notifications" className="btn btn-ghost btn-circle">
-          <Bell className="w-5 h-5" />
-        </button>
+        <div className="relative">
+          <button
+            aria-label="notifications"
+            className="btn btn-ghost btn-circle relative"
+            onClick={() => setShowNotifications(!showNotifications)}
+          >
+            <Bell className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-[var(--background)]"></span>
+            )}
+          </button>
+
+          {showNotifications && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
+              <NotificationList
+                notifications={notifications}
+                onMarkAsRead={markAsRead}
+                onMarkAllAsRead={markAllAsRead}
+                onClear={clearNotifications}
+                onClose={() => setShowNotifications(false)}
+              />
+            </>
+          )}
+        </div>
 
         <UserAvatar className="w-8 h-8 rounded-full" size={32} ariaHidden={true} />
       </div>

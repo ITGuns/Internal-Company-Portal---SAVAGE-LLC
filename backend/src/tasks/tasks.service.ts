@@ -10,6 +10,9 @@ export interface CreateTaskDto {
   status?: TaskStatus
   departmentId: string
   assigneeId?: string
+  priority?: string
+  dueDate?: Date | string
+  notes?: any
 }
 
 export interface UpdateTaskDto {
@@ -18,6 +21,9 @@ export interface UpdateTaskDto {
   status?: TaskStatus
   departmentId?: string
   assigneeId?: string
+  priority?: string
+  dueDate?: Date | string
+  notes?: any
 }
 
 // Task with relations type
@@ -146,6 +152,9 @@ export class TasksService {
         status: data.status || 'todo',
         departmentId: data.departmentId,
         assigneeId: data.assigneeId,
+        priority: data.priority || 'Med',
+        dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+        notes: data.notes ?? undefined,
       },
       include: {
         department: true,
@@ -173,6 +182,9 @@ export class TasksService {
         status: data.status,
         departmentId: data.departmentId,
         assigneeId: data.assigneeId,
+        priority: data.priority,
+        dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+        notes: data.notes === undefined ? undefined : data.notes,
       },
       include: {
         department: true,

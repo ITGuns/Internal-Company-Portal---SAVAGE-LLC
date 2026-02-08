@@ -8,14 +8,17 @@ generator client {
 }
 
 model User {
-  id        String     @id @default(uuid())
-  email     String     @unique
-  name      String?
-  avatar    String?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  roles     UserRole[]
-  tasks     Task[]
+  id            String         @id @default(uuid())
+  email         String         @unique
+  name          String?
+  avatar        String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  roles         UserRole[]
+  tasks         Task[]
+  announcements Announcement[]
+  dailyLogs     DailyLog[]
+  timeEntries   TimeEntry[]
 
   @@index([email])
 }
@@ -41,6 +44,9 @@ model Task {
   departmentId String?
   assignee     User?       @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
   assigneeId   String?
+  priority     String      @default("Med") // Low, Med, High
+  dueDate      DateTime?
+  notes        Json? // Stores array of { text, date }
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -61,4 +67,51 @@ model UserRole {
   @@unique([userId, departmentId, role])
   @@index([userId])
   @@index([departmentId])
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  priority  String   @default("Normal") // Normal, High, Critical
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  authorId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
+model DailyLog {
+  id        String   @id @default(uuid())
+  content   String
+  date      DateTime @default(now())
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([authorId])
+  @@index([date])
+}
+
+model TimeEntry {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  start     DateTime
+  end       DateTime?
+  duration  Int? // minutes
+  notes     String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model PayrollEvent {
+  id          String   @id @default(uuid())
+  title       String
+  date        DateTime
+  type        String // payday, holiday, deadline
+  description String?
 }

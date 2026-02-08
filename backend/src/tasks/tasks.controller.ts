@@ -2,6 +2,7 @@ import express, { Request, Response, Router } from 'express'
 import { TasksService, TaskStatus } from './tasks.service'
 import { authenticateToken } from '../auth/auth.middleware'
 import { emailService } from '../email/email.service'
+import { notificationService } from '../notifications/socket.service'
 
 export class TasksController {
   private service = new TasksService()
@@ -103,7 +104,7 @@ export class TasksController {
     // Create task
     router.post('/', authenticateToken, async (req: Request, res: Response) => {
       try {
-        const { title, description, status, departmentId, assigneeId } = req.body
+        const { title, description, status, departmentId, assigneeId, priority, dueDate, notes } = req.body
 
         if (!title) {
           return res.status(400).json({ error: 'Title is required' })
@@ -119,11 +120,17 @@ export class TasksController {
           status,
           departmentId,
           assigneeId,
+          priority,
+          dueDate,
+          notes
         })
 
-        // Send task assigned email if there's an assignee (async, don't block response)
+        // Send task assigned email & notification if there's an assignee
         if (task.assignee && task.department) {
           const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+          const taskUrl = `${frontendUrl}/tasks/${task.id}`
+
+          // 1. Send Email
           emailService.sendTaskAssignedEmail(
             task.assignee.email,
             {
@@ -131,12 +138,17 @@ export class TasksController {
               taskTitle: task.title,
               taskDescription: task.description || 'No description provided',
               assignedBy: 'Admin', // TODO: Get from authenticated user context
-              taskUrl: `${frontendUrl}/tasks/${task.id}`,
+              taskUrl,
               departmentName: task.department.name
             }
-          ).catch(err => {
-            console.error('Failed to send task assignment email:', err)
-            // Don't fail task creation if email fails
+          ).catch(err => console.error('Failed to send task assignment email:', err))
+
+          // 2. Send Real-time Notification
+          notificationService.notifyUser(task.assignee.id, {
+            type: 'info',
+            title: 'New Task Assigned',
+            message: `You have been assigned to: ${task.title}`,
+            link: `/tasks/${task.id}`
           })
         }
 
@@ -155,7 +167,7 @@ export class TasksController {
     router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
       try {
         const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
-        const { title, description, status, departmentId, assigneeId } = req.body
+        const { title, description, status, departmentId, assigneeId, priority, dueDate, notes } = req.body
 
         // Check if task exists
         const existingTask = await this.service.findById(id)
@@ -169,11 +181,17 @@ export class TasksController {
           status,
           departmentId,
           assigneeId,
+          priority,
+          dueDate,
+          notes
         })
 
-        // Send status changed email if status was updated and assignee exists
+        // Send status changed email & notification if status was updated
         if (status && existingTask.status !== status && task.assignee) {
           const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+          const taskUrl = `${frontendUrl}/tasks/${task.id}`
+
+          // 1. Send Email
           emailService.sendTaskStatusChangedEmail(
             task.assignee.email,
             {
@@ -182,11 +200,16 @@ export class TasksController {
               oldStatus: existingTask.status,
               newStatus: status,
               changedBy: 'Admin', // TODO: Get from authenticated user context
-              taskUrl: `${frontendUrl}/tasks/${task.id}`
+              taskUrl
             }
-          ).catch(err => {
-            console.error('Failed to send status change email:', err)
-            // Don't fail task update if email fails
+          ).catch(err => console.error('Failed to send status change email:', err))
+
+          // 2. Send Real-time Notification
+          notificationService.notifyUser(task.assignee.id, {
+            type: 'info',
+            title: 'Task Updated',
+            message: `Task "${task.title}" moved to ${status}`,
+            link: `/tasks/${task.id}`
           })
         }
 
