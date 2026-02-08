@@ -1,10 +1,27 @@
 "use client";
 
-import React, { useMemo, useState, useRef } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import Header from "@/components/Header";
+import Modal from "@/components/Modal";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
+import {
+  DollarSign,
+  X,
+  Clock,
+  Calendar as CalendarIcon,
+  Square,
+  Trash2,
+  Plus,
+} from "lucide-react";
+import {
+  loadTimeEntries,
+  saveTimeEntries,
+  getClockedInState,
+  setClockedInState,
+  type TimeEntry,
+} from "@/lib/time-entries";
 
 type EventType = "payday" | "holiday" | "deadline" | "time";
 
@@ -13,10 +30,11 @@ export default function PayrollCalendarPage() {
   const [viewMode, setViewMode] = useState<"monthly" | "annual">("monthly");
   const calendarRef = useRef<any>(null);
   const [currentTitle, setCurrentTitle] = useState<string>("February 2026");
-  const [clockedIn, setClockedIn] = useState(false);
-  const [timeEntries, setTimeEntries] = useState<
-    Array<{ id: string; start: string; end?: string; durationMin?: number }>
-  >([]);
+  
+  // Load initial state from localStorage using lazy initialization
+  const [clockedIn, setClockedIn] = useState(() => getClockedInState());
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>(() => loadTimeEntries());
+  
   const [showAddModal, setShowAddModal] = useState(false);
   const [manualDate, setManualDate] = useState<string>(
     new Date().toISOString().slice(0, 10),
@@ -24,6 +42,16 @@ export default function PayrollCalendarPage() {
   const [manualIn, setManualIn] = useState<string>("09:00");
   const [manualOut, setManualOut] = useState<string>("17:00");
   const [manualNotes, setManualNotes] = useState<string>("");
+
+  // Save time entries to localStorage whenever they change
+  useEffect(() => {
+    saveTimeEntries(timeEntries);
+  }, [timeEntries]);
+
+  // Save clocked-in state whenever it changes
+  useEffect(() => {
+    setClockedInState(clockedIn);
+  }, [clockedIn]);
 
   const events = useMemo(() => {
     return [
@@ -158,8 +186,8 @@ export default function PayrollCalendarPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div className="p-4 rounded border bg-white/5 border-[var(--border)] flex items-center gap-3">
-              <div className="w-10 h-10 flex items-center justify-center rounded-full bg-emerald-500 text-white text-sm">
-                $
+              <div className="w-10 h-10 flex items-center justify-center rounded-full bg-emerald-500 text-white">
+                <DollarSign className="w-5 h-5" aria-hidden="true" />
               </div>
               <div>
                 <div className="text-xs text-[var(--muted)]">Pay Days</div>
@@ -168,8 +196,8 @@ export default function PayrollCalendarPage() {
             </div>
 
             <div className="p-4 rounded border bg-white/5 border-[var(--border)] flex items-center gap-3">
-              <div className="w-10 h-10 flex items-center justify-center rounded-full bg-red-500 text-white text-sm">
-                ✖
+              <div className="w-10 h-10 flex items-center justify-center rounded-full bg-red-500 text-white">
+                <X className="w-5 h-5" aria-hidden="true" />
               </div>
               <div>
                 <div className="text-xs text-[var(--muted)]">Holidays</div>
@@ -178,8 +206,8 @@ export default function PayrollCalendarPage() {
             </div>
 
             <div className="p-4 rounded border bg-white/5 border-[var(--border)] flex items-center gap-3">
-              <div className="w-10 h-10 flex items-center justify-center rounded-full bg-amber-500 text-white text-sm">
-                ⏱
+              <div className="w-10 h-10 flex items-center justify-center rounded-full bg-amber-500 text-white">
+                <Clock className="w-5 h-5" aria-hidden="true" />
               </div>
               <div>
                 <div className="text-xs text-[var(--muted)]">Deadlines</div>
@@ -188,8 +216,8 @@ export default function PayrollCalendarPage() {
             </div>
 
             <div className="p-4 rounded border bg-white/5 border-[var(--border)] flex items-center gap-3">
-              <div className="w-10 h-10 flex items-center justify-center rounded-full bg-sky-500 text-white text-sm">
-                📅
+              <div className="w-10 h-10 flex items-center justify-center rounded-full bg-sky-500 text-white">
+                <CalendarIcon className="w-5 h-5" aria-hidden="true" />
               </div>
               <div>
                 <div className="text-xs text-[var(--muted)]">Total Events</div>
@@ -249,124 +277,144 @@ export default function PayrollCalendarPage() {
                     height={600}
                   />
                 </div>
-                {showAddModal ? (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center">
-                    <div
-                      className="absolute inset-0 bg-black/40"
-                      onClick={() => setShowAddModal(false)}
-                    />
-                    <div className="bg-[var(--card-surface)] w-full max-w-md rounded shadow p-6 z-10">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="text-lg font-semibold">
-                          Add Time Entry
-                        </div>
-                        <button
-                          onClick={() => setShowAddModal(false)}
-                          className="text-[var(--muted)]"
-                          aria-label="Close add time entry"
-                        >
-                          ✖
-                        </button>
-                      </div>
 
-                      <label className="block text-xs text-[var(--muted)]">
+                <Modal
+                  isOpen={showAddModal}
+                  onClose={() => {
+                    setShowAddModal(false);
+                    setManualNotes("");
+                  }}
+                  title="Add Time Entry"
+                  subtitle="Manually add a time entry for a specific date"
+                  size="md"
+                  footer={
+                    <>
+                      <button
+                        onClick={() => {
+                          setShowAddModal(false);
+                          setManualNotes("");
+                        }}
+                        className="px-4 py-2 border border-[var(--border)] rounded hover:bg-[var(--card-bg)] transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          try {
+                            const startIso = new Date(
+                              `${manualDate}T${manualIn}`,
+                            ).toISOString();
+                            const endIso = manualOut
+                              ? new Date(
+                                  `${manualDate}T${manualOut}`,
+                                ).toISOString()
+                              : undefined;
+                            const durationMin = endIso
+                              ? Math.max(
+                                  0,
+                                  Math.round(
+                                    (new Date(endIso).getTime() -
+                                      new Date(startIso).getTime()) /
+                                      60000,
+                                  ),
+                                )
+                              : undefined;
+                            const id = String(Date.now());
+                            setTimeEntries((s) => [
+                              {
+                                id,
+                                start: startIso,
+                                end: endIso,
+                                durationMin,
+                                notes: manualNotes || undefined,
+                              },
+                              ...s,
+                            ]);
+                            setShowAddModal(false);
+                            setManualNotes("");
+                          } catch {
+                            // Invalid date/time - could add error toast
+                          }
+                        }}
+                        className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors flex items-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Entry
+                      </button>
+                    </>
+                  }
+                >
+                  <div className="space-y-4">
+                    <div>
+                      <label
+                        htmlFor="manual-date"
+                        className="block text-sm font-medium text-[var(--foreground)] mb-1"
+                      >
                         Date
                       </label>
                       <input
+                        id="manual-date"
                         type="date"
                         value={manualDate}
                         onChange={(e) => setManualDate(e.target.value)}
-                        className="w-full border rounded px-3 py-2 mt-1 mb-3 bg-[var(--card-bg)]"
+                        className="w-full border border-[var(--border)] rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                       />
+                    </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs text-[var(--muted)]">
-                            Time In
-                          </label>
-                          <input
-                            type="time"
-                            value={manualIn}
-                            onChange={(e) => setManualIn(e.target.value)}
-                            className="w-full border rounded px-3 py-2 mt-1 bg-[var(--card-bg)]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-[var(--muted)]">
-                            Time Out
-                          </label>
-                          <input
-                            type="time"
-                            value={manualOut}
-                            onChange={(e) => setManualOut(e.target.value)}
-                            className="w-full border rounded px-3 py-2 mt-1 bg-[var(--card-bg)]"
-                          />
-                        </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label
+                          htmlFor="manual-in"
+                          className="block text-sm font-medium text-[var(--foreground)] mb-1"
+                        >
+                          Time In
+                        </label>
+                        <input
+                          id="manual-in"
+                          type="time"
+                          value={manualIn}
+                          onChange={(e) => setManualIn(e.target.value)}
+                          className="w-full border border-[var(--border)] rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                        />
                       </div>
+                      <div>
+                        <label
+                          htmlFor="manual-out"
+                          className="block text-sm font-medium text-[var(--foreground)] mb-1"
+                        >
+                          Time Out
+                        </label>
+                        <input
+                          id="manual-out"
+                          type="time"
+                          value={manualOut}
+                          onChange={(e) => setManualOut(e.target.value)}
+                          className="w-full border border-[var(--border)] rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                        />
+                      </div>
+                    </div>
 
-                      <label className="block text-xs text-[var(--muted)] mt-3">
-                        Notes (optional)
+                    <div>
+                      <label
+                        htmlFor="manual-notes"
+                        className="block text-sm font-medium text-[var(--foreground)] mb-1"
+                      >
+                        Notes{" "}
+                        <span className="text-[var(--muted)] font-normal">
+                          (optional)
+                        </span>
                       </label>
                       <input
+                        id="manual-notes"
                         type="text"
                         value={manualNotes}
                         onChange={(e) => setManualNotes(e.target.value)}
                         placeholder="e.g. Overtime, client meeting..."
-                        className="w-full border rounded px-3 py-2 mt-1 bg-[var(--card-bg)]"
+                        className="w-full border border-[var(--border)] rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                       />
-
-                      <div className="mt-4 flex items-center gap-3">
-                        <button
-                          onClick={() => {
-                            try {
-                              const startIso = new Date(
-                                `${manualDate}T${manualIn}`,
-                              ).toISOString();
-                              const endIso = manualOut
-                                ? new Date(
-                                    `${manualDate}T${manualOut}`,
-                                  ).toISOString()
-                                : undefined;
-                              const durationMin = endIso
-                                ? Math.max(
-                                    0,
-                                    Math.round(
-                                      (new Date(endIso).getTime() -
-                                        new Date(startIso).getTime()) /
-                                        60000,
-                                    ),
-                                  )
-                                : undefined;
-                              const id = String(Date.now());
-                              setTimeEntries((s) => [
-                                {
-                                  id,
-                                  start: startIso,
-                                  end: endIso,
-                                  durationMin,
-                                },
-                                ...s,
-                              ]);
-                              setShowAddModal(false);
-                              setManualNotes("");
-                            } catch (err) {
-                              // ignore invalid date/time
-                            }
-                          }}
-                          className="flex-1 bg-emerald-600 text-white rounded py-2"
-                        >
-                          + Add Entry
-                        </button>
-                        <button
-                          onClick={() => setShowAddModal(false)}
-                          className="px-4 py-2 border rounded"
-                        >
-                          Cancel
-                        </button>
-                      </div>
                     </div>
                   </div>
-                ) : null}
+                </Modal>
               </div>
 
               <div>
@@ -393,9 +441,10 @@ export default function PayrollCalendarPage() {
                             ]);
                             setClockedIn(true);
                           }}
-                          className="px-4 py-2 rounded bg-emerald-600 text-white"
+                          className="px-4 py-2 rounded bg-emerald-600 text-white flex items-center gap-2"
                         >
-                          ⏱️ Clock In
+                          <Clock className="w-4 h-4" aria-hidden="true" />
+                          Clock In
                         </button>
                       ) : (
                         <button
@@ -421,17 +470,19 @@ export default function PayrollCalendarPage() {
                             });
                             setClockedIn(false);
                           }}
-                          className="px-4 py-2 rounded bg-red-600 text-white"
+                          className="px-4 py-2 rounded bg-red-600 text-white flex items-center gap-2"
                         >
-                          ⏹️ Clock Out
+                          <Square className="w-4 h-4" aria-hidden="true" />
+                          Clock Out
                         </button>
                       )}
 
                       <button
                         onClick={() => setShowAddModal(true)}
-                        className="px-3 py-2 rounded border bg-[var(--card-bg)]"
+                        className="px-3 py-2 rounded border border-[var(--border)] bg-[var(--card-bg)] hover:bg-[var(--card-surface)] transition-colors flex items-center gap-2"
                       >
-                        + Manual
+                        <Plus className="w-4 h-4" />
+                        Manual
                       </button>
                     </div>
 
@@ -511,22 +562,9 @@ export default function PayrollCalendarPage() {
                                         s.filter((x) => x.id !== e.id),
                                       )
                                     }
-                                    className="p-1 rounded border bg-[var(--card-bg)] text-[var(--muted)] hover:bg-red-600 hover:text-white"
+                                    className="p-1 rounded border bg-[var(--card-bg)] text-[var(--muted)] hover:bg-red-600 hover:text-white transition-colors"
                                   >
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="w-4 h-4"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M19 7l-1 12a2 2 0 01-2 2H8a2 2 0 01-2-2L5 7m5-4h4a1 1 0 011 1v1H9V4a1 1 0 011-1z"
-                                      />
-                                    </svg>
+                                    <Trash2 className="w-4 h-4" />
                                   </button>
                                 </div>
                               </li>
@@ -563,13 +601,15 @@ export default function PayrollCalendarPage() {
                             >
                               <div className="flex items-start gap-3">
                                 <div
-                                  className={`w-10 h-10 flex items-center justify-center rounded-full text-white text-sm ${e.extendedProps?.type === "payday" ? "bg-emerald-500" : e.extendedProps?.type === "holiday" ? "bg-red-500" : "bg-amber-500"}`}
+                                  className={`w-10 h-10 flex items-center justify-center rounded-full text-white ${e.extendedProps?.type === "payday" ? "bg-emerald-500" : e.extendedProps?.type === "holiday" ? "bg-red-500" : "bg-amber-500"}`}
                                 >
-                                  {e.extendedProps?.type === "payday"
-                                    ? "$"
-                                    : e.extendedProps?.type === "holiday"
-                                      ? "✖"
-                                      : "⏱"}
+                                  {e.extendedProps?.type === "payday" ? (
+                                    <DollarSign className="w-5 h-5" aria-hidden="true" />
+                                  ) : e.extendedProps?.type === "holiday" ? (
+                                    <X className="w-5 h-5" aria-hidden="true" />
+                                  ) : (
+                                    <Clock className="w-5 h-5" aria-hidden="true" />
+                                  )}
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">

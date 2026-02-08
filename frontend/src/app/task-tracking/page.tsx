@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import {
   Filter,
@@ -15,24 +15,15 @@ import {
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-
-type Task = {
-  id: string;
-  title: string;
-  subtitle?: string;
-  assignee?: string;
-  when?: string;
-  priority?: "Low" | "Med" | "High";
-  department?: string;
-  role?: string;
-  notes?: { text: string; date: string }[];
-};
-const sample: Record<string, Task[]> = {
-  todo: [],
-  inprogress: [],
-  review: [],
-  done: [],
-};
+import {
+  loadTasks,
+  saveTasks,
+  getTaskViewPreference,
+  saveTaskViewPreference,
+  type Task,
+  type TasksByStatus,
+  type TaskPriority,
+} from "@/lib/tasks";
 
 function BoardCard({ task, onClick }: { task: Task; onClick?: () => void }) {
   return (
@@ -86,16 +77,27 @@ function BoardCard({ task, onClick }: { task: Task; onClick?: () => void }) {
 }
 
 export default function TaskTrackingPage() {
-  const [tasks, setTasks] = useState<Record<string, Task[]>>(sample);
+  // Load initial state from localStorage
+  const [tasks, setTasks] = useState<TasksByStatus>(() => loadTasks());
   const [showModal, setShowModal] = useState(false);
-  const [view, setView] = useState<"grid" | "list" | "calendar">("calendar");
+  const [view, setView] = useState<"grid" | "list" | "calendar">(() => getTaskViewPreference());
+
+  // Save tasks to localStorage whenever they change
+  useEffect(() => {
+    saveTasks(tasks);
+  }, [tasks]);
+
+  // Save view preference whenever it changes
+  useEffect(() => {
+    saveTaskViewPreference(view);
+  }, [view]);
 
   // form state
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [assignee, setAssignee] = useState("");
   const [when, setWhen] = useState("");
-  const [priority, setPriority] = useState<Task["priority"]>("Med");
+  const [priority, setPriority] = useState<TaskPriority>("Med");
   const [department, setDepartment] = useState("");
   const [role, setRole] = useState("");
   const [editTask, setEditTask] = useState<Task | null>(null);
@@ -166,6 +168,7 @@ export default function TaskTrackingPage() {
       assignee: assignee || undefined,
       when: when || undefined,
       priority,
+      status: 'todo',
       department: department || undefined,
       role: role || undefined,
       notes: [],
@@ -544,7 +547,7 @@ export default function TaskTrackingPage() {
                   }}
                   events={events}
                   eventContent={(arg) => {
-                    const evt: any = arg.event;
+                    const evt = arg.event;
                     const ext = evt.extendedProps || {};
                     const handleClick = () => {
                       const fakeTask: Task = {
@@ -553,10 +556,11 @@ export default function TaskTrackingPage() {
                         assignee: ext.assignee,
                         when: evt.startStr,
                         priority: ext.priority,
+                        status: ext.status || 'todo',
                         department: ext.department,
                         role: ext.role,
                       };
-                      openEdit(fakeTask, (ext.status as any) || "To Do");
+                      openEdit(fakeTask, ext.status || "To Do");
                     };
                     return (
                       <div
