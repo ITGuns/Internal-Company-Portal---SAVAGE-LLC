@@ -130,7 +130,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
           <Settings className="w-5 h-5" />
         </button>
 
-        <div className="relative">
+        <div className="relative flex items-center">
           <button
             aria-label="notifications"
             className="btn btn-ghost btn-circle relative"

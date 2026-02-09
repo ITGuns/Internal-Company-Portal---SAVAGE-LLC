@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Header from "@/components/Header";
+import Button from "@/components/Button";
 import {
   Filter,
   SortAsc,
@@ -322,48 +323,45 @@ export default function TaskTrackingPage() {
 
         <div className="mt-6">
           <div className="flex items-center gap-3 mb-4">
-            <button
+            <Button
               onClick={openNewTask}
-              className="px-3 py-2 rounded-md flex items-center gap-2"
-              style={{
-                backgroundColor: "var(--foreground)",
-                color: "var(--background)",
-              }}
+              variant="primary"
+              icon={<Plus className="w-4 h-4" />}
             >
-              <Plus className="w-4 h-4" /> New Task
-            </button>
-            <button className="px-3 py-2 bg-[var(--card-bg)] border border-[var(--border)] rounded flex items-center gap-2">
-              <Filter className="w-4 h-4" /> Filter
-            </button>
-            <button className="px-3 py-2 bg-[var(--card-bg)] border border-[var(--border)] rounded flex items-center gap-2">
-              <SortAsc className="w-4 h-4" /> Sort
-            </button>
-            <button className="px-3 py-2 bg-[var(--card-bg)] border border-[var(--border)] rounded flex items-center gap-2">
-              <Users className="w-4 h-4" /> Group by
-            </button>
+              New Task
+            </Button>
+            <Button variant="secondary" icon={<Filter className="w-4 h-4" />}>
+              Filter
+            </Button>
+            <Button variant="secondary" icon={<SortAsc className="w-4 h-4" />}>
+              Sort
+            </Button>
+            <Button variant="secondary" icon={<Users className="w-4 h-4" />}>
+              Group by
+            </Button>
 
             <div className="ml-auto flex items-center gap-2">
-              <button
+              <Button
                 onClick={() => setView("list")}
                 aria-pressed={view === "list"}
-                className={`px-2 py-2 border rounded ${view === "list" ? "bg-[var(--foreground)] text-[var(--background)]" : "bg-[var(--card-bg)]"}`}
-              >
-                <List className="w-4 h-4" />
-              </button>
-              <button
+                variant={view === "list" ? "primary" : "secondary"}
+                icon={<List className="w-4 h-4" />}
+                size="sm"
+              />
+              <Button
                 onClick={() => setView("grid")}
                 aria-pressed={view === "grid"}
-                className={`px-2 py-2 border rounded ${view === "grid" ? "bg-[var(--foreground)] text-[var(--background)]" : "bg-[var(--card-bg)]"}`}
-              >
-                <Grid className="w-4 h-4" />
-              </button>
-              <button
+                variant={view === "grid" ? "primary" : "secondary"}
+                icon={<Grid className="w-4 h-4" />}
+                size="sm"
+              />
+              <Button
                 onClick={() => setView("calendar")}
                 aria-pressed={view === "calendar"}
-                className={`px-2 py-2 border rounded ${view === "calendar" ? "bg-[var(--foreground)] text-[var(--background)]" : "bg-[var(--card-bg)]"}`}
-              >
-                <Calendar className="w-4 h-4" />
-              </button>
+                variant={view === "calendar" ? "primary" : "secondary"}
+                icon={<Calendar className="w-4 h-4" />}
+                size="sm"
+              />
             </div>
           </div>
 
@@ -841,19 +839,20 @@ export default function TaskTrackingPage() {
               </div>
 
               <div className="flex items-center justify-end gap-2">
-                <button
+                <Button
                   type="button"
                   onClick={closeModal}
-                  className="px-3 py-2 rounded bg-[var(--card-bg)] border border-[var(--border)]"
+                  variant="secondary"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="px-4 py-2 rounded bg-[var(--foreground)] text-[var(--background)]"
+                  variant="success"
+                  icon={<Plus className="w-4 h-4" />}
                 >
                   Create New Task
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -928,29 +927,29 @@ export default function TaskTrackingPage() {
               </div>
 
               <div className="flex items-center justify-end gap-2">
-                <button
+                <Button
                   type="button"
                   onClick={closeEdit}
-                  className="px-3 py-2 rounded bg-[var(--card-bg)] border border-[var(--border)]"
+                  variant="secondary"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={() => {
                     if (editTask) markComplete(editTask, progressNotes);
                     closeEdit();
                   }}
-                  className="px-3 py-2 rounded bg-green-600 text-white"
+                  variant="success"
                 >
                   Mark Complete
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="px-4 py-2 rounded bg-[var(--foreground)] text-[var(--background)]"
+                  variant="primary"
                 >
                   Save
-                </button>
+                </Button>
               </div>
             </form>
           </div>

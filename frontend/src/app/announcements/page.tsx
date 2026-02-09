@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Header from '@/components/Header'
 import Modal from '@/components/Modal'
+import Button from '@/components/Button'
 import { Megaphone, Plus, Calendar, Trophy, Cake, Heart, MessageCircle, Send, MoreVertical, Edit, Trash2, AlertCircle } from 'lucide-react'
 import {
   loadAnnouncements,
@@ -35,6 +36,8 @@ export default function AnnouncementsPage() {
   const [isEvent, setIsEvent] = useState(false);
   const [eventDate, setEventDate] = useState('');
   const [eventLocation, setEventLocation] = useState('');
+  const [isBirthday, setIsBirthday] = useState(false);
+  const [birthdayDate, setBirthdayDate] = useState('');
   const [isImportant, setIsImportant] = useState(false);
 
   const filteredAnnouncements = activeFilter === 'all' 
@@ -57,11 +60,12 @@ export default function AnnouncementsPage() {
         title: newTitle.trim(),
         body: newBody.trim(),
         eventDetails,
+        birthdayDate: isBirthday ? birthdayDate : undefined,
         isImportant,
       });
     } else {
       // Add new announcement
-      addAnnouncement(newCategory, newTitle.trim(), newBody.trim(), 'User', eventDetails, isImportant);
+      addAnnouncement(newCategory, newTitle.trim(), newBody.trim(), 'User', eventDetails, isImportant, isBirthday ? birthdayDate : undefined);
     }
     
     setAnnouncements(loadAnnouncements());
@@ -71,7 +75,9 @@ export default function AnnouncementsPage() {
     setNewBody('');
     setEventDate('');
     setEventLocation('');
+    setBirthdayDate('');
     setIsEvent(false);
+    setIsBirthday(false);
     setIsImportant(false);
     setEditingAnnouncement(null);
     setShowModal(false);
@@ -83,10 +89,14 @@ export default function AnnouncementsPage() {
     setNewTitle(announcement.title);
     setNewBody(announcement.body);
     setIsEvent(announcement.category === 'events');
+    setIsBirthday(announcement.category === 'birthdays');
     setIsImportant(announcement.isImportant);
     if (announcement.eventDetails) {
       setEventDate(announcement.eventDetails.date);
       setEventLocation(announcement.eventDetails.location);
+    }
+    if (announcement.birthdayDate) {
+      setBirthdayDate(announcement.birthdayDate);
     }
     setOpenMenu(null);
     setShowModal(true);
@@ -97,9 +107,7 @@ export default function AnnouncementsPage() {
       deleteAnnouncement(id);
       setAnnouncements(loadAnnouncements());
       setOpenMenu(null);
-    };
-    setIsEvent(false);
-    setShowModal(false);
+    }
   };
 
   const handleToggleLike = (id: string) => {
@@ -135,6 +143,32 @@ export default function AnnouncementsPage() {
 
   const isGoing = (announcement: Announcement) => {
     return announcement.eventDetails?.going.includes('current-user') || false;
+  };
+
+  const formatEventDateTime = (dateTimeString: string): string => {
+    if (!dateTimeString) return '';
+    const date = new Date(dateTimeString);
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    };
+    return date.toLocaleDateString('en-US', options);
+  };
+
+  const formatBirthdayDate = (dateString: string): string => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const options: Intl.DateTimeFormatOptions = {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    };
+    return date.toLocaleDateString('en-US', options);
   };
 
   // Close menu when clicking outside
@@ -192,13 +226,14 @@ export default function AnnouncementsPage() {
             </div>
           </div>
 
-          <button 
+          <Button 
             onClick={() => setShowModal(true)}
-            className="ml-4 px-4 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-lg hover:opacity-90 transition flex items-center gap-2 whitespace-nowrap"
+            variant="primary"
+            icon={<Plus className="w-4 h-4" />}
+            className="ml-4 whitespace-nowrap"
           >
-            <Plus className="w-4 h-4" />
             New Announcement
-          </button>
+          </Button>
         </div>
 
         <Modal
@@ -209,7 +244,9 @@ export default function AnnouncementsPage() {
             setNewBody('');
             setEventDate('');
             setEventLocation('');
+            setBirthdayDate('');
             setIsEvent(false);
+            setIsBirthday(false);
             setEditingAnnouncement(null);
           }}
           title={editingAnnouncement ? "Edit Announcement" : "Create New Announcement"}
@@ -223,6 +260,7 @@ export default function AnnouncementsPage() {
                 onChange={(e) => {
                   setNewCategory(e.target.value as Category);
                   setIsEvent(e.target.value === 'events');
+                  setIsBirthday(e.target.value === 'birthdays');
                 }}
                 className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
               >
@@ -274,11 +312,10 @@ export default function AnnouncementsPage() {
                 <div>
                   <label className="block text-sm font-medium mb-2">Event Date & Time</label>
                   <input
-                    type="text"
+                    type="datetime-local"
                     value={eventDate}
                     onChange={(e) => setEventDate(e.target.value)}
-                    placeholder="e.g., Friday, March 15, 2024 - 3:00 PM"
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] [color-scheme:light] dark:[color-scheme:dark]"
                   />
                 </div>
 
@@ -295,59 +332,82 @@ export default function AnnouncementsPage() {
               </>
             )}
 
+            {isBirthday && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Birthday Date</label>
+                <input
+                  type="date"
+                  value={birthdayDate}
+                  onChange={(e) => setBirthdayDate(e.target.value)}
+                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] [color-scheme:light] dark:[color-scheme:dark]"
+                />
+              </div>
+            )}
+
             <div className="flex gap-3 justify-end pt-4">
-              <button
+              <Button
                 onClick={() => {
                   setShowModal(false);
                   setNewTitle('');
                   setNewBody('');
                   setEventDate('');
                   setEventLocation('');
+                  setBirthdayDate('');
                   setIsEvent(false);
+                  setIsBirthday(false);
                   setIsImportant(false);
                   setEditingAnnouncement(null);
                 }}
-                className="px-4 py-2 rounded border border-[var(--border)] hover:bg-[var(--card-surface)] transition"
+                variant="secondary"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleAddAnnouncement}
                 disabled={!newTitle.trim() || !newBody.trim()}
-                className="px-4 py-2 rounded bg-[var(--foreground)] text-[var(--background)] hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                variant="success"
+                icon={<Send className="w-4 h-4" />}
               >
                 {editingAnnouncement ? 'Update Announcement' : 'Post Announcement'}
-              </button>
+              </Button>
             </div>
           </div>
         </Modal>
 
         <div className="mt-6">
           <div className="flex items-center gap-2 border-b border-[var(--border)]">
-            <button 
+            <Button 
               onClick={() => setActiveFilter('all')}
-              className={`px-4 py-2 text-sm font-medium transition ${activeFilter === 'all' ? 'text-[var(--foreground)] border-b-2 border-[var(--foreground)]' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
+              variant="ghost"
+              size="sm"
+              className={`${activeFilter === 'all' ? 'text-[var(--foreground)] border-b-2 border-[var(--foreground)] rounded-b-none' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
             >
               All Posts
-            </button>
-            <button 
+            </Button>
+            <Button 
               onClick={() => setActiveFilter('company-news')}
-              className={`px-4 py-2 text-sm font-medium transition ${activeFilter === 'company-news' ? 'text-[var(--foreground)] border-b-2 border-[var(--foreground)]' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
+              variant="ghost"
+              size="sm"
+              className={`${activeFilter === 'company-news' ? 'text-[var(--foreground)] border-b-2 border-[var(--foreground)] rounded-b-none' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
             >
               Company News
-            </button>
-            <button 
+            </Button>
+            <Button 
               onClick={() => setActiveFilter('shoutouts')}
-              className={`px-4 py-2 text-sm font-medium transition ${activeFilter === 'shoutouts' ? 'text-[var(--foreground)] border-b-2 border-[var(--foreground)]' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
+              variant="ghost"
+              size="sm"
+              className={`${activeFilter === 'shoutouts' ? 'text-[var(--foreground)] border-b-2 border-[var(--foreground)] rounded-b-none' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
             >
               Shoutouts
-            </button>
-            <button 
+            </Button>
+            <Button 
               onClick={() => setActiveFilter('events')}
-              className={`px-4 py-2 text-sm font-medium transition ${activeFilter === 'events' ? 'text-[var(--foreground)] border-b-2 border-[var(--foreground)]' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
+              variant="ghost"
+              size="sm"
+              className={`${activeFilter === 'events' ? 'text-[var(--foreground)] border-b-2 border-[var(--foreground)] rounded-b-none' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
             >
               Events
-            </button>
+            </Button>
           </div>
 
           <div className="mt-6 space-y-4">
@@ -397,7 +457,7 @@ export default function AnnouncementsPage() {
                               </button>
                             
                             {openMenu === announcement.id && (
-                              <div className="absolute right-0 top-8 z-10 w-48 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-lg py-1">
+                              <div className="menu-container absolute right-0 top-8 z-10 w-48 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-lg py-1">
                                 <button
                                   onClick={() => handleEditAnnouncement(announcement)}
                                   className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--card-surface)] transition flex items-center gap-2"
@@ -430,7 +490,7 @@ export default function AnnouncementsPage() {
                           <div className="mb-4 p-3 bg-[var(--card-surface)] rounded border border-[var(--border)]">
                             <div className="flex items-center gap-2 text-sm text-[var(--foreground)] mb-1">
                               <Calendar className="w-4 h-4" />
-                              {announcement.eventDetails.date}
+                              {formatEventDateTime(announcement.eventDetails.date)}
                             </div>
                             <div className="text-sm text-[var(--muted)] ml-6 mb-2">
                               📍 {announcement.eventDetails.location}
@@ -449,6 +509,15 @@ export default function AnnouncementsPage() {
                               <span className="text-sm text-[var(--muted)]">
                                 {announcement.eventDetails.going.length} {announcement.eventDetails.going.length === 1 ? 'person' : 'people'} going
                               </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {announcement.birthdayDate && (
+                          <div className="mb-4 p-3 bg-[var(--card-surface)] rounded border border-[var(--border)]">
+                            <div className="flex items-center gap-2 text-sm text-[var(--foreground)]">
+                              <Cake className="w-4 h-4" />
+                              🎂 Birthday: {formatBirthdayDate(announcement.birthdayDate)}
                             </div>
                           </div>
                         )}

@@ -3,6 +3,7 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
 import Header from "@/components/Header";
 import Modal from "@/components/Modal";
+import Button from "@/components/Button";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -42,6 +43,38 @@ export default function PayrollCalendarPage() {
   const [manualIn, setManualIn] = useState<string>("09:00");
   const [manualOut, setManualOut] = useState<string>("17:00");
   const [manualNotes, setManualNotes] = useState<string>("");
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  // Validation function
+  const validateTimeEntry = () => {
+    const errors: Record<string, string> = {};
+    
+    if (!manualDate) {
+      errors.date = "Date is required";
+    } else {
+      const entryDate = new Date(manualDate);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      if (entryDate > today) {
+        errors.date = "Date cannot be in the future";
+      }
+    }
+    
+    if (!manualIn) {
+      errors.timeIn = "Time In is required";
+    }
+    
+    if (manualOut && manualIn) {
+      const timeInDate = new Date(`${manualDate}T${manualIn}`);
+      const timeOutDate = new Date(`${manualDate}T${manualOut}`);
+      if (timeOutDate <= timeInDate) {
+        errors.timeOut = "Time Out must be after Time In";
+      }
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   // Save time entries to localStorage whenever they change
   useEffect(() => {
@@ -283,23 +316,31 @@ export default function PayrollCalendarPage() {
                   onClose={() => {
                     setShowAddModal(false);
                     setManualNotes("");
+                    setValidationErrors({});
                   }}
                   title="Add Time Entry"
                   subtitle="Manually add a time entry for a specific date"
                   size="md"
                   footer={
                     <>
-                      <button
+                      <Button 
+                        variant="secondary" 
                         onClick={() => {
                           setShowAddModal(false);
                           setManualNotes("");
+                          setValidationErrors({});
                         }}
-                        className="px-4 py-2 border border-[var(--border)] rounded hover:bg-[var(--card-bg)] transition-colors"
                       >
                         Cancel
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="success"
+                        icon={<Plus className="w-4 h-4" />}
                         onClick={() => {
+                          if (!validateTimeEntry()) {
+                            return;
+                          }
+                          
                           try {
                             const startIso = new Date(
                               `${manualDate}T${manualIn}`,
@@ -332,15 +373,15 @@ export default function PayrollCalendarPage() {
                             ]);
                             setShowAddModal(false);
                             setManualNotes("");
+                            setValidationErrors({});
                           } catch {
-                            // Invalid date/time - could add error toast
+                            setValidationErrors({ submit: "Invalid date or time format" });
                           }
                         }}
-                        className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors flex items-center gap-2"
+                        disabled={!manualDate || !manualIn}
                       >
-                        <Plus className="w-4 h-4" />
                         Add Entry
-                      </button>
+                      </Button>
                     </>
                   }
                 >
@@ -356,9 +397,20 @@ export default function PayrollCalendarPage() {
                         id="manual-date"
                         type="date"
                         value={manualDate}
-                        onChange={(e) => setManualDate(e.target.value)}
-                        className="w-full border border-[var(--border)] rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                        onChange={(e) => {
+                          setManualDate(e.target.value);
+                          if (validationErrors.date) {
+                            setValidationErrors(prev => ({ ...prev, date: "" }));
+                          }
+                        }}
+                        max={new Date().toISOString().slice(0, 10)}
+                        className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${
+                          validationErrors.date ? 'border-red-500' : 'border-[var(--border)]'
+                        }`}
                       />
+                      {validationErrors.date && (
+                        <p className="text-red-500 text-xs mt-1">{validationErrors.date}</p>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -373,9 +425,19 @@ export default function PayrollCalendarPage() {
                           id="manual-in"
                           type="time"
                           value={manualIn}
-                          onChange={(e) => setManualIn(e.target.value)}
-                          className="w-full border border-[var(--border)] rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                          onChange={(e) => {
+                            setManualIn(e.target.value);
+                            if (validationErrors.timeIn) {
+                              setValidationErrors(prev => ({ ...prev, timeIn: "" }));
+                            }
+                          }}
+                          className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${
+                            validationErrors.timeIn ? 'border-red-500' : 'border-[var(--border)]'
+                          }`}
                         />
+                        {validationErrors.timeIn && (
+                          <p className="text-red-500 text-xs mt-1">{validationErrors.timeIn}</p>
+                        )}
                       </div>
                       <div>
                         <label
@@ -388,9 +450,19 @@ export default function PayrollCalendarPage() {
                           id="manual-out"
                           type="time"
                           value={manualOut}
-                          onChange={(e) => setManualOut(e.target.value)}
-                          className="w-full border border-[var(--border)] rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                          onChange={(e) => {
+                            setManualOut(e.target.value);
+                            if (validationErrors.timeOut) {
+                              setValidationErrors(prev => ({ ...prev, timeOut: "" }));
+                            }
+                          }}
+                          className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${
+                            validationErrors.timeOut ? 'border-red-500' : 'border-[var(--border)]'
+                          }`}
                         />
+                        {validationErrors.timeOut && (
+                          <p className="text-red-500 text-xs mt-1">{validationErrors.timeOut}</p>
+                        )}
                       </div>
                     </div>
 

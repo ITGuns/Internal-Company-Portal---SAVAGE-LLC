@@ -2,7 +2,7 @@
 
 import React from 'react'
 import Header from '@/components/Header'
-import { Clock, CheckCircle2, AlertCircle, TrendingUp, ExternalLink, Send, Megaphone, Star } from 'lucide-react'
+import { Clock, CheckCircle2, AlertCircle, TrendingUp, ExternalLink, Send, Megaphone, Star, Trophy } from 'lucide-react'
 import { getThisWeekTasks } from '@/lib/tasks'
 import { getTotalMinutesForDate } from '@/lib/time-entries'
 import { getRecentAnnouncements, getTimeAgo } from '@/lib/announcements'
@@ -28,6 +28,7 @@ export default function DashboardPage() {
   const todayMinutes = getTotalMinutesForDate(today);
   const weekTasks = getThisWeekTasks();
   const recentAnnouncements = getRecentAnnouncements(3);
+  const recentShoutouts = getRecentAnnouncements(10).filter(a => a.category === 'shoutouts').slice(0, 3);
 
   const formatHours = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
@@ -170,13 +171,30 @@ export default function DashboardPage() {
               <div className="rounded shadow border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden self-start">
                 <div className="px-6 py-5 flex items-center justify-between bg-[var(--card-bg)] border-b border-[var(--border)]">
                   <h4 className="font-semibold">Recent Shoutouts</h4>
-                  <a href="/shoutouts" className="text-sm text-[var(--muted)] hover:underline">View All</a>
+                  <a href="/announcements" className="text-sm text-[var(--muted)] hover:underline">View All</a>
                 </div>
 
-                <div className="p-8 text-center bg-[var(--card-surface)]">
-                  <Star className="w-12 h-12 mx-auto text-[var(--muted)] opacity-50 mb-3" />
-                  <div className="text-sm text-[var(--muted)]">No shoutouts yet</div>
-                </div>
+                {recentShoutouts.length === 0 ? (
+                  <div className="p-8 text-center bg-[var(--card-surface)]">
+                    <Star className="w-12 h-12 mx-auto text-[var(--muted)] opacity-50 mb-3" />
+                    <div className="text-sm text-[var(--muted)]">No shoutouts yet</div>
+                  </div>
+                ) : (
+                  <div className="p-4 space-y-3 bg-[var(--card-surface)]">
+                    {recentShoutouts.map(shoutout => (
+                      <div key={shoutout.id} className="p-3 bg-[var(--card-bg)] rounded border border-[var(--border)]">
+                        <div className="flex items-start gap-2 mb-1">
+                          <Trophy className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <div className="font-medium text-sm">{shoutout.title}</div>
+                            <div className="text-xs text-[var(--muted)] mt-1 line-clamp-2">{shoutout.body}</div>
+                            <div className="text-xs text-[var(--muted)] mt-2">{getTimeAgo(shoutout.timestamp)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="rounded shadow border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden">

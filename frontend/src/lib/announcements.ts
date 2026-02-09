@@ -30,6 +30,7 @@ export interface Announcement {
   likes: string[]; // Array of user IDs who liked
   comments: Comment[];
   eventDetails?: EventDetails;
+  birthdayDate?: string; // Date string for birthday announcements
   isImportant: boolean;
 }
 
@@ -65,7 +66,8 @@ export function addAnnouncement(
   body: string,
   author: string = 'User',
   eventDetails?: EventDetails,
-  isImportant: boolean = false
+  isImportant: boolean = false,
+  birthdayDate?: string
 ): Announcement {
   const announcements = loadAnnouncements();
   const newAnnouncement: Announcement = {
@@ -78,6 +80,7 @@ export function addAnnouncement(
     likes: [],
     comments: [],
     eventDetails,
+    birthdayDate,
     isImportant,
   };
   
