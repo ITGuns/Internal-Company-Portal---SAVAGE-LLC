@@ -64,15 +64,17 @@ Detailed daily development logs with technical decisions.
 
 ---
 
-## ✅ Completed Features (as of 2026-02-09)
+## ✅ Completed Features (as of 2026-02-10)
 
 ### Frontend
 - ✅ **Dashboard** - Live stats, recent announcements, quick actions
 - ✅ **Announcements & Shoutouts** - Full CRUD with likes, comments, RSVP, important flagging
-- ✅ **Task Tracking** - Kanban board UI (static, needs drag-and-drop)
-- ✅ **Payroll Calendar** - Time clock, manual entries, calendar view
+- ✅ **Task Tracking** - Kanban board UI with department/role management
+- ✅ **Daily Logs** - Work tracking with centralized department structure, theme styling
+- ✅ **Payroll Calendar** - Time clock, event management (CRUD), timezone-aware aggregation
+- ✅ **Department System** - Centralized hierarchy with 19 departments, recursive sidebar
 - ✅ **Theme System** - Light/dark mode with localStorage persistence
-- ✅ **localStorage** - Complete data persistence (tasks, time entries, announcements)
+- ✅ **localStorage** - Complete data persistence (tasks, time entries, announcements, events)
 - ✅ **Component Library** - Modal, Header, Sidebar, Icon system
 
 ### Backend
@@ -124,17 +126,30 @@ Backend becomes "sync layer" when integration is ready.
 
 ---
 
-## 📝 Latest Updates (2026-02-09)
+## 📝 Latest Updates (2026-02-10)
 
 ### Frontend
-- 🎉 **Built complete Announcements system** (534 lines)
-  - CRUD operations with categories
-  - Engagement: likes, comments, event RSVP
-  - Important flag with priority display
-  - localStorage persistence
-- ✅ Icon system standardization (all Lucide React)
-- ✅ Modal component extraction and fixes
-- ✅ Dashboard integration with live data
+- 🎉 **Department Management Centralization**
+  - Created `lib/departments.ts` - single source of truth
+  - 19-department structure matching org chart
+  - Authority-based hierarchy (appointment relationships)
+  - Recursive sidebar navigation with expandable departments
+  - Updated 4 components: Daily Logs, Task Tracking, Sidebar
+
+- 🎉 **Payroll Calendar Event System**
+  - Full event CRUD (add/edit/delete)
+  - 5 event types: payday, holiday, deadline, meeting, other
+  - Built-in events (Presidents' Day, Pay Day, deadlines)
+  - Custom events with localStorage persistence
+  - Edit/delete all events (built-in create custom copies)
+  
+- 🎉 **Time Clock Fixes**
+  - Fixed timezone issues (entries showing on wrong dates)
+  - Aggregated time entries (one bar per day vs multiple)
+  - Created `getLocalDateString()` helper for proper date handling
+  - Consolidated daily totals display
+
+- ✅ Daily Logs theme styling (light/dark form inputs, scrollbars)
 
 ### Backend
 - See [Backend Update Report](./backend/BACKEND_UPDATE_REPORT.md)
@@ -197,6 +212,10 @@ npx tsc --noEmit
 
 ---
 
-**Last Updated:** February 9, 2026  
-**Version:** 0.2.0  
+**Last Updated:** February 10, 2026  
+**Version:** 0.3.0  
 **Status:** 🟢 Active Development
+
+**See Also:**
+- [Project Updates Log](./PROJECT_UPDATES.md) - Comprehensive changelog
+- [Daily Report](./reports/daily/2026-02-10-daily-report.md) - Today's detailed report

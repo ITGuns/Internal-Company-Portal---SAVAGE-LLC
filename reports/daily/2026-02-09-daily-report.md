@@ -163,4 +163,136 @@ Architecture Decisions
 - **Component extraction**: Modal component reused across app (payroll, announcements)
 - **Icon standardization**: AlertCircle for important, consistent icon usage from lucide-react
 
+---
+
+## Afternoon Session Updates (Continuation)
+
+### Sprint Completion: Button Component & Uniformity
+
+8. **Applied Button Component Across Pages** (uniformity improvements):
+   - Updated `frontend/src/app/announcements/page.tsx`:
+     * Imported Button component
+     * Replaced "New Announcement" button: `variant="primary"` with Plus icon
+     * Replaced Modal footer: `variant="secondary"` (Cancel) + `variant="success"` with Send icon (Post/Update)
+     * Replaced filter tabs: All 4 using `variant="ghost" size="sm"` with active state styling
+   
+   - Updated `frontend/src/app/task-tracking/page.tsx`:
+     * Imported Button component
+     * Replaced "New Task" button: `variant="primary"` with Plus icon
+     * Replaced Filter/Sort/Group buttons: `variant="secondary"` with respective icons
+     * Replaced view switchers: Dynamic `variant="primary"` when active, else `variant="secondary"`
+     * Replaced "New Task" modal footer: `variant="secondary"` (Cancel) + `variant="success"` (Create)
+     * Replaced "Edit Task" modal footer: `variant="secondary"` (Cancel) + `variant="success"` (Mark Complete) + `variant="primary"` (Save)
+   
+   - **Result**: Consistent button styling, hover states, focus rings, and behavior across all pages
+   - **Status**: ✅ Sprint goals 100% complete (form validation + Button component + uniformity)
+
+### Bug Fixes & Enhancements
+
+9. **Fixed Dashboard Shoutouts Sync** (`frontend/src/app/dashboard/page.tsx`):
+   - **Issue**: Dashboard "Recent Shoutouts" section showed empty state despite shoutouts in announcements page
+   - **Fix**: 
+     * Added filtering: `getRecentAnnouncements(10).filter(a => a.category === 'shoutouts').slice(0, 3)`
+     * Renders up to 3 recent shoutouts with Trophy icon, title, body preview, and timestamp
+     * Fixed "View All" link to `/announcements` (where shoutouts actually live)
+     * Added Trophy icon import
+   - **Result**: Shoutouts now properly sync between dashboard and announcements page (shared localStorage)
+
+10. **Fixed Delete Button on Announcements**:
+    - **Issue**: Delete button didn't work due to syntax error in `handleDeleteAnnouncement`
+    - **Problem**: Extra semicolon and misplaced `setIsEvent(false)` and `setShowModal(false)` calls
+    - **Fix**: Removed erroneous statements after the if block's closing brace
+    - **Result**: Delete functionality now properly shows confirmation, deletes from localStorage, refreshes UI, and closes menu
+
+11. **Fixed Dropdown Menu Click-Outside Behavior**:
+    - **Issue**: Dropdown menu (Edit/Delete) closed immediately before buttons could be clicked
+    - **Problem**: Missing `menu-container` class on dropdown div for click-outside detection
+    - **Fix**: Added `className="menu-container"` to the dropdown wrapper div
+    - **Result**: Click-outside handler now properly detects clicks inside menu, allowing Edit/Delete to execute
+
+### Feature Enhancements: Event & Birthday Date Pickers
+
+12. **Implemented Calendar Picker for Events**:
+    - Changed event date input from `type="text"` to `type="datetime-local"`
+    - Added `formatEventDateTime()` function to format ISO datetime strings
+    - Format: "Weekday, Month Day, Year at Hour:Minute AM/PM" (e.g., "Friday, March 15, 2024 at 3:00 PM")
+    - Updated announcement card display to use formatted date
+    - Added color-scheme styling: `[color-scheme:light] dark:[color-scheme:dark]` for theme-aware calendar icon
+    - **Result**: Native date/time picker with proper visual styling in both light and dark modes
+
+13. **Implemented Birthday Date Field**:
+    - **Updated Interface**: Added optional `birthdayDate?: string` to Announcement interface (`frontend/src/lib/announcements.ts`)
+    - **State Management**: 
+      * Added `isBirthday` and `birthdayDate` state variables
+      * Updated category change handler to set `setIsBirthday(e.target.value === 'birthdays')`
+      * Added birthday date to form reset logic
+      * Updated `handleEditAnnouncement` to populate birthday date when editing
+    
+    - **Form UI**: Added conditional birthday date picker:
+      * Shows when category is "birthdays"
+      * Uses `type="date"` input (date only, no time)
+      * Includes color-scheme styling for theme-aware icon
+    
+    - **Display**: 
+      * Added `formatBirthdayDate()` function: formats as "Month Day, Year" (e.g., "February 14, 2026")
+      * Birthday card on announcements shows: 🎂 Cake icon + "Birthday: [formatted date]"
+      * Styled with card-surface background and border
+    
+    - **Storage**: Updated `addAnnouncement()` function to accept and store `birthdayDate` parameter
+    
+    - **Result**: Full birthday announcement support with calendar picker, formatted display, and localStorage persistence
+
+14. **Fixed Header Icon Alignment**:
+    - **Issue**: Notification icon (Bell) wasn't vertically aligned with other header icons
+    - **Fix**: Added `flex items-center` to notification button's parent container
+    - **Result**: All header icons (theme toggle, settings, notifications, user avatar) now properly aligned
+
+### Files Modified (Afternoon Session)
+
+- `frontend/src/app/announcements/page.tsx`:
+  * Button component integration (4 replacements)
+  * Delete handler fix
+  * Menu-container class addition
+  * Birthday date field and state management
+  * Event date picker upgrade to datetime-local
+  * Birthday date display section
+  * Format functions: formatEventDateTime, formatBirthdayDate
+
+- `frontend/src/app/task-tracking/page.tsx`:
+  * Button component integration (5 replacements across New Task, filters, view switchers, and modals)
+
+- `frontend/src/app/dashboard/page.tsx`:
+  * Shoutouts filtering and display
+  * Trophy icon import
+
+- `frontend/src/lib/announcements.ts`:
+  * Added `birthdayDate?: string` to Announcement interface
+  * Updated `addAnnouncement()` signature to include birthdayDate parameter
+  * Stored birthdayDate in announcement object
+
+- `frontend/src/components/Header.tsx`:
+  * Notification icon container alignment fix
+
+### Testing Checklist
+
+- ✅ Button component styling consistent across announcements and task-tracking
+- ✅ Shoutouts display on dashboard when created in announcements page
+- ✅ Delete button works with confirmation dialog
+- ✅ Edit/Delete dropdown menu stays open until action or click-outside
+- ✅ Event date picker shows native calendar with date AND time selection
+- ✅ Event dates format correctly in announcements (readable format)
+- ✅ Birthday date picker shows native calendar (date only)
+- ✅ Birthday dates display with cake icon and formatted correctly
+- ✅ Calendar icons visible in both light and dark modes
+- ✅ Header icons properly aligned vertically
+- ✅ No TypeScript or build errors
+
+### Summary Stats
+
+**Total Lines Modified**: ~500+ lines across 6 files
+**Components Enhanced**: Button (applied to 2 pages), Header (alignment)
+**Features Added**: Birthday date field, Event datetime picker, Dashboard shoutouts
+**Bugs Fixed**: 3 (delete button, dropdown menu, icon alignment)
+**UI Improvements**: Button uniformity, calendar pickers, date formatting
+
 -- End of report

@@ -133,13 +133,13 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn"
+      className="fixed left-64 top-0 right-0 bottom-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
       aria-describedby={subtitle ? "modal-description" : undefined}
     >
-      {/* Backdrop */}
+      {/* Backdrop - only covers content area, not sidebar */}
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fadeIn"
         onClick={closeOnBackdrop ? onClose : undefined}

@@ -6,6 +6,10 @@ import React, { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import UserAvatar from '../assets/icons/UserAvatar'
+import { DEPARTMENT_ROLES } from '@/lib/departments'
+
+// Sidebar departments: show the direct children of Owners / Founders as top-level
+const SIDEBAR_DEPARTMENTS = DEPARTMENT_ROLES['Owners / Founders'] || [];
 import {
   Home,
   Grid,
@@ -42,25 +46,35 @@ function NavItem({ icon: Icon, label, badge, href }: { icon: React.ComponentType
   )
 }
 
-function SidebarDepartment({ dept, roles }: { dept: string; roles: string[] }) {
+function SidebarDepartment({ dept, roles, depth = 0 }: { dept: string; roles: string[]; depth?: number }) {
   const pathname = usePathname() || '/'
   const [open, setOpen] = useState(false)
 
   const base = "nav-animated w-full text-left flex items-center gap-3 px-3 py-2 rounded-md group transform transition-colors transition-transform duration-150 ease-out border border-transparent hover:bg-gray-50 dark:hover:bg-white/5 hover:border-[var(--border)] active:translate-y-[1px] active:scale-[0.995] active:bg-gray-100 dark:active:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400"
 
+  // Count all nested roles recursively
+  const totalRoles = roles.reduce((sum, r) => sum + 1 + (DEPARTMENT_ROLES[r]?.length || 0), 0);
+
   return (
     <div>
-      <button onClick={() => setOpen(open => !open)} className={base} aria-expanded={open}>
+      <button onClick={() => setOpen(open => !open)} className={`${base} ${depth > 0 ? 'text-sm' : ''}`} aria-expanded={open}>
         <span className="flex-1">{dept}</span>
-        <span className="text-sm text-muted">{roles.length}</span>
+        {totalRoles > 0 && <span className="text-sm text-muted">{totalRoles}</span>}
       </button>
       {open && roles.length > 0 && (
         <div className="ml-4 mt-1 space-y-1">
-          {roles.map(r => (
-            <Link key={r} href={`/departments/${encodeURIComponent(dept)}/${encodeURIComponent(r)}`} className="block px-3 py-2 rounded-md nav-animated text-sm text-muted hover:bg-gray-50 dark:hover:bg-white/5">
-              {r}
-            </Link>
-          ))}
+          {roles.map(r => {
+            const subRoles = DEPARTMENT_ROLES[r];
+            // If this role has its own sub-roles, render it as a nested department
+            if (subRoles && subRoles.length > 0) {
+              return <SidebarDepartment key={r} dept={r} roles={subRoles} depth={depth + 1} />;
+            }
+            return (
+              <Link key={r} href={`/departments/${encodeURIComponent(dept)}/${encodeURIComponent(r)}`} className="block px-3 py-2 rounded-md nav-animated text-sm text-muted hover:bg-gray-50 dark:hover:bg-white/5">
+                {r}
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
@@ -137,24 +151,10 @@ export default function Sidebar() {
 
           <div className="text-xs text-muted uppercase px-2 mb-2">Departments</div>
           <nav className="space-y-1 mb-6">
-            {/* Departments list rendered below */}
-              {
-                (() => {
-                  const departmentRoles: Record<string, string[]> = {
-                    'Owners / Founders': [],
-                    'Project Managers': ['Operations Manager', 'Digital Marketing Lead'],
-                    'Website Developers': ['Frontend Developer', 'Backend / Technical Developer'],
-                    'Payroll / Finance': ['Bookkeeping', 'Contractor & Salary Payments'],
-                    'Operations': ['Fulfillment / Logistics VA', 'Inventory VA', 'Customer Experience (CX) VA'],
-                    'Digital Marketing': ['Digital Marketing Lead / Marketing VA', 'Media Buyer / Ads Specialist', 'Content Creator / Designer', 'Email & SMS Marketer', 'Influencer / Social Media VA'],
-                    'Analytics / Data': ['Analytics / Data VA'],
-                    'Automation / Tech': ['Automation / Tech VA'],
-                  }
-                  return Object.keys(departmentRoles).map((dept) => (
-                    <SidebarDepartment key={dept} dept={dept} roles={departmentRoles[dept]} />
-                  ))
-                })()
-              }
+            {/* Departments list - top-level only, sub-departments nest inside */}
+              {SIDEBAR_DEPARTMENTS.map((dept) => (
+                <SidebarDepartment key={dept} dept={dept} roles={DEPARTMENT_ROLES[dept]} />
+              ))}
           </nav>
         </div>
 

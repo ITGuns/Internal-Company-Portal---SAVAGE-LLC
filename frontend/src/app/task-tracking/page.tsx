@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Button from "@/components/Button";
+import { DEPARTMENT_ROLES } from '@/lib/departments';
 import {
   Filter,
   SortAsc,
@@ -111,38 +112,6 @@ export default function TaskTrackingPage() {
     if (p === "Med") return "#fb923c";
     return "#facc15";
   }
-
-  const departmentRoles: Record<string, string[]> = {
-    "Owners / Founders": [],
-    "Project Managers": [
-      "Fullfillment / Logistics VA",
-      "Inventory VA",
-      "Customer Experience (CX) VA",
-      "Media Buyer / Ads Specialist",
-      "Content Creator / Designer",
-      "Email & SMS Marketer",
-      "Influencer / Social Media VA",
-    ],
-    "Website Developers": [
-      "Frontend Developer",
-      "Backend / Technical Developer",
-    ],
-    "Payroll / Finance": ["Bookkeeping", "Contractor & Salary Payments"],
-    Operations: [
-      "Fulfillment / Logistics VA",
-      "Inventory VA",
-      "Customer Experience (CX) VA",
-    ],
-    "Digital Marketing": [
-      "Digital Marketing Lead / Marketing VA",
-      "Media Buyer / Ads Specialist",
-      "Content Creator / Designer",
-      "Email & SMS Marketer",
-      "Influencer / Social Media VA",
-    ],
-    "Analytics / Data": ["Analytics / Data VA"],
-    "Automation / Tech": ["Automation / Tech VA"],
-  };
 
   function openNewTask() {
     setShowModal(true);
@@ -757,7 +726,7 @@ export default function TaskTrackingPage() {
                     className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
                   >
                     <option value="">Select department</option>
-                    {Object.keys(departmentRoles).map((d) => (
+                    {Object.keys(DEPARTMENT_ROLES).map((d) => (
                       <option key={d} value={d}>
                         {d}
                       </option>
@@ -803,7 +772,7 @@ export default function TaskTrackingPage() {
                     type="date"
                     value={when}
                     onChange={(e) => setWhen(e.target.value)}
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer dark:[&::-webkit-calendar-picker-indicator]:filter dark:[&::-webkit-calendar-picker-indicator]:invert-[1] dark:[&::-webkit-calendar-picker-indicator]:brightness-[1.5]"
                   />
                 </div>
               </div>
@@ -827,8 +796,8 @@ export default function TaskTrackingPage() {
                   className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
                 >
                   <option value="">Select role</option>
-                  {(department && departmentRoles[department]
-                    ? departmentRoles[department]
+                  {(department && DEPARTMENT_ROLES[department]
+                    ? DEPARTMENT_ROLES[department]
                     : []
                   ).map((r) => (
                     <option key={r} value={r}>
@@ -921,7 +890,7 @@ export default function TaskTrackingPage() {
                     type="date"
                     value={when}
                     onChange={(e) => setWhen(e.target.value)}
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer dark:[&::-webkit-calendar-picker-indicator]:filter dark:[&::-webkit-calendar-picker-indicator]:invert-[1] dark:[&::-webkit-calendar-picker-indicator]:brightness-[1.5]"
                   />
                 </div>
               </div>
