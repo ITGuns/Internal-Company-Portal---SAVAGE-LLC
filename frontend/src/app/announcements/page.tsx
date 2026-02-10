@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react'
 import Header from '@/components/Header'
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
+import Card from '@/components/Card'
+import { useToast } from '@/components/ToastProvider'
 import { Megaphone, Plus, Calendar, Trophy, Cake, Heart, MessageCircle, Send, MoreVertical, Edit, Trash2, AlertCircle } from 'lucide-react'
 import {
   loadAnnouncements,
@@ -21,6 +23,7 @@ import {
 type FilterCategory = 'all' | Category;
 
 export default function AnnouncementsPage() {
+  const toast = useToast();
   const [activeFilter, setActiveFilter] = useState<FilterCategory>('all');
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => loadAnnouncements());
   const [showModal, setShowModal] = useState(false);
@@ -28,6 +31,7 @@ export default function AnnouncementsPage() {
   const [commentText, setCommentText] = useState('');
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
+  const [announcementToDelete, setAnnouncementToDelete] = useState<string | null>(null);
 
   // Form state for new announcement
   const [newCategory, setNewCategory] = useState<Category>('company-news');
@@ -63,9 +67,11 @@ export default function AnnouncementsPage() {
         birthdayDate: isBirthday ? birthdayDate : undefined,
         isImportant,
       });
+      toast.success('Announcement updated successfully');
     } else {
       // Add new announcement
       addAnnouncement(newCategory, newTitle.trim(), newBody.trim(), 'User', eventDetails, isImportant, isBirthday ? birthdayDate : undefined);
+      toast.success('Announcement posted successfully');
     }
     
     setAnnouncements(loadAnnouncements());
@@ -103,10 +109,16 @@ export default function AnnouncementsPage() {
   };
 
   const handleDeleteAnnouncement = (id: string) => {
-    if (confirm('Are you sure you want to delete this announcement?')) {
-      deleteAnnouncement(id);
+    setAnnouncementToDelete(id);
+    setOpenMenu(null);
+  };
+
+  const confirmDelete = () => {
+    if (announcementToDelete) {
+      deleteAnnouncement(announcementToDelete);
       setAnnouncements(loadAnnouncements());
-      setOpenMenu(null);
+      setAnnouncementToDelete(null);
+      toast.success('Announcement deleted');
     }
   };
 
@@ -120,6 +132,7 @@ export default function AnnouncementsPage() {
     addComment(announcementId, commentText.trim(), 'User');
     setCommentText('');
     setAnnouncements(loadAnnouncements());
+    toast.success('Comment added');
   };
 
   const handleToggleGoing = (id: string) => {
@@ -193,37 +206,37 @@ export default function AnnouncementsPage() {
 
         <div className="mt-6 flex items-center justify-between">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 flex-1">
-            <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] text-center hover:shadow-sm transition cursor-pointer">
+            <Card variant="interactive" padding="md" className="text-center">
               <div className="w-12 h-12 mx-auto mb-2 rounded-lg bg-blue-500/10 flex items-center justify-center">
                 <Megaphone className="w-6 h-6 text-blue-500" />
               </div>
               <div className="font-semibold text-sm">Company News</div>
               <div className="text-xs text-[var(--muted)] mt-1">Important updates</div>
-            </div>
+            </Card>
 
-            <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] text-center hover:shadow-sm transition cursor-pointer">
+            <Card variant="interactive" padding="md" className="text-center">
               <div className="w-12 h-12 mx-auto mb-2 rounded-lg bg-amber-500/10 flex items-center justify-center">
                 <Trophy className="w-6 h-6 text-amber-500" />
               </div>
               <div className="font-semibold text-sm">Shoutouts</div>
               <div className="text-xs text-[var(--muted)] mt-1">Celebrate success</div>
-            </div>
+            </Card>
 
-            <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] text-center hover:shadow-sm transition cursor-pointer">
+            <Card variant="interactive" padding="md" className="text-center">
               <div className="w-12 h-12 mx-auto mb-2 rounded-lg bg-purple-500/10 flex items-center justify-center">
                 <Calendar className="w-6 h-6 text-purple-500" />
               </div>
               <div className="font-semibold text-sm">Events</div>
               <div className="text-xs text-[var(--muted)] mt-1">Upcoming activities</div>
-            </div>
+            </Card>
 
-            <div className="p-4 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] text-center hover:shadow-sm transition cursor-pointer">
+            <Card variant="interactive" padding="md" className="text-center">
               <div className="w-12 h-12 mx-auto mb-2 rounded-lg bg-pink-500/10 flex items-center justify-center">
                 <Cake className="w-6 h-6 text-pink-500" />
               </div>
               <div className="font-semibold text-sm">Birthdays</div>
               <div className="text-xs text-[var(--muted)] mt-1">Celebrate team</div>
-            </div>
+            </Card>
           </div>
 
           <Button 
@@ -374,6 +387,46 @@ export default function AnnouncementsPage() {
           </div>
         </Modal>
 
+        {/* Delete Confirmation Modal */}
+        <Modal
+          isOpen={announcementToDelete !== null}
+          onClose={() => setAnnouncementToDelete(null)}
+          title="Delete Announcement"
+          size="sm"
+        >
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-[var(--foreground)]">
+                  Are you sure you want to delete this announcement?
+                </p>
+                <p className="text-sm text-[var(--muted)] mt-1">
+                  This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end pt-2">
+              <Button
+                variant="secondary"
+                onClick={() => setAnnouncementToDelete(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                icon={<Trash2 className="w-4 h-4" />}
+                onClick={confirmDelete}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
         <div className="mt-6">
           <div className="flex items-center gap-2 border-b border-[var(--border)]">
             <Button 
@@ -425,7 +478,7 @@ export default function AnnouncementsPage() {
                 const showingComments = showComments === announcement.id;
                 
                 return (
-                  <div key={announcement.id} className="p-6 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] hover:shadow-sm transition">
+                  <Card key={announcement.id} variant="outlined" padding="lg" className="hover:shadow-sm transition">
                     <div className="flex items-start gap-4">
                       <div className="w-10 h-10 rounded-lg bg-[var(--card-surface)] flex items-center justify-center flex-shrink-0">
                         <IconComponent className="w-5 h-5 text-[var(--muted)]" />
@@ -590,7 +643,7 @@ export default function AnnouncementsPage() {
                         )}
                       </div>
                     </div>
-                  </div>
+                  </Card>
                 );
               })
             )}

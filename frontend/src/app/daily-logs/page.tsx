@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
+import { useToast } from '@/components/ToastProvider';
 import { Search, Plus, ChevronDown, Clock, CheckCircle2, MessageCircle, ThumbsUp } from 'lucide-react';
 import { DEPARTMENTS } from '@/lib/departments';
 import {
@@ -26,6 +27,7 @@ import {
 type DateFilter = 'today' | 'week' | 'month' | 'all';
 
 export default function DailyLogsPage() {
+  const toast = useToast();
   const [logs, setLogs] = useState<DailyLog[]>(() => loadDailyLogs());
   const [showModal, setShowModal] = useState(false);
   const [editingLog, setEditingLog] = useState<DailyLog | null>(null);
@@ -119,8 +121,10 @@ export default function DailyLogsPage() {
         tasks: formTasks,
         status: formStatus,
       });
+      toast.success('Daily log updated successfully');
     } else {
       addDailyLog('User', 'current-user', formDepartment, formDate, formHours, formTasks, formStatus);
+      toast.success('Daily log added successfully');
     }
 
     setLogs(loadDailyLogs());
@@ -152,6 +156,7 @@ export default function DailyLogsPage() {
     if (confirm('Are you sure you want to delete this log?')) {
       deleteDailyLog(id);
       setLogs(loadDailyLogs());
+      toast.success('Daily log deleted');
     }
   };
 

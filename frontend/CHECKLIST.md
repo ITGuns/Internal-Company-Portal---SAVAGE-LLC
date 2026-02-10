@@ -32,20 +32,41 @@ Quick reference for daily development tasks and progress tracking.
 
 ### Medium Priority
 - [ ] **Task Drag-Drop** - Implement @dnd-kit in task-tracking
-- [ ] **Task State** - Add localStorage for tasks
 - [ ] **Error Boundaries** - Add error handling UI
-- [ ] **Toast System** - Add notification system
 - [ ] **Loading States** - Add skeleton loaders
+- [ ] **Input Component** - Extract reusable input fields
+- [ ] **Select Component** - Extract reusable select dropdown
 
 ### Low Priority
 - [ ] **Mobile Nav** - Add hamburger menu for mobile
 - [ ] **Keyboard Shortcuts** - Define and implement shortcuts
-- [ ] **Animations** - Add subtle entry/exit animations
+- [ ] **Animations** - Add subtle entry/exit animations 
 - [ ] **Unit Tests** - Start writing tests
 
 ---
 
 ## ✅ Completed This Week
+
+### 2026-02-10
+- [x] **Toast Notification System** 🎉
+  - Created Toast.tsx with 4 variants (success, error, info, warning)
+  - Created ToastProvider.tsx with React Context
+  - Integrated globally in layout.tsx
+  - Added 18 toast notifications across all features:
+    * Payroll Calendar: 8 notifications
+    * Announcements: 4 notifications
+    * Task Tracking: 3 notifications
+    * Daily Logs: 3 notifications
+  - Auto-dismiss, manual close, ARIA support, theme-aware
+  - Instant user feedback for all actions!
+- [x] **Card Component Extraction** 🎨
+  - Created Card.tsx with 4 variants and subcomponents
+  - Refactored Dashboard to use Card component
+  - Refactored Task Tracking to use Card component
+  - Refactored Announcements to use Card component
+  - Consistent card styling across entire app
+  - Single source of truth for card-based UI
+  - Faster development with reusable variants
 
 ### 2026-02-09
 - [x] Created FRONTEND_INIT.md (comprehensive status doc)
@@ -140,12 +161,13 @@ Quick reference for daily development tasks and progress tracking.
 Components to Extract:
 - [x] Modal (priority 1) ✅ DONE 2026-02-09
 - [x] Button variants (priority 2) ✅ DONE 2026-02-09
-- [ ] Card (priority 3)
-- [ ] Input fields (priority 4)
-- [ ] Select dropdown (priority 5)
-- [ ] Toast/Notification (priority 6)
+- [x] Toast/Notification (priority 3) ✅ DONE 2026-02-10
+- [x] Card (priority 4) ✅ DONE 2026-02-10
+- [ ] Input fields (priority 5)
+- [ ] Select dropdown (priority 6)
 - [ ] Loading spinner (priority 7)
 - [ ] Empty state (priority 8)
+- [ ] Skeleton loader (priority 9)
 
 ---
 

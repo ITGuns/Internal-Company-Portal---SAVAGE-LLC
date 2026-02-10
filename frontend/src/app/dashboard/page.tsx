@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Header from '@/components/Header'
+import Card from '@/components/Card'
 import { Clock, CheckCircle2, AlertCircle, TrendingUp, ExternalLink, Send, Megaphone, Star, Trophy } from 'lucide-react'
 import { getThisWeekTasks } from '@/lib/tasks'
 import { getTotalMinutesForDate } from '@/lib/time-entries'
@@ -9,7 +10,7 @@ import { getRecentAnnouncements, getTimeAgo } from '@/lib/announcements'
 
 function QuickLink({ title, subtitle, icon: Icon }: { title: string; subtitle?: string; icon: React.ComponentType<{ className?: string }> }) {
   return (
-    <div className="p-3 bg-[var(--card-bg)] rounded-lg border border-[var(--border)] hover:shadow-sm transition cursor-pointer">
+    <Card variant="interactive" padding="sm">
       <div className="flex items-center gap-3">
         <Icon className="w-4 h-4 text-[var(--muted)]" />
         <div className="flex-1">
@@ -18,7 +19,7 @@ function QuickLink({ title, subtitle, icon: Icon }: { title: string; subtitle?: 
         </div>
         <ExternalLink className="w-3 h-3 text-[var(--muted)]" />
       </div>
-    </div>
+    </Card>
   )
 }
 
@@ -43,7 +44,7 @@ export default function DashboardPage() {
 
         {/* Stats Overview */}
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded border border-[var(--border)] bg-[var(--card-bg)]">
+          <Card padding="md">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-full bg-emerald-500/10">
                 <Clock className="w-5 h-5 text-emerald-500" />
@@ -53,9 +54,9 @@ export default function DashboardPage() {
                 <div className="text-lg font-semibold">{formatHours(todayMinutes)}</div>
               </div>
             </div>
-          </div>
+          </Card>
 
-          <div className="p-4 rounded border border-[var(--border)] bg-[var(--card-bg)]">
+          <Card padding="md">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-full bg-blue-500/10">
                 <TrendingUp className="w-5 h-5 text-blue-500" />
@@ -65,9 +66,9 @@ export default function DashboardPage() {
                 <div className="text-lg font-semibold">{weekTasks.total} Tasks</div>
               </div>
             </div>
-          </div>
+          </Card>
 
-          <div className="p-4 rounded border border-[var(--border)] bg-[var(--card-bg)]">
+          <Card padding="md">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-full bg-green-500/10">
                 <CheckCircle2 className="w-5 h-5 text-green-500" />
@@ -77,9 +78,9 @@ export default function DashboardPage() {
                 <div className="text-lg font-semibold">{weekTasks.completed}</div>
               </div>
             </div>
-          </div>
+          </Card>
 
-          <div className="p-4 rounded border border-[var(--border)] bg-[var(--card-bg)]">
+          <Card padding="md">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-full bg-amber-500/10">
                 <AlertCircle className="w-5 h-5 text-amber-500" />
@@ -89,51 +90,51 @@ export default function DashboardPage() {
                 <div className="text-lg font-semibold">{weekTasks.overdue}</div>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
 
         <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="space-y-4">
-            <div className="rounded shadow border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden">
-              <div className="px-6 py-5 flex items-center justify-between bg-[var(--card-bg)] border-b border-[var(--border)]">
+            <Card variant="elevated" className="overflow-hidden">
+              <Card.Header>
                 <h3 className="font-semibold text-sm">Quick Links</h3>
-              </div>
+              </Card.Header>
 
-              <div className="p-4 grid gap-3 bg-[var(--card-surface)]">
+              <Card.Content className="grid gap-3">
                 <QuickLink title="Discord Server" subtitle="Join the conversation" icon={Send} />
                 <QuickLink title="Google Drive" subtitle="Access shared files" icon={ExternalLink} />
                 <QuickLink title="Shared Resources" subtitle="Company documents" icon={ExternalLink} />
-              </div>
-            </div>
+              </Card.Content>
+            </Card>
 
-            <div className="rounded shadow border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden">
-              <div className="px-6 py-5 flex items-center justify-between bg-[var(--card-bg)] border-b border-[var(--border)]">
+            <Card variant="elevated" className="overflow-hidden">
+              <Card.Header>
                 <h3 className="font-semibold text-sm">Company Chat</h3>
                 <span className="text-xs text-[var(--muted)]">0 online</span>
-              </div>
+              </Card.Header>
 
               <div className="p-8 text-center bg-[var(--card-surface)]">
                 <Send className="w-12 h-12 mx-auto text-[var(--muted)] opacity-50 mb-3" />
                 <div className="text-sm text-[var(--muted)]">No messages yet</div>
               </div>
 
-              <div className="px-6 py-4 border-t border-[var(--border)]">
+              <Card.Footer>
                 <div className="flex items-center gap-3">
                   <input aria-label="Type a message" className="flex-1 p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]" placeholder="Type a message..." />
                   <button aria-label="Send message" className="p-2 rounded bg-[var(--card-bg)] border border-[var(--border)] hover:shadow-sm">
                     <Send className="w-4 h-4 text-[var(--foreground)]" />
                   </button>
                 </div>
-              </div>
-            </div>
+              </Card.Footer>
+            </Card>
           </div>
 
           <div className="lg:col-span-2 space-y-4">
-            <div className="rounded shadow border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden">
-              <div className="px-6 py-5 flex items-center justify-between bg-[var(--card-bg)] border-b border-[var(--border)]">
+            <Card variant="elevated" className="overflow-hidden">
+              <Card.Header>
                 <h3 className="font-semibold text-sm">Company Announcements</h3>
                 <a href="/announcements" className="text-sm text-[var(--muted)] hover:underline">View All</a>
-              </div>
+              </Card.Header>
 
               {recentAnnouncements.length === 0 ? (
                 <div className="p-8 text-center bg-[var(--card-surface)]">
@@ -165,14 +166,14 @@ export default function DashboardPage() {
                   ))}
                 </div>
               )}
-            </div>
+            </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-              <div className="rounded shadow border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden self-start">
-                <div className="px-6 py-5 flex items-center justify-between bg-[var(--card-bg)] border-b border-[var(--border)]">
+              <Card variant="elevated" className="overflow-hidden self-start">
+                <Card.Header>
                   <h4 className="font-semibold">Recent Shoutouts</h4>
                   <a href="/announcements" className="text-sm text-[var(--muted)] hover:underline">View All</a>
-                </div>
+                </Card.Header>
 
                 {recentShoutouts.length === 0 ? (
                   <div className="p-8 text-center bg-[var(--card-surface)]">
@@ -180,9 +181,9 @@ export default function DashboardPage() {
                     <div className="text-sm text-[var(--muted)]">No shoutouts yet</div>
                   </div>
                 ) : (
-                  <div className="p-4 space-y-3 bg-[var(--card-surface)]">
+                  <Card.Content className="space-y-3">
                     {recentShoutouts.map(shoutout => (
-                      <div key={shoutout.id} className="p-3 bg-[var(--card-bg)] rounded border border-[var(--border)]">
+                      <Card key={shoutout.id} padding="sm">
                         <div className="flex items-start gap-2 mb-1">
                           <Trophy className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
                           <div className="flex-1">
@@ -191,24 +192,24 @@ export default function DashboardPage() {
                             <div className="text-xs text-[var(--muted)] mt-2">{getTimeAgo(shoutout.timestamp)}</div>
                           </div>
                         </div>
-                      </div>
+                      </Card>
                     ))}
-                  </div>
+                  </Card.Content>
                 )}
-              </div>
+              </Card>
 
-              <div className="rounded shadow border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden">
-                <div className="px-6 py-5 flex items-center justify-between bg-[var(--card-bg)] border-b border-[var(--border)]">
+              <Card variant="elevated" className="overflow-hidden">
+                <Card.Header>
                   <h4 className="font-semibold">Quick Actions</h4>
-                </div>
+                </Card.Header>
 
-                <div className="p-4 grid grid-cols-2 gap-3 items-start bg-[var(--card-surface)]">
+                <Card.Content className="grid grid-cols-2 gap-3 items-start">
                   <button className="py-2 px-3 bg-[var(--background)] rounded text-[var(--foreground)] border border-[var(--border)] hover:shadow-sm transition">New Task</button>
                   <button className="py-2 px-3 bg-[var(--background)] rounded text-[var(--foreground)] border border-[var(--border)] hover:shadow-sm transition">Schedule</button>
                   <button className="py-2 px-3 bg-[var(--background)] rounded text-[var(--foreground)] border border-[var(--border)] hover:shadow-sm transition">Announce</button>
                   <button className="py-2 px-3 bg-[var(--background)] rounded text-[var(--foreground)] border border-[var(--border)] hover:shadow-sm transition">Shoutout</button>
-                </div>
-              </div>
+                </Card.Content>
+              </Card>
             </div>
           </div>
         </div>

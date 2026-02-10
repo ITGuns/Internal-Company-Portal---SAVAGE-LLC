@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Button from "@/components/Button";
+import Card from "@/components/Card";
+import { useToast } from "@/components/ToastProvider";
 import { DEPARTMENT_ROLES } from '@/lib/departments';
 import {
   Filter,
@@ -29,14 +31,10 @@ import {
 
 function BoardCard({ task, onClick }: { task: Task; onClick?: () => void }) {
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") onClick?.();
-      }}
+    <Card
+      padding="sm"
+      className="mb-3 cursor-pointer"
       onClick={onClick}
-      className="p-3 mb-3 bg-[var(--card-bg)] border border-[var(--border)] rounded cursor-pointer"
       data-task-id={task.id}
     >
       <div className="flex items-start justify-between gap-3">
@@ -74,11 +72,12 @@ function BoardCard({ task, onClick }: { task: Task; onClick?: () => void }) {
         </div>
         <div>{task.when}</div>
       </div>
-    </div>
+    </Card>
   );
 }
 
 export default function TaskTrackingPage() {
+  const toast = useToast();
   // Load initial state from localStorage
   const [tasks, setTasks] = useState<TasksByStatus>(() => loadTasks());
   const [showModal, setShowModal] = useState(false);
@@ -144,6 +143,7 @@ export default function TaskTrackingPage() {
       notes: [],
     };
     setTasks((prev) => ({ ...prev, todo: [newTask, ...(prev.todo || [])] }));
+    toast.success('Task created successfully');
     closeModal();
   }
 
@@ -212,6 +212,7 @@ export default function TaskTrackingPage() {
       return next;
     });
 
+    toast.success('Task updated successfully');
     closeEdit();
   }
 
@@ -237,6 +238,7 @@ export default function TaskTrackingPage() {
       next.done.unshift(updated);
       return next;
     });
+    toast.success('Task marked as complete');
   }
 
   const allTasks = [
@@ -353,7 +355,7 @@ export default function TaskTrackingPage() {
                 <div className="overflow-x-auto pb-6">
                   <div className="flex gap-4 min-w-[1100px]">
                     <div className="w-100">
-                      <div className="rounded border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden">
+                      <Card className="overflow-hidden">
                         <div className="px-4 py-3 flex items-center justify-between border-b border-[var(--border)] bg-[var(--card-bg)]">
                           <div className="text-sm font-semibold">
                             To Do{" "}
@@ -372,11 +374,11 @@ export default function TaskTrackingPage() {
                             />
                           ))}
                         </div>
-                      </div>
+                      </Card>
                     </div>
 
                     <div className="w-100">
-                      <div className="rounded border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden">
+                      <Card className="overflow-hidden">
                         <div className="px-4 py-3 flex items-center justify-between border-b border-[var(--border)] bg-[var(--card-bg)]">
                           <div className="text-sm font-semibold">
                             In Progress{" "}
@@ -395,11 +397,11 @@ export default function TaskTrackingPage() {
                             />
                           ))}
                         </div>
-                      </div>
+                      </Card>
                     </div>
 
                     <div className="w-100">
-                      <div className="rounded border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden">
+                      <Card className="overflow-hidden">
                         <div className="px-4 py-3 flex items-center justify-between border-b border-[var(--border)] bg-[var(--card-bg)]">
                           <div className="text-sm font-semibold">
                             Review{" "}
@@ -418,11 +420,11 @@ export default function TaskTrackingPage() {
                             />
                           ))}
                         </div>
-                      </div>
+                      </Card>
                     </div>
 
                     <div className="w-100">
-                      <div className="rounded border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden">
+                      <Card className="overflow-hidden">
                         <div className="px-4 py-3 flex items-center justify-between border-b border-[var(--border)] bg-[var(--card-bg)]">
                           <div className="text-sm font-semibold">
                             Completed{" "}
@@ -441,7 +443,7 @@ export default function TaskTrackingPage() {
                             />
                           ))}
                         </div>
-                      </div>
+                      </Card>
                     </div>
                   </div>
                 </div>

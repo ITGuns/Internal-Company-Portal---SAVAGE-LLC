@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Sidebar from "../components/Sidebar";
 import { SocketProvider } from "../context/SocketContext";
+import { ToastProvider } from "../components/ToastProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,8 +38,10 @@ export default function RootLayout({
         />
 
         <SocketProvider>
-          <Sidebar />
-          <div className="min-h-screen pl-64 pt-[112px] bg-[var(--background)] text-[var(--foreground)]">{children}</div>
+          <ToastProvider>
+            <Sidebar />
+            <div className="min-h-screen pl-64 pt-[112px] bg-[var(--background)] text-[var(--foreground)]">{children}</div>
+          </ToastProvider>
         </SocketProvider>
       </body>
     </html>

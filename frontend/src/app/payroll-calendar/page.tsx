@@ -4,6 +4,7 @@ import React, { useMemo, useState, useRef, useEffect } from "react";
 import Header from "@/components/Header";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
+import { useToast } from "@/components/ToastProvider";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -43,6 +44,7 @@ function getLocalDateString(isoOrDate: string | Date): string {
 }
 
 export default function PayrollCalendarPage() {
+  const toast = useToast();
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [viewMode, setViewMode] = useState<"monthly" | "annual">("monthly");
   const calendarRef = useRef<any>(null);
@@ -279,6 +281,7 @@ export default function PayrollCalendarPage() {
           ? { ...ev, title: eventTitle.trim(), date: eventDate, type: eventType, description: eventDescription.trim() || undefined }
           : ev
       ));
+      toast.success('Event updated successfully');
     } else {
       // Create new
       const id = String(Date.now());
@@ -286,6 +289,7 @@ export default function PayrollCalendarPage() {
         ...prev,
         { id, title: eventTitle.trim(), date: eventDate, type: eventType, description: eventDescription.trim() || undefined },
       ]);
+      toast.success('Event added to calendar');
     }
     resetEventForm();
   }
@@ -319,6 +323,7 @@ export default function PayrollCalendarPage() {
 
   function handleDeleteBuiltInEvent(builtInId: string) {
     setHiddenBuiltInIds(prev => [...prev, builtInId]);
+    toast.success('Event removed from calendar');
   }
 
   function handleEditEvent(e: any) {
@@ -339,6 +344,7 @@ export default function PayrollCalendarPage() {
 
   function handleDeleteCustomEvent(customId: string) {
     setCustomEvents(prev => prev.filter(e => e.id !== customId));
+    toast.success('Event deleted');
   }
 
   return (
@@ -557,8 +563,10 @@ export default function PayrollCalendarPage() {
                             setShowAddModal(false);
                             setManualNotes("");
                             setValidationErrors({});
+                            toast.success('Time entry added successfully');
                           } catch {
                             setValidationErrors({ submit: "Invalid date or time format" });
+                            toast.error('Failed to add time entry');
                           }
                         }}
                         disabled={!manualDate || !manualIn}
@@ -792,6 +800,7 @@ export default function PayrollCalendarPage() {
                               ...s,
                             ]);
                             setClockedIn(true);
+                            toast.success('Clocked in successfully');
                           }}
                           className="px-4 py-2 rounded bg-emerald-600 text-white flex items-center gap-2"
                         >
@@ -821,6 +830,7 @@ export default function PayrollCalendarPage() {
                               return copy;
                             });
                             setClockedIn(false);
+                            toast.success('Clocked out successfully');
                           }}
                           className="px-4 py-2 rounded bg-red-600 text-white flex items-center gap-2"
                         >
@@ -909,11 +919,12 @@ export default function PayrollCalendarPage() {
                                   </div>
                                   <button
                                     aria-label="Delete entry"
-                                    onClick={() =>
+                                    onClick={() => {
                                       setTimeEntries((s) =>
                                         s.filter((x) => x.id !== e.id),
-                                      )
-                                    }
+                                      );
+                                      toast.success('Time entry deleted');
+                                    }}
                                     className="p-1 rounded border bg-[var(--card-bg)] text-[var(--muted)] hover:bg-red-600 hover:text-white transition-colors"
                                   >
                                     <Trash2 className="w-4 h-4" />
