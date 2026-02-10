@@ -169,6 +169,19 @@ async function main() {
 
     console.log(`✅ Created ${tasks.length} tasks`)
 
+    // Create a General channel
+    const generalChannel = await prisma.conversation.create({
+        data: {
+            type: 'group',
+            name: 'General',
+            participants: {
+                create: [john, jane, mike].map(u => ({ userId: u.id }))
+            }
+        }
+    })
+
+    console.log('✅ Created General channel')
+
     console.log('🎉 Database seeded successfully!')
 }
 

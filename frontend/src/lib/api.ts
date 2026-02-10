@@ -1,6 +1,7 @@
 const API_URL = 'http://localhost:4000/api'
 const AUTH_URL = 'http://localhost:4000/auth'
 
+
 export const getAuthToken = () => {
     if (typeof window !== 'undefined') {
         return localStorage.getItem('accessToken')
@@ -14,15 +15,31 @@ export const setAuthToken = (token: string) => {
     }
 }
 
+export const getCurrentUser = () => {
+    if (typeof window !== 'undefined') {
+        const user = localStorage.getItem('currentUser');
+        return user ? JSON.parse(user) : null;
+    }
+    return null;
+}
+
+export const setCurrentUser = (user: any) => {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('currentUser', JSON.stringify(user));
+    }
+}
+
 export const devLogin = async () => {
     try {
         const res = await fetch(`${AUTH_URL}/dev-login`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'john.doe@savage.com' }) // Hardcoded for dev convenience
         })
         const data = await res.json()
         if (data.success && data.tokens) {
             setAuthToken(data.tokens.accessToken)
+            setCurrentUser(data.user);
             return data.tokens.accessToken
         }
     } catch (err) {
@@ -47,6 +64,7 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
 
     const response = await fetch(`${API_URL}${endpoint}`, {
         ...options,
+        cache: 'no-store',
         headers,
     })
 
@@ -64,6 +82,11 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
                 }
             })
         }
+    }
+
+    if (!response.ok && response.status !== 401) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Request failed with status ${response.status}`);
     }
 
     return response

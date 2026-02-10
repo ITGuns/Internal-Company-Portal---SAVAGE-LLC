@@ -1,8 +1,8 @@
 /**
- * Time entry storage management
+ * Time entry management via Backend API
  */
 
-import { getItem, setItem, removeItem } from './storage';
+import { apiFetch } from './api';
 
 export type TimeEntry = {
   id: string;
@@ -12,110 +12,151 @@ export type TimeEntry = {
   notes?: string;
 };
 
-const TIME_ENTRIES_KEY = 'payroll_time_entries';
-const CLOCKED_IN_KEY = 'payroll_clocked_in';
+// Mapper
+const mapApiEntry = (data: any): TimeEntry => ({
+  id: data.id,
+  start: data.startTime, // Backend uses startTime field name in Prisma? Let's check Service.
+  // Actually, let's assume standard names or map them.
+  // Controller calls `service.addManualEntry(userId, start, end, notes)`.
+  // Prisma model usually has `startTime`, `endTime`.
+  // Let's verify backend model or response.
+  // Phase 1 verification showed responses.
+  // In `API_TESTING_GUIDE.md`, TimeEntry response:
+  // { "id": "...", "startTime": "...", "endTime": "...", "notes": "..." }
+  // So backend uses startTime/endTime.
+  end: data.endTime,
+  durationMin: data.durationMinutes, // calculate or from backend?
+  // The backend might not return durationMinutes if it's dynamic.
+  // Frontend calculates it usually.
+  // Let's stick to start/end and calculate duration in frontend if needed.
+  notes: data.notes
+});
 
-/**
- * Load time entries from localStorage
- */
-export function loadTimeEntries(): TimeEntry[] {
-  return getItem<TimeEntry[]>(TIME_ENTRIES_KEY, []);
+// Helper to correctly map backend fields
+const mapBackendToFrontend = (data: any): TimeEntry => {
+  return {
+    id: data.id,
+    start: data.startTime,
+    end: data.endTime || undefined,
+    notes: data.notes,
+    durationMin: data.endTime ? Math.round((new Date(data.endTime).getTime() - new Date(data.startTime).getTime()) / 60000) : undefined
+  };
 }
 
 /**
- * Save time entries to localStorage
+ * Fetch time entries from API
  */
-export function saveTimeEntries(entries: TimeEntry[]): boolean {
-  return setItem(TIME_ENTRIES_KEY, entries);
-}
+export async function fetchTimeEntries(startDate?: string, endDate?: string): Promise<TimeEntry[]> {
+  try {
+    const query = new URLSearchParams();
+    if (startDate) query.append('start', startDate);
+    if (endDate) query.append('end', endDate);
 
-/**
- * Add a new time entry
- */
-export function addTimeEntry(entry: TimeEntry): TimeEntry[] {
-  const entries = loadTimeEntries();
-  const updated = [entry, ...entries];
-  saveTimeEntries(updated);
-  return updated;
-}
-
-/**
- * Update an existing time entry
- */
-export function updateTimeEntry(id: string, updates: Partial<TimeEntry>): TimeEntry[] {
-  const entries = loadTimeEntries();
-  const index = entries.findIndex((e) => e.id === id);
-  
-  if (index !== -1) {
-    entries[index] = { ...entries[index], ...updates };
-    saveTimeEntries(entries);
-  }
-  
-  return entries;
-}
-
-/**
- * Delete a time entry
- */
-export function deleteTimeEntry(id: string): TimeEntry[] {
-  const entries = loadTimeEntries();
-  const filtered = entries.filter((e) => e.id !== id);
-  saveTimeEntries(filtered);
-  return filtered;
-}
-
-/**
- * Clear all time entries
- */
-export function clearTimeEntries(): boolean {
-  return removeItem(TIME_ENTRIES_KEY);
-}
-
-/**
- * Get clocked-in state
- */
-export function getClockedInState(): boolean {
-  return getItem<boolean>(CLOCKED_IN_KEY, false);
-}
-
-/**
- * Set clocked-in state
- */
-export function setClockedInState(clockedIn: boolean): boolean {
-  return setItem(CLOCKED_IN_KEY, clockedIn);
-}
-
-/**
- * Find the active (not clocked out) time entry
- */
-export function getActiveTimeEntry(): TimeEntry | null {
-  const entries = loadTimeEntries();
-  return entries.find((e) => !e.end) || null;
-}
-
-/**
- * Get time entries for a specific date
- */
-export function getTimeEntriesForDate(date: string): TimeEntry[] {
-  const entries = loadTimeEntries();
-  return entries.filter((e) => e.start.slice(0, 10) === date);
-}
-
-/**
- * Calculate total minutes for a specific date
- */
-export function getTotalMinutesForDate(date: string): number {
-  const entries = getTimeEntriesForDate(date);
-  
-  return entries.reduce((acc, e) => {
-    if (e.durationMin != null) {
-      return acc + e.durationMin;
+    const res = await apiFetch(`/payroll/time-entries?${query.toString()}`);
+    if (res.status === 200) {
+      const data = await res.json();
+      return data.map(mapBackendToFrontend);
     }
-    
-    const end = e.end ? new Date(e.end) : new Date();
+  } catch (error) {
+    console.error('Failed to fetch time entries:', error);
+  }
+  return [];
+}
+
+/**
+ * Clock In
+ */
+export async function clockIn(): Promise<TimeEntry | null> {
+  try {
+    const res = await apiFetch('/payroll/clock-in', { method: 'POST' });
+    if (res.status === 200 || res.status === 201) {
+      const data = await res.json();
+      return mapBackendToFrontend(data);
+    }
+  } catch (error) {
+    console.error('Clock in failed:', error);
+  }
+  return null;
+}
+
+/**
+ * Clock Out
+ */
+export async function clockOut(): Promise<TimeEntry | null> {
+  try {
+    const res = await apiFetch('/payroll/clock-out', { method: 'POST' });
+    if (res.status === 200) {
+      const data = await res.json();
+      return mapBackendToFrontend(data);
+    }
+  } catch (error) {
+    console.error('Clock out failed:', error);
+  }
+  return null;
+}
+
+/**
+ * Add manual entry
+ */
+export async function createTimeEntry(start: string, end?: string, notes?: string): Promise<TimeEntry | null> {
+  try {
+    const payload = { start, end, notes };
+    const res = await apiFetch('/payroll/entry', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    if (res.status === 200 || res.status === 201) {
+      const data = await res.json();
+      return mapBackendToFrontend(data);
+    }
+  } catch (error) {
+    console.error('Create entry failed:', error);
+  }
+  return null;
+}
+
+/**
+ * Delete time entry
+ */
+export async function deleteTimeEntry(id: string): Promise<boolean> {
+  try {
+    const res = await apiFetch(`/payroll/entry/${id}`, { method: 'DELETE' });
+    return res.status === 200;
+  } catch (error) {
+    console.error('Delete entry failed:', error);
+    return false;
+  }
+}
+
+/**
+ * Get active entry (frontend helper on fetched data)
+ */
+export function getActiveEntry(entries: TimeEntry[]): TimeEntry | undefined {
+  // Sort by start desc
+  const sorted = [...entries].sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime());
+  // The most recent one if it has no end time
+  if (sorted.length > 0 && !sorted[0].end) {
+    return sorted[0];
+  }
+  return undefined;
+}
+
+/**
+ * Calculate total minutes for a specific date (frontend helper)
+ */
+export function getTotalMinutesForDate(entries: TimeEntry[], date: string): number {
+  const dayEntries = entries.filter((e) => e.start.startsWith(date));
+
+  return dayEntries.reduce((acc, e) => {
+    const end = e.end ? new Date(e.end) : new Date(); // If running, calculate til now
     const start = new Date(e.start);
     const minutes = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
-    
     return acc + minutes;
   }, 0);
 }
+
+// Deprecated (removed implementations)
+export const loadTimeEntries = fetchTimeEntries;
+export const addTimeEntry = createTimeEntry;
+export const getActiveTimeEntry = () => null; // Cannot be sync anymore
+

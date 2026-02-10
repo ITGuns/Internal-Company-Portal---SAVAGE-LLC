@@ -77,17 +77,28 @@ export interface DepartmentUpdateEmailData {
     departmentUrl: string;
 }
 
+export interface PayslipGeneratedEmailData {
+    userName: string;
+    periodDateRange: string;
+    netPay: string;
+    grossPay: string;
+    payDate: string;
+    viewUrl: string;
+}
+
 export type EmailTemplateType =
     | 'welcome'
     | 'task_assigned'
     | 'task_status_changed'
     | 'daily_digest'
     | 'department_update'
-    | 'password_reset';
+    | 'password_reset'
+    | 'payslip_generated';
 
 export type EmailTemplateData =
     | WelcomeEmailData
     | TaskAssignedEmailData
     | TaskStatusChangedEmailData
     | DailyDigestEmailData
-    | DepartmentUpdateEmailData;
+    | DepartmentUpdateEmailData
+    | PayslipGeneratedEmailData;

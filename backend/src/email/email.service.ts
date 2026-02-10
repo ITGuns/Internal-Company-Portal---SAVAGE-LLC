@@ -312,6 +312,28 @@ export class EmailService {
     }
 
     /**
+     * Send payslip generated email
+     */
+    async sendPayslipNotification(
+        to: string,
+        data: {
+            userName: string;
+            periodDateRange: string;
+            netPay: string;
+            grossPay: string;
+            payDate: string;
+            viewUrl: string;
+        }
+    ): Promise<EmailResult> {
+        return await this.sendTemplateEmail(
+            to,
+            `Payslip Ready: ${data.periodDateRange}`,
+            'payslip_generated',
+            data
+        );
+    }
+
+    /**
      * Verify email service connection
      */
     async verifyConnection(): Promise<boolean> {

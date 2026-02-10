@@ -12,7 +12,10 @@ import { AuthController } from './auth/auth.controller'
 import { AnnouncementsController } from './announcements/announcements.controller'
 import { DailyLogsController } from './daily-logs/daily-logs.controller'
 import { PayrollController } from './payroll/payroll.controller'
+import { ChatController } from './chat/chat.controller'
+import { UploadsController } from './uploads/uploads.controller'
 import { config, validateConfig } from './config/env.config'
+import path from 'path'
 import { PrismaService } from './database/prisma.service'
 import { initializePassport } from './auth/passport.config'
 import { notificationService } from './notifications/socket.service' // Service for real-time updates
@@ -33,12 +36,26 @@ async function bootstrap() {
   // Initialize Notification Service (Socket.io)
   notificationService.initialize(httpServer)
 
-  app.use(bodyParser.json())
+  app.use(bodyParser.json({ limit: '50mb' }))
   app.use(passport.initialize())
+
+  // Serve static uploads (from backend/uploads)
+  app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
+
+  // Debug Logging Middleware
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+  });
 
   // Enable CORS
   app.use((req: Request, res: Response, next: NextFunction) => {
-    res.header('Access-Control-Allow-Origin', config.corsOrigin)
+    const origin = req.headers.origin;
+    if (origin) {
+      res.header('Access-Control-Allow-Origin', origin)
+    } else {
+      res.header('Access-Control-Allow-Origin', config.corsOrigin)
+    }
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
     res.header('Access-Control-Allow-Credentials', 'true') // Added for Socket.io
@@ -83,6 +100,12 @@ async function bootstrap() {
 
   const payrollController = new PayrollController()
   app.use('/api/payroll', payrollController.router())
+
+  const chatController = new ChatController()
+  app.use('/api/chat', chatController.router())
+
+  const uploadsController = new UploadsController()
+  app.use('/api/uploads', uploadsController.router())
 
 
   // Listen on HTTP Server instead of App

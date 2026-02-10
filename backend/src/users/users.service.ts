@@ -157,4 +157,41 @@ export class UsersService {
             },
         })
     }
+
+    /**
+     * Assign role to user
+     */
+    async assignRole(userId: string, role: string, departmentId?: string) {
+        // Check if role exists for user
+        const existing = await this.prisma.userRole.findFirst({
+            where: {
+                userId,
+                role,
+                departmentId: departmentId || null
+            }
+        })
+
+        if (existing) return existing
+
+        return this.prisma.userRole.create({
+            data: {
+                userId,
+                role,
+                departmentId
+            }
+        })
+    }
+
+    /**
+     * Remove role from user
+     */
+    async removeRole(userId: string, role: string, departmentId?: string) {
+        return this.prisma.userRole.deleteMany({
+            where: {
+                userId,
+                role,
+                departmentId: departmentId || null
+            }
+        })
+    }
 }

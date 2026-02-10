@@ -5,6 +5,18 @@ export interface CreateDailyLogDto {
     content: string
     date?: string
     authorId: string
+    department: string
+    status?: string
+    hoursLogged?: number
+    tasks?: any[] // Array of {id, text, completed}
+}
+
+export interface UpdateDailyLogDto {
+    content?: string
+    department?: string
+    status?: string
+    hoursLogged?: number
+    tasks?: any[]
 }
 
 export class DailyLogsService {
@@ -14,11 +26,29 @@ export class DailyLogsService {
         this.prisma = prisma
     }
 
-    async findAll() {
+    async findAll(department?: string, status?: string) {
+        const where: any = {}
+
+        if (department) {
+            where.department = department
+        }
+
+        if (status) {
+            where.status = status
+        }
+
         return this.prisma.dailyLog.findMany({
+            where,
             include: {
                 author: {
                     select: { id: true, name: true, avatar: true, email: true }
+                },
+                likes: {
+                    include: {
+                        user: {
+                            select: { id: true, name: true, avatar: true }
+                        }
+                    }
                 }
             },
             orderBy: { date: 'desc' }
@@ -31,6 +61,13 @@ export class DailyLogsService {
             include: {
                 author: {
                     select: { id: true, name: true, avatar: true }
+                },
+                likes: {
+                    include: {
+                        user: {
+                            select: { id: true, name: true, avatar: true }
+                        }
+                    }
                 }
             },
             orderBy: { date: 'desc' }
@@ -42,12 +79,17 @@ export class DailyLogsService {
             data: {
                 content: data.content,
                 date: data.date ? new Date(data.date) : new Date(),
-                authorId: data.authorId
+                authorId: data.authorId,
+                department: data.department,
+                status: data.status || 'in-progress',
+                hoursLogged: data.hoursLogged || 0,
+                tasks: data.tasks || []
             },
             include: {
                 author: {
                     select: { id: true, name: true, avatar: true }
-                }
+                },
+                likes: true
             }
         })
     }
@@ -58,15 +100,52 @@ export class DailyLogsService {
         })
     }
 
-    async update(id: string, content: string) {
+    async update(id: string, data: UpdateDailyLogDto) {
         return this.prisma.dailyLog.update({
             where: { id },
-            data: { content },
+            data: {
+                ...(data.content && { content: data.content }),
+                ...(data.department && { department: data.department }),
+                ...(data.status && { status: data.status }),
+                ...(data.hoursLogged !== undefined && { hoursLogged: data.hoursLogged }),
+                ...(data.tasks && { tasks: data.tasks })
+            },
             include: {
                 author: {
                     select: { id: true, name: true, avatar: true }
-                }
+                },
+                likes: true
             }
         })
     }
+
+    // Like functionality
+    async toggleLike(dailyLogId: string, userId: string) {
+        const existing = await this.prisma.dailyLogLike.findUnique({
+            where: {
+                dailyLogId_userId: {
+                    dailyLogId,
+                    userId
+                }
+            }
+        })
+
+        if (existing) {
+            // Unlike
+            await this.prisma.dailyLogLike.delete({
+                where: { id: existing.id }
+            })
+            return { liked: false }
+        } else {
+            // Like
+            await this.prisma.dailyLogLike.create({
+                data: {
+                    dailyLogId,
+                    userId
+                }
+            })
+            return { liked: true }
+        }
+    }
 }
+

@@ -8,7 +8,7 @@ import Card from '@/components/Card'
 import { useToast } from '@/components/ToastProvider'
 import { Megaphone, Plus, Calendar, Trophy, Cake, Heart, MessageCircle, Send, MoreVertical, Edit, Trash2, AlertCircle } from 'lucide-react'
 import {
-  loadAnnouncements,
+  fetchAnnouncements,
   addAnnouncement,
   updateAnnouncement,
   deleteAnnouncement,
@@ -19,19 +19,22 @@ import {
   type Announcement,
   type AnnouncementCategory as Category,
 } from '@/lib/announcements'
+import { getCurrentUser } from '@/lib/api'
 
 type FilterCategory = 'all' | Category;
 
 export default function AnnouncementsPage() {
   const toast = useToast();
   const [activeFilter, setActiveFilter] = useState<FilterCategory>('all');
-  const [announcements, setAnnouncements] = useState<Announcement[]>(() => loadAnnouncements());
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showComments, setShowComments] = useState<string | null>(null);
   const [commentText, setCommentText] = useState('');
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [announcementToDelete, setAnnouncementToDelete] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Form state for new announcement
   const [newCategory, setNewCategory] = useState<Category>('company-news');
@@ -44,11 +47,23 @@ export default function AnnouncementsPage() {
   const [birthdayDate, setBirthdayDate] = useState('');
   const [isImportant, setIsImportant] = useState(false);
 
-  const filteredAnnouncements = activeFilter === 'all' 
-    ? announcements 
+  useEffect(() => {
+    setCurrentUser(getCurrentUser());
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    const data = await fetchAnnouncements();
+    setAnnouncements(data);
+    setLoading(false);
+  };
+
+  const filteredAnnouncements = activeFilter === 'all'
+    ? announcements
     : announcements.filter(a => a.category === activeFilter);
 
-  const handleAddAnnouncement = () => {
+  const handleAddAnnouncement = async () => {
     if (!newTitle.trim() || !newBody.trim()) return;
 
     const eventDetails = isEvent && eventDate && eventLocation ? {
@@ -57,36 +72,48 @@ export default function AnnouncementsPage() {
       going: [],
     } : undefined;
 
-    if (editingAnnouncement) {
-      // Update existing announcement
-      updateAnnouncement(editingAnnouncement.id, {
-        category: newCategory,
-        title: newTitle.trim(),
-        body: newBody.trim(),
-        eventDetails,
-        birthdayDate: isBirthday ? birthdayDate : undefined,
-        isImportant,
-      });
-      toast.success('Announcement updated successfully');
-    } else {
-      // Add new announcement
-      addAnnouncement(newCategory, newTitle.trim(), newBody.trim(), 'User', eventDetails, isImportant, isBirthday ? birthdayDate : undefined);
-      toast.success('Announcement posted successfully');
+    try {
+      if (editingAnnouncement) {
+        // Update existing announcement
+        await updateAnnouncement(editingAnnouncement.id, {
+          category: newCategory,
+          title: newTitle.trim(),
+          body: newBody.trim(),
+          eventDetails,
+          birthdayDate: isBirthday ? birthdayDate : undefined,
+          isImportant,
+        });
+        toast.success('Announcement updated successfully');
+      } else {
+        // Add new announcement
+        await addAnnouncement(
+          newCategory,
+          newTitle.trim(),
+          newBody.trim(),
+          'User',
+          eventDetails,
+          isImportant,
+          isBirthday ? birthdayDate : undefined
+        );
+        toast.success('Announcement posted successfully');
+      }
+
+      await loadData();
+
+      // Reset form
+      setNewTitle('');
+      setNewBody('');
+      setEventDate('');
+      setEventLocation('');
+      setBirthdayDate('');
+      setIsEvent(false);
+      setIsBirthday(false);
+      setIsImportant(false);
+      setEditingAnnouncement(null);
+      setShowModal(false);
+    } catch (error) {
+      toast.error('Failed to save announcement');
     }
-    
-    setAnnouncements(loadAnnouncements());
-    
-    // Reset form
-    setNewTitle('');
-    setNewBody('');
-    setEventDate('');
-    setEventLocation('');
-    setBirthdayDate('');
-    setIsEvent(false);
-    setIsBirthday(false);
-    setIsImportant(false);
-    setEditingAnnouncement(null);
-    setShowModal(false);
   };
 
   const handleEditAnnouncement = (announcement: Announcement) => {
@@ -102,7 +129,8 @@ export default function AnnouncementsPage() {
       setEventLocation(announcement.eventDetails.location);
     }
     if (announcement.birthdayDate) {
-      setBirthdayDate(announcement.birthdayDate);
+      // Backend returns ISO string, input[type=date] needs YYYY-MM-DD
+      setBirthdayDate(announcement.birthdayDate.split('T')[0]);
     }
     setOpenMenu(null);
     setShowModal(true);
@@ -113,31 +141,32 @@ export default function AnnouncementsPage() {
     setOpenMenu(null);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (announcementToDelete) {
-      deleteAnnouncement(announcementToDelete);
-      setAnnouncements(loadAnnouncements());
+      await deleteAnnouncement(announcementToDelete);
+      await loadData();
       setAnnouncementToDelete(null);
       toast.success('Announcement deleted');
     }
   };
 
-  const handleToggleLike = (id: string) => {
-    toggleLike(id);
-    setAnnouncements(loadAnnouncements());
+  const handleToggleLike = async (id: string) => {
+    // Optimistic update could be added here
+    await toggleLike(id);
+    await loadData();
   };
 
-  const handleAddComment = (announcementId: string) => {
+  const handleAddComment = async (announcementId: string) => {
     if (!commentText.trim()) return;
-    addComment(announcementId, commentText.trim(), 'User');
+    await addComment(announcementId, commentText.trim(), 'User');
     setCommentText('');
-    setAnnouncements(loadAnnouncements());
+    await loadData();
     toast.success('Comment added');
   };
 
-  const handleToggleGoing = (id: string) => {
-    toggleGoing(id);
-    setAnnouncements(loadAnnouncements());
+  const handleToggleGoing = async (id: string) => {
+    await toggleGoing(id);
+    await loadData();
   };
 
   const getCategoryIcon = (category: string) => {
@@ -151,11 +180,11 @@ export default function AnnouncementsPage() {
   };
 
   const isLiked = (announcement: Announcement) => {
-    return announcement.likes.includes('current-user');
+    return currentUser && announcement.likes.includes(currentUser.id);
   };
 
   const isGoing = (announcement: Announcement) => {
-    return announcement.eventDetails?.going.includes('current-user') || false;
+    return currentUser && announcement.eventDetails?.going.includes(currentUser.id) || false;
   };
 
   const formatEventDateTime = (dateTimeString: string): string => {
@@ -199,7 +228,7 @@ export default function AnnouncementsPage() {
   return (
     <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-6 pt-3">
-        <Header 
+        <Header
           title="Announcements & Shoutouts"
           subtitle="Stay updated with company news and celebrate achievements"
         />
@@ -239,7 +268,7 @@ export default function AnnouncementsPage() {
             </Card>
           </div>
 
-          <Button 
+          <Button
             onClick={() => setShowModal(true)}
             variant="primary"
             icon={<Plus className="w-4 h-4" />}
@@ -429,7 +458,7 @@ export default function AnnouncementsPage() {
 
         <div className="mt-6">
           <div className="flex items-center gap-2 border-b border-[var(--border)]">
-            <Button 
+            <Button
               onClick={() => setActiveFilter('all')}
               variant="ghost"
               size="sm"
@@ -437,7 +466,7 @@ export default function AnnouncementsPage() {
             >
               All Posts
             </Button>
-            <Button 
+            <Button
               onClick={() => setActiveFilter('company-news')}
               variant="ghost"
               size="sm"
@@ -445,7 +474,7 @@ export default function AnnouncementsPage() {
             >
               Company News
             </Button>
-            <Button 
+            <Button
               onClick={() => setActiveFilter('shoutouts')}
               variant="ghost"
               size="sm"
@@ -453,7 +482,7 @@ export default function AnnouncementsPage() {
             >
               Shoutouts
             </Button>
-            <Button 
+            <Button
               onClick={() => setActiveFilter('events')}
               variant="ghost"
               size="sm"
@@ -476,7 +505,7 @@ export default function AnnouncementsPage() {
                 const liked = isLiked(announcement);
                 const going = isGoing(announcement);
                 const showingComments = showComments === announcement.id;
-                
+
                 return (
                   <Card key={announcement.id} variant="outlined" padding="lg" className="hover:shadow-sm transition">
                     <div className="flex items-start gap-4">
@@ -491,7 +520,7 @@ export default function AnnouncementsPage() {
                             <span>·</span>
                             <span>{getTimeAgo(announcement.timestamp)}</span>
                           </div>
-                          
+
                           <div className="flex items-center gap-2">
                             {announcement.isImportant && (
                               <span className="px-2 py-0.5 text-xs font-medium rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center gap-1">
@@ -499,7 +528,7 @@ export default function AnnouncementsPage() {
                                 IMPORTANT
                               </span>
                             )}
-                            
+
                             <div className="relative">
                               <button
                                 onClick={() => setOpenMenu(openMenu === announcement.id ? null : announcement.id)}
@@ -508,26 +537,26 @@ export default function AnnouncementsPage() {
                               >
                                 <MoreVertical className="w-4 h-4 text-[var(--muted)]" />
                               </button>
-                            
-                            {openMenu === announcement.id && (
-                              <div className="menu-container absolute right-0 top-8 z-10 w-48 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-lg py-1">
-                                <button
-                                  onClick={() => handleEditAnnouncement(announcement)}
-                                  className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--card-surface)] transition flex items-center gap-2"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteAnnouncement(announcement.id)}
-                                  className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--card-surface)] transition flex items-center gap-2 text-red-500"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                  Delete
-                                </button>
-                              </div>
-                            )}
-                          </div>
+
+                              {openMenu === announcement.id && (
+                                <div className="menu-container absolute right-0 top-8 z-10 w-48 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-lg py-1">
+                                  <button
+                                    onClick={() => handleEditAnnouncement(announcement)}
+                                    className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--card-surface)] transition flex items-center gap-2"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteAnnouncement(announcement.id)}
+                                    className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--card-surface)] transition flex items-center gap-2 text-red-500"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -551,11 +580,10 @@ export default function AnnouncementsPage() {
                             <div className="flex items-center gap-3 ml-6">
                               <button
                                 onClick={() => handleToggleGoing(announcement.id)}
-                                className={`text-sm px-3 py-1 rounded transition ${
-                                  going 
-                                    ? 'bg-green-500/20 text-green-600 dark:text-green-400' 
-                                    : 'bg-[var(--card-bg)] border border-[var(--border)] hover:bg-[var(--card-surface)]'
-                                }`}
+                                className={`text-sm px-3 py-1 rounded transition ${going
+                                  ? 'bg-green-500/20 text-green-600 dark:text-green-400'
+                                  : 'bg-[var(--card-bg)] border border-[var(--border)] hover:bg-[var(--card-surface)]'
+                                  }`}
                               >
                                 {going ? '✅ Going' : 'Mark as Going'}
                               </button>
@@ -576,16 +604,15 @@ export default function AnnouncementsPage() {
                         )}
 
                         <div className="flex items-center gap-4 text-sm text-[var(--muted)] mb-3">
-                          <button 
+                          <button
                             onClick={() => handleToggleLike(announcement.id)}
-                            className={`flex items-center gap-1 transition ${
-                              liked ? 'text-red-500' : 'hover:text-[var(--foreground)]'
-                            }`}
+                            className={`flex items-center gap-1 transition ${liked ? 'text-red-500' : 'hover:text-[var(--foreground)]'
+                              }`}
                           >
                             <Heart className={`w-4 h-4 ${liked ? 'fill-current' : ''}`} />
                             <span>{announcement.likes.length} {announcement.likes.length === 1 ? 'like' : 'likes'}</span>
                           </button>
-                          <button 
+                          <button
                             onClick={() => setShowComments(showingComments ? null : announcement.id)}
                             className="flex items-center gap-1 hover:text-[var(--foreground)] transition"
                           >
@@ -617,7 +644,7 @@ export default function AnnouncementsPage() {
                                 ))
                               )}
                             </div>
-                            
+
                             <div className="flex gap-2">
                               <input
                                 type="text"

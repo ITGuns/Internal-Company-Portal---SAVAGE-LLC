@@ -1,158 +1,197 @@
 /**
- * Task storage management
+ * Task API Client
  */
 
-import { getItem, setItem, removeItem } from './storage';
+import { apiFetch } from './api';
+import { Department } from './departments';
 
-export type TaskStatus = 'todo' | 'inprogress' | 'review' | 'done';
+export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'completed';
 export type TaskPriority = 'Low' | 'Med' | 'High';
 
-export type Task = {
+export interface TaskNote {
+  text: string;
+  date: string;
+}
+
+export interface TaskUser {
+  id: string;
+  name: string | null;
+  email: string;
+  avatar: string | null;
+}
+
+export interface TaskDepartment {
+  id: string;
+  name: string;
+}
+
+export interface Task {
   id: string;
   title: string;
-  subtitle?: string;
-  assignee?: string;
-  when?: string; // Due date as string
-  priority?: TaskPriority;
-  department?: string;
-  role?: string;
-  notes?: { text: string; date: string }[];
+  description?: string; // Was subtitle
   status: TaskStatus;
-};
+  priority: TaskPriority;
 
-export type TasksByStatus = Record<TaskStatus, Task[]>;
+  departmentId?: string;
+  department?: TaskDepartment;
 
-const TASKS_KEY = 'tasks_by_status';
-const TASK_VIEW_KEY = 'task_view_preference';
+  assigneeId?: string;
+  assignee?: TaskUser;
+
+  dueDate?: string; // ISO Date string (was 'when')
+  role?: string;
+  notes?: TaskNote[];
+
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateTaskPayload {
+  title: string;
+  description?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  departmentId: string;
+  assigneeId?: string;
+  dueDate?: string;
+  role?: string;
+  notes?: TaskNote[];
+}
+
+export interface UpdateTaskPayload {
+  title?: string;
+  description?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  departmentId?: string;
+  assigneeId?: string;
+  dueDate?: string;
+  role?: string;
+  notes?: TaskNote[];
+}
 
 /**
- * Load tasks from localStorage
+ * Fetch all tasks
  */
-export function loadTasks(): TasksByStatus {
-  return getItem<TasksByStatus>(TASKS_KEY, {
-    todo: [],
-    inprogress: [],
-    review: [],
-    done: [],
+export async function fetchTasks(departmentId?: string, assigneeId?: string): Promise<Task[]> {
+  const params = new URLSearchParams();
+  let url = '/tasks';
+
+  if (departmentId) {
+    url = `/tasks/department/${departmentId}`;
+  } else if (assigneeId) {
+    url = `/tasks/assignee/${assigneeId}`;
+  }
+
+  const res = await apiFetch(url);
+  if (!res.ok) {
+    throw new Error('Failed to fetch tasks');
+  }
+  const tasks = await res.json();
+
+  // Ensure dates and notes are properly formatted if needed
+  return tasks.map(processTaskFromApi);
+}
+
+function processTaskFromApi(task: any): Task {
+  return {
+    ...task,
+    // Ensure status matches our enum (handle potential drift)
+    status: (['todo', 'in_progress', 'review', 'completed'].includes(task.status)
+      ? task.status
+      : 'todo') as TaskStatus,
+    dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : undefined,
+    notes: Array.isArray(task.notes) ? task.notes : [],
+    priority: task.priority || 'Med',
+  };
+}
+
+/**
+ * Create a new task
+ */
+export async function createTask(task: CreateTaskPayload): Promise<Task> {
+  const res = await apiFetch('/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(task),
   });
-}
-
-/**
- * Save tasks to localStorage
- */
-export function saveTasks(tasks: TasksByStatus): boolean {
-  return setItem(TASKS_KEY, tasks);
-}
-
-/**
- * Add a new task to a specific status column
- */
-export function addTask(task: Task): TasksByStatus {
-  const tasks = loadTasks();
-  tasks[task.status] = [task, ...tasks[task.status]];
-  saveTasks(tasks);
-  return tasks;
+  if (!res.ok) {
+    throw new Error('Failed to create task');
+  }
+  const result = await res.json();
+  return processTaskFromApi(result);
 }
 
 /**
  * Update an existing task
  */
-export function updateTask(taskId: string, updates: Partial<Task>): TasksByStatus {
-  const tasks = loadTasks();
-  
-  // Find the task in all status columns
-  for (const status of Object.keys(tasks) as TaskStatus[]) {
-    const index = tasks[status].findIndex((t) => t.id === taskId);
-    if (index !== -1) {
-      const updatedTask = { ...tasks[status][index], ...updates };
-      
-      // If status changed, move to new column
-      if (updates.status && updates.status !== status) {
-        tasks[status].splice(index, 1);
-        tasks[updates.status] = [updatedTask, ...tasks[updates.status]];
-      } else {
-        tasks[status][index] = updatedTask;
-      }
-      
-      saveTasks(tasks);
-      break;
-    }
+export async function updateTask(taskId: string, updates: UpdateTaskPayload): Promise<Task> {
+  const res = await apiFetch(`/tasks/${taskId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) {
+    throw new Error('Failed to update task');
   }
-  
-  return tasks;
+  const result = await res.json();
+  return processTaskFromApi(result);
 }
 
 /**
  * Delete a task
  */
-export function deleteTask(taskId: string): TasksByStatus {
-  const tasks = loadTasks();
-  
-  for (const status of Object.keys(tasks) as TaskStatus[]) {
-    tasks[status] = tasks[status].filter((t) => t.id !== taskId);
+export async function deleteTask(taskId: string): Promise<void> {
+  const res = await apiFetch(`/tasks/${taskId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    throw new Error('Failed to delete task');
   }
-  
-  saveTasks(tasks);
-  return tasks;
 }
 
 /**
- * Move a task to a different status
+ * Helper to get tasks for the current week (synchronous calculation on already fetched tasks)
  */
-export function moveTask(taskId: string, newStatus: TaskStatus): TasksByStatus {
-  return updateTask(taskId, { status: newStatus });
-}
-
-/**
- * Get all tasks as a flat array
- */
-export function getAllTasks(): Task[] {
-  const tasks = loadTasks();
-  return [
-    ...tasks.todo,
-    ...tasks.inprogress,
-    ...tasks.review,
-    ...tasks.done,
-  ];
-}
-
-/**
- * Get tasks for the current week
- */
-export function getThisWeekTasks(): {
-  total: number;
-  completed: number;
-  inProgress: number;
-  overdue: number;
-} {
-  const tasks = loadTasks();
+export function calculateWeeklyStats(allTasks: Task[]) {
   const today = new Date();
+
+  // Get date-only ISO strings for comparison (YYYY-MM-DD)
+  const getIsoDateStr = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const todayStr = getIsoDateStr(today);
+
+  // Start of current week (Sunday)
   const weekStart = new Date(today);
   weekStart.setDate(today.getDate() - today.getDay());
-  weekStart.setHours(0, 0, 0, 0);
-  
+  const weekStartStr = getIsoDateStr(weekStart);
+
+  // End of current week (Next Sunday)
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 7);
-  
-  const allTasks = getAllTasks();
-  
-  // Filter tasks for this week (based on 'when' field)
+  const weekEndStr = getIsoDateStr(weekEnd);
+
+  // Filter tasks for this week (based on dueDate)
   const thisWeekTasks = allTasks.filter((task) => {
-    if (!task.when) return false;
-    const taskDate = new Date(task.when);
-    return taskDate >= weekStart && taskDate < weekEnd;
+    if (!task.dueDate) return false;
+    // task.dueDate is already YYYY-MM-DD from processTaskFromApi
+    return task.dueDate >= weekStartStr && task.dueDate < weekEndStr;
   });
-  
-  const completed = tasks.done.length;
-  const inProgress = tasks.inprogress.length;
-  
+
+  const completed = allTasks.filter(t => t.status === 'completed').length;
+  const inProgress = allTasks.filter(t => t.status === 'in_progress').length;
+
   // Overdue: tasks not done with due date in the past
   const overdue = allTasks.filter((task) => {
-    if (!task.when || task.status === 'done') return false;
-    const taskDate = new Date(task.when);
-    return taskDate < today;
+    if (!task.dueDate || task.status === 'completed') return false;
+    return task.dueDate < todayStr;
   }).length;
-  
+
   return {
     total: thisWeekTasks.length,
     completed,
@@ -161,23 +200,53 @@ export function getThisWeekTasks(): {
   };
 }
 
+
 /**
- * Clear all tasks
+ * Fetch available users for assignment
  */
-export function clearTasks(): boolean {
-  return removeItem(TASKS_KEY);
+export async function fetchUsers(): Promise<TaskUser[]> {
+  try {
+    const res = await apiFetch('/users');
+    if (!res.ok) throw new Error('Failed to fetch users');
+    return await res.json();
+  } catch (err) {
+    console.error("Failed to fetch users", err);
+    return [];
+  }
 }
+
+/**
+ * Fetch available departments
+ */
+export async function fetchDepartments(): Promise<TaskDepartment[]> {
+  try {
+    const res = await apiFetch('/departments');
+    if (!res.ok) throw new Error('Failed to fetch departments');
+    return await res.json();
+  } catch (err) {
+    console.error("Failed to fetch departments", err);
+    return [];
+  }
+}
+
+// Re-implement view preference storage (localStorage)
+const TASK_VIEW_KEY = 'task_view_preference';
 
 /**
  * Get saved view preference
  */
 export function getTaskViewPreference(): 'grid' | 'list' | 'calendar' {
-  return getItem<'grid' | 'list' | 'calendar'>(TASK_VIEW_KEY, 'calendar');
+  if (typeof localStorage === 'undefined') return 'calendar';
+  const val = localStorage.getItem(TASK_VIEW_KEY);
+  if (val === 'grid' || val === 'list' || val === 'calendar') return val;
+  return 'calendar';
 }
 
 /**
  * Save view preference
  */
-export function saveTaskViewPreference(view: 'grid' | 'list' | 'calendar'): boolean {
-  return setItem(TASK_VIEW_KEY, view);
+export function saveTaskViewPreference(view: 'grid' | 'list' | 'calendar'): void {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(TASK_VIEW_KEY, view);
+  }
 }

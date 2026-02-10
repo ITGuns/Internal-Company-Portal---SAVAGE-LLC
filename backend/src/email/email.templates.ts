@@ -4,13 +4,14 @@
  */
 
 import {
-    WelcomeEmailData,
-    TaskAssignedEmailData,
-    TaskStatusChangedEmailData,
-    DailyDigestEmailData,
-    DepartmentUpdateEmailData,
-    EmailTemplateType,
-    EmailTemplateData,
+  WelcomeEmailData,
+  TaskAssignedEmailData,
+  TaskStatusChangedEmailData,
+  DailyDigestEmailData,
+  DepartmentUpdateEmailData,
+  PayslipGeneratedEmailData,
+  EmailTemplateType,
+  EmailTemplateData,
 } from './email.types';
 
 // Base email wrapper with styling
@@ -123,7 +124,7 @@ const emailWrapper = (content: string): string => `
 
 // Welcome Email Template
 export const welcomeEmailTemplate = (data: WelcomeEmailData): string => {
-    const content = `
+  const content = `
     <div class="container">
       <div class="header">
         <h1>🎉 Welcome to SAVAGE LLC!</h1>
@@ -145,12 +146,12 @@ export const welcomeEmailTemplate = (data: WelcomeEmailData): string => {
       </div>
     </div>
   `;
-    return emailWrapper(content);
+  return emailWrapper(content);
 };
 
 // Task Assigned Email Template
 export const taskAssignedEmailTemplate = (data: TaskAssignedEmailData): string => {
-    const content = `
+  const content = `
     <div class="container">
       <div class="header">
         <h1>📋 New Task Assigned</h1>
@@ -176,16 +177,16 @@ export const taskAssignedEmailTemplate = (data: TaskAssignedEmailData): string =
       </div>
     </div>
   `;
-    return emailWrapper(content);
+  return emailWrapper(content);
 };
 
 // Task Status Changed Email Template
 export const taskStatusChangedEmailTemplate = (data: TaskStatusChangedEmailData): string => {
-    const getStatusClass = (status: string) => {
-        return `status-${status.toLowerCase().replace(' ', '_')}`;
-    };
+  const getStatusClass = (status: string) => {
+    return `status-${status.toLowerCase().replace(' ', '_')}`;
+  };
 
-    const content = `
+  const content = `
     <div class="container">
       <div class="header">
         <h1>🔄 Task Status Updated</h1>
@@ -212,12 +213,12 @@ export const taskStatusChangedEmailTemplate = (data: TaskStatusChangedEmailData)
       </div>
     </div>
   `;
-    return emailWrapper(content);
+  return emailWrapper(content);
 };
 
 // Daily Digest Email Template
 export const dailyDigestEmailTemplate = (data: DailyDigestEmailData): string => {
-    const tasksList = data.assignedTasks.length > 0 ? data.assignedTasks.map(task => `
+  const tasksList = data.assignedTasks.length > 0 ? data.assignedTasks.map(task => `
     <div class="task-card">
       <h4 style="margin: 0 0 8px 0;">${task.title}</h4>
       <p style="margin: 4px 0;">
@@ -228,7 +229,7 @@ export const dailyDigestEmailTemplate = (data: DailyDigestEmailData): string => 
     </div>
   `).join('') : '<p><em>No pending tasks</em></p>';
 
-    const overdueList = data.overdueTasks.length > 0 ? data.overdueTasks.map(task => `
+  const overdueList = data.overdueTasks.length > 0 ? data.overdueTasks.map(task => `
     <div class="task-card" style="border-left-color: #dc3545;">
       <h4 style="margin: 0 0 8px 0; color: #dc3545;">⚠️ ${task.title}</h4>
       <p style="margin: 4px 0; color: #dc3545;">
@@ -238,7 +239,7 @@ export const dailyDigestEmailTemplate = (data: DailyDigestEmailData): string => 
     </div>
   `).join('') : '';
 
-    const content = `
+  const content = `
     <div class="container">
       <div class="header">
         <h1>📊 Daily Task Summary</h1>
@@ -284,21 +285,21 @@ export const dailyDigestEmailTemplate = (data: DailyDigestEmailData): string => 
       </div>
     </div>
   `;
-    return emailWrapper(content);
+  return emailWrapper(content);
 };
 
 // Department Update Email Template
 export const departmentUpdateEmailTemplate = (data: DepartmentUpdateEmailData): string => {
-    const getIcon = (type: string) => {
-        switch (type) {
-            case 'new_member': return '👋';
-            case 'task_created': return '📋';
-            case 'announcement': return '📢';
-            default: return '📌';
-        }
-    };
+  const getIcon = (type: string) => {
+    switch (type) {
+      case 'new_member': return '👋';
+      case 'task_created': return '📋';
+      case 'announcement': return '📢';
+      default: return '📌';
+    }
+  };
 
-    const content = `
+  const content = `
     <div class="container">
       <div class="header">
         <h1>${getIcon(data.updateType)} Department Update</h1>
@@ -320,35 +321,79 @@ export const departmentUpdateEmailTemplate = (data: DepartmentUpdateEmailData): 
       </div>
     </div>
   `;
-    return emailWrapper(content);
+  return emailWrapper(content);
+};
+
+// Payslip Generated Email Template
+export const payslipGeneratedEmailTemplate = (data: PayslipGeneratedEmailData): string => {
+  const content = `
+    <div class="container">
+      <div class="header" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+        <h1>💰 Payslip Ready</h1>
+      </div>
+      <div class="content">
+        <p>Hi <strong>${data.userName}</strong>,</p>
+        <p>Your payslip for the period <strong>${data.periodDateRange}</strong> has been generated and is ready for review.</p>
+        
+        <div class="task-card" style="border-left-color: #10b981; background-color: #f0fdf4;">
+          <h3 style="margin-top: 0; color: #065f46;">Payment Summary</h3>
+          <p><strong>Pay Date:</strong> ${data.payDate}</p>
+          <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+             <div>
+                <span style="font-size: 12px; color: #6b7280;">GROSS PAY</span><br>
+                <span style="font-weight: 600;">${data.grossPay}</span>
+             </div>
+             <div style="text-align: right;">
+                <span style="font-size: 12px; color: #6b7280;">NET PAY</span><br>
+                <span style="font-weight: bold; font-size: 18px; color: #059669;">${data.netPay}</span>
+             </div>
+          </div>
+        </div>
+
+        <center>
+          <a href="${data.viewUrl}" class="button" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">View Full Payslip</a>
+        </center>
+        
+        <p>If you have any questions regarding your pay, please contact the HR department.</p>
+        <p>Best regards,<br><strong>SAVAGE LLC Finance Team</strong></p>
+      </div>
+      <div class="footer">
+        <p>This is an automated message from SAVAGE LLC Internal Portal</p>
+        <p>&copy; 2026 SAVAGE LLC. All rights reserved.</p>
+      </div>
+    </div>
+  `;
+  return emailWrapper(content);
 };
 
 // Template selector function
 export const getEmailTemplate = (
-    type: EmailTemplateType,
-    data: EmailTemplateData
+  type: EmailTemplateType,
+  data: EmailTemplateData
 ): string => {
-    switch (type) {
-        case 'welcome':
-            return welcomeEmailTemplate(data as WelcomeEmailData);
-        case 'task_assigned':
-            return taskAssignedEmailTemplate(data as TaskAssignedEmailData);
-        case 'task_status_changed':
-            return taskStatusChangedEmailTemplate(data as TaskStatusChangedEmailData);
-        case 'daily_digest':
-            return dailyDigestEmailTemplate(data as DailyDigestEmailData);
-        case 'department_update':
-            return departmentUpdateEmailTemplate(data as DepartmentUpdateEmailData);
-        default:
-            throw new Error(`Unknown email template type: ${type}`);
-    }
+  switch (type) {
+    case 'welcome':
+      return welcomeEmailTemplate(data as WelcomeEmailData);
+    case 'task_assigned':
+      return taskAssignedEmailTemplate(data as TaskAssignedEmailData);
+    case 'task_status_changed':
+      return taskStatusChangedEmailTemplate(data as TaskStatusChangedEmailData);
+    case 'daily_digest':
+      return dailyDigestEmailTemplate(data as DailyDigestEmailData);
+    case 'department_update':
+      return departmentUpdateEmailTemplate(data as DepartmentUpdateEmailData);
+    case 'payslip_generated':
+      return payslipGeneratedEmailTemplate(data as PayslipGeneratedEmailData);
+    default:
+      throw new Error(`Unknown email template type: ${type}`);
+  }
 };
 
 // Generate plain text version from HTML
 export const htmlToPlainText = (html: string): string => {
-    return html
-        .replace(/<style[^>]*>.*?<\/style>/gs, '')
-        .replace(/<[^>]+>/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
+  return html
+    .replace(/<style[^>]*>.*?<\/style>/gs, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 };

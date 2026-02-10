@@ -1,6 +1,6 @@
 import express, { Request, Response, Router } from 'express'
 import { UsersService } from './users.service'
-import { authenticateToken } from '../auth/auth.middleware'
+import { authenticateToken, requireRole } from '../auth/auth.middleware'
 import { emailService } from '../email/email.service'
 
 export class UsersController {
@@ -139,6 +139,37 @@ export class UsersController {
                 res.json({ message: 'User deleted successfully' })
             } catch (error) {
                 res.status(500).json({ error: 'Failed to delete user' })
+            }
+        })
+
+        // Assign role to user
+        router.post('/:id/roles', authenticateToken, requireRole('admin'), async (req: Request, res: Response) => {
+            try {
+                const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+                const { role, departmentId } = req.body
+
+                if (!role) {
+                    return res.status(400).json({ error: 'Role is required' })
+                }
+
+                await this.service.assignRole(id, role, departmentId)
+                res.status(201).json({ message: 'Role assigned successfully' })
+            } catch (error) {
+                res.status(500).json({ error: 'Failed to assign role' })
+            }
+        })
+
+        // Remove role from user
+        router.delete('/:id/roles/:role', authenticateToken, requireRole('admin'), async (req: Request, res: Response) => {
+            try {
+                const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+                const role = Array.isArray(req.params.role) ? req.params.role[0] : req.params.role
+                const departmentId = req.query.departmentId as string
+
+                await this.service.removeRole(id, role, departmentId)
+                res.json({ message: 'Role removed successfully' })
+            } catch (error) {
+                res.status(500).json({ error: 'Failed to remove role' })
             }
         })
 

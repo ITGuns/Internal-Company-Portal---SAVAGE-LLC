@@ -1,12 +1,13 @@
 "use client";
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Card from '@/components/Card'
+import Button from '@/components/Button'
 import { Clock, CheckCircle2, AlertCircle, TrendingUp, ExternalLink, Send, Megaphone, Star, Trophy } from 'lucide-react'
-import { getThisWeekTasks } from '@/lib/tasks'
-import { getTotalMinutesForDate } from '@/lib/time-entries'
-import { getRecentAnnouncements, getTimeAgo } from '@/lib/announcements'
+import { fetchTasks, calculateWeeklyStats } from '@/lib/tasks'
+import { fetchTimeEntries, getTotalMinutesForDate, type TimeEntry } from '@/lib/time-entries'
+import { fetchAnnouncements, getTimeAgo, type Announcement } from '@/lib/announcements'
 
 function QuickLink({ title, subtitle, icon: Icon }: { title: string; subtitle?: string; icon: React.ComponentType<{ className?: string }> }) {
   return (
@@ -24,18 +25,63 @@ function QuickLink({ title, subtitle, icon: Icon }: { title: string; subtitle?: 
 }
 
 export default function DashboardPage() {
-  // Calculate stats using lazy initialization to avoid cascading renders
-  const today = new Date().toISOString().slice(0, 10);
-  const todayMinutes = getTotalMinutesForDate(today);
-  const weekTasks = getThisWeekTasks();
-  const recentAnnouncements = getRecentAnnouncements(3);
-  const recentShoutouts = getRecentAnnouncements(10).filter(a => a.category === 'shoutouts').slice(0, 3);
+  const [todayMinutes, setTodayMinutes] = useState(0);
+  const [weekTasks, setWeekTasks] = useState({ total: 0, completed: 0, inProgress: 0, overdue: 0 });
+  const [recentAnnouncements, setRecentAnnouncements] = useState<Announcement[]>([]);
+  const [recentShoutouts, setRecentShoutouts] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+
+        // Fetch Tasks (Separate from others so failure doesn't block)
+        try {
+          const tasks = await fetchTasks();
+          setWeekTasks(calculateWeeklyStats(tasks));
+        } catch (e) { console.error('Tasks load failed', e); }
+
+        // Fetch Time Entries
+        try {
+          const entries = await fetchTimeEntries();
+          const minutes = getTotalMinutesForDate(entries, today);
+          setTodayMinutes(minutes);
+        } catch (e) { console.error('Time logs load failed', e); }
+
+        // Fetch Announcements & Shoutouts
+        try {
+          const announcements = await fetchAnnouncements();
+          const sortedAnnouncements = [...announcements].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          setRecentAnnouncements(sortedAnnouncements.slice(0, 3));
+          setRecentShoutouts(sortedAnnouncements.filter(a => a.category === 'shoutouts').slice(0, 3));
+        } catch (e) { console.error('Announcements load failed', e); }
+
+      } catch (error) {
+        console.error('Failed to load dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, []);
+
 
   const formatHours = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
+
+  if (loading) {
+    return (
+      <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)] p-6">
+        <Header />
+        <div className="mt-6 text-[var(--muted)]">Loading dashboard...</div>
+      </main>
+    );
+  }
 
   return (
     <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)]">

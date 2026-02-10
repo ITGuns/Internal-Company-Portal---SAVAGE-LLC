@@ -18,15 +18,19 @@ import {
   Plus,
 } from "lucide-react";
 import {
-  loadTimeEntries,
-  saveTimeEntries,
-  getClockedInState,
-  setClockedInState,
+  fetchTimeEntries,
+  createTimeEntry,
+  deleteTimeEntry,
+  clockIn,
+  clockOut,
+  getActiveEntry,
   type TimeEntry,
 } from "@/lib/time-entries";
 import {
-  loadPayrollEvents,
-  savePayrollEvents,
+  fetchPayrollEvents,
+  createPayrollEvent,
+  updatePayrollEvent,
+  deletePayrollEvent,
   type PayrollEvent,
   type PayrollEventType,
 } from "@/lib/payroll-events";
@@ -49,13 +53,12 @@ export default function PayrollCalendarPage() {
   const [viewMode, setViewMode] = useState<"monthly" | "annual">("monthly");
   const calendarRef = useRef<any>(null);
   const [currentTitle, setCurrentTitle] = useState<string>("February 2026");
-  
-  // Load initial state from localStorage using lazy initialization
-  const [clockedIn, setClockedIn] = useState(() => getClockedInState());
-  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>(() => loadTimeEntries());
-  
+
+  const [clockedIn, setClockedIn] = useState(false);
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+
   // Custom events
-  const [customEvents, setCustomEvents] = useState<PayrollEvent[]>(() => loadPayrollEvents());
+  const [customEvents, setCustomEvents] = useState<PayrollEvent[]>([]);
   const [showEventModal, setShowEventModal] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [hiddenBuiltInIds, setHiddenBuiltInIds] = useState<string[]>(() => {
@@ -68,10 +71,22 @@ export default function PayrollCalendarPage() {
   const [eventDescription, setEventDescription] = useState('');
   const [eventErrors, setEventErrors] = useState<Record<string, string>>({});
 
-  // Save custom events to localStorage
   useEffect(() => {
-    savePayrollEvents(customEvents);
-  }, [customEvents]);
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    const [entries, events] = await Promise.all([
+      fetchTimeEntries(),
+      fetchPayrollEvents()
+    ]);
+    setTimeEntries(entries);
+    setCustomEvents(events);
+
+    // update clocked in state
+    const active = getActiveEntry(entries);
+    setClockedIn(!!active);
+  };
 
   // Save hidden built-in event IDs
   useEffect(() => {
@@ -90,7 +105,7 @@ export default function PayrollCalendarPage() {
   // Validation function
   const validateTimeEntry = () => {
     const errors: Record<string, string> = {};
-    
+
     if (!manualDate) {
       errors.date = "Date is required";
     } else {
@@ -101,11 +116,11 @@ export default function PayrollCalendarPage() {
         errors.date = "Date cannot be in the future";
       }
     }
-    
+
     if (!manualIn) {
       errors.timeIn = "Time In is required";
     }
-    
+
     if (manualOut && manualIn) {
       const timeInDate = new Date(`${manualDate}T${manualIn}`);
       const timeOutDate = new Date(`${manualDate}T${manualOut}`);
@@ -113,20 +128,12 @@ export default function PayrollCalendarPage() {
         errors.timeOut = "Time Out must be after Time In";
       }
     }
-    
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  // Save time entries to localStorage whenever they change
-  useEffect(() => {
-    saveTimeEntries(timeEntries);
-  }, [timeEntries]);
 
-  // Save clocked-in state whenever it changes
-  useEffect(() => {
-    setClockedInState(clockedIn);
-  }, [clockedIn]);
 
   const builtInEvents = useMemo(() => {
     return [
@@ -172,7 +179,7 @@ export default function PayrollCalendarPage() {
   const displayEvents = useMemo(() => {
     // Group time entries by date and sum total minutes
     const timeByDate = new Map<string, number>();
-    
+
     timeEntries.forEach((e) => {
       const date = getLocalDateString(e.start);
       const mins =
@@ -180,14 +187,14 @@ export default function PayrollCalendarPage() {
           ? e.durationMin
           : e.end
             ? Math.max(
-                0,
-                Math.round(
-                  (new Date(e.end).getTime() - new Date(e.start).getTime()) /
-                    60000,
-                ),
-              )
+              0,
+              Math.round(
+                (new Date(e.end).getTime() - new Date(e.start).getTime()) /
+                60000,
+              ),
+            )
             : 0;
-      
+
       const currentTotal = timeByDate.get(date) || 0;
       timeByDate.set(date, currentTotal + mins);
     });
@@ -267,31 +274,41 @@ export default function PayrollCalendarPage() {
     setEventErrors({});
   }
 
-  function handleAddEvent() {
+  async function handleAddEvent() {
     const errors: Record<string, string> = {};
     if (!eventTitle.trim()) errors.title = "Title is required";
     if (!eventDate) errors.date = "Date is required";
     setEventErrors(errors);
     if (Object.keys(errors).length) return;
 
-    if (editingEventId) {
-      // Update existing
-      setCustomEvents(prev => prev.map(ev =>
-        ev.id === editingEventId
-          ? { ...ev, title: eventTitle.trim(), date: eventDate, type: eventType, description: eventDescription.trim() || undefined }
-          : ev
-      ));
-      toast.success('Event updated successfully');
-    } else {
-      // Create new
-      const id = String(Date.now());
-      setCustomEvents(prev => [
-        ...prev,
-        { id, title: eventTitle.trim(), date: eventDate, type: eventType, description: eventDescription.trim() || undefined },
-      ]);
-      toast.success('Event added to calendar');
+    try {
+      if (editingEventId) {
+        // Update existing
+        await updatePayrollEvent(editingEventId, {
+          title: eventTitle.trim(),
+          date: eventDate,
+          type: eventType,
+          description: eventDescription.trim() || undefined
+        });
+        toast.success('Event updated successfully');
+      } else {
+        // Create new
+        await createPayrollEvent({
+          title: eventTitle.trim(),
+          date: eventDate,
+          type: eventType,
+          description: eventDescription.trim() || undefined
+        });
+        toast.success('Event added to calendar');
+      }
+
+      const events = await fetchPayrollEvents();
+      setCustomEvents(events);
+
+      resetEventForm();
+    } catch (e) {
+      toast.error('Failed to save event');
     }
-    resetEventForm();
   }
 
   function handleEditCustomEvent(customId: string) {
@@ -342,8 +359,10 @@ export default function PayrollCalendarPage() {
     }
   }
 
-  function handleDeleteCustomEvent(customId: string) {
-    setCustomEvents(prev => prev.filter(e => e.id !== customId));
+  async function handleDeleteCustomEvent(customId: string) {
+    await deletePayrollEvent(customId);
+    const events = await fetchPayrollEvents();
+    setCustomEvents(events);
     toast.success('Event deleted');
   }
 
@@ -512,8 +531,8 @@ export default function PayrollCalendarPage() {
                   size="md"
                   footer={
                     <>
-                      <Button 
-                        variant="secondary" 
+                      <Button
+                        variant="secondary"
                         onClick={() => {
                           setShowAddModal(false);
                           setManualNotes("");
@@ -525,45 +544,32 @@ export default function PayrollCalendarPage() {
                       <Button
                         variant="success"
                         icon={<Plus className="w-4 h-4" />}
-                        onClick={() => {
+                        onClick={async () => {
                           if (!validateTimeEntry()) {
                             return;
                           }
-                          
+
                           try {
                             const startIso = new Date(
                               `${manualDate}T${manualIn}`,
                             ).toISOString();
                             const endIso = manualOut
                               ? new Date(
-                                  `${manualDate}T${manualOut}`,
-                                ).toISOString()
+                                `${manualDate}T${manualOut}`,
+                              ).toISOString()
                               : undefined;
-                            const durationMin = endIso
-                              ? Math.max(
-                                  0,
-                                  Math.round(
-                                    (new Date(endIso).getTime() -
-                                      new Date(startIso).getTime()) /
-                                      60000,
-                                  ),
-                                )
-                              : undefined;
-                            const id = String(Date.now());
-                            setTimeEntries((s) => [
-                              {
-                                id,
-                                start: startIso,
-                                end: endIso,
-                                durationMin,
-                                notes: manualNotes || undefined,
-                              },
-                              ...s,
-                            ]);
-                            setShowAddModal(false);
-                            setManualNotes("");
-                            setValidationErrors({});
-                            toast.success('Time entry added successfully');
+
+                            const entry = await createTimeEntry(startIso, endIso, manualNotes);
+
+                            if (entry) {
+                              setTimeEntries((s) => [entry, ...s]);
+                              setShowAddModal(false);
+                              setManualNotes("");
+                              setValidationErrors({});
+                              toast.success('Time entry added successfully');
+                            } else {
+                              toast.error('Failed to add time entry');
+                            }
                           } catch {
                             setValidationErrors({ submit: "Invalid date or time format" });
                             toast.error('Failed to add time entry');
@@ -595,9 +601,8 @@ export default function PayrollCalendarPage() {
                           }
                         }}
                         max={new Date().toISOString().slice(0, 10)}
-                        className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer dark:[&::-webkit-calendar-picker-indicator]:filter dark:[&::-webkit-calendar-picker-indicator]:invert-[1] dark:[&::-webkit-calendar-picker-indicator]:brightness-[1.5] ${
-                          validationErrors.date ? 'border-red-500' : 'border-[var(--border)]'
-                        }`}
+                        className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer dark:[&::-webkit-calendar-picker-indicator]:filter dark:[&::-webkit-calendar-picker-indicator]:invert-[1] dark:[&::-webkit-calendar-picker-indicator]:brightness-[1.5] ${validationErrors.date ? 'border-red-500' : 'border-[var(--border)]'
+                          }`}
                       />
                       {validationErrors.date && (
                         <p className="text-red-500 text-xs mt-1">{validationErrors.date}</p>
@@ -622,9 +627,8 @@ export default function PayrollCalendarPage() {
                               setValidationErrors(prev => ({ ...prev, timeIn: "" }));
                             }
                           }}
-                          className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${
-                            validationErrors.timeIn ? 'border-red-500' : 'border-[var(--border)]'
-                          }`}
+                          className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${validationErrors.timeIn ? 'border-red-500' : 'border-[var(--border)]'
+                            }`}
                         />
                         {validationErrors.timeIn && (
                           <p className="text-red-500 text-xs mt-1">{validationErrors.timeIn}</p>
@@ -647,9 +651,8 @@ export default function PayrollCalendarPage() {
                               setValidationErrors(prev => ({ ...prev, timeOut: "" }));
                             }
                           }}
-                          className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${
-                            validationErrors.timeOut ? 'border-red-500' : 'border-[var(--border)]'
-                          }`}
+                          className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${validationErrors.timeOut ? 'border-red-500' : 'border-[var(--border)]'
+                            }`}
                         />
                         {validationErrors.timeOut && (
                           <p className="text-red-500 text-xs mt-1">{validationErrors.timeOut}</p>
@@ -792,15 +795,15 @@ export default function PayrollCalendarPage() {
                     <div className="flex items-center gap-3 mb-3">
                       {!clockedIn ? (
                         <button
-                          onClick={() => {
-                            const now = new Date();
-                            const id = String(now.getTime());
-                            setTimeEntries((s) => [
-                              { id, start: now.toISOString() },
-                              ...s,
-                            ]);
-                            setClockedIn(true);
-                            toast.success('Clocked in successfully');
+                          onClick={async () => {
+                            const entry = await clockIn();
+                            if (entry) {
+                              setTimeEntries(prev => [entry, ...prev]);
+                              setClockedIn(true);
+                              toast.success('Clocked in successfully');
+                            } else {
+                              toast.error('Failed to clock in');
+                            }
                           }}
                           className="px-4 py-2 rounded bg-emerald-600 text-white flex items-center gap-2"
                         >
@@ -809,28 +812,16 @@ export default function PayrollCalendarPage() {
                         </button>
                       ) : (
                         <button
-                          onClick={() => {
-                            const now = new Date();
-                            setTimeEntries((s) => {
-                              const copy = [...s];
-                              const idx = copy.findIndex((e) => !e.end);
-                              if (idx !== -1) {
-                                const entry = { ...copy[idx] };
-                                entry.end = now.toISOString();
-                                entry.durationMin = Math.max(
-                                  0,
-                                  Math.round(
-                                    (new Date(entry.end).getTime() -
-                                      new Date(entry.start).getTime()) /
-                                      60000,
-                                  ),
-                                );
-                                copy[idx] = entry;
-                              }
-                              return copy;
-                            });
-                            setClockedIn(false);
-                            toast.success('Clocked out successfully');
+                          onClick={async () => {
+                            const entry = await clockOut();
+                            if (entry) {
+                              const updatedEntries = await fetchTimeEntries();
+                              setTimeEntries(updatedEntries);
+                              setClockedIn(false);
+                              toast.success('Clocked out successfully');
+                            } else {
+                              toast.error('Failed to clock out');
+                            }
                           }}
                           className="px-4 py-2 rounded bg-red-600 text-white flex items-center gap-2"
                         >
@@ -868,7 +859,7 @@ export default function PayrollCalendarPage() {
                                 Math.round(
                                   (end.getTime() -
                                     new Date(e.start).getTime()) /
-                                    60000,
+                                  60000,
                                 ),
                               )
                             );
@@ -897,12 +888,12 @@ export default function PayrollCalendarPage() {
                                 ? e.durationMin
                                 : end
                                   ? Math.max(
-                                      0,
-                                      Math.round(
-                                        (end.getTime() - start.getTime()) /
-                                          60000,
-                                      ),
-                                    )
+                                    0,
+                                    Math.round(
+                                      (end.getTime() - start.getTime()) /
+                                      60000,
+                                    ),
+                                  )
                                   : 0;
                             return (
                               <li
@@ -919,11 +910,16 @@ export default function PayrollCalendarPage() {
                                   </div>
                                   <button
                                     aria-label="Delete entry"
-                                    onClick={() => {
-                                      setTimeEntries((s) =>
-                                        s.filter((x) => x.id !== e.id),
-                                      );
-                                      toast.success('Time entry deleted');
+                                    onClick={async () => {
+                                      const success = await deleteTimeEntry(e.id);
+                                      if (success) {
+                                        setTimeEntries((s) =>
+                                          s.filter((x) => x.id !== e.id),
+                                        );
+                                        toast.success('Time entry deleted');
+                                      } else {
+                                        toast.error('Failed to delete entry');
+                                      }
                                     }}
                                     className="p-1 rounded border bg-[var(--card-bg)] text-[var(--muted)] hover:bg-red-600 hover:text-white transition-colors"
                                   >
@@ -941,12 +937,12 @@ export default function PayrollCalendarPage() {
                   <div className="text-sm font-semibold">
                     {selectedEvent && selectedEvent.date
                       ? new Date(
-                          selectedEvent.date as string,
-                        ).toLocaleDateString(undefined, {
-                          weekday: "long",
-                          month: "long",
-                          day: "numeric",
-                        })
+                        selectedEvent.date as string,
+                      ).toLocaleDateString(undefined, {
+                        weekday: "long",
+                        month: "long",
+                        day: "numeric",
+                      })
                       : "Event Details"}
                   </div>
                   <div className="mt-3">
@@ -1023,29 +1019,29 @@ export default function PayrollCalendarPage() {
                       .filter((e: any) => e.extendedProps.type !== 'time')
                       .sort((a: any, b: any) => a.start.localeCompare(b.start))
                       .map((e: any) => (
-                      <li
-                        key={e.id}
-                        className="flex items-start justify-between gap-2"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span
-                            className={`w-3 h-3 rounded-full ${dotForType(e.extendedProps.type)}`}
-                          />
-                          <div>
-                            <div className="text-sm">{e.title}</div>
-                            <div className="text-xs text-[var(--muted)]">
-                              {new Date(e.start).toLocaleString(undefined, {
-                                month: "short",
-                                day: "numeric",
-                              })}
+                        <li
+                          key={e.id}
+                          className="flex items-start justify-between gap-2"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`w-3 h-3 rounded-full ${dotForType(e.extendedProps.type)}`}
+                            />
+                            <div>
+                              <div className="text-sm">{e.title}</div>
+                              <div className="text-xs text-[var(--muted)]">
+                                {new Date(e.start).toLocaleString(undefined, {
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="text-xs text-[var(--muted)]">
-                          {new Date(e.start).toLocaleDateString()}
-                        </div>
-                      </li>
-                    ))}
+                          <div className="text-xs text-[var(--muted)]">
+                            {new Date(e.start).toLocaleDateString()}
+                          </div>
+                        </li>
+                      ))}
                   </ul>
                 </div>
               </div>

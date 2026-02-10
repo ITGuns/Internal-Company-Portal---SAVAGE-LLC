@@ -16,12 +16,19 @@ class NotificationService {
     private userSockets: Map<string, Set<string>> = new Map();
 
     initialize(httpServer: HttpServer) {
+        console.log('🔌 Initializing Socket.io with permissive CORS...');
         this.io = new SocketIOServer(httpServer, {
             cors: {
-                origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+                origin: (origin, callback) => {
+                    // Log the origin attempting to connect
+                    console.log(`📡 Socket connection attempt from origin: ${origin || 'unknown'}`);
+                    callback(null, true); // Allow all
+                },
                 methods: ['GET', 'POST'],
-                credentials: true
-            }
+                credentials: true,
+                allowedHeaders: ['Authorization', 'Content-Type']
+            },
+            allowEIO3: true // Support older clients just in case
         });
 
         this.io.on('connection', (socket: Socket) => {
@@ -31,6 +38,11 @@ class NotificationService {
             socket.on('authenticate', (userId: string) => {
                 this.registerUserSocket(userId, socket.id);
                 console.log(`👤 User authenticated on socket: ${userId}`);
+            });
+
+            socket.on('join:conversation', (conversationId: string) => {
+                socket.join(`conversation:${conversationId}`);
+                console.log(`💬 Socket ${socket.id} joined conversation room: ${conversationId}`);
             });
 
             socket.on('disconnect', () => {
@@ -98,6 +110,28 @@ class NotificationService {
 
         this.io.emit('notification', notification);
         console.log(`📢 Broadcast sent: ${payload.title}`);
+    }
+
+    /**
+     * Emit an event to a specific room (e.g. conversation room)
+     */
+    emitToRoom(room: string, event: string, payload: any) {
+        if (!this.io) return;
+        this.io.to(room).emit(event, payload);
+    }
+
+    /**
+     * Make a user join a room
+     */
+    joinRoom(userId: string, room: string) {
+        if (!this.io) return;
+        // Find sockets for this user
+        const sockets = this.userSockets.get(userId);
+        if (sockets) {
+            sockets.forEach(socketId => {
+                this.io?.sockets.sockets.get(socketId)?.join(room);
+            });
+        }
     }
 }
 

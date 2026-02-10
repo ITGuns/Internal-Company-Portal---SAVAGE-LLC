@@ -3,7 +3,15 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
 import { io, Socket } from 'socket.io-client'
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+const getSocketUrl = () => {
+    if (typeof window !== 'undefined') {
+        const host = window.location.hostname
+        return `http://${host}:4000`
+    }
+    return 'http://localhost:4000'
+}
+
+const SOCKET_URL = getSocketUrl()
 
 export interface Notification {
     id: string
@@ -43,22 +51,37 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
         const newSocket = io(SOCKET_URL, {
             withCredentials: true,
-            transports: ['websocket', 'polling']
+            transports: ['polling', 'websocket'], // Try polling first for better compatibility
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
         })
 
         newSocket.on('connect', () => {
-            console.log('✅ Socket connected:', newSocket.id)
+            console.log('✅ Socket connected via', newSocket.io.engine.transport.name, 'ID:', newSocket.id)
             setIsConnected(true)
             newSocket.emit('authenticate', userId)
         })
 
-        newSocket.on('disconnect', () => {
-            console.log('❌ Socket disconnected')
+        // Force connected state if we have a transport (fallback for some poll cases)
+        newSocket.io.engine.on('packet', () => {
+            if (!isConnected) setIsConnected(true)
+        })
+
+        newSocket.on('reconnect', (attempt) => {
+            console.log('🔄 Socket reconnected after', attempt, 'attempts')
+            setIsConnected(true)
+            newSocket.emit('authenticate', userId)
+        })
+
+        newSocket.on('disconnect', (reason) => {
+            console.log('❌ Socket disconnected:', reason)
             setIsConnected(false)
         })
 
         newSocket.on('connect_error', (err) => {
-            console.error('⚠️ Socket connection error:', err)
+            console.error('⚠️ Socket connection error:', err.message)
+            // Still try to authenticate if we're in a polling state that works
+            if (newSocket.id) setIsConnected(true)
         })
 
         newSocket.on('notification', (payload: any) => {
@@ -96,26 +119,32 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         setNotifications([])
     }
 
-    // Auto-connect if userId exists in localStorage
+    // Auto-connect and monitor user changes
     useEffect(() => {
-        const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user') : null
-        if (storedUser) {
-            try {
-                const user = JSON.parse(storedUser)
-                if (user.id) {
-                    connect(user.id)
+        const checkUserAndConnect = () => {
+            const storedUser = typeof window !== 'undefined' ? (localStorage.getItem('currentUser') || localStorage.getItem('user')) : null
+            if (storedUser) {
+                try {
+                    const user = JSON.parse(storedUser)
+                    const uid = user.id || user.userId || user.uuid
+                    // If we have a user but no socket, or socket is disconnected, try to connect
+                    if (uid && (!socket || !socket.connected)) {
+                        console.log('🔄 Auto-connecting socket for user:', uid)
+                        connect(uid)
+                    }
+                } catch (e) {
+                    // Ignore parse errors
                 }
-            } catch (e) {
-                console.error('Failed to parse user from local storage', e)
             }
         }
 
+        checkUserAndConnect()
+        const interval = setInterval(checkUserAndConnect, 3000)
+
         return () => {
-            if (socket) {
-                socket.disconnect()
-            }
+            clearInterval(interval)
         }
-    }, []) // Run once on mount
+    }, [connect, socket]) // Trigger on mount or if socket object changes
 
     return (
         <SocketContext.Provider value={{

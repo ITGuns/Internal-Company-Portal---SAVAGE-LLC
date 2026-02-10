@@ -8,8 +8,8 @@ import { useToast } from '@/components/ToastProvider';
 import { Search, Plus, ChevronDown, Clock, CheckCircle2, MessageCircle, ThumbsUp } from 'lucide-react';
 import { DEPARTMENTS } from '@/lib/departments';
 import {
-  loadDailyLogs,
-  addDailyLog,
+  fetchDailyLogs,
+  createDailyLog,
   updateDailyLog,
   deleteDailyLog,
   toggleLogLike,
@@ -23,14 +23,17 @@ import {
   type LogStatus,
   type LogTask,
 } from '@/lib/daily-logs';
+import { getCurrentUser } from '@/lib/api';
 
 type DateFilter = 'today' | 'week' | 'month' | 'all';
 
 export default function DailyLogsPage() {
   const toast = useToast();
-  const [logs, setLogs] = useState<DailyLog[]>(() => loadDailyLogs());
+  const [logs, setLogs] = useState<DailyLog[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingLog, setEditingLog] = useState<DailyLog | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Filters
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
@@ -51,7 +54,19 @@ export default function DailyLogsPage() {
   const [formTasks, setFormTasks] = useState<LogTask[]>([]);
   const [formTaskInput, setFormTaskInput] = useState('');
 
-  const users = getUniqueUsers();
+  useEffect(() => {
+    setCurrentUser(getCurrentUser());
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    const data = await fetchDailyLogs();
+    setLogs(data);
+    setLoading(false);
+  };
+
+  const users = getUniqueUsers(logs);
 
   // Filter logs
   const filteredLogs = logs.filter(log => {
@@ -60,7 +75,7 @@ export default function DailyLogsPage() {
       const today = new Date().toISOString().slice(0, 10);
       if (log.date !== today) return false;
     } else if (dateFilter === 'week') {
-      const weekLogs = getThisWeekLogs();
+      const weekLogs = getThisWeekLogs(logs);
       if (!weekLogs.find(l => l.id === log.id)) return false;
     }
 
@@ -86,8 +101,8 @@ export default function DailyLogsPage() {
 
   // Stats
   const totalLogs = filteredLogs.length;
-  const weekLogs = getThisWeekLogs().length;
-  const yourLogs = logs.filter(l => l.authorId === 'current-user').length;
+  const weekLogs = getThisWeekLogs(logs).length;
+  const yourLogs = currentUser ? logs.filter(l => l.authorId === currentUser.id).length : 0;
 
   const handleAddTask = () => {
     if (!formTaskInput.trim()) return;
@@ -110,26 +125,30 @@ export default function DailyLogsPage() {
     setFormTasks(formTasks.filter(task => task.id !== taskId));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formDepartment || formTasks.length === 0) return;
 
-    if (editingLog) {
-      updateDailyLog(editingLog.id, {
-        department: formDepartment,
-        date: formDate,
-        hoursLogged: formHours,
-        tasks: formTasks,
-        status: formStatus,
-      });
-      toast.success('Daily log updated successfully');
-    } else {
-      addDailyLog('User', 'current-user', formDepartment, formDate, formHours, formTasks, formStatus);
-      toast.success('Daily log added successfully');
-    }
+    try {
+      if (editingLog) {
+        await updateDailyLog(editingLog.id, {
+          department: formDepartment,
+          date: formDate,
+          hoursLogged: formHours,
+          tasks: formTasks,
+          status: formStatus,
+        });
+        toast.success('Daily log updated successfully');
+      } else {
+        await createDailyLog(formDepartment, formDate, formHours, formTasks, formStatus);
+        toast.success('Daily log added successfully');
+      }
 
-    setLogs(loadDailyLogs());
-    resetForm();
-    setShowModal(false);
+      await loadData();
+      resetForm();
+      setShowModal(false);
+    } catch (error) {
+      toast.error('Failed to save log');
+    }
   };
 
   const resetForm = () => {
@@ -152,17 +171,17 @@ export default function DailyLogsPage() {
     setShowModal(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this log?')) {
-      deleteDailyLog(id);
-      setLogs(loadDailyLogs());
+      await deleteDailyLog(id);
+      await loadData();
       toast.success('Daily log deleted');
     }
   };
 
-  const handleLike = (logId: string) => {
-    toggleLogLike(logId);
-    setLogs(loadDailyLogs());
+  const handleLike = async (logId: string) => {
+    await toggleLogLike(logId);
+    await loadData();
   };
 
   const getStatusColor = (status: LogStatus) => {
@@ -184,7 +203,7 @@ export default function DailyLogsPage() {
   return (
     <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-6 pt-3">
-        <Header 
+        <Header
           title="Daily Logs"
           subtitle="Track daily progress and team activities"
         />
@@ -195,8 +214,8 @@ export default function DailyLogsPage() {
             <div className="bg-[var(--card-bg)] border border-[var(--border)] rounded-lg p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-sm">Filters</h3>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={() => {
                     setDateFilter('today');
@@ -386,11 +405,11 @@ export default function DailyLogsPage() {
                             <CheckCircle2 className="w-4 h-4" />
                             <span>{getCompletedTasksCount(log)} tasks completed</span>
                           </div>
-                          <button 
+                          <button
                             onClick={() => handleLike(log.id)}
-                            className={`flex items-center gap-1 hover:text-[var(--foreground)] transition ${log.likes.includes('current-user') ? 'text-red-500' : ''}`}
+                            className={`flex items-center gap-1 hover:text-[var(--foreground)] transition ${currentUser && log.likes.includes(currentUser.id) ? 'text-red-500' : ''}`}
                           >
-                            <ThumbsUp className={`w-4 h-4 ${log.likes.includes('current-user') ? 'fill-current' : ''}`} />
+                            <ThumbsUp className={`w-4 h-4 ${currentUser && log.likes.includes(currentUser.id) ? 'fill-current' : ''}`} />
                             <span>{log.likes.length} {log.likes.length === 1 ? 'like' : 'likes'}</span>
                           </button>
                           <div className="flex items-center gap-1">
@@ -432,7 +451,8 @@ export default function DailyLogsPage() {
                     }}
                   />
                 </div>
-                <style dangerouslySetInnerHTML={{__html: `
+                <style dangerouslySetInnerHTML={{
+                  __html: `
                   .date-input-wrapper input[type="date"]::-webkit-calendar-picker-indicator {
                     filter: invert(1) !important;
                     cursor: pointer !important;

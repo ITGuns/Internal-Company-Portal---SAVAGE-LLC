@@ -1,9 +1,9 @@
 /**
- * Announcements Storage Library
- * Manages company announcements, shoutouts, events, and birthdays with localStorage persistence
+ * Announcements Library
+ * Manages company announcements via Backend API
  */
 
-import { getItem, setItem } from './storage';
+import { apiFetch } from './api';
 
 export type AnnouncementCategory = 'company-news' | 'shoutouts' | 'events' | 'birthdays';
 
@@ -30,179 +30,230 @@ export interface Announcement {
   likes: string[]; // Array of user IDs who liked
   comments: Comment[];
   eventDetails?: EventDetails;
-  birthdayDate?: string; // Date string for birthday announcements
+  birthdayDate?: string;
   isImportant: boolean;
+  priority?: string;
 }
 
-const STORAGE_KEY = 'company_announcements';
+// Helper to map API data to Frontend interface
+const mapApiAnnouncement = (data: any): Announcement => {
+  return {
+    id: data.id,
+    category: data.category as AnnouncementCategory,
+    author: data.author?.name || 'Unknown',
+    timestamp: data.createdAt,
+    title: data.title,
+    body: data.content,
+    likes: data.likes?.map((l: any) => l.userId) || [],
+    comments: data.comments?.map((c: any) => ({
+      id: c.id,
+      author: c.author?.name || 'Unknown',
+      text: c.text,
+      timestamp: c.createdAt
+    })) || [],
+    eventDetails: data.category === 'events' ? {
+      date: data.eventDate || '',
+      location: data.eventLocation || '',
+      going: data.rsvps?.filter((r: any) => r.status === 'going').map((r: any) => r.userId) || []
+    } : undefined,
+    birthdayDate: data.birthdayDate,
+    isImportant: data.isImportant,
+    priority: data.priority
+  };
+};
 
 /**
- * Load all announcements from localStorage
- * Ensures backward compatibility by adding isImportant field to older announcements
+ * Fetch all announcements from API
  */
-export function loadAnnouncements(): Announcement[] {
-  const announcements = getItem<Announcement[]>(STORAGE_KEY, []);
-  
-  // Ensure backward compatibility: add isImportant field if missing
-  return announcements.map(announcement => ({
-    ...announcement,
-    isImportant: announcement.isImportant ?? false,
-  }));
-}
-
-/**
- * Save announcements to localStorage
- */
-export function saveAnnouncements(announcements: Announcement[]): void {
-  setItem(STORAGE_KEY, announcements);
+export async function fetchAnnouncements(): Promise<Announcement[]> {
+  try {
+    const res = await apiFetch('/announcements');
+    if (res.status === 200) {
+      const data = await res.json();
+      return data.map(mapApiAnnouncement);
+    }
+  } catch (error) {
+    console.error('Failed to fetch announcements:', error);
+  }
+  return [];
 }
 
 /**
  * Add a new announcement
  */
-export function addAnnouncement(
+export async function addAnnouncement(
   category: AnnouncementCategory,
   title: string,
   body: string,
-  author: string = 'User',
+  _author: string = 'User', // Author is handled by backend token
   eventDetails?: EventDetails,
   isImportant: boolean = false,
   birthdayDate?: string
-): Announcement {
-  const announcements = loadAnnouncements();
-  const newAnnouncement: Announcement = {
-    id: `ann-${Date.now()}`,
-    category,
-    author,
-    timestamp: new Date().toISOString(),
-    title,
-    body,
-    likes: [],
-    comments: [],
-    eventDetails,
-    birthdayDate,
-    isImportant,
-  };
-  
-  announcements.unshift(newAnnouncement); // Add to beginning
-  saveAnnouncements(announcements);
-  return newAnnouncement;
+): Promise<Announcement | null> {
+  try {
+    const payload: any = {
+      category,
+      title,
+      content: body, // Map body to content
+      isImportant,
+    };
+
+    if (category === 'events' && eventDetails) {
+      payload.eventDate = eventDetails.date;
+      payload.eventLocation = eventDetails.location;
+    }
+
+    if (category === 'birthdays' && birthdayDate) {
+      payload.birthdayDate = birthdayDate;
+    }
+
+    const res = await apiFetch('/announcements', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    if (res.status === 201) {
+      const data = await res.json();
+      return mapApiAnnouncement(data);
+    }
+  } catch (error) {
+    console.error('Failed to create announcement:', error);
+  }
+  return null;
 }
 
 /**
  * Update an existing announcement
  */
-export function updateAnnouncement(id: string, updates: Partial<Omit<Announcement, 'id'>>): void {
-  const announcements = loadAnnouncements();
-  const index = announcements.findIndex(a => a.id === id);
-  
-  if (index !== -1) {
-    announcements[index] = { ...announcements[index], ...updates };
-    saveAnnouncements(announcements);
+export async function updateAnnouncement(id: string, updates: Partial<Omit<Announcement, 'id'>>): Promise<Announcement | null> {
+  try {
+    const payload: any = {};
+    if (updates.category) payload.category = updates.category;
+    if (updates.title) payload.title = updates.title;
+    if (updates.body) payload.content = updates.body;
+    if (updates.isImportant !== undefined) payload.isImportant = updates.isImportant;
+    if (updates.eventDetails) {
+      payload.eventDate = updates.eventDetails.date;
+      payload.eventLocation = updates.eventDetails.location;
+    }
+    if (updates.birthdayDate) payload.birthdayDate = updates.birthdayDate;
+
+    const res = await apiFetch(`/announcements/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+
+    if (res.status === 200) {
+      const data = await res.json();
+      return mapApiAnnouncement(data);
+    }
+  } catch (error) {
+    console.error('Failed to update announcement:', error);
   }
+  return null;
 }
 
 /**
  * Delete an announcement
  */
-export function deleteAnnouncement(id: string): void {
-  const announcements = loadAnnouncements();
-  const filtered = announcements.filter(a => a.id !== id);
-  saveAnnouncements(filtered);
+export async function deleteAnnouncement(id: string): Promise<boolean> {
+  try {
+    const res = await apiFetch(`/announcements/${id}`, {
+      method: 'DELETE',
+    });
+    return res.status === 200;
+  } catch (error) {
+    console.error('Failed to delete announcement:', error);
+    return false;
+  }
 }
 
 /**
  * Toggle like on an announcement
  */
-export function toggleLike(announcementId: string, userId: string = 'current-user'): void {
-  const announcements = loadAnnouncements();
-  const announcement = announcements.find(a => a.id === announcementId);
-  
-  if (announcement) {
-    const likeIndex = announcement.likes.indexOf(userId);
-    if (likeIndex === -1) {
-      announcement.likes.push(userId);
-    } else {
-      announcement.likes.splice(likeIndex, 1);
+export async function toggleLike(announcementId: string): Promise<boolean> {
+  try {
+    const res = await apiFetch(`/announcements/${announcementId}/like`, {
+      method: 'POST',
+    });
+    if (res.status === 200) {
+      const data = await res.json();
+      return data.liked;
     }
-    saveAnnouncements(announcements);
+  } catch (error) {
+    console.error('Failed to toggle like:', error);
   }
+  return false;
 }
 
 /**
  * Add a comment to an announcement
  */
-export function addComment(
+export async function addComment(
   announcementId: string,
   text: string,
-  author: string = 'User'
-): void {
-  const announcements = loadAnnouncements();
-  const announcement = announcements.find(a => a.id === announcementId);
-  
-  if (announcement) {
-    const newComment: Comment = {
-      id: `comment-${Date.now()}`,
-      author,
-      text,
-      timestamp: new Date().toISOString(),
-    };
-    announcement.comments.push(newComment);
-    saveAnnouncements(announcements);
+  _author: string = 'User'
+): Promise<Comment | null> {
+  try {
+    const res = await apiFetch(`/announcements/${announcementId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+
+    if (res.status === 201) {
+      const data = await res.json();
+      return {
+        id: data.id,
+        author: data.author?.name || 'Unknown',
+        text: data.text,
+        timestamp: data.createdAt
+      };
+    }
+  } catch (error) {
+    console.error('Failed to add comment:', error);
   }
+  return null;
 }
 
 /**
  * Delete a comment from an announcement
  */
-export function deleteComment(announcementId: string, commentId: string): void {
-  const announcements = loadAnnouncements();
-  const announcement = announcements.find(a => a.id === announcementId);
-  
-  if (announcement) {
-    announcement.comments = announcement.comments.filter(c => c.id !== commentId);
-    saveAnnouncements(announcements);
+export async function deleteComment(announcementId: string, commentId: string): Promise<boolean> {
+  try {
+    const res = await apiFetch(`/announcements/${announcementId}/comments/${commentId}`, {
+      method: 'DELETE',
+    });
+    return res.status === 200;
+  } catch (error) {
+    console.error('Failed to delete comment:', error);
+    return false;
   }
 }
 
 /**
- * Toggle "going" status for an event
+ * Toggle "going" status for an event (RSVP)
  */
-export function toggleGoing(announcementId: string, userId: string = 'current-user'): void {
-  const announcements = loadAnnouncements();
-  const announcement = announcements.find(a => a.id === announcementId);
-  
-  if (announcement?.eventDetails) {
-    const goingIndex = announcement.eventDetails.going.indexOf(userId);
-    if (goingIndex === -1) {
-      announcement.eventDetails.going.push(userId);
-    } else {
-      announcement.eventDetails.going.splice(goingIndex, 1);
+export async function toggleGoing(announcementId: string): Promise<boolean> {
+  try {
+    // Determine current status. API expects 'going', 'maybe', 'not-going' or null.
+    // For simple toggle, we assume we want to toggle 'going'.
+    // However, the API endpoint is POST /rsvp with { status: 'going' }
+    // If already going, sending it again might toggle it or we might need logic.
+    // The previous backend implementation of toggleRSVP: if exists -> delete, else -> create.
+    // So sending 'going' acts as a toggle if we only support binary state in UI.
+    const res = await apiFetch(`/announcements/${announcementId}/rsvp`, {
+      method: 'POST',
+      body: JSON.stringify({ status: 'going' }),
+    });
+
+    if (res.status === 200) {
+      const data = await res.json();
+      return !!data.rsvp;
     }
-    saveAnnouncements(announcements);
+  } catch (error) {
+    console.error('Failed to toggle RSVP:', error);
   }
-}
-
-/**
- * Get announcements by category
- */
-export function getAnnouncementsByCategory(category: AnnouncementCategory): Announcement[] {
-  return loadAnnouncements().filter(a => a.category === category);
-}
-
-/**
- * Get recent announcements (last N)
- * Important announcements are prioritized and shown first
- */
-export function getRecentAnnouncements(count: number = 3): Announcement[] {
-  const announcements = loadAnnouncements();
-  // Sort: important first, then by timestamp
-  const sorted = [...announcements].sort((a, b) => {
-    if (a.isImportant && !b.isImportant) return -1;
-    if (!a.isImportant && b.isImportant) return 1;
-    return 0; // Maintain original order for same importance level
-  });
-  return sorted.slice(0, count);
+  return false;
 }
 
 /**
@@ -221,6 +272,11 @@ export function getTimeAgo(timestamp: string): string {
   if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return `${diffDays} days ago`;
-  
+
   return past.toLocaleDateString();
 }
+
+// Deprecated functions (kept for compatibility during migration, but should result in errors/no-ops if called synchronously expectation)
+// We renamed loadAnnouncements to fetchAnnouncements.
+// The old synchronous export is removed to force refactoring.
+
