@@ -6,14 +6,18 @@ import BrandLogo from '../assets/icons/BrandLogo'
 import IconButton from './IconButton'
 import ThemeToggle from './ThemeToggle'
 import UserAvatar from '../assets/icons/UserAvatar'
-import NotificationList from './NotificationList'
-import { Bell, Search, Settings } from 'lucide-react'
+import NotificationSidebar from './NotificationSidebar'
+import ProfileSidebar from './ProfileSidebar'
+import { Bell, Search } from 'lucide-react'
 import { useSocket } from '@/context/SocketContext'
+import { getCurrentUser } from '@/lib/api'
 
 export default function Header({ title, subtitle }: { title?: string; subtitle?: string }) {
   const pathname = usePathname() || '/'
   const { unreadCount, notifications, markAsRead, markAllAsRead, clearNotifications, connect, isConnected } = useSocket()
   const [showNotifications, setShowNotifications] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
+  const [user, setUser] = useState<any>(null)
 
   const isDashboard = pathname === '/' || pathname === '/dashboard'
   const headerRef = useRef<HTMLElement | null>(null)
@@ -99,6 +103,17 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
     }
   }, [])
 
+  // Track user changes for avatar updates
+  useEffect(() => {
+    const updateUser = () => {
+      const currentUser = getCurrentUser();
+      setUser(currentUser);
+    };
+    updateUser();
+    const interval = setInterval(updateUser, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <header ref={headerRef} className="fixed top-0 left-64 right-0 z-35 flex items-center justify-between h-25 pl-7 pr-6 bg-[var(--background)]">
       <div className="flex items-center gap-4">
@@ -126,37 +141,34 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
 
         <ThemeToggle />
 
-        <button aria-label="settings" className="btn btn-ghost btn-circle">
-          <Settings className="w-5 h-5" />
+        <button
+          aria-label="notifications"
+          className="btn btn-ghost btn-circle relative"
+          onClick={() => setShowNotifications(!showNotifications)}
+        >
+          <Bell className="w-5 h-5" />
+          {unreadCount > 0 && (
+            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-[var(--background)]"></span>
+          )}
         </button>
 
-        <div className="relative flex items-center">
-          <button
-            aria-label="notifications"
-            className="btn btn-ghost btn-circle relative"
-            onClick={() => setShowNotifications(!showNotifications)}
-          >
-            <Bell className="w-5 h-5" />
-            {unreadCount > 0 && (
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-[var(--background)]"></span>
-            )}
-          </button>
-
-          {showNotifications && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
-              <NotificationList
-                notifications={notifications}
-                onMarkAsRead={markAsRead}
-                onMarkAllAsRead={markAllAsRead}
-                onClear={clearNotifications}
-                onClose={() => setShowNotifications(false)}
+        <button
+          onClick={() => setShowProfile(true)}
+          className="rounded-full hover:ring-2 hover:ring-[var(--border)] transition-all overflow-hidden"
+          aria-label="Open profile"
+        >
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-[var(--card-surface)] border-2 border-[var(--border)]">
+            {user?.avatar ? (
+              <img
+                src={user.avatar}
+                alt={user.name || "User"}
+                className="w-full h-full object-cover"
               />
-            </>
-          )}
-        </div>
-
-        <UserAvatar className="w-8 h-8 rounded-full" size={32} ariaHidden={true} />
+            ) : (
+              <UserAvatar className="w-full h-full" size={32} ariaHidden={true} />
+            )}
+          </div>
+        </button>
       </div>
 
       {/* subtle bottom outline using theme border token + small shadow
@@ -228,6 +240,19 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
           )}
         </>
       )}
+      
+      {/* Notification Sidebar */}
+      <NotificationSidebar
+        isOpen={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        notifications={notifications}
+        onMarkAsRead={markAsRead}
+        onMarkAllAsRead={markAllAsRead}
+        onClear={clearNotifications}
+      />
+      
+      {/* Profile Sidebar */}
+      <ProfileSidebar isOpen={showProfile} onClose={() => setShowProfile(false)} />
     </header>
   )
 }
