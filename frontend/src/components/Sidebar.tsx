@@ -18,7 +18,6 @@ import {
   DollarSign,
   Megaphone,
   Mail,
-  MoreHorizontal,
 } from 'lucide-react'
 
 function NavItem({ icon: Icon, label, badge, href }: { icon: React.ComponentType<React.SVGProps<SVGSVGElement>>; label: string; badge?: number; href: string }) {
@@ -131,7 +130,11 @@ export default function Sidebar() {
   }, [user])
 
   return (
-    <aside ref={asideRef} className="fixed left-0 top-0 h-full w-64 bg-transparent pr-0 z-50">
+    <aside 
+      ref={asideRef} 
+      className="fixed left-0 top-0 h-full w-64 pr-0 bg-white dark:bg-[var(--background)]" 
+      style={{ zIndex: 9999, isolation: 'isolate' }}
+    >
       {/* vertical divider recreated as an absolute element so other borders can align to it */}
       <div data-sidebar-divider className="absolute right-0 top-0 bottom-0 w-px z-50 bg-[var(--border)]" />
       <div className="flex flex-col h-full">
@@ -166,7 +169,6 @@ export default function Sidebar() {
             <NavItem href="/company-chat" icon={MessageSquare} label="Company Chat" />
             <NavItem href="/private-messages" icon={Mail} label="Private Messages" badge={3} />
             <NavItem href="/whiteboard" icon={Grid} label="Whiteboard" />
-            <NavItem href="discord://" icon={MoreHorizontal} label="Discord" />
           </nav>
 
           <div className="text-xs text-muted uppercase px-2 mb-2">Departments</div>
@@ -182,16 +184,23 @@ export default function Sidebar() {
           <div className="absolute left-0 right-0 top-0 z-30 border-t border-[var(--border)]" />
           <div className="px-2">
             <div className="flex items-center gap-3">
-              <Link href="/profile" className="flex items-center gap-3 flex-1 min-w-0">
-                <UserAvatar className="w-10 h-10 rounded-full" size={40} aria-hidden={true} />
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-[var(--card-surface)] border-2 border-[var(--border)] flex-shrink-0">
+                  {user?.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt={user.name || "User"}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <UserAvatar className="w-full h-full" size={40} aria-hidden={true} />
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">{user?.name || 'User'}</div>
                   <div className="text-xs text-muted truncate">{user?.email || 'hatdog'}</div>
                 </div>
-              </Link>
-              <button aria-label="Profile options" className="nav-animated p-1 rounded-md group transform transition-colors transition-transform duration-150 ease-out border border-transparent hover:bg-gray-50 dark:hover:bg-white/5 hover:border-[var(--border)] active:translate-y-[1px] active:scale-[0.995] active:bg-gray-100 dark:active:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400">
-                <MoreHorizontal className="w-5 h-5 transition-colors duration-150 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
-              </button>
+              </div>
             </div>
           </div>
         </div>
