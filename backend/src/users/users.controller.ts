@@ -1,6 +1,6 @@
 import express, { Request, Response, Router } from 'express'
 import { UsersService } from './users.service'
-import { authenticateToken, requireRole } from '../auth/auth.middleware'
+import { authenticateToken, requireRole, AuthRequest } from '../auth/auth.middleware'
 import { emailService } from '../email/email.service'
 
 export class UsersController {
@@ -71,8 +71,8 @@ export class UsersController {
             }
         })
 
-        // Create user
-        router.post('/', authenticateToken, async (req: Request, res: Response) => {
+        // Create user (Admin only)
+        router.post('/', authenticateToken, requireRole('admin'), async (req: Request, res: Response) => {
             try {
                 const { email, name, avatar } = req.body
 
@@ -105,11 +105,23 @@ export class UsersController {
             }
         })
 
-        // Update user
+        // Update user (Self or Admin)
         router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
                 const { name, avatar } = req.body
+                const authReq = req as AuthRequest
+                const requesterId = authReq.user?.userId
+
+                // Check authorization
+                if (requesterId !== id) {
+                    // Check if requester is admin
+                    const userRoles = await this.service.getUserRoles(requesterId!)
+                    const isAdmin = userRoles.some(r => r.role === 'admin')
+                    if (!isAdmin) {
+                        return res.status(403).json({ error: 'Unauthorized to update another user' })
+                    }
+                }
 
                 // Check if user exists
                 const existingUser = await this.service.findById(id)
@@ -124,8 +136,8 @@ export class UsersController {
             }
         })
 
-        // Delete user
-        router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
+        // Delete user (Admin only)
+        router.delete('/:id', authenticateToken, requireRole('admin'), async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
 

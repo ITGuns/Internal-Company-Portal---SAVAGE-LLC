@@ -113,7 +113,10 @@ export class AuthController {
             })
         })
 
-        // Dev Login (Only for development)
+
+        // ⚠️ SECURITY WARNING: DEV LOGIN ENABLED FOR TESTING ONLY
+        // This bypasses authentication and MUST be disabled in production
+        // Checks NODE_ENV to prevent accidental exposure
         router.post('/dev-login', async (req: Request, res: Response) => {
             if (process.env.NODE_ENV === 'production') {
                 return res.status(404).json({ error: 'Not available in production' })
@@ -147,6 +150,7 @@ export class AuthController {
                 res.status(500).json({ error: 'Dev login failed' })
             }
         })
+
 
         return router
     }

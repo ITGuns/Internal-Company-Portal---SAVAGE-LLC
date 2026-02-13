@@ -50,12 +50,9 @@ async function bootstrap() {
 
   // Enable CORS
   app.use((req: Request, res: Response, next: NextFunction) => {
-    const origin = req.headers.origin;
-    if (origin) {
-      res.header('Access-Control-Allow-Origin', origin)
-    } else {
-      res.header('Access-Control-Allow-Origin', config.corsOrigin)
-    }
+    // STRENGTHENED SECURITY: Only allow configured origin
+    res.header('Access-Control-Allow-Origin', config.corsOrigin)
+
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
     res.header('Access-Control-Allow-Credentials', 'true') // Added for Socket.io
