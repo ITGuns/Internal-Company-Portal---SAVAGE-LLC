@@ -46,9 +46,9 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 };
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
-  Low: "#facc15",
-  Med: "#fb923c",
-  High: "#ef4444",
+  Low: "var(--priority-low)",
+  Med: "var(--priority-medium)",
+  High: "var(--priority-high)",
 };
 
 function BoardCard({ task, onClick }: { task: Task; onClick?: () => void }) {
@@ -292,7 +292,7 @@ export default function TaskTrackingPage() {
         title: t.title,
         start: t.dueDate,
         extendedProps: { task: t },
-        color: t.status === 'completed' ? '#10b981' : (t.status === 'in_progress' ? '#3b82f6' : '#6b7280')
+        color: t.status === 'completed' ? 'var(--status-completed)' : (t.status === 'in_progress' ? 'var(--status-in-progress)' : 'var(--status-pending)')
       };
     })
     .filter(Boolean) as any[];
@@ -498,7 +498,7 @@ export default function TaskTrackingPage() {
                 {/* Overdue */}
                 <div className="rounded border border-[var(--border)] bg-[var(--card-surface)] overflow-hidden">
                   <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--card-bg)] flex justify-between">
-                    <div className="text-sm font-semibold text-red-500">Overdue</div>
+                    <div className="text-sm font-semibold text-[var(--status-blocked)]">Overdue</div>
                     <div className="text-xs text-[var(--muted)]">{overdueTasks.length}</div>
                   </div>
                   <div className="p-3">
@@ -507,9 +507,9 @@ export default function TaskTrackingPage() {
                     ) : (
                       <ul className="space-y-2">
                         {overdueTasks.slice(0, 3).map(t => (
-                          <li key={t.id} onClick={() => openEdit(t)} className="p-2 border border-red-200 bg-red-50 dark:bg-red-900/10 rounded text-sm cursor-pointer">
+                          <li key={t.id} onClick={() => openEdit(t)} className="p-2 border border-[var(--status-blocked)] bg-[var(--status-blocked-bg)] rounded text-sm cursor-pointer">
                             <div className="font-medium">{t.title}</div>
-                            <div className="text-xs text-red-500">Due: {t.dueDate}</div>
+                            <div className="text-xs text-[var(--status-blocked)]">Due: {t.dueDate}</div>
                           </li>
                         ))}
                       </ul>
@@ -528,15 +528,15 @@ export default function TaskTrackingPage() {
                       <div className="text-xs text-[var(--muted)]">Total</div>
                     </div>
                     <div className="p-2 bg-[var(--card-bg)] rounded border border-[var(--border)] text-center">
-                      <div className="text-lg font-bold text-green-500">{completedCount}</div>
+                      <div className="text-lg font-bold text-[var(--status-completed)]">{completedCount}</div>
                       <div className="text-xs text-[var(--muted)]">Done</div>
                     </div>
                     <div className="p-2 bg-[var(--card-bg)] rounded border border-[var(--border)] text-center">
-                      <div className="text-lg font-bold text-blue-500">{inProgressCount}</div>
+                      <div className="text-lg font-bold text-[var(--status-in-progress)]">{inProgressCount}</div>
                       <div className="text-xs text-[var(--muted)]">Active</div>
                     </div>
                     <div className="p-2 bg-[var(--card-bg)] rounded border border-[var(--border)] text-center">
-                      <div className="text-lg font-bold text-red-500">{overdueTasks.length}</div>
+                      <div className="text-lg font-bold text-[var(--status-blocked)]">{overdueTasks.length}</div>
                       <div className="text-xs text-[var(--muted)]">Overdue</div>
                     </div>
                   </div>
@@ -699,7 +699,7 @@ export default function TaskTrackingPage() {
                   <button
                     type="button"
                     onClick={handleDelete}
-                    className="flex items-center gap-2 text-red-500 hover:text-red-600 font-medium px-4 py-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20"
+                    className="flex items-center gap-2 text-[var(--status-blocked)] hover:opacity-80 font-medium px-4 py-2 rounded hover:bg-[var(--status-blocked-bg)]"
                   >
                     <Trash2 className="w-4 h-4" /> Delete Task
                   </button>

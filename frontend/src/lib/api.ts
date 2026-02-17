@@ -94,3 +94,100 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
 
     return response
 }
+
+// ============================================
+// USER PROFILE API
+// ============================================
+
+/**
+ * Update user profile
+ * @param userId - User ID
+ * @param profileData - Profile data to update (name, email, phone, birthday, etc.)
+ * @returns Updated user object
+ */
+export const updateUserProfile = async (userId: string | number, profileData: Partial<{
+    name: string;
+    email: string;
+    phone?: string;
+    birthday?: string;
+    address?: string;
+    city?: string;
+    citizenship?: string;
+    bio?: string;
+    position?: string;
+    department?: string;
+}>) => {
+    try {
+        const response = await apiFetch(`/users/${userId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(profileData),
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to update profile');
+        }
+
+        const data = await response.json();
+        
+        // Update localStorage with new user data
+        if (data.user) {
+            setCurrentUser(data.user);
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('Error updating user profile:', error);
+        throw error;
+    }
+};
+
+/**
+ * Upload user avatar
+ * @param userId - User ID
+ * @param file - Image file or base64 string
+ * @returns Updated user object with new avatar URL
+ */
+export const uploadAvatar = async (userId: string | number, file: File | string) => {
+    try {
+        let body;
+        let headers: Record<string, string> = {};
+
+        if (typeof file === 'string') {
+            // Base64 string
+            body = JSON.stringify({ avatar: file });
+            headers['Content-Type'] = 'application/json';
+        } else {
+            // File upload
+            const formData = new FormData();
+            formData.append('avatar', file);
+            body = formData;
+            // Don't set Content-Type for FormData, browser will set it with boundary
+        }
+
+        const token = getAuthToken();
+        const response = await fetch(`${API_URL}/users/${userId}/avatar`, {
+            method: 'POST',
+            headers: {
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                ...headers,
+            },
+            body,
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to upload avatar');
+        }
+
+        const data = await response.json();
+        
+        // Update localStorage with new avatar
+        if (data.user) {
+            setCurrentUser(data.user);
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('Error uploading avatar:', error);
+        throw error;
+    }
+};
