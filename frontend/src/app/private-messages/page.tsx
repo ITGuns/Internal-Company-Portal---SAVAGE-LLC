@@ -9,16 +9,17 @@ import { Send, User, Search, MessageSquare, Loader2, Paperclip, Plus, X } from '
 import { fetchConversations, fetchMessages, sendMessage, createConversation, type Message, type Conversation } from '@/lib/chat'
 import { fetchUsers, type User as SystemUser } from '@/lib/users'
 import { useSocket } from '@/context/SocketContext'
+import { useUser } from '@/contexts/UserContext'
 
 export default function PrivateMessagesPage() {
   const { socket } = useSocket()
+  const { user: currentUser } = useUser()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
-  const [currentUser, setCurrentUser] = useState<any>(null)
   const [showNewChat, setShowNewChat] = useState(false)
   const [users, setUsers] = useState<SystemUser[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -26,9 +27,6 @@ export default function PrivateMessagesPage() {
 
   // Load initial data
   useEffect(() => {
-    const storedUser = localStorage.getItem('currentUser') || localStorage.getItem('user')
-    if (storedUser) setCurrentUser(JSON.parse(storedUser))
-
     async function load() {
       try {
         const [convData, userData] = await Promise.all([

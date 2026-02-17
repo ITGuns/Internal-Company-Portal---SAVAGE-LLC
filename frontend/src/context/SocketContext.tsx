@@ -2,16 +2,10 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
 import { io, Socket } from 'socket.io-client'
+import { APP_CONFIG } from '@/lib/config'
+import { STORAGE_KEYS, SOCKET_EVENTS } from '@/lib/constants'
 
-const getSocketUrl = () => {
-    if (typeof window !== 'undefined') {
-        const host = window.location.hostname
-        return `http://${host}:4000`
-    }
-    return 'http://localhost:4000'
-}
-
-const SOCKET_URL = getSocketUrl()
+const SOCKET_URL = APP_CONFIG.wsUrl.replace('ws://', 'http:///');
 
 export interface Notification {
     id: string
@@ -122,7 +116,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     // Auto-connect and monitor user changes
     useEffect(() => {
         const checkUserAndConnect = () => {
-            const storedUser = typeof window !== 'undefined' ? (localStorage.getItem('currentUser') || localStorage.getItem('user')) : null
+            const storedUser = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.USER) : null
             if (storedUser) {
                 try {
                     const user = JSON.parse(storedUser)
@@ -139,7 +133,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         }
 
         checkUserAndConnect()
-        const interval = setInterval(checkUserAndConnect, 3000)
+        const interval = setInterval(checkUserAndConnect, APP_CONFIG.userPollInterval)
 
         return () => {
             clearInterval(interval)

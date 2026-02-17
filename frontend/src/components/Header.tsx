@@ -10,14 +10,14 @@ import NotificationSidebar from './NotificationSidebar'
 import ProfileSidebar from './ProfileSidebar'
 import { Bell, Search } from 'lucide-react'
 import { useSocket } from '@/context/SocketContext'
-import { getCurrentUser } from '@/lib/api'
+import { useUser } from '@/contexts/UserContext'
 
 export default function Header({ title, subtitle }: { title?: string; subtitle?: string }) {
   const pathname = usePathname() || '/'
   const { unreadCount, notifications, markAsRead, markAllAsRead, clearNotifications, connect, isConnected } = useSocket()
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
-  const [user, setUser] = useState<any>(null)
+  const { user } = useUser()
 
   const isDashboard = pathname === '/' || pathname === '/dashboard'
   const headerRef = useRef<HTMLElement | null>(null)
@@ -102,17 +102,6 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
       setDebugMode(window.location.search.includes('outlineDebug'))
     }
   }, [])
-
-  // Track user changes for avatar updates
-  useEffect(() => {
-    const updateUser = () => {
-      const currentUser = getCurrentUser();
-      setUser(currentUser);
-    };
-    updateUser();
-    const interval = setInterval(updateUser, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   return (
     <header ref={headerRef} className="fixed top-0 left-64 right-0 z-35 flex items-center justify-between h-25 pl-7 pr-6 bg-[var(--background)]">

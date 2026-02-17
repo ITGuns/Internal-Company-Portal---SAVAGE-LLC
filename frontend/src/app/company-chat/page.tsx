@@ -8,9 +8,11 @@ import Button from '@/components/Button'
 import { Send, Hash, Users, MessageSquare, Loader2, Paperclip } from 'lucide-react'
 import { fetchConversations, fetchMessages, sendMessage, createConversation, type Message, type Conversation } from '@/lib/chat'
 import { useSocket } from '@/context/SocketContext'
+import { useUser } from '@/contexts/UserContext'
 
 export default function CompanyChatPage() {
   const { socket, isConnected } = useSocket()
+  const { user: currentUser } = useUser()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -18,27 +20,7 @@ export default function CompanyChatPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
-  const [currentUser, setCurrentUser] = useState<any>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-
-  // Load/Poll user data
-  useEffect(() => {
-    const updateUser = () => {
-      const stored = localStorage.getItem('currentUser') || localStorage.getItem('user')
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored)
-          if (JSON.stringify(parsed) !== JSON.stringify(currentUser)) {
-            setCurrentUser(parsed)
-          }
-        } catch (e) { }
-      }
-    }
-
-    updateUser()
-    const interval = setInterval(updateUser, 1000)
-    return () => clearInterval(interval)
-  }, [currentUser])
 
   // Load initial data
   useEffect(() => {

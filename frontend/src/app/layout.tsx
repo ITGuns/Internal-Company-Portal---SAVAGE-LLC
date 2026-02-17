@@ -4,6 +4,8 @@ import "./globals.css";
 import Sidebar from "../components/Sidebar";
 import { SocketProvider } from "../context/SocketContext";
 import { ToastProvider } from "../components/ToastProvider";
+import { ErrorBoundary } from "../components/ErrorBoundary";
+import { UserProvider } from "../contexts/UserContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,12 +39,16 @@ export default function RootLayout({
           }}
         />
 
-        <SocketProvider>
-          <ToastProvider>
-            <Sidebar />
-            <div className="min-h-screen pl-64 pt-[112px] bg-[var(--background)] text-[var(--foreground)]">{children}</div>
-          </ToastProvider>
-        </SocketProvider>
+        <ErrorBoundary>
+          <UserProvider>
+            <SocketProvider>
+              <ToastProvider>
+                <Sidebar />
+                <div className="min-h-screen pl-64 pt-[112px] bg-[var(--background)] text-[var(--foreground)]">{children}</div>
+              </ToastProvider>
+            </SocketProvider>
+          </UserProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );
