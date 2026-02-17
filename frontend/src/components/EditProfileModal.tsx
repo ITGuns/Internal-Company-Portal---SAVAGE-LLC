@@ -5,6 +5,8 @@ import Modal from "./Modal";
 import Button from "./Button";
 import { User, Mail, Calendar, Phone, Camera, MapPin, Flag } from "lucide-react";
 import { useToast } from "./ToastProvider";
+import { useUser } from "@/contexts/UserContext";
+import { updateUserProfile, uploadAvatar } from "@/lib/api";
 import UserAvatar from "@/assets/icons/UserAvatar";
 
 interface UserProfile {
@@ -34,6 +36,7 @@ export default function EditProfileModal({
   onSave,
 }: EditProfileModalProps) {
   const { showToast } = useToast();
+  const { updateUser } = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -103,22 +106,50 @@ export default function EditProfileModal({
       return;
     }
 
+    if (!user?.id) {
+      showToast('error', "User ID not found");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // TODO: Call API to update profile
-      // await updateUserProfile(user.id, formData);
+      // Separate avatar upload from profile update
+      const hasAvatarChanged = formData.avatar && formData.avatar !== user.avatar;
+      
+      // Update profile data (without avatar)
+      const profileData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        birthday: formData.birthday,
+        address: formData.address,
+        city: formData.city,
+        citizenship: formData.citizenship,
+      };
 
-      // For now, just update localStorage
-      const updatedUser = { ...user, ...formData };
-      localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+      // Call API to update profile
+      const profileResponse = await updateUserProfile(user.id, profileData);
+      
+      let finalUser = profileResponse.user;
 
-      onSave(updatedUser);
+      // If avatar changed, upload it separately
+      if (hasAvatarChanged) {
+        const avatarResponse = await uploadAvatar(user.id, formData.avatar);
+        finalUser = avatarResponse.user;
+      }
+
+      // Update UserContext with new data
+      updateUser(finalUser);
+
+      // Call parent onSave callback
+      onSave(finalUser);
+      
       showToast('success', "Profile updated successfully!");
       onClose();
     } catch (err) {
-      console.error(err);
-      showToast('error', "Failed to update profile");
+      console.error('Error updating profile:', err);
+      showToast('error', "Failed to update profile. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

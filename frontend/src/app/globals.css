@@ -28,6 +28,24 @@ body {
   --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.06);
   --header-height: 9rem;
   --nav-hover-shadow: rgba(16, 24, 40, 0.03);
+  
+  /* Priority Colors */
+  --priority-low: #10b981; /* green-500 */
+  --priority-low-bg: rgba(16, 185, 129, 0.1);
+  --priority-medium: #f59e0b; /* amber-500 */
+  --priority-medium-bg: rgba(245, 158, 11, 0.1);
+  --priority-high: #ef4444; /* red-500 */
+  --priority-high-bg: rgba(239, 68, 68, 0.1);
+  
+  /* Status Colors */
+  --status-pending: #6b7280; /* gray-500 */
+  --status-pending-bg: rgba(107, 114, 128, 0.1);
+  --status-in-progress: #3b82f6; /* blue-500 */
+  --status-in-progress-bg: rgba(59, 130, 246, 0.1);
+  --status-completed: #10b981; /* green-500 */
+  --status-completed-bg: rgba(16, 185, 129, 0.1);
+  --status-blocked: #ef4444; /* red-500 */
+  --status-blocked-bg: rgba(239, 68, 68, 0.1);
 }
 
 @theme inline {
@@ -47,6 +65,24 @@ body {
     --border: #172033;
     --accent: #c03333;
     --nav-hover-shadow: rgba(255, 255, 255, 0.02);
+    
+    /* Priority Colors (same values, work in dark mode) */
+    --priority-low: #10b981;
+    --priority-low-bg: rgba(16, 185, 129, 0.15);
+    --priority-medium: #f59e0b;
+    --priority-medium-bg: rgba(245, 158, 11, 0.15);
+    --priority-high: #ef4444;
+    --priority-high-bg: rgba(239, 68, 68, 0.15);
+    
+    /* Status Colors (same values, work in dark mode) */
+    --status-pending: #9ca3af;
+    --status-pending-bg: rgba(156, 163, 175, 0.15);
+    --status-in-progress: #3b82f6;
+    --status-in-progress-bg: rgba(59, 130, 246, 0.15);
+    --status-completed: #10b981;
+    --status-completed-bg: rgba(16, 185, 129, 0.15);
+    --status-blocked: #ef4444;
+    --status-blocked-bg: rgba(239, 68, 68, 0.15);
   }
 }
 
@@ -61,6 +97,42 @@ html.dark {
   --border: #172033;
   --accent: #c03333;
   --header-height: 9rem;
+  
+  /* Priority Colors */
+  --priority-low: #10b981;
+  --priority-low-bg: rgba(16, 185, 129, 0.15);
+  --priority-medium: #f59e0b;
+  --priority-medium-bg: rgba(245, 158, 11, 0.15);
+  --priority-high: #ef4444;
+  --priority-high-bg: rgba(239, 68, 68, 0.15);
+  
+  /* Status Colors */
+  
+  /* Priority Colors */
+  --priority-low: #10b981;
+  --priority-low-bg: rgba(16, 185, 129, 0.1);
+  --priority-medium: #f59e0b;
+  --priority-medium-bg: rgba(245, 158, 11, 0.1);
+  --priority-high: #ef4444;
+  --priority-high-bg: rgba(239, 68, 68, 0.1);
+  
+  /* Status Colors */
+  --status-pending: #6b7280;
+  --status-pending-bg: rgba(107, 114, 128, 0.1);
+  --status-in-progress: #3b82f6;
+  --status-in-progress-bg: rgba(59, 130, 246, 0.1);
+  --status-completed: #10b981;
+  --status-completed-bg: rgba(16, 185, 129, 0.1);
+  --status-blocked: #ef4444;
+  --status-blocked-bg: rgba(239, 68, 68, 0.1);
+  --status-pending: #9ca3af;
+  --status-pending-bg: rgba(156, 163, 175, 0.15);
+  --status-in-progress: #3b82f6;
+  --status-in-progress-bg: rgba(59, 130, 246, 0.15);
+  --status-completed: #10b981;
+  --status-completed-bg: rgba(16, 185, 129, 0.15);
+  --status-blocked: #ef4444;
+  --status-blocked-bg: rgba(239, 68, 68, 0.15);
 }
 
 html[data-theme="light"] {
