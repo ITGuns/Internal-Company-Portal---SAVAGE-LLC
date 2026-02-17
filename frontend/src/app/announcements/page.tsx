@@ -20,12 +20,13 @@ import {
   type Announcement,
   type AnnouncementCategory as Category,
 } from '@/lib/announcements'
-import { getCurrentUser } from '@/lib/api'
+import { useUser } from '@/contexts/UserContext'
 
 type FilterCategory = 'all' | Category;
 
 export default function AnnouncementsPage() {
   const toast = useToast();
+  const { user: currentUser } = useUser();
   const [activeFilter, setActiveFilter] = useState<FilterCategory>('all');
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +36,6 @@ export default function AnnouncementsPage() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [announcementToDelete, setAnnouncementToDelete] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Form state for new announcement
   const [newCategory, setNewCategory] = useState<Category>('company-news');
@@ -48,17 +48,16 @@ export default function AnnouncementsPage() {
   const [birthdayDate, setBirthdayDate] = useState('');
   const [isImportant, setIsImportant] = useState(false);
 
-  useEffect(() => {
-    setCurrentUser(getCurrentUser());
-    loadData();
-  }, []);
-
   const loadData = async () => {
     setLoading(true);
     const data = await fetchAnnouncements();
     setAnnouncements(data);
     setLoading(false);
   };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const filteredAnnouncements = activeFilter === 'all'
     ? announcements
@@ -181,11 +180,11 @@ export default function AnnouncementsPage() {
   };
 
   const isLiked = (announcement: Announcement) => {
-    return currentUser && announcement.likes.includes(currentUser.id);
+    return currentUser && announcement.likes.includes(String(currentUser.id));
   };
 
   const isGoing = (announcement: Announcement) => {
-    return currentUser && announcement.eventDetails?.going.includes(currentUser.id) || false;
+    return (currentUser && announcement.eventDetails?.going.includes(String(currentUser.id))) || false;
   };
 
   const formatEventDateTime = (dateTimeString: string): string => {

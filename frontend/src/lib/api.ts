@@ -1,5 +1,8 @@
-const API_URL = 'http://localhost:4000/api'
-const AUTH_URL = 'http://localhost:4000/auth'
+import { APP_CONFIG } from './config';
+import { STORAGE_KEYS } from './constants';
+
+const API_URL = `${APP_CONFIG.apiUrl}/api`;
+const AUTH_URL = `${APP_CONFIG.apiUrl}/auth`;
 
 
 export const getAuthToken = () => {
@@ -17,7 +20,7 @@ export const setAuthToken = (token: string) => {
 
 export const getCurrentUser = () => {
     if (typeof window !== 'undefined') {
-        const user = localStorage.getItem('currentUser');
+        const user = localStorage.getItem(STORAGE_KEYS.USER);
         return user ? JSON.parse(user) : null;
     }
     return null;
@@ -25,7 +28,7 @@ export const getCurrentUser = () => {
 
 export const setCurrentUser = (user: any) => {
     if (typeof window !== 'undefined') {
-        localStorage.setItem('currentUser', JSON.stringify(user));
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
     }
 }
 

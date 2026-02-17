@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import UserAvatar from '../assets/icons/UserAvatar'
 import { DEPARTMENT_ROLES } from '@/lib/departments'
+import { useUser } from '@/contexts/UserContext'
 
 // Sidebar departments: show the direct children of Owners / Founders as top-level
 const SIDEBAR_DEPARTMENTS = DEPARTMENT_ROLES['Owners / Founders'] || [];
@@ -84,6 +85,7 @@ export default function Sidebar() {
   const pathname = usePathname() || '/'
   const isDashboard = pathname === '/' || pathname === '/dashboard'
   const asideRef = useRef<HTMLElement | null>(null)
+  const { user } = useUser()
 
   useEffect(() => {
     const el = asideRef.current
@@ -108,26 +110,6 @@ export default function Sidebar() {
       window.removeEventListener('resize', setSidebarWidth)
     }
   }, [])
-
-  const [user, setUser] = useState<any>(null)
-
-  useEffect(() => {
-    const updateUser = () => {
-      const stored = localStorage.getItem('currentUser') || localStorage.getItem('user')
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored)
-          // If properties change (like login), update state
-          if (JSON.stringify(parsed) !== JSON.stringify(user)) {
-            setUser(parsed)
-          }
-        } catch (e) { }
-      }
-    }
-    updateUser()
-    const interval = setInterval(updateUser, 1000)
-    return () => clearInterval(interval)
-  }, [user])
 
   return (
     <aside 
