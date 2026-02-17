@@ -109,7 +109,7 @@ export class UsersController {
         router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
-                const { name, avatar } = req.body
+                const { name, avatar, birthday, phone, address, city, citizenship } = req.body
                 const authReq = req as AuthRequest
                 const requesterId = authReq.user?.userId
 
@@ -129,9 +129,48 @@ export class UsersController {
                     return res.status(404).json({ error: 'User not found' })
                 }
 
-                const user = await this.service.update(id, { name, avatar })
+                // Validate birthday if provided
+                if (birthday !== undefined && birthday !== null && birthday !== '') {
+                    const birthDate = new Date(birthday)
+                    if (isNaN(birthDate.getTime())) {
+                        return res.status(400).json({
+                            error: 'Invalid birthday format',
+                            code: 'VALIDATION_ERROR',
+                            details: { field: 'birthday', message: 'Must be a valid date (YYYY-MM-DD)' }
+                        })
+                    }
+                    if (birthDate > new Date()) {
+                        return res.status(400).json({
+                            error: 'Birthday cannot be in the future',
+                            code: 'VALIDATION_ERROR',
+                            details: { field: 'birthday', message: 'Date must be in the past' }
+                        })
+                    }
+                }
+
+                // Validate phone if provided
+                if (phone !== undefined && phone !== null && phone !== '') {
+                    if (!/^[\d\s\-\+\(\)]+$/.test(phone)) {
+                        return res.status(400).json({
+                            error: 'Invalid phone number format',
+                            code: 'VALIDATION_ERROR',
+                            details: { field: 'phone', message: 'Phone must contain only digits, spaces, +, -, (, )' }
+                        })
+                    }
+                }
+
+                const user = await this.service.update(id, {
+                    name,
+                    avatar,
+                    birthday,
+                    phone,
+                    address,
+                    city,
+                    citizenship
+                })
                 res.json(user)
             } catch (error) {
+                console.error('Update user error:', error)
                 res.status(500).json({ error: 'Failed to update user' })
             }
         })

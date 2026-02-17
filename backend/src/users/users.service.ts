@@ -10,6 +10,11 @@ export interface CreateUserDto {
 export interface UpdateUserDto {
     name?: string
     avatar?: string
+    birthday?: string    // ISO date string (YYYY-MM-DD)
+    phone?: string       // Phone number with country code
+    address?: string     // Street address
+    city?: string        // City name
+    citizenship?: string // Country of citizenship
 }
 
 export class UsersService {
@@ -89,15 +94,28 @@ export class UsersService {
     }
 
     /**
-     * Update user
+     * Update user profile
+     * Supports: name, avatar, birthday, phone, address, city, citizenship
      */
     async update(id: string, data: UpdateUserDto): Promise<User> {
+        // Prepare update data
+        const updateData: any = {}
+
+        if (data.name !== undefined) updateData.name = data.name
+        if (data.avatar !== undefined) updateData.avatar = data.avatar
+        if (data.phone !== undefined) updateData.phone = data.phone
+        if (data.address !== undefined) updateData.address = data.address
+        if (data.city !== undefined) updateData.city = data.city
+        if (data.citizenship !== undefined) updateData.citizenship = data.citizenship
+
+        // Handle birthday conversion from ISO string to DateTime
+        if (data.birthday !== undefined) {
+            updateData.birthday = data.birthday ? new Date(data.birthday) : null
+        }
+
         return this.prisma.user.update({
             where: { id },
-            data: {
-                name: data.name,
-                avatar: data.avatar,
-            },
+            data: updateData,
         })
     }
 

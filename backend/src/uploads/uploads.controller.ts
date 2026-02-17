@@ -59,6 +59,82 @@ export class UploadsController {
             }
         })
 
+        // Dedicated avatar upload endpoint
+        router.post('/avatar', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const { image } = req.body
+
+                if (!image) {
+                    return res.status(400).json({
+                        error: 'Image data required',
+                        code: 'VALIDATION_ERROR'
+                    })
+                }
+
+                // Validate base64 format with data URI
+                if (!image.startsWith('data:image/')) {
+                    return res.status(400).json({
+                        error: 'Invalid image format. Must be a base64 data URI',
+                        code: 'VALIDATION_ERROR',
+                        details: { expected: 'data:image/[type];base64,[data]' }
+                    })
+                }
+
+                // Extract mime type and base64 data
+                const matches = image.match(/^data:image\/(\w+);base64,(.+)$/)
+                if (!matches || matches.length !== 3) {
+                    return res.status(400).json({
+                        error: 'Invalid base64 image format',
+                        code: 'VALIDATION_ERROR'
+                    })
+                }
+
+                const [, mimeType, base64Data] = matches
+                const buffer = Buffer.from(base64Data, 'base64')
+
+                // Validate size (5MB max for avatars)
+                const sizeInBytes = buffer.length
+                if (sizeInBytes > 5 * 1024 * 1024) {
+                    return res.status(400).json({
+                        error: 'Image size must be less than 5MB',
+                        code: 'VALIDATION_ERROR',
+                        details: {
+                            maxSize: '5MB',
+                            actualSize: `${(sizeInBytes / (1024 * 1024)).toFixed(2)}MB`
+                        }
+                    })
+                }
+
+                // Validate mime type
+                const allowedTypes = ['jpeg', 'jpg', 'png', 'gif', 'webp']
+                if (!allowedTypes.includes(mimeType.toLowerCase())) {
+                    return res.status(400).json({
+                        error: 'Invalid image type',
+                        code: 'VALIDATION_ERROR',
+                        details: {
+                            allowed: allowedTypes,
+                            received: mimeType
+                        }
+                    })
+                }
+
+                // Return the base64 string for storage in User.avatar
+                // Frontend can store this directly in the database
+                res.json({
+                    avatar: image,
+                    size: sizeInBytes,
+                    type: `image/${mimeType}`
+                })
+
+            } catch (error) {
+                console.error('Avatar upload error:', error)
+                res.status(500).json({
+                    error: 'Failed to upload avatar',
+                    code: 'SERVER_ERROR'
+                })
+            }
+        })
+
         return router
     }
 }

@@ -1,4 +1,7 @@
 import { PrismaClient } from '@prisma/client'
+import { Pool } from 'pg'
+import { PrismaPg } from '@prisma/adapter-pg'
+import 'dotenv/config'
 
 // Singleton pattern for Prisma Client
 class PrismaService {
@@ -6,7 +9,10 @@ class PrismaService {
 
     static getInstance(): PrismaClient {
         if (!PrismaService.instance) {
-            PrismaService.instance = new PrismaClient()
+            const connectionString = process.env.DATABASE_URL
+            const pool = new Pool({ connectionString })
+            const adapter = new PrismaPg(pool)
+            PrismaService.instance = new PrismaClient({ adapter })
 
             // Handle graceful shutdown
             process.on('beforeExit', async () => {

@@ -27,7 +27,7 @@ export class DepartmentsService {
                 _count: {
                     select: {
                         tasks: true,
-                        userRoles: true
+                        roles: true
                     }
                 }
             },
@@ -48,7 +48,7 @@ export class DepartmentsService {
                     take: 5,
                     orderBy: { createdAt: 'desc' }
                 },
-                userRoles: {
+                roles: {
                     include: {
                         user: true
                     }
@@ -56,7 +56,7 @@ export class DepartmentsService {
                 _count: {
                     select: {
                         tasks: true,
-                        userRoles: true
+                        roles: true
                     }
                 }
             },
