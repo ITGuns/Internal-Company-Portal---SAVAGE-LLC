@@ -1,11 +1,51 @@
 # Project Updates Log
 ## Internal Company Portal - SAVAGE LLC
 
-Last Updated: February 12, 2026
+Last Updated: February 13, 2026
 
 ---
 
-## Recent Updates (February 12, 2026)
+## Recent Updates (February 13, 2026)
+
+### Payroll Calendar UI/UX Refinements
+**Impact:** High | **Status:** ✅ Complete
+
+Completed comprehensive UI/UX polish for the payroll calendar system with focus on theming, spacing, and accessibility. See full details in [reports/daily/2026-02-13-daily-report.md](reports/daily/2026-02-13-daily-report.md)
+
+**Key Achievements:**
+- ✅ Fixed light/dark mode switching (Tailwind config + CSS variables)
+- ✅ Optimized calendar spacing through 6 iterations
+- ✅ Enhanced profile edit with Address, City, Citizenship fields
+- ✅ Added modal scrollability for long forms
+- ✅ Improved selected employee visibility (high contrast)
+- ✅ Added document management empty state UI
+
+**Files Modified:** 6 files (~150 lines changed)
+
+---
+
+## Recent Updates (February 11-12, 2026)
+
+### Complete Payslips Management System
+**Impact:** Critical | **Status:** ✅ Complete | **Lines Added:** ~2,000+
+
+Built comprehensive payroll management system from scratch. See full implementation details in daily reports.
+
+**Components Created:** 8 (PayslipsTab, TimeTrackingCalendar, EmployeeSidebarItem, EmployeeProfilePanel, GeneratePayslipModal, PayslipDetailsModal, AddTimeEntryModal, StatCard)
+
+**Utility Libraries:** 7 (types, mock-data, payslip-utils, time-utils, utils, usePayrollData, useCalendarEvents)
+
+**Key Features:**
+- 3-column responsive layout
+- Time tracking calendar with color-coded cells
+- Employee search and management
+- Payslip generation with PDF export (jsPDF)
+- Deductions configuration (Tax, Insurance, 401k)
+- Mock data for 11 employees across all departments
+
+---
+
+## Previous Updates (February 12, 2026)
 
 ### Profile and Notification Sidebar System
 **Impact:** High | **Status:** ✅ Complete | **Branch:** feature/profile-payroll-pages → main

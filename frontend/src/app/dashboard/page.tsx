@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
+import LoadingSpinner from '@/components/LoadingSpinner'
 import { Clock, CheckCircle2, AlertCircle, TrendingUp, ExternalLink, Send, Megaphone, Star, Trophy } from 'lucide-react'
 import { fetchTasks, calculateWeeklyStats } from '@/lib/tasks'
 import { fetchTimeEntries, getTotalMinutesForDate, type TimeEntry } from '@/lib/time-entries'
@@ -78,7 +79,7 @@ export default function DashboardPage() {
     return (
       <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)] p-6">
         <Header />
-        <div className="mt-6 text-[var(--muted)]">Loading dashboard...</div>
+        <LoadingSpinner message="Loading dashboard..." />
       </main>
     );
   }

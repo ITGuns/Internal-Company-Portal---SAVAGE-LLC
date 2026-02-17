@@ -174,9 +174,7 @@ export default function CompanyChatPage() {
     return (
       <div className="flex flex-col h-[calc(100vh-112px)]">
         <Header title="Company Chat" />
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
-        </div>
+        <LoadingSpinner message="Loading chat..." />
       </div>
     )
   }

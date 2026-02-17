@@ -5,6 +5,7 @@ import Header from '@/components/Header'
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
 import Card from '@/components/Card'
+import LoadingSpinner from '@/components/LoadingSpinner'
 import { useToast } from '@/components/ToastProvider'
 import { Megaphone, Plus, Calendar, Trophy, Cake, Heart, MessageCircle, Send, MoreVertical, Edit, Trash2, AlertCircle } from 'lucide-react'
 import {
@@ -224,6 +225,20 @@ export default function AnnouncementsPage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [openMenu]);
+
+  if (loading) {
+    return (
+      <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)]">
+        <div className="p-6 pt-3">
+          <Header
+            title="Announcements & Shoutouts"
+            subtitle="Stay updated with company news and celebrate achievements"
+          />
+          <LoadingSpinner message="Loading announcements..." />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)]">

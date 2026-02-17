@@ -15,9 +15,9 @@ import {
   Calendar as CalendarIcon,
   Plus,
   MoreHorizontal,
-  Loader2,
   Trash2,
 } from "lucide-react";
+import LoadingSpinner from '@/components/LoadingSpinner';
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -301,7 +301,7 @@ export default function TaskTrackingPage() {
   if (isLoading && tasks.length === 0) {
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--background)]">
-        <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
+        <LoadingSpinner message="Loading tasks..." />
       </div>
     );
   }

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Modal from "./Modal";
 import Button from "./Button";
-import { User, Mail, Calendar, Phone, Camera } from "lucide-react";
+import { User, Mail, Calendar, Phone, Camera, MapPin, Flag } from "lucide-react";
 import { useToast } from "./ToastProvider";
 import UserAvatar from "@/assets/icons/UserAvatar";
 
@@ -13,6 +13,9 @@ interface UserProfile {
   email: string;
   birthday?: string;
   phone?: string;
+  address?: string;
+  city?: string;
+  citizenship?: string;
   roles?: string[];
   avatar?: string;
 }
@@ -37,6 +40,9 @@ export default function EditProfileModal({
     email: "",
     birthday: "",
     phone: "",
+    address: "",
+    city: "",
+    citizenship: "",
     avatar: "",
   });
   const [avatarPreview, setAvatarPreview] = useState<string>("");
@@ -50,6 +56,9 @@ export default function EditProfileModal({
         email: user.email || "",
         birthday: user.birthday || "",
         phone: user.phone || "",
+        address: user.address || "",
+        city: user.city || "",
+        citizenship: user.citizenship || "",
         avatar: user.avatar || "",
       });
       setAvatarPreview(user.avatar || "");
@@ -323,6 +332,90 @@ export default function EditProfileModal({
           />
           {errors.phone && (
             <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
+          )}
+        </div>
+
+        {/* Address Field */}
+        <div>
+          <label
+            htmlFor="address"
+            className="block text-sm font-medium text-[var(--foreground)] mb-2"
+          >
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              Address
+            </div>
+          </label>
+          <input
+            id="address"
+            type="text"
+            value={formData.address}
+            onChange={(e) => handleChange("address", e.target.value)}
+            className={`w-full px-3 py-2 rounded-md border ${
+              errors.address
+                ? "border-red-500 focus:ring-red-500"
+                : "border-[var(--border)] focus:ring-[var(--accent)]"
+            } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
+            placeholder="Street address"
+          />
+          {errors.address && (
+            <p className="mt-1 text-sm text-red-500">{errors.address}</p>
+          )}
+        </div>
+
+        {/* City Field */}
+        <div>
+          <label
+            htmlFor="city"
+            className="block text-sm font-medium text-[var(--foreground)] mb-2"
+          >
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              City
+            </div>
+          </label>
+          <input
+            id="city"
+            type="text"
+            value={formData.city}
+            onChange={(e) => handleChange("city", e.target.value)}
+            className={`w-full px-3 py-2 rounded-md border ${
+              errors.city
+                ? "border-red-500 focus:ring-red-500"
+                : "border-[var(--border)] focus:ring-[var(--accent)]"
+            } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
+            placeholder="City"
+          />
+          {errors.city && (
+            <p className="mt-1 text-sm text-red-500">{errors.city}</p>
+          )}
+        </div>
+
+        {/* Citizenship Field */}
+        <div>
+          <label
+            htmlFor="citizenship"
+            className="block text-sm font-medium text-[var(--foreground)] mb-2"
+          >
+            <div className="flex items-center gap-2">
+              <Flag className="w-4 h-4" />
+              Citizenship
+            </div>
+          </label>
+          <input
+            id="citizenship"
+            type="text"
+            value={formData.citizenship}
+            onChange={(e) => handleChange("citizenship", e.target.value)}
+            className={`w-full px-3 py-2 rounded-md border ${
+              errors.citizenship
+                ? "border-red-500 focus:ring-red-500"
+                : "border-[var(--border)] focus:ring-[var(--accent)]"
+            } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
+            placeholder="Country"
+          />
+          {errors.citizenship && (
+            <p className="mt-1 text-sm text-red-500">{errors.citizenship}</p>
           )}
         </div>
 

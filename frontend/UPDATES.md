@@ -4,6 +4,157 @@ Quick log of daily frontend changes. For full status see [FRONTEND_INIT.md](./FR
 
 ---
 
+## 2026-02-13
+- ✅ **Light/Dark Mode Implementation & Fixes** 🎨
+  - Fixed theme switching bug: Changed Tailwind config from `darkMode: 'media'` to `darkMode: 'class'`
+  - Replaced hardcoded colors with CSS variables across all payroll components
+  - Fixed: PayslipsTab.tsx, TimeTrackingCalendar.tsx, EmployeeSidebarItem.tsx
+  - Changed `bg-white dark:bg-gray-900` → `bg-[var(--card-bg)]`
+  - Changed `dark:hover:bg-white/5` → `hover:bg-[var(--card-surface)]`
+  - Theme toggle now works perfectly! ✨
+
+- ✅ **Calendar Spacing Optimization** 📐
+  - **6 iterations** to achieve perfect spacing:
+    1. Initial gap reduction: `gap-1` → `gap-0.5`
+    2. Vertical compaction: Reduced header/section margins by 50% (mb-6→mb-3, mb-4→mb-2, mb-2→mb-1)
+    3. Balanced spacing: `gap-x-1 gap-y-0.5` (4px horizontal, 2px vertical)
+    4. Maintained reasonable cell size: `h-16 md:h-20` (64px/80px)
+    5. Card height optimization: Removed `h-full`, added `h-fit`, removed `flex-1`
+    6. Bottom padding: Added `pb-3` for proper gap from border
+  - **TimeTrackingCalendar.tsx changes:**
+    * Container: `h-full flex flex-col` → `flex flex-col` (auto-height)
+    * Grid: removed `flex-1 overflow-y-auto` → keeps natural height
+    * Day labels: `py-2 mb-2` → `py-1 mb-1`
+  - **PayslipsTab.tsx changes:**
+    * Calendar card: added `h-fit` class
+    * Padding: `p-6` → `px-6 pt-6 pb-3`
+  - Result: Compact, balanced calendar with perfect spacing! 🎯
+
+- ✅ **Profile Edit Modal Enhancements** 👤
+  - Added 3 new fields: Address, City, Citizenship
+  - Icons: MapPin (address/city), Flag (citizenship)
+  - Updated UserProfile interface with new optional fields
+  - Updated formData state and localStorage persistence
+  - **Modal Scrollability:** Added `max-h-[60vh] overflow-y-auto` to Modal.tsx
+  - Form now scrollable when content exceeds 60% viewport height
+
+- ✅ **Visual Accessibility Improvements** ♿
+  - **Selected Employee Visibility:** Fixed hard-to-read text on accent background
+  - EmployeeSidebarItem.tsx changes:
+    * Removed opacity: `bg-opacity-10` removed from selected state
+    * White text on selection: name and role text turn white when selected
+    * High contrast: solid accent background with white text
+  - Professional, readable selection state! ✨
+
+- ✅ **Document Management UI** 📄
+  - EmployeeProfilePanel.tsx: Added empty state for documents
+  - Shows "Insert documents here" with Upload icon when no documents
+  - Shows document cards with icons, names, sizes when documents exist
+  - Color-coded by type: Contract (blue), Resume/Tax (orange)
+  - Dashed border for empty state, solid for documents
+
+**🎊 Major Achievements:**
+- ✅ Perfect light/dark theme switching!
+- ✅ Ultra-compact calendar layout with 6 iterations!
+- ✅ Enhanced profile management with 3 new fields!
+- ✅ Scrollable modals for better UX!
+- ✅ High-contrast selection states!
+- 🏆 **Professional UX refinements complete!**
+
+**📊 Lines of Code Modified Today:** ~150 lines (6 files modified)
+
+---
+
+## 2026-02-11 & 2026-02-12
+- ✅ **Complete Payslips Management System** 🎉
+  - **8 New Components Created:**
+    1. `PayslipsTab.tsx` (164 lines) - 3-column layout orchestrator
+    2. `TimeTrackingCalendar.tsx` (335 lines) - Monthly calendar with time tracking
+    3. `EmployeeSidebarItem.tsx` (67 lines) - Compact employee cards
+    4. `EmployeeProfilePanel.tsx` (260 lines) - Detailed employee info panel
+    5. `GeneratePayslipModal.tsx` (200+ lines) - Payslip generation form
+    6. `PayslipDetailsModal.tsx` (150+ lines) - View payslip details
+    7. `AddTimeEntryModal.tsx` (120+ lines) - Manual time entry form
+    8. `StatCard.tsx` (40 lines) - Reusable stat card component
+  
+  - **7 Utility Libraries Created:**
+    1. `types.ts` (150+ lines) - TypeScript interfaces for entire system
+    2. `mock-data.ts` (292 lines) - Employee, payslip, document mock data
+    3. `payslip-utils.ts` (200+ lines) - PDF generation, calculations
+    4. `time-utils.ts` (100+ lines) - Time parsing, formatting, validation
+    5. `utils.tsx` (50+ lines) - Date helpers, formatters
+    6. `usePayrollData.ts` (80+ lines) - Data management hook
+    7. `useCalendarEvents.ts` (60+ lines) - Calendar event processing
+  
+  - **Key Features:**
+    * **3-Column Layout:** Employee list (280px) | Calendar (flex-1) | Profile (320px)
+    * **Time Tracking Calendar:**
+      - Monthly view with navigation
+      - Day cells show: date, hours worked, truancy hours, earnings
+      - Color-coded status: Work (amber), Truancy (red), Vacation (blue)
+      - Cell heights: 64px desktop, 80px mobile (h-16 md:h-20)
+      - Interactive: click cell to add time entry
+    * **Employee Sidebar:**
+      - Compact cards with avatar, name, role
+      - 3-segment progress bar (work/truancy/remaining)
+      - Search functionality
+      - Selected state with accent background
+    * **Profile Panel:**
+      - Basic info: Birthday, Phone, Email, Citizenship, City, Address
+      - Documents section with upload placeholder
+      - Statistics: Business trips, Sickness days
+      - Generate Payslip & Download PDF buttons
+    * **Payslip Generation:**
+      - Modal form with pay period selection
+      - Automatic earnings calculation
+      - Deductions: Tax (Federal/State), Insurance, 401(k)
+      - Gross → Deductions → Net pay breakdown
+      - Real-time calculation preview
+    * **PDF Generation:**
+      - Uses jsPDF library (installed via npm)
+      - Company header with logo placeholder
+      - Employee details section
+      - Earnings breakdown table
+      - Deductions itemized
+      - Net pay prominently displayed
+      - Professional invoice-style layout
+  
+  - **Data Management:**
+    * Mock data for 11 employees across all departments
+    * 3 mock payslips with full deduction details
+    * Mock documents (Contract, Resume, Tax Form)
+    * Mock statistics per employee
+    * Ready for backend API integration
+  
+  - **Layout & Styling:**
+    * CSS Grid for responsive 3-column layout
+    * Tailwind utilities for consistent spacing
+    * Theme-aware colors using CSS variables
+    * Responsive breakpoints (lg: 3-column, mobile: stack)
+    * Card-based design with proper borders/shadows
+  
+  - **Interactions:**
+    * Filter pills: All, Truancy, Vacation (toggle filters)
+    * Search employees by name
+    * Click employee to select/view details
+    * Click calendar cell to add time entry
+    * Generate payslip modal with form validation
+    * View existing payslips in modal
+    * Download payslip as PDF
+
+**🎊 Payslips Module Complete:**
+- ✅ 8 components + 7 utility libraries = 15 new files!
+- ✅ Full time tracking with calendar visualization!
+- ✅ Employee management with search and profiles!
+- ✅ Payslip generation with PDF export!
+- ✅ Professional layout with proper spacing!
+- ✅ Mock data ready for backend integration!
+- 🏆 **Comprehensive payroll management system!**
+
+**📊 Lines of Code Added (Feb 11-12):** ~2,000+ lines
+
+---
+
 ## 2026-02-10
 - ✅ **Built Complete Toast Notification System** 🎉
   - Created `src/components/Toast.tsx` (103 lines)

@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
+import Card from '@/components/Card';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { useToast } from '@/components/ToastProvider';
 import { Search, Plus, ChevronDown, Clock, CheckCircle2, MessageCircle, ThumbsUp } from 'lucide-react';
 import { DEPARTMENTS } from '@/lib/departments';
@@ -98,6 +100,17 @@ export default function DailyLogsPage() {
 
     return true;
   });
+
+  if (loading) {
+    return (
+      <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)]">
+        <div className="p-6 pt-3">
+          <Header title="Daily Logs" subtitle="Track daily progress and tasks" />
+          <LoadingSpinner message="Loading daily logs..." />
+        </div>
+      </main>
+    );
+  }
 
   // Stats
   const totalLogs = filteredLogs.length;

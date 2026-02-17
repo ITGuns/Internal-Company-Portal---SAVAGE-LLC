@@ -1,0 +1,265 @@
+/**
+ * Add Employee Modal - form for adding new employees
+ */
+
+import React, { useState } from "react";
+import { UserPlus, Save } from "lucide-react";
+import Modal from "@/components/Modal";
+import Button from "@/components/Button";
+import type { Employee } from "@/lib/payroll-calendar/types";
+import { DEPARTMENTS, DEPARTMENT_ROLES } from "@/lib/departments";
+
+interface AddEmployeeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onAdd: (employee: Omit<Employee, "id">) => void;
+}
+
+// Generate avatar initials from name
+const getAvatarInitials = (name: string): string => {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+};
+
+export default function AddEmployeeModal({
+  isOpen,
+  onClose,
+  onAdd,
+}: AddEmployeeModalProps) {
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("");
+  const [department, setDepartment] = useState<string>(DEPARTMENTS[0]);
+  const [salary, setSalary] = useState("");
+  const [status, setStatus] = useState<"active" | "vacation" | "leave">("active");
+  const [hoursThisWeek, setHoursThisWeek] = useState("40");
+  const [performance, setPerformance] = useState("85");
+
+  // Get available roles for selected department
+  const availableRoles = DEPARTMENT_ROLES[department] || [];
+
+  const resetForm = () => {
+    setName("");
+    setRole("");
+    setDepartment(DEPARTMENTS[0]);
+    setSalary("");
+    setStatus("active");
+    setHoursThisWeek("40");
+    setPerformance("85");
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validation
+    if (!name.trim()) {
+      return;
+    }
+    if (!role.trim()) {
+      return;
+    }
+    if (!salary || parseFloat(salary) <= 0) {
+      return;
+    }
+
+    const newEmployee: Omit<Employee, "id"> = {
+      name: name.trim(),
+      role: role.trim(),
+      department: department.trim(),
+      salary: parseFloat(salary),
+      status,
+      hoursThisWeek: parseFloat(hoursThisWeek) || 0,
+      performance: parseInt(performance) || 0,
+      avatar: getAvatarInitials(name),
+    };
+
+    onAdd(newEmployee);
+    resetForm();
+    onClose();
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
+  return (
+    <Modal 
+      isOpen={isOpen} 
+      onClose={handleClose}
+      title="Add New Employee"
+      size="md"
+    >
+      <div className="p-6">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center text-white font-semibold">
+            <UserPlus className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-[var(--foreground)]">
+              Add New Employee
+            </h2>
+            <p className="text-sm text-[var(--muted)]">
+              Enter employee information
+            </p>
+          </div>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Full Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+              placeholder="e.g., John Smith"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Role / Position <span className="text-red-500">*</span>
+            </label>
+            {availableRoles.length > 0 ? (
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                required
+              >
+                <option value="">Select a role...</option>
+                {availableRoles.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                placeholder="e.g., Custom Role"
+                required
+              />
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Department <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={department}
+                onChange={(e) => {
+                  setDepartment(e.target.value);
+                  setRole(""); // Reset role when department changes
+                }}
+                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                required
+              >
+                {DEPARTMENTS.map((dept) => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Status
+              </label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as "active" | "vacation" | "leave")}
+                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+              >
+                <option value="active">Active</option>
+                <option value="vacation">On Vacation</option>
+                <option value="leave">On Leave</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Annual Salary <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]">
+                $
+              </span>
+              <input
+                type="number"
+                value={salary}
+                onChange={(e) => setSalary(e.target.value)}
+                className="w-full p-2 pl-7 rounded border border-[var(--border)] bg-[var(--background)]"
+                placeholder="75000"
+                min="0"
+                step="1000"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Hours This Week
+              </label>
+              <input
+                type="number"
+                value={hoursThisWeek}
+                onChange={(e) => setHoursThisWeek(e.target.value)}
+                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                min="0"
+                max="168"
+                step="0.5"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Performance (%)
+              </label>
+              <input
+                type="number"
+                value={performance}
+                onChange={(e) => setPerformance(e.target.value)}
+                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                min="0"
+                max="100"
+              />
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 justify-end pt-4 border-t border-[var(--border)]">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleClose}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              icon={<Save className="w-4 h-4" />}
+            >
+              Add Employee
+            </Button>
+          </div>
+        </form>
+      </div>
+    </Modal>
+  );
+}

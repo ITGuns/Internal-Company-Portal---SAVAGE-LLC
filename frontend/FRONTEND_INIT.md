@@ -3,9 +3,9 @@
 
 ---
 
-**Last Updated:** February 9, 2026  
+**Last Updated:** February 13, 2026  
 **Developer:** Frontend Team  
-**Version:** 0.2.0  
+**Version:** 0.4.0  
 **Status:** Active Development (Backend-Independent)
 
 ---
@@ -16,6 +16,7 @@ Building a modern, accessible, and responsive company portal UI with:
 - Full offline-first capability (localStorage persistence)
 - Production-ready UI components
 - Backend-agnostic design (ready for API integration when backend is ready)
+- Professional UX with comprehensive payroll management
 
 ---
 
@@ -49,17 +50,16 @@ Building a modern, accessible, and responsive company portal UI with:
 frontend/
 ├── src/
 │   ├── app/                      # Next.js App Router pages
-│   │   ├── layout.tsx            # ✅ Root layout with Sidebar
+│   │   ├── layout.tsx            # ✅ Root layout with Sidebar + ToastProvider
 │   │   ├── globals.css           # ✅ Theme system + CSS tokens
 │   │   ├── page.tsx              # ✅ Homepage (redirect to dashboard)
-│   │   ├── dashboard/            # ✅ Dashboard page
-│   │   ├── task-tracking/        # 🟡 Kanban board (static)
-│   │   ├── payroll-calendar/     # ✅ Time Clock + Calendar
+│   │   ├── dashboard/            # ✅ Dashboard page with stats
+│   │   ├── task-tracking/        # ✅ Kanban board with drag-drop
+│   │   ├── payroll-calendar/     # ✅ Complete payslips management
 │   │   ├── announcements/        # ✅ Full CRUD with engagement
+│   │   ├── daily-logs/           # ✅ Complete daily logs system
 │   │   ├── company-chat/         # 📦 Placeholder
-│   │   ├── daily-logs/           # 📦 Placeholder
 │   │   ├── operations/           # 📦 Placeholder
-│   │   ├── payroll-calendar/     # 📦 Placeholder
 │   │   ├── private-messages/     # 📦 Placeholder
 │   │   ├── profile/              # 📦 Placeholder
 │   │   ├── task-calendar/        # 📦 Placeholder
@@ -67,16 +67,41 @@ frontend/
 │   ├── components/               # Reusable components
 │   │   ├── Header.tsx            # ✅ Page header with theme toggle
 │   │   ├── Sidebar.tsx           # ✅ Navigation sidebar
-│   │   ├── Modal.tsx             # ✅ Reusable modal component
+│   │   ├── Modal.tsx             # ✅ Reusable modal (scrollable)\n│   │   ├── Button.tsx            # ✅ Multi-variant button
+│   │   ├── Card.tsx              # ✅ Card component library
+│   │   ├── Toast.tsx             # ✅ Toast notifications
+│   │   ├── ToastProvider.tsx     # ✅ Toast context provider
+│   │   ├── ProfileSidebar.tsx    # ✅ Profile management sidebar
+│   │   ├── EditProfileModal.tsx  # ✅ Profile edit form
+│   │   ├── NotificationSidebar.tsx # ✅ Notification display
 │   │   ├── Icon.tsx              # ✅ Icon wrapper
 │   │   ├── IconButton.tsx        # ✅ Button with icon
-│   │   ├── IconDemo.tsx          # ✅ Icon showcase
-│   │   └── ThemeToggle.tsx       # ✅ Light/Dark mode switcher
+│   │   ├── ThemeToggle.tsx       # ✅ Light/Dark mode switcher
+│   │   └── payroll/              # Payroll-specific components
+│   │       ├── PayslipsTab.tsx   # ✅ Main 3-column layout
+│   │       ├── TimeTrackingCalendar.tsx  # ✅ Monthly calendar
+│   │       ├── EmployeeSidebarItem.tsx   # ✅ Compact employee card
+│   │       ├── EmployeeProfilePanel.tsx  # ✅ Employee details
+│   │       ├── GeneratePayslipModal.tsx  # ✅ Payslip generation
+│   │       ├── PayslipDetailsModal.tsx   # ✅ View payslip
+│   │       ├── AddTimeEntryModal.tsx     # ✅ Manual time entry
+│   │       └── StatCard.tsx      # ✅ Reusable stat card
 │   ├── lib/                      # Utility libraries
 │   │   ├── storage.ts            # ✅ localStorage wrapper
 │   │   ├── time-entries.ts       # ✅ Time entry management
 │   │   ├── tasks.ts              # ✅ Task management
-│   │   └── announcements.ts      # ✅ Announcement management
+│   │   ├── announcements.ts      # ✅ Announcement management
+│   │   ├── daily-logs.ts         # ✅ Daily log management
+│   │   ├── departments.ts        # ✅ Department structure
+│   │   ├── payroll-events.ts     # ✅ Payroll event management
+│   │   └── payroll-calendar/     # Payroll utilities
+│   │       ├── types.ts          # ✅ TypeScript interfaces
+│   │       ├── mock-data.ts      # ✅ Employee & payslip data
+│   │       ├── payslip-utils.ts  # ✅ PDF generation
+│   │       ├── time-utils.ts     # ✅ Time parsing/formatting
+│   │       ├── utils.tsx         # ✅ Date helpers
+│   │       ├── usePayrollData.ts # ✅ Data management hook
+│   │       └── useCalendarEvents.ts # ✅ Event processing
 │   └── assets/
 │       └── icons/                # Custom SVG icons
 │           ├── BrandLogo.tsx     # ✅ Company logo
@@ -84,11 +109,15 @@ frontend/
 ├── public/                       # Static assets
 ├── scripts/
 │   └── a11y-audit.js            # ✅ Accessibility testing
+├── reports/
+│   └── daily/                    # Daily development reports
 ├── package.json
 ├── tsconfig.json
-├── tailwind.config.js
+├── tailwind.config.js            # ✅ Configured with darkMode: 'class'
 ├── next.config.ts
-└── FRONTEND_INIT.md             # 📍 This file
+├── FRONTEND_INIT.md             # 📍 This file
+├── UPDATES.md                    # ✅ Daily changelog
+└── CHECKLIST.md                  # ✅ Task tracking
 ```
 
 **Legend:**
@@ -155,41 +184,98 @@ frontend/
 
 **File:** `src/components/Header.tsx`
 
-### 📅 Payroll Calendar (MOST COMPLETE PAGE)
-**Status:** ✅ Fully functional (client-side only)  
-**File:** `src/app/payroll-calendar/page.tsx` (717 lines)
+### 📅 Payroll Calendar (COMPLETE SYSTEM)
+**Status:** ✅ Fully functional with comprehensive payslips management  
+**Pages:** `src/app/payroll-calendar/page.tsx`  
+**Components:** 8 specialized components in `src/components/payroll/`  
+**Libraries:** 7 utility libraries in `src/lib/payroll-calendar/`
 
-**Features:**
-- ✅ FullCalendar integration (monthly view)
-- ✅ Time Clock UI
-  - ✅ Clock In/Out buttons
-  - ✅ Manual time entry modal
-  - ✅ Today's total hours calculation
-  - ✅ List of today's entries with delete
-  - ✅ "Clocked In" visual indicator (pulsing dot)
-- ✅ Calendar event types:
-  - Pay Day (emerald)
-  - Holiday (red)
-  - Deadline (amber)
-  - Time entries (sky blue)
-- ✅ Event Details panel with date selection
-- ✅ Upcoming Events list
-- ✅ Stats cards (Pay Days, Holidays, Deadlines, Total)
-- ✅ Monthly/Annual view toggle (partial)
-- ✅ Color-coded event rendering
+**🎯 Complete Features:**
 
-**Current Limitations:**
-- ⚠️ Time entries stored in component state (lost on refresh)
-- ⚠️ Hard-coded event data
-- ⚠️ No backend API integration
-- ⚠️ Using inline SVG icons instead of Lucide
+**Time Tracking Calendar:**
+- ✅ Monthly view with prev/next navigation
+- ✅ Day cells display hours worked, truancy, earnings
+- ✅ Color-coded entry types: Regular (amber), Truancy (red), Vacation (blue)
+- ✅ Filter pills: All, Truancy, Vacation
+- ✅ Search employees by name
+- ✅ Click cell to add manual time entry
+- ✅ Responsive cell heights: 64px (desktop) / 80px (mobile)
+- ✅ Compact spacing: gap-x-1 gap-y-0.5 (4px/2px)
+- ✅ Hours and salary totals display
 
-**Next Steps:**
-1. Add localStorage persistence for time entries
-2. Extract time entry logic into custom hook
-3. Replace inline SVGs with Lucide icons
-4. Add time entry editing
-5. Add export/report functionality
+**Employee Management:**
+- ✅ Searchable sidebar with 11 mock employees
+- ✅ Compact employee cards with avatars and progress bars
+- ✅ Selected state with high-contrast accent background
+- ✅ Detailed profile panel with:
+  - Basic info (Birthday, Phone, Email, Citizenship, City, Address)
+  - Documents section with empty state and upload placeholder
+  - Statistics (Business trips, Sick days with progress bars)
+
+**Payslip Generation:**
+- ✅ Generate payslip modal with pay period selection
+- ✅ Automatic earnings calculation from time entries
+- ✅ Configurable deductions:
+  - Federal Tax (15%, $450)
+  - State Tax (6%, $180)
+  - Health Insurance ($250 flat)
+  - 401(k) (5%, $200)
+- ✅ Real-time gross → net calculation
+- ✅ View existing payslips in detail modal
+- ✅ **PDF Export with jsPDF:**
+  - Professional invoice-style layout
+  - Company header with logo placeholder
+  - Employee details section
+  - Earnings breakdown table
+  - Itemized deductions
+  - Net pay prominently displayed
+
+**Layout & Design:**
+- ✅ 3-column responsive grid: Employee list (280px) | Calendar (flex-1) | Profile (320px)
+- ✅ Theme-aware with perfect light/dark mode switching
+- ✅ CSS variables for all colors (--card-bg, --foreground, --accent, etc.)
+- ✅ Proper spacing and padding throughout
+- ✅ Card-based design with borders and shadows
+- ✅ Hover effects and transitions
+- ✅ Accessible with ARIA labels
+
+**Data Management:**
+- ✅ TypeScript interfaces for all data structures
+- ✅ Mock data: 11 employees, 3 payslips, documents, statistics
+- ✅ Utility functions: Time parsing, formatting, validation
+- ✅ Custom hooks: usePayrollData, useCalendarEvents
+- ✅ Ready for backend API integration
+
+**Components Architecture:**
+```
+src/components/payroll/
+├── PayslipsTab.tsx          - Main 3-column layout orchestrator
+├── TimeTrackingCalendar.tsx - Monthly calendar with time tracking
+├── EmployeeSidebarItem.tsx  - Compact employee card
+├── EmployeeProfilePanel.tsx - Detailed employee information
+├── GeneratePayslipModal.tsx - Payslip generation form
+├── PayslipDetailsModal.tsx  - View payslip details
+├── AddTimeEntryModal.tsx    - Manual time entry form
+└── StatCard.tsx             - Reusable stat display
+
+src/lib/payroll-calendar/
+├── types.ts                 - TypeScript interfaces
+├── mock-data.ts             - Employee & payslip mock data
+├── payslip-utils.ts         - PDF generation & calculations
+├── time-utils.ts            - Time parsing/formatting
+├── utils.tsx                - Date helpers
+├── usePayrollData.ts        - Data management hook
+└── useCalendarEvents.ts     - Event processing hook
+```
+
+**No Current Limitations - System Complete!** ✅
+
+**Next Steps for Backend Integration:**
+1. Replace mock-data.ts with API calls
+2. Connect PDF generation to backend storage
+3. Add real-time sync for time entries
+4. Implement payslip approval workflow
+5. Add email delivery for generated payslips
 
 ### 📋 Task Tracking
 **Status:** 🟡 Static UI complete, needs state management  
@@ -305,13 +391,21 @@ frontend/
    - ✅ Consistent icon sizing (w-4 h-4, w-5 h-5)
    - ✅ Using lucide-react throughout
 
-3. ✅ **Component Library** (STARTED)
-   - ✅ Modal component extracted and reusable
-   - 🟡 Button component (needs variants)
-   - 🟡 Form components (needs standardization)
-   - Extract reusable Card component
-   - Extract reusable Button variants
-   - Extract reusable Form inputs
+3. ✅ **Component Library** (COMPLETE)
+   - ✅ Modal component - Reusable with scrollability, focus trap, ESC handler
+   - ✅ Button component - 6 variants (primary, secondary, success, danger, ghost, outline)
+   - ✅ Card component - 4 variants with subcomponents (Header, Content, Footer, Body)
+   - ✅ Toast component - 4 types (success, error, info, warning) with auto-dismiss
+   - ✅ ToastProvider - Global context with useToast hook
+   - ✅ ProfileSidebar - User profile management
+   - ✅ EditProfileModal - Profile editing with validation
+   - ✅ NotificationSidebar - Notification display
+   - ✅ Consistent styling across all components
+   - ✅ Theme-aware with CSS variables
+   - ✅ Accessible with ARIA labels
+   - ✅ TypeScript type safety throughout
+
+**Component Library Status:** 🎉 **PRODUCTION READY!**
 
 4. **State Management**
    - Set up React Query
