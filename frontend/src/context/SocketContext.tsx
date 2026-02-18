@@ -5,7 +5,7 @@ import { io, Socket } from 'socket.io-client'
 import { APP_CONFIG } from '@/lib/config'
 import { STORAGE_KEYS, SOCKET_EVENTS } from '@/lib/constants'
 
-const SOCKET_URL = APP_CONFIG.wsUrl.replace('ws://', 'http:///');
+const SOCKET_URL = APP_CONFIG.wsUrl.replace('ws://', 'http://');
 
 export interface Notification {
     id: string
@@ -33,32 +33,37 @@ const SocketContext = createContext<SocketContextType | undefined>(undefined)
 
 export function SocketProvider({ children }: { children: ReactNode }) {
     const [socket, setSocket] = useState<Socket | null>(null)
+    const socketRef = React.useRef<Socket | null>(null)
     const [isConnected, setIsConnected] = useState(false)
     const [notifications, setNotifications] = useState<Notification[]>([])
 
     const unreadCount = notifications.filter(n => !n.read).length
 
     const connect = useCallback((userId: string) => {
-        if (socket?.connected) return
+        if (socketRef.current?.connected) return
+
+        if (socketRef.current) {
+            socketRef.current.disconnect()
+        }
 
         console.log('🔌 Connecting to socket...', SOCKET_URL)
 
         const newSocket = io(SOCKET_URL, {
             withCredentials: true,
-            transports: ['polling', 'websocket'], // Try polling first for better compatibility
+            transports: ['polling', 'websocket'],
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
+            auth: {
+                token: typeof localStorage !== 'undefined' ? localStorage.getItem('accessToken') : null
+            }
         })
+
+        socketRef.current = newSocket;
 
         newSocket.on('connect', () => {
             console.log('✅ Socket connected via', newSocket.io.engine.transport.name, 'ID:', newSocket.id)
             setIsConnected(true)
             newSocket.emit('authenticate', userId)
-        })
-
-        // Force connected state if we have a transport (fallback for some poll cases)
-        newSocket.io.engine.on('packet', () => {
-            if (!isConnected) setIsConnected(true)
         })
 
         newSocket.on('reconnect', (attempt) => {
@@ -74,8 +79,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
         newSocket.on('connect_error', (err) => {
             console.error('⚠️ Socket connection error:', err.message)
-            // Still try to authenticate if we're in a polling state that works
-            if (newSocket.id) setIsConnected(true)
         })
 
         newSocket.on('notification', (payload: any) => {
@@ -89,15 +92,16 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         })
 
         setSocket(newSocket)
-    }, [socket])
+    }, [])
 
     const disconnect = useCallback(() => {
-        if (socket) {
-            socket.disconnect()
+        if (socketRef.current) {
+            socketRef.current.disconnect()
+            socketRef.current = null
             setSocket(null)
             setIsConnected(false)
         }
-    }, [socket])
+    }, [])
 
     const markAsRead = (id: string) => {
         setNotifications(prev =>
@@ -121,8 +125,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
                 try {
                     const user = JSON.parse(storedUser)
                     const uid = user.id || user.userId || user.uuid
-                    // If we have a user but no socket, or socket is disconnected, try to connect
-                    if (uid && (!socket || !socket.connected)) {
+
+                    if (uid && (!socketRef.current || !socketRef.current.connected)) {
                         console.log('🔄 Auto-connecting socket for user:', uid)
                         connect(uid)
                     }
@@ -137,8 +141,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
         return () => {
             clearInterval(interval)
+            if (socketRef.current) {
+                socketRef.current.disconnect()
+            }
         }
-    }, [connect, socket]) // Trigger on mount or if socket object changes
+    }, [connect])
 
     return (
         <SocketContext.Provider value={{

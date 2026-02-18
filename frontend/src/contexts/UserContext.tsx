@@ -35,17 +35,50 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Logout - clear user data
+  const logout = useCallback(() => {
+    setUser(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(STORAGE_KEYS.USER);
+      localStorage.removeItem('accessToken');
+    }
+  }, []);
+
   // Fetch user from localStorage or API
   const refreshUser = useCallback(async () => {
     try {
       setError(null);
-      const currentUser = getCurrentUser();
-      
-      if (currentUser) {
-        setUser(currentUser);
+      const storedUser = getCurrentUser();
+
+      if (storedUser) {
+        // Optimistically set user from storage
+        setUser(storedUser);
+
+        // Verify with backend
+        try {
+          const res = await fetch(`${APP_CONFIG.apiUrl}/auth/me`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            }
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.user) {
+              setUser(data.user);
+              saveCurrentUser(data.user);
+            }
+          } else if (res.status === 401) {
+            // Token invalid
+            console.warn('Session expired or invalid user');
+            logout();
+          }
+        } catch (apiErr) {
+          console.error('Failed to verify user session', apiErr);
+        }
+
         setIsLoading(false);
       } else {
-        // If no user in localStorage, could trigger auth flow
         setUser(null);
         setIsLoading(false);
       }
@@ -54,7 +87,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setError('Failed to load user data');
       setIsLoading(false);
     }
-  }, []);
+  }, [logout]);
 
   // Update user in state and localStorage
   const updateUser = useCallback((userData: Partial<User>) => {
@@ -64,15 +97,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
       saveCurrentUser(updatedUser);
       return updatedUser;
     });
-  }, []);
-
-  // Logout - clear user data
-  const logout = useCallback(() => {
-    setUser(null);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEYS.USER);
-      localStorage.removeItem('accessToken');
-    }
   }, []);
 
   // Initial load

@@ -34,10 +34,11 @@ export const setCurrentUser = (user: any) => {
 
 export const devLogin = async () => {
     try {
+        // Use a generic admin account instead of specific person
         const res = await fetch(`${AUTH_URL}/dev-login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: 'john.doe@savage.com' }) // Hardcoded for dev convenience
+            body: JSON.stringify({ email: 'admin@savage.com' })
         })
         const data = await res.json()
         if (data.success && data.tokens) {
@@ -71,11 +72,15 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
         headers,
     })
 
-    // If 401 (token expired?), try to refresh or re-login
+    // If 401, try to refresh or re-login ONCE
     if (response.status === 401) {
-        // Simple retry strategy for dev: re-login once
         console.warn('401 Unauthorized - Attempting re-login...')
+
+        // Clear potential bad token first
+        if (typeof window !== 'undefined') localStorage.removeItem('accessToken');
+
         const newToken = await devLogin()
+
         if (newToken) {
             return fetch(`${API_URL}${endpoint}`, {
                 ...options,
@@ -84,6 +89,14 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
                     'Authorization': `Bearer ${newToken}`
                 }
             })
+        } else {
+            // Login failed completely. Ensure clean state to avoid loops.
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem(STORAGE_KEYS.USER);
+                // Optional: force reload to reset app state if stuck
+                // window.location.reload(); 
+            }
         }
     }
 
@@ -128,12 +141,12 @@ export const updateUserProfile = async (userId: string | number, profileData: Pa
         }
 
         const data = await response.json();
-        
+
         // Update localStorage with new user data
         if (data.user) {
             setCurrentUser(data.user);
         }
-        
+
         return data;
     } catch (error) {
         console.error('Error updating user profile:', error);
@@ -179,12 +192,12 @@ export const uploadAvatar = async (userId: string | number, file: File | string)
         }
 
         const data = await response.json();
-        
+
         // Update localStorage with new avatar
         if (data.user) {
             setCurrentUser(data.user);
         }
-        
+
         return data;
     } catch (error) {
         console.error('Error uploading avatar:', error);
