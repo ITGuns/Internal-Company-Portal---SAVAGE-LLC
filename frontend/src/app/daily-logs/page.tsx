@@ -56,17 +56,17 @@ export default function DailyLogsPage() {
   const [formTasks, setFormTasks] = useState<LogTask[]>([]);
   const [formTaskInput, setFormTaskInput] = useState('');
 
-  useEffect(() => {
-    setCurrentUser(getCurrentUser());
-    loadData();
-  }, []);
-
   const loadData = async () => {
     setLoading(true);
     const data = await fetchDailyLogs();
     setLogs(data);
     setLoading(false);
   };
+
+  useEffect(() => {
+    setCurrentUser(getCurrentUser());
+    loadData();
+  }, []);
 
   const users = getUniqueUsers(logs);
 

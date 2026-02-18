@@ -1,0 +1,75 @@
+﻿
+> frontend@0.1.0 lint
+> eslint
+
+
+C:\Users\itdig\OneDrive\Desktop\savage\Internal-Company-Portal---SAVAGE-LLC-1\frontend\src\app\announcements\page.tsx
+  114:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\itdig\OneDrive\Desktop\savage\Internal-Company-Portal---SAVAGE-LLC-1\frontend\src\app\company-chat\page.tsx
+    6:8   warning  'Card' is defined but never used                @typescript-eslint/no-unused-vars
+    8:44  warning  'Loader2' is defined but never used             @typescript-eslint/no-unused-vars
+    9:58  warning  'createConversation' is defined but never used  @typescript-eslint/no-unused-vars
+   44:20  warning  'e' is defined but never used                   @typescript-eslint/no-unused-vars
+  159:10  error    'LoadingSpinner' is not defined                 react/jsx-no-undef
+
+C:\Users\itdig\OneDrive\Desktop\savage\Internal-Company-Portal---SAVAGE-LLC-1\frontend\src\app\daily-logs\page.tsx
+    7:8   warning  'Card' is defined but never used                   @typescript-eslint/no-unused-vars
+   10:24  warning  'ChevronDown' is defined but never used            @typescript-eslint/no-unused-vars
+   18:3   warning  'getTodayLogs' is defined but never used           @typescript-eslint/no-unused-vars
+   22:3   warning  'getUniqueDepartments' is defined but never used   @typescript-eslint/no-unused-vars
+  162:14  warning  'error' is defined but never used                  @typescript-eslint/no-unused-vars
+  177:9   warning  'handleEdit' is assigned a value but never used    @typescript-eslint/no-unused-vars
+  187:9   warning  'handleDelete' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\itdig\OneDrive\Desktop\savage\Internal-Company-Portal---SAVAGE-LLC-1\frontend\src\app\dashboard\page.tsx
+   6:8   warning  'Button' is defined but never used     @typescript-eslint/no-unused-vars
+  10:57  warning  'TimeEntry' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\itdig\OneDrive\Desktop\savage\Internal-Company-Portal---SAVAGE-LLC-1\frontend\src\app\private-messages\page.tsx
+    8:45  warning  'Loader2' is defined but never used    @typescript-eslint/no-unused-vars
+    8:54  warning  'Paperclip' is defined but never used  @typescript-eslint/no-unused-vars
+  126:8   error    'LoadingSpinner' is not defined        react/jsx-no-undef
+  184:37  warning  'i' is defined but never used          @typescript-eslint/no-unused-vars
+
+C:\Users\itdig\OneDrive\Desktop\savage\Internal-Company-Portal---SAVAGE-LLC-1\frontend\src\components\Header.tsx
+   6:8   warning  'IconButton' is defined but never used             @typescript-eslint/no-unused-vars
+  11:16  warning  'Search' is defined but never used                 @typescript-eslint/no-unused-vars
+  17:86  warning  'connect' is assigned a value but never used       @typescript-eslint/no-unused-vars
+  17:95  warning  'isConnected' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  25:10  warning  'outlineWidth' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\itdig\OneDrive\Desktop\savage\Internal-Company-Portal---SAVAGE-LLC-1\frontend\src\components\Sidebar.tsx
+  50:9  warning  'pathname' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  86:9  warning  'isDashboard' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\itdig\OneDrive\Desktop\savage\Internal-Company-Portal---SAVAGE-LLC-1\frontend\src\context\SocketContext.tsx
+    6:24  warning  'SOCKET_EVENTS' is defined but never used  @typescript-eslint/no-unused-vars
+  133:26  warning  'e' is defined but never used              @typescript-eslint/no-unused-vars
+
+C:\Users\itdig\OneDrive\Desktop\savage\Internal-Company-Portal---SAVAGE-LLC-1\frontend\src\contexts\UserContext.tsx
+  105:6  warning  React Hook useEffect has a missing dependency: 'refreshUser'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\itdig\OneDrive\Desktop\savage\Internal-Company-Portal---SAVAGE-LLC-1\frontend\src\lib\announcements.ts
+   88:3  warning  '_author' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  195:3  warning  '_author' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\itdig\OneDrive\Desktop\savage\Internal-Company-Portal---SAVAGE-LLC-1\frontend\src\lib\api.ts
+  43:32  warning  '_email' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\itdig\OneDrive\Desktop\savage\Internal-Company-Portal---SAVAGE-LLC-1\frontend\src\lib\payroll-events.ts
+    8:7   warning  'SECTION' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   67:12  warning  'error' is defined but never used             @typescript-eslint/no-unused-vars
+   94:12  warning  'error' is defined but never used             @typescript-eslint/no-unused-vars
+  127:12  warning  'error' is defined but never used             @typescript-eslint/no-unused-vars
+  152:12  warning  'error' is defined but never used             @typescript-eslint/no-unused-vars
+
+C:\Users\itdig\OneDrive\Desktop\savage\Internal-Company-Portal---SAVAGE-LLC-1\frontend\src\lib\tasks.ts
+   6:10  warning  'Department' is defined but never used       @typescript-eslint/no-unused-vars
+  77:9   warning  'params' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\itdig\OneDrive\Desktop\savage\Internal-Company-Portal---SAVAGE-LLC-1\frontend\src\lib\time-entries.ts
+  16:7  warning  'mapApiEntry' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+Γ£û 40 problems (2 errors, 38 warnings)
+

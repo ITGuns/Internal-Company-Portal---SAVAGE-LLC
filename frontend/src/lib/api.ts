@@ -40,17 +40,13 @@ export const setCurrentUser = (user: Record<string, unknown>) => {
  * - jane.smith@savage.com (Manager - Marketing)
  * - mike.johnson@savage.com (Member - Operations)
  */
-export const devLogin = async (email: string = 'john.doe@savage.com') => {
+export const devLogin = async (_email: string = 'john.doe@savage.com') => {
     try {
         // Use a generic admin account instead of specific person
         const res = await fetch(`${AUTH_URL}/dev-login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-<<<<<<< HEAD
             body: JSON.stringify({ email: 'admin@savage.com' })
-=======
-            body: JSON.stringify({ email })
->>>>>>> 6312587ac726b28b0617798e354f6af464aa8811
         })
         const data = await res.json()
         if (data.success && data.tokens) {
@@ -84,7 +80,6 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
         headers,
     })
 
-<<<<<<< HEAD
     // If 401, try to refresh or re-login ONCE
     if (response.status === 401) {
         console.warn('401 Unauthorized - Attempting re-login...')
@@ -112,22 +107,6 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
             }
         }
     }
-=======
-    // ⚠️ AUTO-RETRY DISABLED: Handle 401 errors manually
-    // if (response.status === 401) {
-    //     console.warn('401 Unauthorized - Attempting re-login...')
-    //     const newToken = await devLogin()
-    //     if (newToken) {
-    //         return fetch(`${API_URL}${endpoint}`, {
-    //             ...options,
-    //             headers: {
-    //                 ...headers,
-    //                 'Authorization': `Bearer ${newToken}`
-    //             }
-    //         })
-    //     }
-    // }
->>>>>>> 6312587ac726b28b0617798e354f6af464aa8811
 
     if (!response.ok && response.status !== 401) {
         const errorData = await response.json().catch(() => ({}));

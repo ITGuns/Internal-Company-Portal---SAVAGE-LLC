@@ -8,10 +8,6 @@ import { User, Mail, Shield } from "lucide-react";
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
   async function loadData() {
     try {
       const res = await apiFetch('/auth/me'); // AuthController exposes /me
@@ -21,6 +17,10 @@ export default function ProfilePage() {
       }
     } catch (e) { console.error(e); }
   }
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   if (!user) {
     return (

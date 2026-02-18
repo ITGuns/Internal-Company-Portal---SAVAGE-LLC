@@ -9,6 +9,7 @@ import { Send, Hash, Users, MessageSquare, Loader2, Paperclip } from 'lucide-rea
 import { fetchConversations, fetchMessages, sendMessage, createConversation, type Message, type Conversation } from '@/lib/chat'
 import { useSocket } from '@/context/SocketContext'
 import { useUser } from '@/contexts/UserContext'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 export default function CompanyChatPage() {
   const { socket, isConnected } = useSocket()
@@ -118,10 +119,15 @@ export default function CompanyChatPage() {
     const optimisticMsg: Message = {
       id: tempId,
       content,
-      senderId: currentUser?.id,
+      senderId: currentUser?.id ? String(currentUser.id) : '',
       conversationId: selectedId,
       createdAt: new Date().toISOString(),
-      sender: currentUser || { name: 'Me' }
+      sender: {
+        id: currentUser?.id ? String(currentUser.id) : '',
+        name: currentUser?.name || 'Me',
+        avatar: currentUser?.avatar || '',
+        email: currentUser?.email || ''
+      }
     }
 
     setMessages(prev => [...prev, optimisticMsg])
@@ -230,7 +236,7 @@ export default function CompanyChatPage() {
               >
                 {messages.map((msg, i) => {
                   const myEmail = currentUser?.email
-                  const myId = currentUser?.id || currentUser?.userId || currentUser?._id
+                  const myId = currentUser?.id ? String(currentUser.id) : undefined
                   const isMe = (myId && msg.senderId === myId) || (myEmail && msg.sender?.email === myEmail)
                   const showHeader = i === 0 || messages[i - 1].senderId !== msg.senderId
 

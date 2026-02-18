@@ -18,10 +18,6 @@ export default function OperationsPage() {
   const [name, setName] = useState("");
   const [driveId, setDriveId] = useState("");
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
   async function loadData() {
     try {
       const res = await apiFetch('/departments');
@@ -30,6 +26,10 @@ export default function OperationsPage() {
       console.error(e);
     }
   }
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

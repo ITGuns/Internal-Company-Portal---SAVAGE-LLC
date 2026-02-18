@@ -10,6 +10,7 @@ import { fetchConversations, fetchMessages, sendMessage, createConversation, typ
 import { fetchUsers, type User as SystemUser } from '@/lib/users'
 import { useSocket } from '@/context/SocketContext'
 import { useUser } from '@/contexts/UserContext'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 export default function PrivateMessagesPage() {
   const { socket } = useSocket()
@@ -114,7 +115,7 @@ export default function PrivateMessagesPage() {
   }
 
   const getOtherParticipant = (conv: Conversation) => {
-    return conv.participants.find(p => p.userId !== currentUser?.id)?.user
+    return conv.participants.find(p => p.userId !== (currentUser?.id ? String(currentUser.id) : undefined))?.user
   }
 
   const selectedConv = conversations.find(c => c.id === selectedId)
@@ -182,7 +183,7 @@ export default function PrivateMessagesPage() {
             <>
               <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
                 {messages.map((msg, i) => {
-                  const myId = currentUser?.id || currentUser?.userId
+                  const myId = currentUser?.id ? String(currentUser.id) : undefined
                   const isMe = msg.senderId === myId
                   return (
                     <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
@@ -234,7 +235,7 @@ export default function PrivateMessagesPage() {
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto p-2">
-                {users.filter(u => u.id !== currentUser?.id && u.name?.toLowerCase().includes(searchQuery.toLowerCase())).map(u => (
+                {users.filter(u => u.id !== (currentUser?.id ? String(currentUser.id) : undefined) && u.name?.toLowerCase().includes(searchQuery.toLowerCase())).map(u => (
                   <button
                     key={u.id}
                     onClick={() => startChat(u)}
