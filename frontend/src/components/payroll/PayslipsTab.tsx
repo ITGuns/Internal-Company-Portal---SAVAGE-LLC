@@ -108,7 +108,7 @@ export default function PayslipsTab() {
           </div>
 
           {/* Employee List */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          <div className="flex-1 overflow-y-auto p-3 space-y-2 chat-scroll">
             {filteredEmployees.map((employee) => (
               <EmployeeSidebarItem
                 key={employee.id}

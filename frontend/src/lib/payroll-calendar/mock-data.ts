@@ -3,7 +3,7 @@
  * TODO: Replace with real API data
  */
 
-import type { Employee, TimeEntry, LeaveRecord, EmployeeDocument, Payslip, Deduction } from "./types";
+import type { Employee, TimeEntry, LeaveRecord, EmployeeDocument, Payslip, Deduction, CompletedTask } from "./types";
 
 export const MOCK_EMPLOYEES: Employee[] = [
   {
@@ -110,8 +110,84 @@ export const MOCK_EMPLOYEES: Employee[] = [
   },
 ];
 
+// Mock pending employee applications
+export const MOCK_PENDING_EMPLOYEES: Employee[] = [
+  {
+    id: 101,
+    name: "Guns Catacutan",
+    role: "UX Designer",
+    department: "Website Developers",
+    avatar: "GC",
+    hoursThisWeek: 0,
+    salary: 72000,
+    performance: 0,
+    status: "pending",
+    phone: "+1 213 555 0234",
+    email: "guns.catacutan@company.com",
+    citizenship: "USA",
+    city: "Los Angeles",
+    address: "567 Sunset Blvd, CA 90028",
+    birthday: "1993-04-12",
+    appliedDate: "2026-02-15",
+  },
+  {
+    id: 102,
+    name: "Ahmed Hassan",
+    role: "Content Writer VA",
+    department: "Content Writer VA",
+    avatar: "AH",
+    hoursThisWeek: 0,
+    salary: 48000,
+    performance: 0,
+    status: "pending",
+    phone: "+1 404 555 0156",
+    email: "ahmed.hassan@company.com",
+    citizenship: "Egypt",
+    city: "Cairo",
+    address: "123 Nile Street",
+    birthday: "1996-08-20",
+    appliedDate: "2026-02-18",
+  },
+  {
+    id: 103,
+    name: "Jennifer Lee",
+    role: "Social Media Manager",
+    department: "Digital Marketing Lead / Marketing VA",
+    avatar: "JL",
+    hoursThisWeek: 0,
+    salary: 58000,
+    performance: 0,
+    status: "pending",
+    phone: "+1 503 555 0199",
+    email: "jennifer.lee@company.com",
+    citizenship: "USA",
+    city: "Portland",
+    address: "234 Pearl District, OR 97209",
+    birthday: "1994-06-08",
+    appliedDate: "2026-02-19",
+  },
+];
+
+// Mock time entries for February 2026 - Pol Catacutan working weekdays until day 20
+const FEB_2026_POL_ENTRIES: TimeEntry[] = [
+  { id: "t2026-03", employeeId: 1, date: "2026-02-03", type: "work", clockIn: "09:00", clockOut: "17:00", hours: 8 },
+  { id: "t2026-04", employeeId: 1, date: "2026-02-04", type: "work", clockIn: "09:00", clockOut: "17:00", hours: 8 },
+  { id: "t2026-05", employeeId: 1, date: "2026-02-05", type: "work", clockIn: "09:00", clockOut: "17:00", hours: 8 },
+  { id: "t2026-06", employeeId: 1, date: "2026-02-06", type: "work", clockIn: "09:00", clockOut: "17:00", hours: 8 },
+  { id: "t2026-09", employeeId: 1, date: "2026-02-09", type: "work", clockIn: "09:00", clockOut: "17:00", hours: 8 },
+  { id: "t2026-10", employeeId: 1, date: "2026-02-10", type: "work", clockIn: "09:00", clockOut: "17:00", hours: 8 },
+  { id: "t2026-11", employeeId: 1, date: "2026-02-11", type: "work", clockIn: "09:00", clockOut: "17:00", hours: 8 },
+  { id: "t2026-12", employeeId: 1, date: "2026-02-12", type: "work", clockIn: "09:00", clockOut: "17:00", hours: 8 },
+  { id: "t2026-13", employeeId: 1, date: "2026-02-13", type: "work", clockIn: "09:00", clockOut: "17:00", hours: 8 },
+  { id: "t2026-17", employeeId: 1, date: "2026-02-17", type: "work", clockIn: "09:00", clockOut: "17:00", hours: 8 },
+  { id: "t2026-18", employeeId: 1, date: "2026-02-18", type: "work", clockIn: "09:00", clockOut: "17:00", hours: 8 },
+  { id: "t2026-19", employeeId: 1, date: "2026-02-19", type: "work", clockIn: "09:00", clockOut: "17:00", hours: 8 },
+  { id: "t2026-20", employeeId: 1, date: "2026-02-20", type: "work", clockIn: "09:00", clockOut: "17:00", hours: 8 },
+];
+
 // Mock time entries for December 2024
 export const MOCK_TIME_ENTRIES: TimeEntry[] = [
+  ...FEB_2026_POL_ENTRIES,
   // Pol Catacutan (Employee 1) - Full month of work
   { id: "t1", employeeId: 1, date: "2024-12-02", type: "work", clockIn: "09:00", clockOut: "17:30", hours: 8.5 },
   { id: "t2", employeeId: 1, date: "2024-12-03", type: "work", clockIn: "09:00", clockOut: "18:00", hours: 9 },
@@ -189,6 +265,30 @@ export const MOCK_DOCUMENTS: EmployeeDocument[] = [
   { id: "d1", name: "Contract", type: "contract", fileSize: "2 MB", uploadDate: "2024-01-15" },
   { id: "d2", name: "Resume", type: "resume", fileSize: "1.5 MB", uploadDate: "2024-01-10" },
   { id: "d3", name: "Tax Form", type: "tax", fileSize: "500 KB", uploadDate: "2024-02-01" },
+];
+
+// Mock completed tasks - February 2026
+export const MOCK_COMPLETED_TASKS: CompletedTask[] = [
+  { id: "task-1", employeeId: 1, date: "2026-02-03", title: "Update payroll system", category: "Development" },
+  { id: "task-2", employeeId: 1, date: "2026-02-03", title: "Review employee reports", category: "Management" },
+  { id: "task-3", employeeId: 1, date: "2026-02-04", title: "Client meeting", category: "Meeting" },
+  { id: "task-4", employeeId: 1, date: "2026-02-04", title: "Database optimization", category: "Development" },
+  { id: "task-5", employeeId: 1, date: "2026-02-05", title: "Code review", category: "Development" },
+  { id: "task-6", employeeId: 1, date: "2026-02-06", title: "Team standup", category: "Meeting" },
+  { id: "task-7", employeeId: 1, date: "2026-02-06", title: "Sprint planning", category: "Planning" },
+  { id: "task-8", employeeId: 1, date: "2026-02-09", title: "Bug fixes", category: "Development" },
+  { id: "task-9", employeeId: 1, date: "2026-02-10", title: "Documentation update", category: "Documentation" },
+  { id: "task-10", employeeId: 1, date: "2026-02-10", title: "Performance review", category: "Management" },
+  { id: "task-11", employeeId: 1, date: "2026-02-11", title: "API integration", category: "Development" },
+  { id: "task-12", employeeId: 1, date: "2026-02-11", title: "Testing", category: "QA" },
+  { id: "task-13", employeeId: 1, date: "2026-02-12", title: "Deployment", category: "DevOps" },
+  { id: "task-14", employeeId: 1, date: "2026-02-13", title: "Security audit", category: "Security" },
+  { id: "task-15", employeeId: 1, date: "2026-02-13", title: "Feature development", category: "Development" },
+  { id: "task-16", employeeId: 1, date: "2026-02-17", title: "Code refactoring", category: "Development" },
+  { id: "task-17", employeeId: 1, date: "2026-02-18", title: "Team meeting", category: "Meeting" },
+  { id: "task-18", employeeId: 1, date: "2026-02-18", title: "UI improvements", category: "Development" },
+  { id: "task-19", employeeId: 1, date: "2026-02-19", title: "Client demo", category: "Presentation" },
+  { id: "task-20", employeeId: 1, date: "2026-02-20", title: "Final review", category: "Review" },
 ];
 
 // Mock payslips

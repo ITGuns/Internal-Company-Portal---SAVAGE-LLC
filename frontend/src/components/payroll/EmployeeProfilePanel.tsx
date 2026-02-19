@@ -12,13 +12,11 @@ import {
   Globe,
   MapPin,
   Home,
-  Briefcase,
-  HeartPulse,
   Upload,
 } from "lucide-react";
 import Button from "@/components/Button";
 import type { Employee } from "@/lib/payroll-calendar/types";
-import { MOCK_DOCUMENTS, MOCK_EMPLOYEE_STATISTICS } from "@/lib/payroll-calendar/mock-data";
+import { MOCK_DOCUMENTS } from "@/lib/payroll-calendar/mock-data";
 
 interface EmployeeProfilePanelProps {
   employee: Employee | null;
@@ -46,10 +44,8 @@ export default function EmployeeProfilePanel({
     );
   }
 
-  const stats = MOCK_EMPLOYEE_STATISTICS[employee.id] || { businessTrips: 0, sickDays: 0 };
-
   return (
-    <div className="p-4 space-y-6 overflow-y-auto h-full">
+    <div className="p-4 space-y-6 overflow-y-auto h-full chat-scroll">
       {/* Profile Header with Decorative Background */}
       <div className="relative">
         {/* Decorative background */}
@@ -197,54 +193,6 @@ export default function EmployeeProfilePanel({
               </div>
             ))
           )}
-        </div>
-      </div>
-
-      {/* Statistics */}
-      <div>
-        <h4 className="text-sm font-semibold mb-3 text-[var(--foreground)]">
-          Statistics
-        </h4>
-        <div className="space-y-3">
-          {/* Business Trips */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-[var(--muted)]" />
-                <span className="text-sm text-[var(--foreground)]">
-                  Business trips
-                </span>
-              </div>
-              <span className="text-sm font-semibold text-[var(--foreground)]">
-                {stats.businessTrips} days
-              </span>
-            </div>
-            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-amber-400 rounded-full"
-                style={{ width: `${Math.min((stats.businessTrips / 100) * 100, 100)}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Sickness */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2">
-                <HeartPulse className="w-4 h-4 text-[var(--muted)]" />
-                <span className="text-sm text-[var(--foreground)]">Sickness</span>
-              </div>
-              <span className="text-sm font-semibold text-[var(--foreground)]">
-                {stats.sickDays} days
-              </span>
-            </div>
-            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gray-700 dark:bg-gray-500 rounded-full"
-                style={{ width: `${Math.min((stats.sickDays / 30) * 100, 100)}%` }}
-              />
-            </div>
-          </div>
         </div>
       </div>
 

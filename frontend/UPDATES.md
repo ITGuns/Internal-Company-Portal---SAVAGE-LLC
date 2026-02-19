@@ -4,6 +4,93 @@ Quick log of daily frontend changes. For full status see [FRONTEND_INIT.md](./FR
 
 ---
 
+## 2026-02-20
+- ✅ **Employee Approval Workflow Feature** 🎯
+  - **New Feature:** Deployed vs Pending Employee Management System
+  - Focus: Pre-deployment approval process for new employee applications
+
+- ✅ **Employee Status System Enhancement** 📋
+  - **Updated Employee Type:**
+    * Added `"pending"` status to Employee interface (in addition to active/vacation/leave)
+    * Added `appliedDate?: string` field for tracking application submission date
+    * Updated all status dropdowns to include "Pending Approval" option
+  
+  - **Mock Data Extensions:**
+    * Created `MOCK_PENDING_EMPLOYEES` array with 3 sample applications:
+      - Sarah Martinez (UX Designer) - Applied Feb 18, 2026
+      - Ahmed Hassan (Content Writer VA) - Applied Feb 17, 2026
+      - Jennifer Lee (Social Media Manager) - Applied Feb 15, 2026
+    * All pending employees include full profile data (department, role, bio, contact info)
+  
+- ✅ **Employee Overview Refactor - Two-Tab System** 🔄
+  - **View Toggle Implementation:**
+    * Created `EmployeeView` type: "deployed" | "pending"
+    * Added view state management with tab switching
+    * Tab badges showing counts: Deployed (6) and Pending (3)
+    * Smooth transitions between views
+  
+  - **Conditional Statistics Display:**
+    * Deployed view: Shows 4 stat cards (Total, Active, On Vacation, On Leave)
+    * Pending view: Shows 3 stat cards (Pending, This Week, This Month)
+    * Dynamic stat calculations based on filtered employee data
+  
+  - **Pending Applications UI:**
+    * Custom card design with orange dashed borders (`border-2 border-dashed border-orange-500`)
+    * Gradient backgrounds for visual hierarchy
+    * Applied date display with Calendar icon
+    * Two-button action layout: Approve (green gradient) + Reject (red gradient)
+    * Edit icon button (lucide-react Edit2) for modifying pending applications
+    * Professional spacing and shadows with dark mode support
+  
+  - **Approval Workflow:**
+    * `handleApproveEmployee()`: Moves employee from pending to deployed with "active" status
+    * `handleRejectEmployee()`: Removes application from pending list
+    * Toast notifications for user feedback
+    * State updates maintain data integrity
+  
+- ✅ **Conditional UI Controls** 🎨
+  - **Add Button Visibility:**
+    * Hidden in deployed view (no add button clutter)
+    * Visible only in pending view for adding new applications
+    * Maintains consistent user experience
+  
+  - **Edit Functionality:**
+    * Deployed employees: Full edit access via existing EmployeeCard
+    * Pending employees: Edit icon on each card for application review
+    * Both use `EmployeeEditModal` with pending status support
+
+- ✅ **Modal Updates** ⚙️
+  - **EmployeeEditModal.tsx:**
+    * Updated to handle `status: "pending"` employees
+    * Status dropdown includes "Pending Approval" option
+    * Maintains all existing functionality (department/role dropdowns, email field)
+  
+  - **AddEmployeeModal.tsx:**
+    * Default status changed to `"pending"` for new applications
+    * Allows managers to add pending applications for review
+    * Full form validation with pending support
+
+- ✅ **CSS & Theme Consistency** 🎨
+  - All new components use CSS variables for theme support:
+    * `var(--foreground)` for text colors
+    * `var(--background)` for backgrounds
+    * `.chat-scroll` class for consistent scrollbar theming
+    * Gradient utilities with dark mode variants
+
+- ✅ **Scrollbar & Input Field Fixes** 🔧
+  - Fixed input field backgrounds using `bg-[var(--background)]` instead of hardcoded colors
+  - Applied `.chat-scroll` class consistently across 17+ components
+  - Removed Statistics section from `EmployeeProfilePanel.tsx` (Business trips, Sickness cards)
+
+- 📊 **Metrics:**
+  - **Files Modified:** 4 (EmployeeOverviewTab, types.ts, mock-data.ts, both employee modals)
+  - **New Functionality:** Employee approval workflow with approve/reject actions
+  - **Mock Data:** +3 pending employee applications
+  - **UI Components:** 2-tab system with conditional rendering
+  - **Status Types:** Extended from 3 to 4 employee statuses
+
+---
+
 ## 2026-02-17
 - ✅ **Day 1 & Day 2 of Professional Polish Refactoring** 🏗️
   - Started 8-day refactoring plan for Beta (Feb 20) and Launch (Feb 27)

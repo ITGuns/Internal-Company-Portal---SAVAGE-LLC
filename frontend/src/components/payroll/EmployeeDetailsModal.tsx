@@ -3,7 +3,7 @@
  */
 
 import React from "react";
-import { X, CheckCircle2, Calendar, Clock } from "lucide-react";
+import { CheckCircle2, Calendar, Clock } from "lucide-react";
 import Modal from "@/components/Modal";
 import type { Employee } from "@/lib/payroll-calendar/types";
 
@@ -146,34 +146,25 @@ export default function EmployeeDetailsModal({
     >
       <div className="p-6">
         {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-xl">
-              {employee.avatar}
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-[var(--foreground)]">
-                {employee.name}
-              </h2>
-              <p className="text-sm text-[var(--muted)]">{employee.role}</p>
-              <p className="text-xs text-[var(--muted)] mt-1">
-                {employee.department}
-              </p>
-            </div>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg flex items-center justify-center text-white font-semibold text-xl">
+            {employee.avatar}
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-[var(--card-bg)] rounded transition"
-            aria-label="Close modal"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div>
+            <h2 className="text-xl font-bold text-[var(--foreground)]">
+              {employee.name}
+            </h2>
+            <p className="text-sm text-[var(--muted)]">{employee.role}</p>
+            <p className="text-xs text-[var(--muted)] mt-1">
+              {employee.department}
+            </p>
+          </div>
         </div>
 
         {/* Stats Summary */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="p-4 rounded border border-[var(--border)] bg-[var(--card-surface)]">
-            <div className="flex items-center gap-2 text-emerald-500 mb-1">
+            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1">
               <CheckCircle2 className="w-4 h-4" />
               <span className="text-xs font-medium">Completed</span>
             </div>
@@ -184,7 +175,7 @@ export default function EmployeeDetailsModal({
           </div>
 
           <div className="p-4 rounded border border-[var(--border)] bg-[var(--card-surface)]">
-            <div className="flex items-center gap-2 text-blue-500 mb-1">
+            <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-1">
               <Clock className="w-4 h-4" />
               <span className="text-xs font-medium">Hours</span>
             </div>
@@ -193,7 +184,7 @@ export default function EmployeeDetailsModal({
           </div>
 
           <div className="p-4 rounded border border-[var(--border)] bg-[var(--card-surface)]">
-            <div className="flex items-center gap-2 text-purple-500 mb-1">
+            <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 mb-1">
               <Calendar className="w-4 h-4" />
               <span className="text-xs font-medium">This Week</span>
             </div>
@@ -205,7 +196,7 @@ export default function EmployeeDetailsModal({
         {/* Completed Tasks List */}
         <div>
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             Completed Tasks
           </h3>
 
@@ -215,7 +206,7 @@ export default function EmployeeDetailsModal({
               <p>No completed tasks yet</p>
             </div>
           ) : (
-            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+            <div className="space-y-3 max-h-[400px] overflow-y-auto chat-scroll">
               {completedTasks.map((task) => (
                 <div
                   key={task.id}
@@ -224,7 +215,7 @@ export default function EmployeeDetailsModal({
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
                         <h4 className="font-medium text-sm">
                           {task.title}
                         </h4>

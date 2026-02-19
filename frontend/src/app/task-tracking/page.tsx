@@ -371,7 +371,7 @@ export default function TaskTrackingPage() {
               )}
 
               {tasks.length > 0 && (
-                <div className="overflow-x-auto pb-6">
+                <div className="overflow-x-auto pb-6 chat-scroll">
                   <div className="flex gap-4 min-w-[1100px]">
                     {[
                       { status: 'todo', items: todoTasks, label: 'To Do' },
@@ -559,7 +559,7 @@ export default function TaskTrackingPage() {
             bottom: 0,
           }}
         >
-          <div className="bg-[var(--card-bg)] rounded-lg w-full max-w-2xl p-6 max-h-[80vh] overflow-y-auto shadow-lg border border-[var(--border)]">
+          <div className="bg-[var(--card-bg)] rounded-lg w-full max-w-2xl p-6 max-h-[80vh] overflow-y-auto shadow-lg border border-[var(--border)] chat-scroll">
             <div className="flex items-start justify-between mb-6">
               <h3 className="text-lg font-semibold">{editTaskData ? "Edit Task" : "Create New Task"}</h3>
               <button

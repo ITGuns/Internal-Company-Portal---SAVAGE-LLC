@@ -46,6 +46,11 @@ body {
   --status-completed-bg: rgba(16, 185, 129, 0.1);
   --status-blocked: #ef4444; /* red-500 */
   --status-blocked-bg: rgba(239, 68, 68, 0.1);
+  
+  /* Scrollbar Colors */
+  --scrollbar-thumb: #e5e7eb; /* light gray for light mode */
+  --scrollbar-thumb-hover: #d1d5db;
+  --scrollbar-track: transparent;
 }
 
 @theme inline {
@@ -83,6 +88,11 @@ body {
     --status-completed-bg: rgba(16, 185, 129, 0.15);
     --status-blocked: #ef4444;
     --status-blocked-bg: rgba(239, 68, 68, 0.15);
+    
+    /* Scrollbar Colors */
+    --scrollbar-thumb: rgba(255, 255, 255, 0.06); /* subtle white for dark mode */
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.12);
+    --scrollbar-track: transparent;
   }
 }
 
@@ -133,6 +143,11 @@ html.dark {
   --status-completed-bg: rgba(16, 185, 129, 0.15);
   --status-blocked: #ef4444;
   --status-blocked-bg: rgba(239, 68, 68, 0.15);
+  
+  /* Scrollbar Colors */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.06);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.12);
+  --scrollbar-track: transparent;
 }
 
 html[data-theme="light"] {
@@ -227,28 +242,28 @@ input:focus {
 /* Theme-aware custom scrollbar for chat and other scrollable cards */
 .chat-scroll {
   scrollbar-width: thin;
-  scrollbar-color: var(--border) var(--card-bg);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 .chat-scroll::-webkit-scrollbar {
   width: 12px;
   height: 12px;
 }
 .chat-scroll::-webkit-scrollbar-track {
-  background: var(--card-bg);
+  background: var(--scrollbar-track);
 }
 .chat-scroll::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--scrollbar-thumb);
   border-radius: 8px;
   border: 3px solid var(--card-bg);
 }
 .chat-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--muted);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Sidebar scrollbar: themed for light and dark modes */
 .sidebar-scroll {
   scrollbar-width: thin;
-  scrollbar-color: var(--border) var(--card-bg);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 .sidebar-scroll::-webkit-scrollbar {
   width: 12px;
@@ -258,23 +273,13 @@ input:focus {
   background: transparent;
 }
 .sidebar-scroll::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--scrollbar-thumb);
   border-radius: 9999px;
   border: 3px solid transparent;
   background-clip: padding-box;
 }
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--muted);
-}
-
-/* Dark-mode adjustments for better contrast */
-html[data-theme="dark"] .sidebar-scroll::-webkit-scrollbar-thumb,
-html.dark .sidebar-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.06);
-  border: 3px solid var(--card-surface);
-}
-html[data-theme="dark"] .sidebar-scroll {
-  scrollbar-color: rgba(255,255,255,0.06) var(--card-surface);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Sidebar / nav interaction animations (prefers-reduced-motion safe) */

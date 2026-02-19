@@ -6,8 +6,11 @@ import Modal from '@/components/Modal'
 import Button from '@/components/Button'
 import Card from '@/components/Card'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import EmptyState from '@/components/ui/EmptyState'
+import FormField from '@/components/forms/FormField'
 import { useToast } from '@/components/ToastProvider'
 import { Megaphone, Plus, Calendar, Trophy, Cake, Heart, MessageCircle, Send, MoreVertical, Edit, Trash2, AlertCircle } from 'lucide-react'
+import { formatDate } from '@/lib/date-utils'
 import {
   fetchAnnouncements,
   addAnnouncement,
@@ -90,7 +93,7 @@ export default function AnnouncementsPage() {
           newCategory,
           newTitle.trim(),
           newBody.trim(),
-          'User',
+          currentUser?.name || 'User',
           eventDetails,
           isImportant,
           isBirthday ? birthdayDate : undefined
@@ -111,7 +114,8 @@ export default function AnnouncementsPage() {
       setIsImportant(false);
       setEditingAnnouncement(null);
       setShowModal(false);
-    } catch (error) {
+    } catch (err) {
+      console.error('Failed to save announcement:', err);
       toast.error('Failed to save announcement');
     }
   };
@@ -158,7 +162,7 @@ export default function AnnouncementsPage() {
 
   const handleAddComment = async (announcementId: string) => {
     if (!commentText.trim()) return;
-    await addComment(announcementId, commentText.trim(), 'User');
+    await addComment(announcementId, commentText.trim(), currentUser?.name || 'User');
     setCommentText('');
     await loadData();
     toast.success('Comment added');
@@ -204,13 +208,7 @@ export default function AnnouncementsPage() {
 
   const formatBirthdayDate = (dateString: string): string => {
     if (!dateString) return '';
-    const date = new Date(dateString);
-    const options: Intl.DateTimeFormatOptions = {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
-    };
-    return date.toLocaleDateString('en-US', options);
+    return formatDate(dateString, { month: 'long', day: 'numeric', year: 'numeric' });
   };
 
   // Close menu when clicking outside
@@ -327,16 +325,15 @@ export default function AnnouncementsPage() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Title</label>
-              <input
-                type="text"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Enter announcement title..."
-                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
-              />
-            </div>
+            <FormField
+              id="announcement-title"
+              label="Title"
+              type="text"
+              value={newTitle}
+              onChange={setNewTitle}
+              placeholder="Enter announcement title..."
+              required
+            />
 
             <div>
               <label className="block text-sm font-medium mb-2">Message</label>
@@ -375,16 +372,14 @@ export default function AnnouncementsPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-2">Location</label>
-                  <input
-                    type="text"
-                    value={eventLocation}
-                    onChange={(e) => setEventLocation(e.target.value)}
-                    placeholder="e.g., Main Conference Room"
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
-                  />
-                </div>
+                <FormField
+                  id="event-location"
+                  label="Location"
+                  type="text"
+                  value={eventLocation}
+                  onChange={setEventLocation}
+                  placeholder="e.g., Main Conference Room"
+                />
               </>
             )}
 
@@ -508,11 +503,13 @@ export default function AnnouncementsPage() {
 
           <div className="mt-6 space-y-4">
             {filteredAnnouncements.length === 0 ? (
-              <div className="p-8 text-center bg-[var(--card-surface)] rounded-lg border border-[var(--border)]">
-                <Megaphone className="w-16 h-16 mx-auto text-[var(--muted)] opacity-50 mb-4" />
-                <div className="text-lg font-medium text-[var(--foreground)] mb-2">No announcements yet</div>
-                <div className="text-sm text-[var(--muted)]">Company announcements will appear here</div>
-              </div>
+              <EmptyState
+                icon={Megaphone}
+                title="No announcements yet"
+                description="Company announcements and updates will appear here"
+                actionLabel="Create Announcement"
+                onAction={() => setShowModal(true)}
+              />
             ) : (
               filteredAnnouncements.map((announcement) => {
                 const IconComponent = getCategoryIcon(announcement.category);

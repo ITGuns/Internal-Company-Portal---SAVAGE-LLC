@@ -3,9 +3,10 @@
  */
 
 import React, { useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Cake, Info, BarChart3, Grid3x3 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Cake, Clock, CheckCircle2, Calendar } from "lucide-react";
 import type { Employee, TimeEntry, LeaveRecord } from "@/lib/payroll-calendar/types";
-import { MOCK_TIME_ENTRIES, MOCK_LEAVE_RECORDS } from "@/lib/payroll-calendar/mock-data";
+import { MOCK_TIME_ENTRIES, MOCK_LEAVE_RECORDS, MOCK_COMPLETED_TASKS } from "@/lib/payroll-calendar/mock-data";
+import DayDetailsModal from "./DayDetailsModal";
 
 interface TimeTrackingCalendarProps {
   employee: Employee | null;
@@ -43,6 +44,8 @@ export default function TimeTrackingCalendar({
     truancy: true,
     vacation: true,
   });
+  const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
+  const [showDayDetails, setShowDayDetails] = useState(false);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -107,6 +110,20 @@ export default function TimeTrackingCalendar({
     return employeeTimeEntries.find((entry) => entry.date === dateStr) || null;
   };
 
+  // Get tasks for specific date
+  const getTasksForDate = (dateStr: string) => {
+    if (!employee) return [];
+    return MOCK_COMPLETED_TASKS.filter(
+      (task) => task.employeeId === employee.id && task.date === dateStr
+    );
+  };
+
+  // Handle day click
+  const handleDayClick = (dateStr: string) => {
+    setSelectedDayDate(dateStr);
+    setShowDayDetails(true);
+  };
+
   // Generate calendar grid
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(year, month);
@@ -134,6 +151,7 @@ export default function TimeTrackingCalendar({
       const dateStr = formatDate(year, month, day);
       const timeEntry = getTimeEntry(dateStr);
       const leaveRecord = getLeaveForDate(dateStr);
+      const tasksForDay = getTasksForDate(dateStr);
       const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
       const hasBirthday = isBirthday(day);
 
@@ -142,24 +160,24 @@ export default function TimeTrackingCalendar({
       let borderClass = "border border-[var(--border)]";
 
       if (isToday) {
-        borderClass = "border-2 border-blue-500";
+        borderClass = "border-2 border-blue-500 dark:border-blue-400 shadow-md";
       }
 
       if (timeEntry?.type === "work" && filters.workDay) {
-        bgClass = "bg-amber-100 dark:bg-amber-900/20";
+        bgClass = "bg-gradient-to-br from-amber-100 to-orange-100 dark:bg-gradient-to-br dark:from-amber-900/20 dark:to-orange-900/20 shadow-sm";
       } else if (leaveRecord?.type === "vacation" && filters.vacation) {
-        bgClass = "bg-gray-100 dark:bg-gray-700/30";
+        bgClass = "bg-gradient-to-br from-purple-100 to-pink-100 dark:bg-gradient-to-br dark:from-purple-900/20 dark:to-pink-900/20 text-purple-600 dark:text-purple-400 shadow-sm";
         // Striped pattern for vacation
         borderClass += " relative overflow-hidden";
       } else if (leaveRecord?.type === "sick" && filters.truancy) {
-        bgClass = "bg-red-50 dark:bg-red-900/10";
+        bgClass = "bg-gradient-to-br from-red-100 to-pink-100 dark:bg-gradient-to-br dark:from-red-950/30 dark:to-pink-950/30 shadow-sm";
       }
 
       return (
         <button
           key={day}
-          onClick={() => onAddTimeEntry(dateStr)}
-          className={`h-16 md:h-20 ${bgClass} ${borderClass} rounded-lg p-2 text-left hover:shadow-sm transition-shadow relative group`}
+          onClick={() => handleDayClick(dateStr)}
+          className={`h-16 md:h-20 ${bgClass} ${borderClass} rounded-xl p-2 text-left hover:shadow-lg hover:scale-[1.02] transition-all duration-200 relative group cursor-pointer`}
         >
           {/* Day number */}
           <div className="text-sm font-medium text-[var(--foreground)]">{day}</div>
@@ -180,21 +198,29 @@ export default function TimeTrackingCalendar({
 
           {/* Birthday indicator */}
           {hasBirthday && (
-            <div className="absolute top-1 right-1 bg-amber-400 rounded-full p-1">
+            <div className="absolute top-1 right-1 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-full p-1.5 shadow-md">
               <Cake className="w-3 h-3 text-white" />
             </div>
           )}
 
-          {/* Work hours */}
-          {timeEntry?.hours && (
-            <div className="absolute bottom-1 left-1 text-xs font-semibold text-[var(--muted)]">
-              {timeEntry.hours}h
+          {/* Badges for hours and tasks */}
+          {timeEntry?.hours && timeEntry.hours > 0 && (
+            <div className="absolute bottom-1 left-1 flex items-center gap-1 bg-gradient-to-r from-blue-500 to-sky-500 dark:from-blue-600 dark:to-sky-600 text-white px-2 py-1 rounded-md text-xs font-bold shadow-md">
+              <Clock className="w-3 h-3" />
+              <span>{timeEntry.hours}h</span>
             </div>
           )}
 
-          {/* Leave indicator */}
-          {leaveRecord && (
-            <div className="absolute bottom-1 right-1 text-xs font-medium text-[var(--muted)]">
+          {tasksForDay.length > 0 && (
+            <div className="absolute bottom-1 right-1 flex items-center gap-1 bg-gradient-to-r from-emerald-500 to-teal-500 dark:from-emerald-600 dark:to-teal-600 text-white px-2 py-1 rounded-md text-xs font-bold shadow-md">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>{tasksForDay.length}</span>
+            </div>
+          )}
+
+          {/* Leave indicator - only show if no work hours */}
+          {leaveRecord && !timeEntry?.hours && (
+            <div className="absolute bottom-1 left-1 text-xs font-medium text-[var(--muted)]">
               {leaveRecord.type === "vacation" ? "🏖️" : "😷"}
             </div>
           )}
@@ -210,7 +236,7 @@ export default function TimeTrackingCalendar({
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <Grid3x3 className="w-16 h-16 mx-auto text-[var(--muted)] mb-4" />
+          <Calendar className="w-16 h-16 mx-auto text-[var(--muted)] mb-4" />
           <p className="text-sm text-[var(--muted)]">
             Select an employee to view their time tracking calendar
           </p>
@@ -223,49 +249,21 @@ export default function TimeTrackingCalendar({
     <div className="flex flex-col">
       {/* Header with hours/salary totals */}
       <div className="mb-3">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800">
-              <Info className="w-5 h-5 text-[var(--muted)]" />
-            </div>
-            <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800">
-              <BarChart3 className="w-5 h-5 text-[var(--muted)]" />
-            </div>
-            <div className="flex-1">
-              <input
-                type="text"
-                placeholder="Search"
-                className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 placeholder:text-[var(--muted)]"
-              />
-            </div>
-          </div>
-          
-          {/* Toggle icons */}
-          <div className="flex items-center gap-2">
-            <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
-              <Grid3x3 className="w-5 h-5 text-[var(--muted)]" />
-            </button>
-            <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
-              <BarChart3 className="w-5 h-5 text-[var(--muted)]" />
-            </button>
-          </div>
-        </div>
-
         {/* Hours and Salary Display */}
-        <div className="text-center mb-2">
-          <div className="text-2xl font-bold text-[var(--foreground)]">
+        <div className="text-center mb-3">
+          <div className="text-3xl font-bold text-[var(--foreground)]">
             {totalHours.toFixed(2)} hrs / ${monthlySalary.toLocaleString()}
           </div>
         </div>
 
         {/* Filter Pills */}
-        <div className="flex items-center justify-center gap-2 mb-2">
+        <div className="flex items-center justify-center gap-2 mb-3">
           <button
             onClick={() => toggleFilter("workDay")}
-            className={`px-6 py-2 rounded-full text-sm font-medium transition-colors ${
+            className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg hover:scale-105 ${
               filters.workDay
-                ? "bg-amber-400 text-gray-900"
-                : "bg-gray-200 dark:bg-gray-700 text-[var(--muted)]"
+                ? "bg-gradient-to-r from-amber-400 to-orange-500 text-white"
+                : "bg-gray-200 dark:bg-gray-700 text-[var(--muted)] hover:bg-gray-300 dark:hover:bg-gray-600"
             }`}
           >
             {filters.workDay && totalHours > 0 && `${totalHours.toFixed(0)} hrs`}
@@ -273,20 +271,20 @@ export default function TimeTrackingCalendar({
           </button>
           <button
             onClick={() => toggleFilter("truancy")}
-            className={`px-6 py-2 rounded-full text-sm font-medium transition-colors ${
+            className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg hover:scale-105 ${
               filters.truancy
-                ? "bg-gray-700 dark:bg-gray-600 text-white"
-                : "bg-gray-200 dark:bg-gray-700 text-[var(--muted)]"
+                ? "bg-gradient-to-r from-gray-700 to-gray-900 text-white"
+                : "bg-gray-200 dark:bg-gray-700 text-[var(--muted)] hover:bg-gray-300 dark:hover:bg-gray-600"
             }`}
           >
             Truancy
           </button>
           <button
             onClick={() => toggleFilter("vacation")}
-            className={`px-6 py-2 rounded-full text-sm font-medium transition-colors ${
+            className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg hover:scale-105 ${
               filters.vacation
-                ? "bg-gray-400 dark:bg-gray-500 text-white"
-                : "bg-gray-200 dark:bg-gray-700 text-[var(--muted)]"
+                ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white"
+                : "bg-gray-200 dark:bg-gray-700 text-[var(--muted)] hover:bg-gray-300 dark:hover:bg-gray-600"
             }`}
           >
             Vacation
@@ -295,30 +293,30 @@ export default function TimeTrackingCalendar({
       </div>
 
       {/* Calendar Navigation */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-3">
         <button
           onClick={handlePrevMonth}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          className="p-2.5 rounded-xl bg-gradient-to-br from-blue-50 to-sky-50 dark:from-blue-900/20 dark:to-sky-900/20 hover:from-blue-100 hover:to-sky-100 dark:hover:from-blue-800/30 dark:hover:to-sky-800/30 transition-all shadow-sm hover:shadow-md"
         >
-          <ChevronLeft className="w-5 h-5 text-[var(--foreground)]" />
+          <ChevronLeft className="w-5 h-5 text-blue-600 dark:text-blue-400" />
         </button>
-        <div className="text-lg font-semibold text-[var(--foreground)]">
+        <div className="text-xl font-bold text-[var(--foreground)]">
           {MONTH_NAMES[month]} {year}
         </div>
         <button
           onClick={handleNextMonth}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          className="p-2.5 rounded-xl bg-gradient-to-br from-blue-50 to-sky-50 dark:from-blue-900/20 dark:to-sky-900/20 hover:from-blue-100 hover:to-sky-100 dark:hover:from-blue-800/30 dark:hover:to-sky-800/30 transition-all shadow-sm hover:shadow-md"
         >
-          <ChevronRight className="w-5 h-5 text-[var(--foreground)]" />
+          <ChevronRight className="w-5 h-5 text-blue-600 dark:text-blue-400" />
         </button>
       </div>
 
       {/* Day labels */}
-      <div className="grid grid-cols-7 gap-x-1 gap-y-0 mb-1">
+      <div className="grid grid-cols-7 gap-x-1 gap-y-0 mb-2">
         {DAYS_OF_WEEK.map((day) => (
           <div
             key={day}
-            className="text-center text-xs font-medium text-[var(--muted)] py-1"
+            className="text-center text-xs font-bold text-[var(--muted)] py-2"
           >
             {day}
           </div>
@@ -329,6 +327,18 @@ export default function TimeTrackingCalendar({
       <div className="grid grid-cols-7 gap-x-1 gap-y-0.5">
         {renderCalendar()}
       </div>
+
+      {/* Day Details Modal */}
+      {selectedDayDate && (
+        <DayDetailsModal
+          isOpen={showDayDetails}
+          onClose={() => setShowDayDetails(false)}
+          date={selectedDayDate}
+          timeEntry={getTimeEntry(selectedDayDate)}
+          tasks={getTasksForDate(selectedDayDate)}
+          employeeName={employee?.name || ""}
+        />
+      )}
     </div>
   );
 }

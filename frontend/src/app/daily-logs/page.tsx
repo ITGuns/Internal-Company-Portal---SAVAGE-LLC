@@ -4,42 +4,41 @@ import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
-import Card from '@/components/Card';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import EmptyState from '@/components/ui/EmptyState';
+import StatusBadge from '@/components/ui/StatusBadge';
+import FormField from '@/components/forms/FormField';
 import { useToast } from '@/components/ToastProvider';
-import { Search, Plus, ChevronDown, Clock, CheckCircle2, MessageCircle, ThumbsUp } from 'lucide-react';
+import { useUser } from '@/contexts/UserContext';
+import { Search, Plus, Clock, CheckCircle2, MessageCircle, ThumbsUp, FileText } from 'lucide-react';
 import { DEPARTMENTS } from '@/lib/departments';
 import {
   fetchDailyLogs,
   createDailyLog,
   updateDailyLog,
-  deleteDailyLog,
   toggleLogLike,
-  getTodayLogs,
   getThisWeekLogs,
   getCompletedTasksCount,
   formatLogDate,
-  getUniqueDepartments,
   getUniqueUsers,
   type DailyLog,
   type LogStatus,
   type LogTask,
 } from '@/lib/daily-logs';
-import { getCurrentUser } from '@/lib/api';
 
 type DateFilter = 'today' | 'week' | 'month' | 'all';
 
 export default function DailyLogsPage() {
   const toast = useToast();
+  const { user: currentUser } = useUser();
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingLog, setEditingLog] = useState<DailyLog | null>(null);
-  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Filters
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
-  const [departmentFilter, setDepartmentFilter] = useState<string>('Project Managers');
+  const [departmentFilter, setDepartmentFilter] = useState<string>(DEPARTMENTS[0]);
   const [userFilter, setUserFilter] = useState<string>('all');
   const [statusFilters, setStatusFilters] = useState({
     completed: true,
@@ -64,7 +63,6 @@ export default function DailyLogsPage() {
   };
 
   useEffect(() => {
-    setCurrentUser(getCurrentUser());
     loadData();
   }, []);
 
@@ -115,7 +113,7 @@ export default function DailyLogsPage() {
   // Stats
   const totalLogs = filteredLogs.length;
   const weekLogs = getThisWeekLogs(logs).length;
-  const yourLogs = currentUser ? logs.filter(l => l.authorId === currentUser.id).length : 0;
+  const yourLogs = currentUser ? logs.filter(l => l.authorId === String(currentUser.id)).length : 0;
 
   const handleAddTask = () => {
     if (!formTaskInput.trim()) return;
@@ -159,7 +157,8 @@ export default function DailyLogsPage() {
       await loadData();
       resetForm();
       setShowModal(false);
-    } catch (error) {
+    } catch (err) {
+      console.error('Failed to save log:', err);
       toast.error('Failed to save log');
     }
   };
@@ -174,43 +173,9 @@ export default function DailyLogsPage() {
     setEditingLog(null);
   };
 
-  const handleEdit = (log: DailyLog) => {
-    setEditingLog(log);
-    setFormDate(log.date);
-    setFormDepartment(log.department);
-    setFormHours(log.hoursLogged);
-    setFormStatus(log.status);
-    setFormTasks([...log.tasks]);
-    setShowModal(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this log?')) {
-      await deleteDailyLog(id);
-      await loadData();
-      toast.success('Daily log deleted');
-    }
-  };
-
   const handleLike = async (logId: string) => {
     await toggleLogLike(logId);
     await loadData();
-  };
-
-  const getStatusColor = (status: LogStatus) => {
-    switch (status) {
-      case 'completed': return 'text-green-600 bg-green-500/10';
-      case 'in-progress': return 'text-blue-600 bg-blue-500/10';
-      case 'blocked': return 'text-red-600 bg-red-500/10';
-    }
-  };
-
-  const getStatusLabel = (status: LogStatus) => {
-    switch (status) {
-      case 'completed': return 'Completed';
-      case 'in-progress': return 'In Progress';
-      case 'blocked': return 'Blocked';
-    }
   };
 
   return (
@@ -232,7 +197,7 @@ export default function DailyLogsPage() {
                   size="sm"
                   onClick={() => {
                     setDateFilter('today');
-                    setDepartmentFilter('Project Managers');
+                    setDepartmentFilter(DEPARTMENTS[0]);
                     setUserFilter('all');
                     setStatusFilters({ completed: true, 'in-progress': true, blocked: true });
                     setSearchQuery('');
@@ -355,14 +320,15 @@ export default function DailyLogsPage() {
             </div>
 
             {/* Log Entries */}
-            <div className="space-y-4 max-h-[calc(100vh-20rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-[var(--border)] scrollbar-track-transparent hover:scrollbar-thumb-[var(--muted)] pr-2">
+            <div className="space-y-4 max-h-[calc(100vh-20rem)] overflow-y-auto pr-2 chat-scroll">
               {filteredLogs.length === 0 ? (
-                <div className="text-center py-12 bg-[var(--card-bg)] rounded-lg border border-[var(--border)]">
-                  <div className="text-[var(--muted)] mb-2">No logs found</div>
-                  <Button variant="primary" size="sm" onClick={() => setShowModal(true)}>
-                    Create your first log
-                  </Button>
-                </div>
+                <EmptyState
+                  icon={FileText}
+                  title="No logs found"
+                  description="Get started by creating your first daily log"
+                  actionLabel="Create your first log"
+                  onAction={() => setShowModal(true)}
+                />
               ) : (
                 filteredLogs.map(log => (
                   <div key={log.id} className="bg-[var(--card-bg)] border border-[var(--border)] rounded-lg p-6 hover:shadow-sm transition">
@@ -378,9 +344,7 @@ export default function DailyLogsPage() {
                           <div>
                             <div className="flex items-center gap-2">
                               <h3 className="font-semibold">{log.author}</h3>
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
-                                {getStatusLabel(log.status)}
-                              </span>
+                              <StatusBadge status={log.status} size="md" />
                             </div>
                             <div className="text-sm text-[var(--muted)] mt-1">
                               {log.department} • {formatLogDate(log.date)}
@@ -420,9 +384,9 @@ export default function DailyLogsPage() {
                           </div>
                           <button
                             onClick={() => handleLike(log.id)}
-                            className={`flex items-center gap-1 hover:text-[var(--foreground)] transition ${currentUser && log.likes.includes(currentUser.id) ? 'text-red-500' : ''}`}
+                            className={`flex items-center gap-1 hover:text-[var(--foreground)] transition ${currentUser && log.likes.includes(String(currentUser.id)) ? 'text-red-500' : ''}`}
                           >
-                            <ThumbsUp className={`w-4 h-4 ${currentUser && log.likes.includes(currentUser.id) ? 'fill-current' : ''}`} />
+                            <ThumbsUp className={`w-4 h-4 ${currentUser && log.likes.includes(String(currentUser.id)) ? 'fill-current' : ''}`} />
                             <span>{log.likes.length} {log.likes.length === 1 ? 'like' : 'likes'}</span>
                           </button>
                           <div className="flex items-center gap-1">
@@ -451,40 +415,24 @@ export default function DailyLogsPage() {
         >
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Date</label>
-                <div className="date-input-wrapper">
-                  <input
-                    type="date"
-                    value={formDate}
-                    onChange={(e) => setFormDate(e.target.value)}
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
-                    style={{
-                      colorScheme: 'dark'
-                    }}
-                  />
-                </div>
-                <style dangerouslySetInnerHTML={{
-                  __html: `
-                  .date-input-wrapper input[type="date"]::-webkit-calendar-picker-indicator {
-                    filter: invert(1) !important;
-                    cursor: pointer !important;
-                    opacity: 1 !important;
-                  }
-                `}} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Hours Logged</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="24"
-                  step="0.5"
-                  value={formHours}
-                  onChange={(e) => setFormHours(Number(e.target.value))}
-                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
-                />
-              </div>
+              <FormField
+                id="log-date"
+                label="Date"
+                type="date"
+                value={formDate}
+                onChange={setFormDate}
+                icon={Clock}
+              />
+              <FormField
+                id="log-hours"
+                label="Hours Logged"
+                type="number"
+                value={formHours}
+                onChange={(val) => setFormHours(Number(val))}
+                min={0}
+                max={24}
+                step={0.5}
+              />
             </div>
 
             <div>
@@ -530,7 +478,7 @@ export default function DailyLogsPage() {
                 </Button>
               </div>
 
-              <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-[var(--border)] scrollbar-track-transparent hover:scrollbar-thumb-[var(--muted)]">
+              <div className="space-y-2 max-h-64 overflow-y-auto chat-scroll">
                 {formTasks.map(task => (
                   <div key={task.id} className="flex items-center gap-2 p-2 bg-[var(--card-surface)] rounded">
                     <input

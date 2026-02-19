@@ -192,7 +192,7 @@ export default function CompanyChatPage() {
               <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => window.location.reload()}>Retry</Button>
             </div>
           )}
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          <div className="flex-1 overflow-y-auto p-2 space-y-1 chat-scroll">
             {conversations.filter(c => c.type !== 'direct').map(c => (
               <button
                 key={c.id}
@@ -232,7 +232,7 @@ export default function CompanyChatPage() {
               {/* Messages List */}
               <div
                 ref={scrollRef}
-                className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth"
+                className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth chat-scroll"
               >
                 {messages.map((msg, i) => {
                   const myEmail = currentUser?.email

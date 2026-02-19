@@ -186,7 +186,7 @@ export default function PrivateMessagesPage() {
               <Plus className="w-4 h-4" />
             </Button>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto chat-scroll">
             {conversations.map(c => {
               const other = getOtherParticipant(c)
               return (
@@ -239,7 +239,7 @@ export default function PrivateMessagesPage() {
             </div>
           ) : (
             <>
-              <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 chat-scroll">
                 {messages.map((msg, i) => {
                   const myId = currentUser?.id ? String(currentUser.id) : undefined
                   const isMe = msg.senderId === myId
@@ -304,7 +304,7 @@ export default function PrivateMessagesPage() {
                   />
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto p-2">
+              <div className="flex-1 overflow-y-auto p-2 chat-scroll">
                 {users.filter(u => u.id !== (currentUser?.id ? String(currentUser.id) : undefined) && u.name?.toLowerCase().includes(searchQuery.toLowerCase())).map(u => (
                   <button
                     key={u.id}

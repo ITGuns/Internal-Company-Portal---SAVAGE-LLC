@@ -56,7 +56,7 @@ export default function NotificationList({
             </div>
 
             {/* List */}
-            <div className="overflow-y-auto max-h-[400px]">
+            <div className="overflow-y-auto max-h-[400px] chat-scroll">
                 {notifications.map((notification) => (
                     <div
                         key={notification.id}

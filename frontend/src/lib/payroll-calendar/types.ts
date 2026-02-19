@@ -14,7 +14,7 @@ export interface Employee {
   hoursThisWeek: number;
   salary: number;
   performance: number;
-  status: "active" | "vacation" | "leave";
+  status: "active" | "vacation" | "leave" | "pending";
   // Extended fields for profile panel
   phone?: string;
   email?: string;
@@ -23,6 +23,7 @@ export interface Employee {
   address?: string;
   birthday?: string;
   photo?: string; // URL for profile photo
+  appliedDate?: string; // Date when application was submitted (for pending status)
 }
 
 export interface CalendarEvent {
@@ -111,3 +112,13 @@ export interface Payslip {
 }
 
 export type PayPeriod = "weekly" | "bi-weekly" | "monthly";
+
+// Completed task tracking
+export interface CompletedTask {
+  id: string;
+  employeeId: number;
+  date: string; // YYYY-MM-DD
+  title: string;
+  description?: string;
+  category?: string;
+}

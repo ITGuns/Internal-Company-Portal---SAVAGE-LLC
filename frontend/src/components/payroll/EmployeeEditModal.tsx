@@ -7,6 +7,7 @@ import { Edit2, Save } from "lucide-react";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import type { Employee } from "@/lib/payroll-calendar/types";
+import { DEPARTMENTS, DEPARTMENT_ROLES } from "@/lib/departments";
 
 interface EmployeeEditModalProps {
   isOpen: boolean;
@@ -22,15 +23,17 @@ export default function EmployeeEditModal({
   onSave,
 }: EmployeeEditModalProps) {
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
   const [department, setDepartment] = useState("");
   const [salary, setSalary] = useState("");
-  const [status, setStatus] = useState<"active" | "vacation" | "leave">("active");
+  const [status, setStatus] = useState<"active" | "vacation" | "leave" | "pending">("active");
 
   // Update form when employee changes
   useEffect(() => {
     if (employee) {
       setName(employee.name);
+      setEmail(employee.email || "");
       setRole(employee.role);
       setDepartment(employee.department);
       setSalary(employee.salary.toString());
@@ -38,12 +41,24 @@ export default function EmployeeEditModal({
     }
   }, [employee]);
 
+  // Update role when department changes
+  useEffect(() => {
+    if (department && DEPARTMENT_ROLES[department]) {
+      const roles = DEPARTMENT_ROLES[department];
+      // If current role is not in the new department's roles, reset to first role
+      if (role && !roles.includes(role)) {
+        setRole(roles[0]);
+      }
+    }
+  }, [department, role]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!employee) return;
 
     onSave(employee.id, {
       name: name.trim(),
+      email: email.trim(),
       role: role.trim(),
       department: department.trim(),
       salary: parseFloat(salary) || employee.salary,
@@ -64,8 +79,8 @@ export default function EmployeeEditModal({
     >
       <div className="p-6">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
+        <div className="flex items-center gap-3 mb-0 pb-5">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg flex items-center justify-center">
             <Edit2 className="w-5 h-5" />
           </div>
           <div>
@@ -81,65 +96,84 @@ export default function EmployeeEditModal({
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
               Full Name
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+              className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Role / Position
+            <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
+              Email
             </label>
             <input
-              type="text"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
-              required
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+              placeholder="employee@company.com"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
+              Role / Position
+            </label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+              required
+            >
+              {department && DEPARTMENT_ROLES[department] ? (
+                DEPARTMENT_ROLES[department].map((roleOption) => (
+                  <option key={roleOption} value={roleOption}>
+                    {roleOption}
+                  </option>
+                ))
+              ) : (
+                <option value="">Select a department first</option>
+              )}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
               Department
             </label>
             <select
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+              className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
               required
             >
-              <option value="Frontend">Frontend</option>
-              <option value="Backend">Backend</option>
-              <option value="HR">HR</option>
-              <option value="Finance">Finance</option>
-              <option value="Marketing">Marketing</option>
-              <option value="Product">Product</option>
-              <option value="Design">Design</option>
-              <option value="Operations">Operations</option>
+              {DEPARTMENTS.map((dept) => (
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
+              ))}
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
               Annual Salary
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-semibold">
                 $
               </span>
               <input
                 type="number"
                 value={salary}
                 onChange={(e) => setSalary(e.target.value)}
-                className="w-full p-2 pl-7 rounded border border-[var(--border)] bg-[var(--background)]"
+                className="w-full p-3 pl-8 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
                 min="0"
                 step="1000"
                 required
@@ -148,17 +182,18 @@ export default function EmployeeEditModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
               Status
             </label>
             <select
               value={status}
-              onChange={(e) => setStatus(e.target.value as "active" | "vacation" | "leave")}
-              className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+              onChange={(e) => setStatus(e.target.value as "active" | "vacation" | "leave" | "pending")}
+              className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
             >
               <option value="active">Active</option>
               <option value="vacation">On Vacation</option>
               <option value="leave">On Leave</option>
+              <option value="pending">Pending Approval</option>
             </select>
           </div>
 

@@ -79,7 +79,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
         className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"
         style={{ maxHeight: 'calc(100vh - 2rem)' }}
       >
-        <div className="flex flex-col gap-2 pointer-events-auto overflow-y-auto">
+        <div className="flex flex-col gap-2 pointer-events-auto overflow-y-auto chat-scroll">
           {toasts.map((toast) => (
             <Toast
               key={toast.id}
