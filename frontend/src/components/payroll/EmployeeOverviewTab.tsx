@@ -4,6 +4,7 @@
 
 import React, { useState } from "react";
 import { Users, User, Clock, Award, Plus } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 import Button from "@/components/Button";
 import EmployeeCard from "./EmployeeCard";
@@ -44,33 +45,46 @@ export default function EmployeeOverviewTab() {
 
   const handleDeleteConfirm = () => {
     if (!employeeToDelete) return;
-    
+
     setEmployees((prev) => prev.filter((emp) => emp.id !== employeeToDelete.id));
     toast.success(`${employeeToDelete.name} has been removed`);
     setEmployeeToDelete(null);
   };
 
-  const handleAddEmployee = (newEmployee: Omit<Employee, "id">) => {
+  const handleAddEmployee = async (newEmployee: Omit<Employee, "id">) => {
     // Generate new ID (in production, this would come from the backend)
     const newId = Math.max(...employees.map((e) => e.id), 0) + 1;
-    
+
     const employeeWithId: Employee = {
       ...newEmployee,
       id: newId,
+      // Default to pending status if email sent, but for now we keep user selection
     };
-    
+
     setEmployees((prev) => [...prev, employeeWithId]);
     toast.success(`${newEmployee.name} has been added to the team!`);
+
+    // Send verification email
+    try {
+      await apiFetch('/employees/request-verification', {
+        method: 'POST',
+        body: JSON.stringify(newEmployee),
+      });
+      toast.success("Verification request sent to Operations Manager");
+    } catch (err) {
+      console.error("Failed to send verification email", err);
+      toast.error("Employee added, but failed to send verification email.");
+    }
   };
 
   const avgHours = Math.round(
     employees.reduce((acc, emp) => acc + emp.hoursThisWeek, 0) /
-      employees.length
+    employees.length
   );
 
   const avgPerformance = Math.round(
     employees.reduce((acc, emp) => acc + emp.performance, 0) /
-      employees.length
+    employees.length
   );
 
   return (

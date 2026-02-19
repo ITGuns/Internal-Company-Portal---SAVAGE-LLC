@@ -80,32 +80,10 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
         headers,
     })
 
-    // If 401, try to refresh or re-login ONCE
+    // If 401, return response to let caller handle it (usually triggers logout in UserContext)
     if (response.status === 401) {
-        console.warn('401 Unauthorized - Attempting re-login...')
-
-        // Clear potential bad token first
-        if (typeof window !== 'undefined') localStorage.removeItem('accessToken');
-
-        const newToken = await devLogin()
-
-        if (newToken) {
-            return fetch(`${API_URL}${endpoint}`, {
-                ...options,
-                headers: {
-                    ...headers,
-                    'Authorization': `Bearer ${newToken}`
-                }
-            })
-        } else {
-            // Login failed completely. Ensure clean state to avoid loops.
-            if (typeof window !== 'undefined') {
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem(STORAGE_KEYS.USER);
-                // Optional: force reload to reset app state if stuck
-                // window.location.reload(); 
-            }
-        }
+        console.warn('401 Unauthorized');
+        // Do NOT auto-login. Let UserContext or the component handle the auth failure.
     }
 
     if (!response.ok && response.status !== 401) {

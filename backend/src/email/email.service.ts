@@ -334,8 +334,73 @@ export class EmailService {
     }
 
     /**
-     * Verify email service connection
+     * Send new employee verification email
      */
+    async sendEmployeeVerificationEmail(
+        to: string,
+        data: {
+            name: string;
+            role: string;
+            department: string;
+            salary: number;
+            status: string;
+            hoursThisWeek: number;
+            performance: number;
+        }
+    ): Promise<EmailResult> {
+        return await this.sendEmail({
+            to,
+            subject: `Action Required: New Employee Verification - ${data.name}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                    <h2 style="color: #1a1a1a;">New Employee Verification Request</h2>
+                    <p style="color: #4a4a4a;">A new employee has been added to the system and requires your verification.</p>
+                    
+                    <div style="background-color: #f9fafb; padding: 20px; border-radius: 6px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                        <h3 style="margin-top: 0; color: #374151; font-size: 16px; margin-bottom: 12px;">Employee Details</h3>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td style="padding: 8px 0; color: #6b7280; width: 120px;">Name:</td>
+                                <td style="padding: 8px 0; color: #111827; font-weight: 500;">${data.name}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #6b7280;">Role:</td>
+                                <td style="padding: 8px 0; color: #111827; font-weight: 500;">${data.role}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #6b7280;">Department:</td>
+                                <td style="padding: 8px 0; color: #111827; font-weight: 500;">${data.department}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #6b7280;">Salary:</td>
+                                <td style="padding: 8px 0; color: #111827; font-weight: 500;">$${data.salary.toLocaleString()}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #6b7280;">Status:</td>
+                                <td style="padding: 8px 0; color: #111827; font-weight: 500;">${data.status}</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <p style="color: #4a4a4a;">Please review these details and accept to activate this employee.</p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/payroll" 
+                           style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
+                           Verify & Accept Employee
+                        </a>
+                    </div>
+                    
+                    <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+                        This email was sent from the SAVAGE LLC Internal Portal.<br/>
+                        If you did not authorize this, please contact support immediately.
+                    </p>
+                </div>
+            `,
+        });
+    }
+
+
     async verifyConnection(): Promise<boolean> {
         if (!this.isConfigured) {
             return false;

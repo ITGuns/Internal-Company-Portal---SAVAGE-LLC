@@ -146,6 +146,59 @@ export class ChatController {
             }
         })
 
+        // Delete message
+        router.delete('/messages/:id', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                // @ts-ignore
+                const userId = (req as AuthRequest).user.userId
+                const messageId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+
+                const deletedMessage = await this.service.deleteMessage(messageId, userId)
+
+                if (!deletedMessage) {
+                    return res.status(403).json({ error: 'Not found or not authorized' })
+                }
+
+                notificationService.emitToRoom(`conversation:${deletedMessage.conversationId}`, 'chat:message_deleted', {
+                    messageId: deletedMessage.id,
+                    conversationId: deletedMessage.conversationId
+                });
+
+                res.json({ success: true, messageId: deletedMessage.id })
+            } catch (error) {
+                console.error(error)
+                res.status(500).json({ error: 'Failed to delete message' })
+            }
+        })
+
+        // Leave/Delete conversation
+        router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                // @ts-ignore
+                const userId = (req as AuthRequest).user.userId
+                const conversationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+
+                const success = await this.service.leaveConversation(conversationId, userId)
+
+                if (!success) {
+                    return res.status(404).json({ error: 'Conversation not found or not a participant' })
+                }
+
+                // Notify others that user left?
+                // For direct messages, this might be handled by frontend filtering participants
+                // But broadcasting is good practice
+                notificationService.emitToRoom(`conversation:${conversationId}`, 'chat:user_left', {
+                    userId,
+                    conversationId
+                });
+
+                res.json({ success: true })
+            } catch (error) {
+                console.error(error)
+                res.status(500).json({ error: 'Failed to delete conversation' })
+            }
+        })
+
         return router
     }
 }

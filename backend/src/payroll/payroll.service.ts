@@ -226,53 +226,76 @@ export class PayrollService {
         const items = [] // { type, description, amount }
 
         if (profile.baseSalary && profile.baseSalary > 0) {
-            // Salary based? 
-            // If Monthly, and period is Semi-Monthly, divide by 2?
-            // For MVP, assume Base Salary is PER PERIOD amount if salaried, 
-            // OR calculate Hourly if hourly.
+            // Determine if Salaried or Hourly based on employment type
+            // Assumption: 'Full-Time' = Salaried (Monthly Rate)
+            // 'Part-Time', 'Contractor', 'Intern' = Hourly Rate
+            const isSalaried = profile.employmentType === 'Full-Time';
 
-            // Heuristic: If < 1000, assumes hourly rate? If > 1000, assumes monthly salary?
-            // Let's rely on employmentType.
-
-            if (profile.employmentType === 'Contractor' || profile.baseSalary < 1000) {
-                // Hourly Calculation
-                // Fetch TimeEntries (or DailyLogs logs)
-                const logs = await this.prisma.dailyLog.findMany({
+            if (!isSalaried) {
+                // Hourly Calculation: Rate * Total Hours
+                // 1. Try fetching TimeEntries (Clock In/Out)
+                const timeEntries = await this.prisma.timeEntry.findMany({
                     where: {
-                        authorId: userId,
-                        date: {
+                        userId,
+                        start: {
                             gte: period.startDate,
                             lte: period.endDate
-                        }
+                        },
+                        duration: { not: null } // Only completed entries
                     }
                 })
 
-                const totalHours = logs.reduce((sum, log) => sum + (log.hoursLogged || 0), 0)
+                let totalMinutes = timeEntries.reduce((sum, entry) => sum + (entry.duration || 0), 0)
+                let totalHours = totalMinutes / 60
+                let source = 'Time Entries'
+
+                // 2. Fallback to Daily Logs if no time entries found (for backwards compatibility or manual loggers)
+                if (totalHours === 0) {
+                    const logs = await this.prisma.dailyLog.findMany({
+                        where: {
+                            authorId: userId,
+                            date: {
+                                gte: period.startDate,
+                                lte: period.endDate
+                            }
+                        }
+                    })
+                    totalHours = logs.reduce((sum, log) => sum + (log.hoursLogged || 0), 0)
+                    if (totalHours > 0) source = 'Daily Logs'
+                }
+
+                // Round to 2 decimal places
+                totalHours = Math.round(totalHours * 100) / 100
                 grossPay = totalHours * profile.baseSalary
 
                 items.push({
                     type: 'earning',
-                    description: `Hourly Pay (${totalHours} hrs @ ${profile.baseSalary})`,
+                    description: `Hourly Pay (${totalHours} hrs @ ${profile.baseSalary}) - via ${source}`,
                     amount: grossPay
                 })
             } else {
-                // Fixed Salary (Assume Base Salary is Monthly)
+                // Fixed Salary Calculation (Monthly Rate)
                 // If Period is ~15 days (Semi-Monthly), pay Half.
                 // If Period is ~30 days, pay Full.
-
                 const daysDiff = (period.endDate.getTime() - period.startDate.getTime()) / (1000 * 3600 * 24)
                 let salary = profile.baseSalary
 
-                if (daysDiff < 20) { // Semi-monthly
+                if (daysDiff < 20) { // Approx half month
                     salary = salary / 2
+                    items.push({
+                        type: 'earning',
+                        description: 'Base Salary (Semi-Monthly)',
+                        amount: salary
+                    })
+                } else {
+                    items.push({
+                        type: 'earning',
+                        description: 'Base Salary (Monthly)',
+                        amount: salary
+                    })
                 }
 
                 grossPay = salary
-                items.push({
-                    type: 'earning',
-                    description: 'Base Salary',
-                    amount: grossPay
-                })
             }
         }
 

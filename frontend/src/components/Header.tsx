@@ -114,7 +114,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
           </div>
         ) : isDashboard ? (
           <div className="text-left">
-            <h2 className="text-xl font-semibold">Welcome back, User</h2>
+            <h2 className="text-xl font-semibold">Welcome back, {user?.name || 'Guest'}</h2>
             <div className="text-sm text-[var(--muted)]">Here's what's happening today</div>
           </div>
         ) : (
@@ -229,7 +229,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
           )}
         </>
       )}
-      
+
       {/* Notification Sidebar */}
       <NotificationSidebar
         isOpen={showNotifications}
@@ -239,7 +239,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
         onMarkAllAsRead={markAllAsRead}
         onClear={clearNotifications}
       />
-      
+
       {/* Profile Sidebar */}
       <ProfileSidebar isOpen={showProfile} onClose={() => setShowProfile(false)} />
     </header>

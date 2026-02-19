@@ -39,7 +39,7 @@ export default function DailyLogsPage() {
 
   // Filters
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
-  const [departmentFilter, setDepartmentFilter] = useState<string>('Owners / Founders');
+  const [departmentFilter, setDepartmentFilter] = useState<string>('Project Managers');
   const [userFilter, setUserFilter] = useState<string>('all');
   const [statusFilters, setStatusFilters] = useState({
     completed: true,
@@ -232,7 +232,7 @@ export default function DailyLogsPage() {
                   size="sm"
                   onClick={() => {
                     setDateFilter('today');
-                    setDepartmentFilter('Owners / Founders');
+                    setDepartmentFilter('Project Managers');
                     setUserFilter('all');
                     setStatusFilters({ completed: true, 'in-progress': true, blocked: true });
                     setSearchQuery('');

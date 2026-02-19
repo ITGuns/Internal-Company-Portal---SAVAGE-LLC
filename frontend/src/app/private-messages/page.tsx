@@ -5,8 +5,8 @@ import React, { useEffect, useState, useRef } from 'react'
 import Header from '@/components/Header'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import { Send, User, Search, MessageSquare, Loader2, Paperclip, Plus, X } from 'lucide-react'
-import { fetchConversations, fetchMessages, sendMessage, createConversation, type Message, type Conversation } from '@/lib/chat'
+import { Send, User, Search, MessageSquare, Loader2, Paperclip, Plus, X, Trash2 } from 'lucide-react'
+import { fetchConversations, fetchMessages, sendMessage, createConversation, deleteMessage, deleteConversation, type Message, type Conversation } from '@/lib/chat'
 import { fetchUsers, type User as SystemUser } from '@/lib/users'
 import { useSocket } from '@/context/SocketContext'
 import { useUser } from '@/contexts/UserContext'
@@ -83,9 +83,30 @@ export default function PrivateMessagesPage() {
         return prev // Might need to fetch if it's a completely new direct chat
       })
     }
+    const handleMessageDeleted = ({ messageId, conversationId }: { messageId: string, conversationId: string }) => {
+      if (conversationId === selectedId) {
+        setMessages(prev => prev.filter(m => m.id !== messageId))
+      }
+    }
+
+    const handleUserLeft = ({ userId, conversationId }: { userId: string, conversationId: string }) => {
+      // If I left, remove conversation from list
+      if (userId === (currentUser?.id ? String(currentUser.id) : undefined)) {
+        setConversations(prev => prev.filter(c => c.id !== conversationId))
+        if (selectedId === conversationId) setSelectedId(null)
+      }
+    }
+
     socket.on('chat:message', handleNewMessage)
-    return () => { socket.off('chat:message', handleNewMessage) }
-  }, [socket, selectedId])
+    socket.on('chat:message_deleted', handleMessageDeleted)
+    socket.on('chat:user_left', handleUserLeft)
+
+    return () => {
+      socket.off('chat:message', handleNewMessage)
+      socket.off('chat:message_deleted', handleMessageDeleted)
+      socket.off('chat:user_left', handleUserLeft)
+    }
+  }, [socket, selectedId, currentUser])
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
@@ -111,6 +132,30 @@ export default function PrivateMessagesPage() {
       setShowNewChat(false)
     } catch (err) {
       console.error("Failed to start chat", err)
+    }
+  }
+
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!confirm('Are you sure you want to delete this message?')) return
+    try {
+      await deleteMessage(messageId)
+      // Optimistic update
+      setMessages(prev => prev.filter(m => m.id !== messageId))
+    } catch (err) {
+      console.error("Failed to delete message", err)
+    }
+  }
+
+  const handleDeleteConversation = async (conversationId: string) => {
+    if (!confirm('Are you sure you want to delete this conversation?')) return
+    try {
+      await deleteConversation(conversationId)
+      // Optimistic update
+      setConversations(prev => prev.filter(c => c.id !== conversationId))
+      if (selectedId === conversationId) setSelectedId(null)
+    } catch (err) {
+      console.error("Failed to delete conversation", err)
     }
   }
 
@@ -148,9 +193,22 @@ export default function PrivateMessagesPage() {
                 <button
                   key={c.id}
                   onClick={() => setSelectedId(c.id)}
-                  className={`w-full text-left p-4 border-b border-[var(--border)] transition-colors flex items-center gap-3 ${selectedId === c.id ? 'bg-[var(--accent)] text-white' : 'hover:bg-[var(--background)]'
+                  className={`w-full text-left p-4 border-b border-[var(--border)] transition-colors flex items-center gap-3 relative group ${selectedId === c.id ? 'bg-[var(--accent)] text-white' : 'hover:bg-[var(--background)]'
                     }`}
                 >
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeleteConversation(c.id)
+                    }}
+                    className={`absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-2 rounded-full transition-all z-10 shadow-sm ${selectedId === c.id
+                        ? 'bg-white text-red-600 hover:bg-gray-100'
+                        : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-600 hover:text-white'
+                      }`}
+                    title="Delete Conversation"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </div>
                   <div className="w-10 h-10 rounded-full bg-[var(--background)] flex items-center justify-center overflow-hidden border border-[var(--border)]">
                     {other?.avatar ? <img src={other.avatar} alt="" className="w-full h-full object-cover" /> : <User className="w-6 h-6 opacity-40" />}
                   </div>
@@ -186,7 +244,7 @@ export default function PrivateMessagesPage() {
                   const myId = currentUser?.id ? String(currentUser.id) : undefined
                   const isMe = msg.senderId === myId
                   return (
-                    <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                    <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} group items-center`}>
                       <div className={`max-w-[70%] px-4 py-2 rounded-2xl text-sm ${isMe ? 'bg-[var(--accent)] text-white rounded-tr-none' : 'bg-[var(--card-surface)] border border-[var(--border)] rounded-tl-none'
                         }`}>
                         {msg.content}
@@ -194,6 +252,18 @@ export default function PrivateMessagesPage() {
                           {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
                       </div>
+                      {isMe && (
+                        <div className="flex items-center ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => handleDeleteMessage(msg.id)}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )
+                      }
                     </div>
                   )
                 })}
@@ -255,6 +325,6 @@ export default function PrivateMessagesPage() {
           </div>
         )}
       </div>
-    </div>
+    </div >
   )
 }

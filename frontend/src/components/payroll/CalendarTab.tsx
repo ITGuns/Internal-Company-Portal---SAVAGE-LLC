@@ -144,13 +144,11 @@ export default function CalendarTab({
                 const t = evt.extendedProps?.type;
                 return (
                   <div
-                    className={`px-2 py-1 rounded text-white text-xs ${colorForType(
+                    className={`px-2 py-1 rounded text-white text-xs w-full truncate overflow-hidden ${colorForType(
                       t
                     )}`}
                   >
-                    {evt.title.length > 18
-                      ? evt.title.slice(0, 18) + "..."
-                      : evt.title}
+                    {evt.title}
                   </div>
                 );
               }}
@@ -220,26 +218,26 @@ export default function CalendarTab({
                   const end = e.end ? new Date(e.end) : null;
                   const label = end
                     ? `${start.toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })} - ${end.toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}`
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })} - ${end.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}`
                     : `${start.toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })} - --:--`;
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })} - --:--`;
                   const mins =
                     e.durationMin != null
                       ? e.durationMin
                       : end
                         ? Math.max(
-                            0,
-                            Math.round(
-                              (end.getTime() - start.getTime()) / 60000
-                            )
+                          0,
+                          Math.round(
+                            (end.getTime() - start.getTime()) / 60000
                           )
+                        )
                         : 0;
                   return (
                     <li
@@ -274,13 +272,13 @@ export default function CalendarTab({
             <div className="text-sm font-semibold">
               {selectedDate
                 ? new Date(selectedDate).toLocaleDateString(
-                    undefined,
-                    {
-                      weekday: "long",
-                      month: "long",
-                      day: "numeric",
-                    }
-                  )
+                  undefined,
+                  {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                  }
+                )
                 : "Event Details"}
             </div>
             <div className="mt-3">

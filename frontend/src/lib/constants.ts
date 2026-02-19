@@ -34,12 +34,9 @@ export type LogStatus = typeof LOG_STATUSES[number];
 // DEPARTMENT CONSTANTS
 // ============================================
 export const DEPARTMENTS = [
-  'Owners / Founders',
-  'Design',
-  'Development',
-  'Marketing',
-  'Operations',
-  'Sales'
+  'Project Managers',
+  'Website Developers',
+  'Payroll / Finance'
 ] as const;
 
 export type Department = typeof DEPARTMENTS[number];
@@ -52,19 +49,19 @@ export const MESSAGES = {
   SUCCESS_CREATE: 'Created successfully',
   SUCCESS_UPDATE: 'Updated successfully',
   SUCCESS_DELETE: 'Deleted successfully',
-  
+
   // Errors
   ERROR_GENERIC: 'Something went wrong. Please try again.',
   ERROR_NETWORK: 'Network error. Please check your connection.',
   ERROR_UNAUTHORIZED: 'You are not authorized to perform this action.',
   ERROR_NOT_FOUND: 'The requested resource was not found.',
-  
+
   // Validation
   VALIDATION_REQUIRED: 'This field is required',
   VALIDATION_EMAIL: 'Please enter a valid email address',
   VALIDATION_MIN_LENGTH: 'Minimum length not met',
   VALIDATION_MAX_LENGTH: 'Maximum length exceeded',
-  
+
   // Loading
   LOADING_DEFAULT: 'Loading...',
   LOADING_SAVING: 'Saving...',
@@ -117,12 +114,12 @@ export const COLOR_TOKENS = {
   PRIORITY_LOW: 'var(--priority-low)',
   PRIORITY_MEDIUM: 'var(--priority-medium)',
   PRIORITY_HIGH: 'var(--priority-high)',
-  
+
   // Status Colors
   STATUS_PENDING: 'var(--status-pending)',
   STATUS_IN_PROGRESS: 'var(--status-in-progress)',
   STATUS_COMPLETED: 'var(--status-completed)',
-  
+
   // Category Colors
   CATEGORY_NEWS: 'var(--category-news)',
   CATEGORY_SHOUTOUT: 'var(--category-shoutout)',

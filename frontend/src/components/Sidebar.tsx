@@ -6,11 +6,11 @@ import React, { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import UserAvatar from '../assets/icons/UserAvatar'
-import { DEPARTMENT_ROLES } from '@/lib/departments'
+import { DEPARTMENT_ROLES, DEPARTMENTS } from '@/lib/departments'
 import { useUser } from '@/contexts/UserContext'
 
-// Sidebar departments: show the direct children of Owners / Founders as top-level
-const SIDEBAR_DEPARTMENTS = DEPARTMENT_ROLES['Owners / Founders'] || [];
+// Sidebar departments: use the top-level DEPARTMENTS list
+const SIDEBAR_DEPARTMENTS = DEPARTMENTS;
 import {
   Home,
   Grid,
@@ -112,9 +112,9 @@ export default function Sidebar() {
   }, [])
 
   return (
-    <aside 
-      ref={asideRef} 
-      className="fixed left-0 top-0 h-full w-64 pr-0 bg-white dark:bg-[var(--background)]" 
+    <aside
+      ref={asideRef}
+      className="fixed left-0 top-0 h-full w-64 pr-0 bg-white dark:bg-[var(--background)]"
       style={{ zIndex: 9999, isolation: 'isolate' }}
     >
       {/* vertical divider recreated as an absolute element so other borders can align to it */}
@@ -149,7 +149,7 @@ export default function Sidebar() {
           <div className="text-xs text-muted uppercase px-2 mb-2">Collaboration</div>
           <nav className="space-y-1 mb-4">
             <NavItem href="/company-chat" icon={MessageSquare} label="Company Chat" />
-            <NavItem href="/private-messages" icon={Mail} label="Private Messages" badge={3} />
+            <NavItem href="/private-messages" icon={Mail} label="Private Messages" />
             <NavItem href="/whiteboard" icon={Grid} label="Whiteboard" />
           </nav>
 
@@ -180,7 +180,7 @@ export default function Sidebar() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">{user?.name || 'User'}</div>
-                  <div className="text-xs text-muted truncate">{user?.email || 'hatdog'}</div>
+                  <div className="text-xs text-muted truncate">{user?.email || 'Guest'}</div>
                 </div>
               </div>
             </div>

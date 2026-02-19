@@ -51,6 +51,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const storedUser = getCurrentUser();
 
       if (storedUser) {
+        // Safety check: if we just had an auth error, don't try again immediately to avoid loops
+        if (typeof window !== 'undefined' && sessionStorage.getItem('auth_error')) {
+          console.warn('[UserContext] Detected previous auth error loop. Clearing session.');
+          logout();
+          sessionStorage.removeItem('auth_error'); // Clear flag so they can try logging in again manually
+          setIsLoading(false);
+          return;
+        }
+
         // Optimistically set user from storage
         setUser(storedUser);
 
@@ -65,16 +74,22 @@ export function UserProvider({ children }: { children: ReactNode }) {
           if (res.ok) {
             const data = await res.json();
             if (data.user) {
-              setUser(data.user);
+              console.log('[UserContext] Verified user:', data.user.email);
+              // Only update if data changed to avoid re-renders
+              setUser(prev => {
+                if (prev?.id === data.user.id && prev?.email === data.user.email) return prev;
+                return data.user;
+              });
               saveCurrentUser(data.user);
             }
           } else if (res.status === 401) {
             // Token invalid
-            console.warn('Session expired or invalid user');
+            console.warn('[UserContext] Session expired or invalid token -> Logging out');
+            if (typeof window !== 'undefined') sessionStorage.setItem('auth_error', 'true');
             logout();
           }
         } catch (apiErr) {
-          console.error('Failed to verify user session', apiErr);
+          console.error('[UserContext] Failed to verify user session', apiErr);
         }
 
         setIsLoading(false);
@@ -102,7 +117,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // Initial load
   useEffect(() => {
     void refreshUser();
-  }, []);
+  }, [refreshUser]);
 
   // Polling to keep user data fresh
   useEffect(() => {

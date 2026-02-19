@@ -25,6 +25,8 @@ function QuickLink({ title, subtitle, icon: Icon }: { title: string; subtitle?: 
   )
 }
 
+import { useUser } from '@/contexts/UserContext'
+
 export default function DashboardPage() {
   const [todayMinutes, setTodayMinutes] = useState(0);
   const [weekTasks, setWeekTasks] = useState({ total: 0, completed: 0, inProgress: 0, overdue: 0 });
@@ -75,11 +77,26 @@ export default function DashboardPage() {
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
 
-  if (loading) {
+  const { user, isLoading: userLoading } = useUser();
+
+  if (loading || userLoading) {
     return (
       <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)] p-6">
         <Header />
         <LoadingSpinner message="Loading dashboard..." />
+      </main>
+    );
+  }
+
+  if (!user) {
+    return (
+      <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)] p-6">
+        <Header />
+        <div className="flex flex-col items-center justify-center h-[60vh] text-center">
+          <h2 className="text-2xl font-bold mb-4">Please Log In</h2>
+          <p className="text-[var(--muted)] mb-6">You need to be logged in to view the dashboard.</p>
+          <Button onClick={() => window.location.href = '/dev-login'}>Go to Login</Button>
+        </div>
       </main>
     );
   }

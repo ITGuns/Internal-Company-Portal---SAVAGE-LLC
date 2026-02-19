@@ -67,3 +67,15 @@ export const markAsRead = async (conversationId: string): Promise<void> => {
         method: 'POST'
     });
 };
+
+export const deleteMessage = async (messageId: string): Promise<void> => {
+    await apiFetch(`/chat/messages/${messageId}`, {
+        method: 'DELETE'
+    });
+};
+
+export const deleteConversation = async (conversationId: string): Promise<void> => {
+    await apiFetch(`/chat/${conversationId}`, {
+        method: 'DELETE'
+    });
+};

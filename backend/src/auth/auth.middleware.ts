@@ -110,3 +110,55 @@ export function requireRole(allowedRoles: string | string[]) {
         }
     }
 }
+
+/**
+ * Middleware factory to check for specific departments
+ * Requires authenticateToken middleware to be run first
+ */
+export function requireDepartment(allowedDepartments: string | string[]) {
+    return async (req: Request, res: Response, next: NextFunction) => {
+        const authReq = req as AuthRequest;
+
+        if (!authReq.user || !authReq.user.userId) {
+            res.status(401).json({ error: 'Authentication required' })
+            return;
+        }
+
+        const departments = Array.isArray(allowedDepartments) ? allowedDepartments : [allowedDepartments]
+
+        try {
+            // Import dynamically
+            const { prisma } = await import('../database/prisma.service');
+
+            // Find user roles where the department name matches one of the allowed ones
+            const userRoles = await prisma.userRole.findMany({
+                where: {
+                    userId: authReq.user!.userId,
+                    department: {
+                        name: {
+                            in: departments,
+                            mode: 'insensitive' // Case insensitive check
+                        }
+                    }
+                }
+            })
+
+            // Also check if user is a global 'admin'
+            const isGlobalAdmin = await prisma.userRole.findFirst({
+                where: { userId: authReq.user!.userId, role: 'admin', departmentId: null }
+            });
+
+            if (userRoles.length > 0 || isGlobalAdmin) {
+                next()
+                return
+            }
+
+            res.status(403).json({ error: `Access restricted to ${departments.join(', ')} department` })
+            return
+        } catch (error) {
+            console.error('Department verification error:', error)
+            res.status(500).json({ error: 'Internal server error during permission check' })
+            return
+        }
+    }
+}

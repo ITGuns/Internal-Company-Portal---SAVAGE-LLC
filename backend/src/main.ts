@@ -14,6 +14,7 @@ import { DailyLogsController } from './daily-logs/daily-logs.controller'
 import { PayrollController } from './payroll/payroll.controller'
 import { ChatController } from './chat/chat.controller'
 import { UploadsController } from './uploads/uploads.controller'
+import { EmployeesController } from './employees/employees.controller'
 import { config, validateConfig } from './config/env.config'
 import path from 'path'
 import { PrismaService } from './database/prisma.service'
@@ -103,6 +104,9 @@ async function bootstrap() {
 
   const uploadsController = new UploadsController()
   app.use('/api/uploads', uploadsController.router())
+
+  const employeesController = new EmployeesController()
+  app.use('/api/employees', employeesController.router())
 
 
   // Listen on HTTP Server instead of App

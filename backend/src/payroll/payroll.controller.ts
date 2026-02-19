@@ -1,6 +1,6 @@
 import express, { Request, Response, Router } from 'express'
 import { PayrollService } from './payroll.service'
-import { authenticateToken } from '../auth/auth.middleware'
+import { authenticateToken, requireDepartment } from '../auth/auth.middleware'
 
 interface AuthRequest extends Request {
     user?: {
@@ -200,13 +200,13 @@ export class PayrollController {
         })
 
         // Get Payroll Periods
-        router.get('/periods', authenticateToken, async (req: Request, res: Response) => {
+        router.get('/periods', authenticateToken, requireDepartment('Payroll / Finance'), async (req: Request, res: Response) => {
             const periods = await this.service.getPayrollPeriods()
             res.json(periods)
         })
 
         // Create Payroll Period
-        router.post('/periods', authenticateToken, async (req: Request, res: Response) => {
+        router.post('/periods', authenticateToken, requireDepartment('Payroll / Finance'), async (req: Request, res: Response) => {
             try {
                 const { startDate, endDate, payDate } = req.body
                 const period = await this.service.createPayrollPeriod(
@@ -221,18 +221,23 @@ export class PayrollController {
         })
 
         // Generate Payslip
-        router.post('/periods/:periodId/generate/:userId', authenticateToken, async (req: Request, res: Response) => {
-            try {
-                const periodId = Array.isArray(req.params.periodId) ? req.params.periodId[0] : req.params.periodId
-                const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId
+        router.post(
+            '/periods/:periodId/generate/:userId',
+            authenticateToken,
+            requireDepartment('Payroll / Finance'), // Restricted
+            async (req: Request, res: Response) => {
+                try {
+                    const periodId = Array.isArray(req.params.periodId) ? req.params.periodId[0] : req.params.periodId
+                    const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId
 
-                const payslip = await this.service.generatePayslip(periodId, userId)
-                res.json(payslip)
-            } catch (e: any) {
-                console.error(e)
-                res.status(500).json({ error: e.message || 'Failed to generate payslip' })
+                    const payslip = await this.service.generatePayslip(periodId, userId)
+                    res.json(payslip)
+                } catch (e: any) {
+                    console.error(e)
+                    res.status(500).json({ error: e.message || 'Failed to generate payslip' })
+                }
             }
-        })
+        )
 
         // Get My Payslips
         router.get('/my-payslips', authenticateToken, async (req: Request, res: Response) => {

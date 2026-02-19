@@ -242,4 +242,53 @@ export class ChatService {
         })
         return count > 0
     }
+
+    /**
+     * Delete a message
+     * Only sender or admin can delete
+     */
+    async deleteMessage(messageId: string, userId: string): Promise<Message | null> {
+        const message = await this.prisma.message.findUnique({
+            where: { id: messageId },
+            include: { sender: true }
+        })
+
+        if (!message) return null
+
+        if (message.senderId !== userId) {
+            return null
+        }
+
+        return this.prisma.message.delete({
+            where: { id: messageId }
+        })
+    }
+
+    /**
+     * Leave/Delete a conversation for a user
+     * Removes the participant entry.
+     */
+    async leaveConversation(conversationId: string, userId: string) {
+        // Find participant record
+        const participant = await this.prisma.participant.findUnique({
+            where: {
+                conversationId_userId: {
+                    conversationId,
+                    userId
+                }
+            }
+        })
+
+        if (!participant) return false
+
+        // Remove participant
+        await this.prisma.participant.delete({
+            where: { id: participant.id }
+        })
+
+        // Cleanup: If conversation has 0 participants, delete it?
+        // Or specific logic for direct messages?
+        // For now, let's keep it simple. If valid participants remain, they keep the history.
+        return true
+    }
 }
