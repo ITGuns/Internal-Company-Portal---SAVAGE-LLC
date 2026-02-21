@@ -148,8 +148,7 @@ export default function Sidebar() {
 
           <div className="text-xs text-muted uppercase px-2 mb-2">Collaboration</div>
           <nav className="space-y-1 mb-4">
-            <NavItem href="/company-chat" icon={MessageSquare} label="Company Chat" />
-            <NavItem href="/private-messages" icon={Mail} label="Private Messages" />
+            <NavItem href="/chat" icon={MessageSquare} label="Messages & Chat" />
             <NavItem href="/whiteboard" icon={Grid} label="Whiteboard" />
           </nav>
 

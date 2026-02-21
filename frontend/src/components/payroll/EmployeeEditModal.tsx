@@ -13,7 +13,7 @@ interface EmployeeEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   employee: Employee | null;
-  onSave: (employeeId: number, updates: Partial<Employee>) => void;
+  onSave: (employeeId: string | number, updates: Partial<Employee>) => void;
 }
 
 export default function EmployeeEditModal({
@@ -71,8 +71,8 @@ export default function EmployeeEditModal({
   if (!employee) return null;
 
   return (
-    <Modal 
-      isOpen={isOpen} 
+    <Modal
+      isOpen={isOpen}
       onClose={onClose}
       title="Edit Employee"
       size="md"

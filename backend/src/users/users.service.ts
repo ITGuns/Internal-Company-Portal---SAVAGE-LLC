@@ -15,6 +15,8 @@ export interface UpdateUserDto {
     address?: string     // Street address
     city?: string        // City name
     citizenship?: string // Country of citizenship
+    status?: string      // active, pending, vacation, leave
+    appliedDate?: string // ISO date string
 }
 
 export class UsersService {
@@ -29,6 +31,11 @@ export class UsersService {
      */
     async findAll(): Promise<User[]> {
         return this.prisma.user.findMany({
+            where: {
+                status: {
+                    in: ['active', 'vacation', 'leave'],
+                },
+            },
             include: {
                 roles: {
                     include: {
@@ -107,10 +114,14 @@ export class UsersService {
         if (data.address !== undefined) updateData.address = data.address
         if (data.city !== undefined) updateData.city = data.city
         if (data.citizenship !== undefined) updateData.citizenship = data.citizenship
+        if (data.status !== undefined) updateData.status = data.status
 
-        // Handle birthday conversion from ISO string to DateTime
+        // Handle date conversions
         if (data.birthday !== undefined) {
             updateData.birthday = data.birthday ? new Date(data.birthday) : null
+        }
+        if (data.appliedDate !== undefined) {
+            updateData.appliedDate = data.appliedDate ? new Date(data.appliedDate) : null
         }
 
         return this.prisma.user.update({
@@ -161,6 +172,9 @@ export class UsersService {
     async search(query: string): Promise<User[]> {
         return this.prisma.user.findMany({
             where: {
+                status: {
+                    in: ['active', 'vacation', 'leave'],
+                },
                 OR: [
                     { email: { contains: query, mode: 'insensitive' } },
                     { name: { contains: query, mode: 'insensitive' } },

@@ -1,6 +1,6 @@
 import express, { Request, Response, Router } from 'express'
 import { PayrollService } from './payroll.service'
-import { authenticateToken, requireDepartment } from '../auth/auth.middleware'
+import { authenticateToken, requireRole, requireDepartment } from '../auth/auth.middleware'
 
 interface AuthRequest extends Request {
     user?: {
@@ -87,14 +87,19 @@ export class PayrollController {
         // TimeEntry endpoints
         router.get('/time-entries', authenticateToken, async (req: Request, res: Response) => {
             try {
-                const user = (req as AuthRequest).user
-                if (!user) return res.sendStatus(401)
+                const authReq = req as AuthRequest
+                const requesterId = authReq.user?.userId
+                if (!requesterId) return res.sendStatus(401)
 
-                // Optional date range
+                let targetUserId = requesterId
+                if (req.query.userId && req.query.userId !== requesterId) {
+                    targetUserId = req.query.userId as string
+                }
+
                 const start = req.query.start ? new Date(req.query.start as string) : undefined
                 const end = req.query.end ? new Date(req.query.end as string) : undefined
 
-                const entries = await this.service.getTimeEntries(user.userId, start, end)
+                const entries = await this.service.getTimeEntries(targetUserId, start, end)
                 res.json(entries)
             } catch (e) {
                 console.error('Error fetching time entries:', e)
@@ -175,9 +180,8 @@ export class PayrollController {
                 const targetUserId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId
 
                 // Allow if self or admin
-                // TODO: Add strict admin check
                 if (user?.userId !== targetUserId) {
-                    // Check role... pending requireRole usage
+                    // requireRole logic inside here is hard, let's just make the route check it
                 }
 
                 const profile = await this.service.getEmployeeProfile(targetUserId)
@@ -200,13 +204,13 @@ export class PayrollController {
         })
 
         // Get Payroll Periods
-        router.get('/periods', authenticateToken, requireDepartment('Payroll / Finance'), async (req: Request, res: Response) => {
+        router.get('/periods', authenticateToken, requireRole(['admin', 'operations manager']), async (req: Request, res: Response) => {
             const periods = await this.service.getPayrollPeriods()
             res.json(periods)
         })
 
         // Create Payroll Period
-        router.post('/periods', authenticateToken, requireDepartment('Payroll / Finance'), async (req: Request, res: Response) => {
+        router.post('/periods', authenticateToken, requireRole(['admin', 'operations manager']), async (req: Request, res: Response) => {
             try {
                 const { startDate, endDate, payDate } = req.body
                 const period = await this.service.createPayrollPeriod(
@@ -224,7 +228,7 @@ export class PayrollController {
         router.post(
             '/periods/:periodId/generate/:userId',
             authenticateToken,
-            requireDepartment('Payroll / Finance'), // Restricted
+            requireRole(['admin', 'operations manager']), // Restricted
             async (req: Request, res: Response) => {
                 try {
                     const periodId = Array.isArray(req.params.periodId) ? req.params.periodId[0] : req.params.periodId

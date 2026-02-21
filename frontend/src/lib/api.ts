@@ -60,13 +60,15 @@ export const devLogin = async (_email: string = 'john.doe@savage.com') => {
     return null
 }
 
-export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
-    const token = getAuthToken()
+interface APIOptions extends RequestInit {
+    _isRetry?: boolean;
+}
 
-    // ⚠️ AUTO-LOGIN DISABLED: Call devLogin() manually or use OAuth
-    // if (!token) {
-    //     token = await devLogin()
-    // }
+export const apiFetch = async (endpoint: string, options: APIOptions = {}): Promise<Response> => {
+    let token = getAuthToken()
+    if (!token && process.env.NODE_ENV !== 'production') {
+        token = await devLogin()
+    }
 
     const headers = {
         'Content-Type': 'application/json',
@@ -79,6 +81,15 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
         cache: 'no-store',
         headers,
     })
+
+    // If 403, and in dev, maybe the role was added recently. Try re-logging in.
+    if (response.status === 403 && process.env.NODE_ENV !== 'production' && !options._isRetry) {
+        console.warn('403 Forbidden - Attempting dev re-login');
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('accessToken');
+        }
+        return apiFetch(endpoint, { ...options, _isRetry: true });
+    }
 
     // If 401, return response to let caller handle it (usually triggers logout in UserContext)
     if (response.status === 401) {

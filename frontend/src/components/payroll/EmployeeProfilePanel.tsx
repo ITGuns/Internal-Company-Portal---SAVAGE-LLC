@@ -58,8 +58,12 @@ export default function EmployeeProfilePanel({
 
         {/* Profile Photo */}
         <div className="relative -mt-12 flex justify-center">
-          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl border-4 border-white dark:border-gray-900">
-            {employee.avatar}
+          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl border-4 border-white dark:border-gray-900 overflow-hidden shadow-lg">
+            {employee.avatar && (employee.avatar.startsWith('http') || employee.avatar.startsWith('/')) ? (
+              <img src={employee.avatar} alt={employee.name} className="w-full h-full object-cover" />
+            ) : (
+              <span>{employee.avatar}</span>
+            )}
           </div>
         </div>
 
@@ -166,22 +170,20 @@ export default function EmployeeProfilePanel({
                 className="flex items-center gap-3 p-2 rounded-lg bg-gray-50 dark:bg-white/5 border border-[var(--border)]"
               >
                 <div
-                  className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${
-                    doc.type === "contract"
+                  className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${doc.type === "contract"
                       ? "bg-blue-100 dark:bg-blue-900/30"
                       : doc.type === "resume"
-                      ? "bg-orange-100 dark:bg-orange-900/30"
-                      : "bg-orange-100 dark:bg-orange-900/30"
-                  }`}
+                        ? "bg-orange-100 dark:bg-orange-900/30"
+                        : "bg-orange-100 dark:bg-orange-900/30"
+                    }`}
                 >
                   <FileText
-                    className={`w-5 h-5 ${
-                      doc.type === "contract"
+                    className={`w-5 h-5 ${doc.type === "contract"
                         ? "text-blue-600 dark:text-blue-400"
                         : doc.type === "resume"
-                        ? "text-orange-600 dark:text-orange-400"
-                        : "text-orange-600 dark:text-orange-400"
-                    }`}
+                          ? "text-orange-600 dark:text-orange-400"
+                          : "text-orange-600 dark:text-orange-400"
+                      }`}
                   />
                 </div>
                 <div className="flex-1 min-w-0">
