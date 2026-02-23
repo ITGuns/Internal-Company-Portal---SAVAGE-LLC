@@ -19,7 +19,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   const { user, isLoading } = useUser();
 
   // Routes that don't require authentication
-  const exemptRoutes = ['/login', '/dev-login'];
+  const exemptRoutes = ['/login', '/dev-login', '/signup', '/forgot-password'];
   const isExemptRoute = exemptRoutes.includes(pathname);
 
   useEffect(() => {

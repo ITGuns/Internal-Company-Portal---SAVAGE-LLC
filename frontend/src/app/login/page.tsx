@@ -118,7 +118,7 @@ export default function LoginPage() {
       <div className={styles.card}>
         {/* Header */}
         <div className={styles.header}>
-          <h1 className={styles.title}>Welcome Back</h1>
+          <h1 className={styles.title}>SAVAGE LLC</h1>
           <p className={styles.subtitle}>Sign in to your account</p>
         </div>
 
@@ -150,6 +150,18 @@ export default function LoginPage() {
             autoComplete="current-password"
           />
 
+          {/* Forgot Password Link */}
+          <a 
+            href="/forgot-password" 
+            className={styles.forgotPassword} 
+            onClick={(e) => {
+              e.preventDefault();
+              router.push('/forgot-password');
+            }}
+          >
+            Forgot password?
+          </a>
+
           <button
             type="submit"
             className={styles.submitButton}
@@ -166,6 +178,23 @@ export default function LoginPage() {
             {error}
           </div>
         )}
+
+        {/* Sign Up Section */}
+        <div className={styles.signUpSection}>
+          <p className={styles.signUpText}>
+            Don't have an account?
+            <a 
+              href="/signup" 
+              className={styles.signUpLink}
+              onClick={(e) => {
+                e.preventDefault();
+                router.push('/signup');
+              }}
+            >
+              Sign up
+            </a>
+          </p>
+        </div>
 
         {/* Dev Options - Only in Development */}
         {isDev && (

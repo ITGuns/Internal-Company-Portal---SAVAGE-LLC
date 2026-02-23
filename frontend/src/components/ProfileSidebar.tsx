@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { X, User, LogOut, Edit2 } from "lucide-react";
 import { getCurrentUser } from "@/lib/api";
+import { useUser } from "@/contexts/UserContext";
 import UserAvatar from "@/assets/icons/UserAvatar";
 import Button from "./Button";
 import EditProfileModal from "./EditProfileModal";
@@ -23,6 +25,8 @@ interface ProfileSidebarProps {
 }
 
 export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps) {
+  const router = useRouter();
+  const { logout } = useUser();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
@@ -41,6 +45,15 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
 
   const handleSaveProfile = (updatedUser: UserProfile) => {
     setUser(updatedUser);
+  };
+
+  const handleSignOut = () => {
+    // Clear auth data
+    logout();
+    // Close the sidebar
+    onClose();
+    // Redirect to login page
+    router.push('/login');
   };
 
   if (!isOpen) return null;
@@ -121,10 +134,7 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
             <Button
               variant="secondary"
               className="w-full flex items-center justify-center gap-2"
-              onClick={() => {
-                // TODO: Implement sign out
-                console.log("Sign out clicked");
-              }}
+              onClick={handleSignOut}
             >
               <LogOut className="w-4 h-4" />
               Sign Out

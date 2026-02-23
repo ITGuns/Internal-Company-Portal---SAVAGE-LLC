@@ -18,7 +18,7 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
   const pathname = usePathname();
 
   // Routes where sidebar should be hidden
-  const noSidebarRoutes = ['/login', '/dev-login'];
+  const noSidebarRoutes = ['/login', '/dev-login', '/signup', '/forgot-password'];
   const hideSidebar = noSidebarRoutes.includes(pathname);
 
   return (
