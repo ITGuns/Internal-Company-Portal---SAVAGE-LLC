@@ -26,6 +26,10 @@ model User {
     citizenship String?
     birthday    DateTime?
 
+    // Employee Workflow fields
+    status      String    @default("active")
+    appliedDate DateTime?
+
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 

@@ -159,6 +159,26 @@ export class AuthController {
                             email,
                             name: 'Admin User',
                             avatar: `https://ui-avatars.com/api/?name=Admin+User&background=random`,
+                            status: 'active'
+                        }
+                    })
+                }
+
+                // Ensure the user has the 'admin' role in UserRole table for RBAC to work
+                const existingRole = await prisma.userRole.findFirst({
+                    where: {
+                        userId: user.id,
+                        role: 'admin',
+                        departmentId: null
+                    }
+                })
+
+                if (!existingRole) {
+                    await prisma.userRole.create({
+                        data: {
+                            userId: user.id,
+                            role: 'admin',
+                            departmentId: null
                         }
                     })
                 }

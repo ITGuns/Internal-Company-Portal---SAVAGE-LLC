@@ -136,7 +136,7 @@ export default function CalendarTab({
               ref={calendarRef}
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView="dayGridMonth"
-              initialDate="2026-02-01"
+              initialDate={new Date().toISOString().split('T')[0]}
               headerToolbar={false}
               events={displayEvents}
               eventContent={(arg) => {

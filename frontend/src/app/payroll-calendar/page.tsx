@@ -257,7 +257,7 @@ export default function PayrollCalendarPage() {
               stats={stats}
               timeEntries={timeEntries}
               clockedIn={clockedIn}
-              onTitleChange={() => {/* Calendar updates its own title */}}
+              onTitleChange={() => {/* Calendar updates its own title */ }}
               onEditEvent={handleEditEvent}
               onDeleteEvent={handleDeleteEvent}
               onClockIn={handleClockInClick}

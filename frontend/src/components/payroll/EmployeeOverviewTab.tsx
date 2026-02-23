@@ -2,8 +2,8 @@
  * Employee Overview Tab - displays employee cards and stats
  */
 
-import React, { useState } from "react";
-import { Users, User, Clock, Award, Plus, CheckCircle, XCircle, UserCheck, UserPlus, Edit2 } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Users, User, Clock, Award, Plus, CheckCircle, XCircle, UserCheck, UserPlus, Edit2, Loader2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 import Button from "@/components/Button";
@@ -20,13 +20,61 @@ type EmployeeView = "deployed" | "pending";
 export default function EmployeeOverviewTab() {
   const toast = useToast();
   const [view, setView] = useState<EmployeeView>("deployed");
-  const [employees, setEmployees] = useState(MOCK_EMPLOYEES);
-  const [pendingEmployees, setPendingEmployees] = useState(MOCK_PENDING_EMPLOYEES);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [pendingEmployees, setPendingEmployees] = useState<Employee[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
+
+  // Fetch data from backend
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      // In production, these should be parallel, but some backends prefer sequential
+      const deployedRes = await apiFetch('/employees/deployed');
+      const deployedData = await deployedRes.json();
+
+      const pendingRes = await apiFetch('/employees/pending');
+      const pendingData = await pendingRes.json();
+
+      // Check if data is valid
+      if (!Array.isArray(deployedData) || !Array.isArray(pendingData)) {
+        const error = deployedData.error || pendingData.error || "Invalid data format from server";
+        throw new Error(error);
+      }
+
+      // Normalize data (ensure all required fields exist)
+      const normalize = (emp: any): Employee => ({
+        ...emp,
+        hoursThisWeek: emp.hoursThisWeek || 0,
+        performance: emp.performance || 0,
+        salary: emp.salary || (emp.employeeProfile?.baseSalary) || 0,
+        department: emp.department || (emp.employeeProfile?.department?.name) || "Operations",
+        role: emp.role || (emp.employeeProfile?.jobTitle) || "Member",
+        avatar: emp.avatar || (emp.name?.[0] || "U"),
+        status: emp.status || "active",
+        email: emp.email || "no-email@company.com"
+      });
+
+      setEmployees(deployedData.map(normalize));
+      setPendingEmployees(pendingData.map(normalize));
+    } catch (err: any) {
+      console.error("Failed to fetch employees", err);
+      // Fallback to mock data if backend fails/is not set up
+      setEmployees(MOCK_EMPLOYEES);
+      setPendingEmployees(MOCK_PENDING_EMPLOYEES);
+      toast.error(err.message === "Failed to fetch" ? "Connection failed" : (err.message || "Failed to load employees"));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const handleViewDetails = (employee: Employee) => {
     setSelectedEmployee(employee);
@@ -38,61 +86,98 @@ export default function EmployeeOverviewTab() {
     setShowEditModal(true);
   };
 
-  const handleSaveEmployee = (employeeId: number, updates: Partial<Employee>) => {
-    setEmployees((prev) =>
-      prev.map((emp) =>
-        emp.id === employeeId ? { ...emp, ...updates } : emp
-      )
-    );
-    toast.success("Employee updated successfully");
-  };
-
-  const handleDeleteConfirm = () => {
-    if (!employeeToDelete) return;
-
-    setEmployees((prev) => prev.filter((emp) => emp.id !== employeeToDelete.id));
-    toast.success(`${employeeToDelete.name} has been removed`);
-    setEmployeeToDelete(null);
-  };
-
-  const handleAddEmployee = async (newEmployee: Omit<Employee, "id">) => {
-    // Generate new ID (in production, this would come from the backend)
-    const newId = Math.max(...employees.map((e) => e.id), 0) + 1;
-
-    const employeeWithId: Employee = {
-      ...newEmployee,
-      id: newId,
-      status: "pending", // New employees start as pending
-      appliedDate: new Date().toISOString().split("T")[0],
-    };
-
-    setPendingEmployees((prev) => [...prev, employeeWithId]);
-    toast.success(`Application submitted for ${newEmployee.name}!`);
-
-    // Send verification email
+  const handleSaveEmployee = async (employeeId: string | number, updates: Partial<Employee>) => {
     try {
-      await apiFetch('/employees/request-verification', {
-        method: 'POST',
-        body: JSON.stringify(newEmployee),
+      await apiFetch(`/users/${employeeId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
       });
-      toast.success("Verification request sent to Operations Manager");
+
+      // Update local state
+      setEmployees((prev) =>
+        prev.map((emp) =>
+          emp.id === employeeId ? { ...emp, ...updates } : emp
+        )
+      );
+      setPendingEmployees((prev) =>
+        prev.map((emp) =>
+          emp.id === employeeId ? { ...emp, ...updates } : emp
+        )
+      );
+
+      toast.success("Employee updated successfully");
     } catch (err) {
-      console.error("Failed to send verification email", err);
-      toast.error("Application submitted, but failed to send verification email.");
+      console.error("Update failed", err);
+      toast.error("Failed to update employee");
     }
   };
 
-  const handleApproveEmployee = (employee: Employee) => {
-    // Move from pending to deployed
-    setPendingEmployees((prev) => prev.filter((emp) => emp.id !== employee.id));
-    setEmployees((prev) => [...prev, { ...employee, status: "active" }]);
-    toast.success(`${employee.name} has been approved and deployed!`);
+  const handleDeleteConfirm = async () => {
+    if (!employeeToDelete) return;
+
+    try {
+      await apiFetch(`/users/${employeeToDelete.id}`, {
+        method: 'DELETE',
+      });
+
+      setEmployees((prev) => prev.filter((emp) => emp.id !== employeeToDelete.id));
+      setPendingEmployees((prev) => prev.filter((emp) => emp.id !== employeeToDelete.id));
+
+      toast.success(`${employeeToDelete.name} has been removed`);
+      setEmployeeToDelete(null);
+    } catch (err) {
+      console.error("Delete failed", err);
+      toast.error("Failed to remove employee");
+    }
   };
 
-  const handleRejectEmployee = (employee: Employee) => {
-    // Remove from pending
-    setPendingEmployees((prev) => prev.filter((emp) => emp.id !== employee.id));
-    toast.info(`Application for ${employee.name} has been rejected`);
+  const handleAddEmployee = async (newEmployeeData: Omit<Employee, "id">) => {
+    try {
+      const res = await apiFetch('/employees/request-verification', {
+        method: 'POST',
+        body: JSON.stringify(newEmployeeData),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        toast.success(`Application submitted for ${newEmployeeData.name}!`);
+        fetchData(); // Refresh lists
+      } else {
+        throw new Error(data.message || "Failed to submit application");
+      }
+    } catch (err: any) {
+      console.error("Submission failed", err);
+      toast.error(err.message || "Failed to submit application");
+    }
+  };
+
+  const handleApproveEmployee = async (employee: Employee) => {
+    try {
+      await apiFetch(`/employees/approve/${employee.id}`, {
+        method: 'POST',
+      });
+
+      toast.success(`${employee.name} has been approved and deployed!`);
+      fetchData(); // Refresh lists
+    } catch (err) {
+      console.error("Approval failed", err);
+      toast.error("Failed to approve employee");
+    }
+  };
+
+  const handleRejectEmployee = async (employee: Employee) => {
+    try {
+      await apiFetch(`/employees/reject/${employee.id}`, {
+        method: 'POST',
+      });
+
+      toast.info(`Application for ${employee.name} has been rejected`);
+      fetchData(); // Refresh lists
+    } catch (err) {
+      console.error("Rejection failed", err);
+      toast.error("Failed to reject employee");
+    }
   };
 
   const avgHours = Math.round(
@@ -108,6 +193,15 @@ export default function EmployeeOverviewTab() {
   );
 
   const displayEmployees = view === "deployed" ? employees : pendingEmployees;
+
+  if (isLoading && employees.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <Loader2 className="w-10 h-10 animate-spin text-blue-500 mb-4" />
+        <p className="text-[var(--muted)]">Loading employee data...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -221,14 +315,18 @@ export default function EmployeeOverviewTab() {
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-white font-bold text-lg">
-                        {employee.avatar}
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-white font-bold text-lg overflow-hidden border border-[var(--border)] flex-shrink-0">
+                        {employee.avatar && (employee.avatar.startsWith('http') || employee.avatar.startsWith('/')) ? (
+                          <img src={employee.avatar} alt={employee.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span>{employee.avatar}</span>
+                        )}
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-[var(--foreground)]">
+                      <div className="flex flex-col min-w-0">
+                        <h3 className="font-semibold text-[var(--foreground)] truncate">
                           {employee.name}
                         </h3>
-                        <p className="text-sm text-[var(--muted)]">
+                        <p className="text-sm text-[var(--muted)] truncate">
                           {employee.role}
                         </p>
                       </div>

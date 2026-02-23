@@ -109,7 +109,7 @@ export class UsersController {
         router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
-                const { name, avatar, birthday, phone, address, city, citizenship } = req.body
+                const { name, avatar, birthday, phone, address, city, citizenship, status, appliedDate } = req.body
                 const authReq = req as AuthRequest
                 const requesterId = authReq.user?.userId
 
@@ -166,7 +166,9 @@ export class UsersController {
                     phone,
                     address,
                     city,
-                    citizenship
+                    citizenship,
+                    status,
+                    appliedDate
                 })
                 res.json(user)
             } catch (error) {

@@ -2,18 +2,17 @@
  * Generate Payslip Modal - form for creating new payslips
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { DollarSign, Save, Plus, X } from "lucide-react";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import type { Deduction, Employee } from "@/lib/payroll-calendar/types";
-import { MOCK_EMPLOYEES } from "@/lib/payroll-calendar/mock-data";
 
 interface GeneratePayslipModalProps {
   isOpen: boolean;
   onClose: () => void;
   onGenerate: (payslipData: {
-    employeeId: number;
+    employeeId: string;
     payPeriodStart: string;
     payPeriodEnd: string;
     hoursWorked: number;
@@ -22,6 +21,7 @@ interface GeneratePayslipModalProps {
     netPay: number;
   }) => void;
   selectedEmployee?: Employee | null;
+  employees: Employee[];
 }
 
 export default function GeneratePayslipModal({
@@ -29,18 +29,29 @@ export default function GeneratePayslipModal({
   onClose,
   onGenerate,
   selectedEmployee,
+  employees,
 }: GeneratePayslipModalProps) {
   // Initialize dates
   const today = new Date();
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
   const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
-  const [employeeId, setEmployeeId] = useState<number>(selectedEmployee?.id || 1);
+  const [employeeId, setEmployeeId] = useState<string>(selectedEmployee?.id?.toString() || "");
+
+  // Fallback to first employee if none selected
+  useEffect(() => {
+    if (selectedEmployee) {
+      setEmployeeId(selectedEmployee.id.toString());
+    } else if (employees.length > 0 && !employeeId) {
+      setEmployeeId(employees[0].id.toString());
+    }
+  }, [selectedEmployee, employees]);
+
   const [payPeriodStart, setPayPeriodStart] = useState(firstDay.toISOString().split("T")[0]);
   const [payPeriodEnd, setPayPeriodEnd] = useState(lastDay.toISOString().split("T")[0]);
   const [hoursWorked, setHoursWorked] = useState("168");
 
-  const employee = MOCK_EMPLOYEES.find((e) => e.id === employeeId);
+  const employee = employees.find((e) => e.id.toString() === employeeId);
   const monthlySalary = employee ? employee.salary / 12 : 0;
 
   const deductions: Omit<Deduction, "id">[] = [
@@ -122,12 +133,13 @@ export default function GeneratePayslipModal({
             </label>
             <select
               value={employeeId}
-              onChange={(e) => setEmployeeId(Number(e.target.value))}
+              onChange={(e) => setEmployeeId(e.target.value)}
               className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
               required
             >
-              {MOCK_EMPLOYEES.map((emp) => (
-                <option key={emp.id} value={emp.id}>
+              <option value="" disabled>Select Employee</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id.toString()}>
                   {emp.name} - {emp.role}
                 </option>
               ))}

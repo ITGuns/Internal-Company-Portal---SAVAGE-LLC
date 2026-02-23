@@ -23,7 +23,7 @@ interface EmployeeDetailsModalProps {
 }
 
 // Mock completed tasks for demo - in production, fetch from API
-const MOCK_COMPLETED_TASKS: Record<number, CompletedTask[]> = {
+const MOCK_COMPLETED_TASKS: Record<string | number, CompletedTask[]> = {
   1: [
     {
       id: "t1",
@@ -138,8 +138,8 @@ export default function EmployeeDetailsModal({
   );
 
   return (
-    <Modal 
-      isOpen={isOpen} 
+    <Modal
+      isOpen={isOpen}
       onClose={onClose}
       title={`${employee.name} - Employee Details`}
       size="lg"
@@ -147,8 +147,12 @@ export default function EmployeeDetailsModal({
       <div className="p-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg flex items-center justify-center text-white font-semibold text-xl">
-            {employee.avatar}
+          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg flex items-center justify-center text-white font-semibold text-xl overflow-hidden border border-[var(--border)]">
+            {employee.avatar && (employee.avatar.startsWith('http') || employee.avatar.startsWith('/')) ? (
+              <img src={employee.avatar} alt={employee.name} className="w-full h-full object-cover" />
+            ) : (
+              <span>{employee.avatar}</span>
+            )}
           </div>
           <div>
             <h2 className="text-xl font-bold text-[var(--foreground)]">
@@ -248,9 +252,8 @@ export default function EmployeeDetailsModal({
                     </div>
 
                     <span
-                      className={`px-2 py-1 rounded text-xs font-medium flex-shrink-0 ${
-                        PRIORITY_COLORS[task.priority]
-                      }`}
+                      className={`px-2 py-1 rounded text-xs font-medium flex-shrink-0 ${PRIORITY_COLORS[task.priority]
+                        }`}
                     >
                       {task.priority}
                     </span>

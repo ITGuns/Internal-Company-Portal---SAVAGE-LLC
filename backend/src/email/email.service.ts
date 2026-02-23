@@ -339,6 +339,7 @@ export class EmailService {
     async sendEmployeeVerificationEmail(
         to: string,
         data: {
+            id?: string;
             name: string;
             role: string;
             department: string;

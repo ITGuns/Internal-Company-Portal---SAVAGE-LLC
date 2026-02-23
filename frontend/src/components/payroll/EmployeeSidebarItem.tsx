@@ -19,28 +19,33 @@ export default function EmployeeSidebarItem({
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left p-3 rounded-lg transition-colors ${
-        isSelected
-          ? "bg-[var(--accent)] border border-[var(--accent)]"
-          : "hover:bg-[var(--card-surface)] border border-transparent"
-      }`}
+      className={`w-full text-left p-3 rounded-lg transition-colors ${isSelected
+        ? "bg-[var(--accent)] border border-[var(--accent)]"
+        : "hover:bg-[var(--card-surface)] border border-transparent"
+        }`}
     >
       <div className="flex items-center gap-3 mb-2">
         {/* Avatar */}
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-          {employee.avatar}
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 overflow-hidden border border-[var(--border)]">
+          {employee.avatar && (employee.avatar.startsWith('http') || employee.avatar.startsWith('/')) ? (
+            <img src={employee.avatar} alt={employee.name} className="w-full h-full object-cover" />
+          ) : (
+            <span>{employee.avatar}</span>
+          )}
         </div>
 
-        {/* Name and Role */}
-        <div className="flex-1 min-w-0">
-          <h4 className={`font-semibold text-sm truncate ${
-            isSelected ? "text-white" : "text-[var(--foreground)]"
-          }`}>
+        {/* Name, Email and Role */}
+        <div className="flex-1 min-w-0 flex flex-col justify-center">
+          <h4 className={`font-semibold text-sm truncate leading-tight ${isSelected ? "text-white" : "text-[var(--foreground)]"
+            }`}>
             {employee.name}
           </h4>
-          <p className={`text-xs truncate ${
-            isSelected ? "text-white/80" : "text-[var(--muted)]"
-          }`}>
+          <p className={`text-[10px] truncate leading-tight ${isSelected ? "text-white/70" : "text-[var(--muted)]"
+            }`}>
+            {employee.email}
+          </p>
+          <p className={`text-[10px] font-medium truncate leading-tight mt-0.5 ${isSelected ? "text-white/90" : "text-[var(--accent)]"
+            }`}>
             {employee.role}
           </p>
         </div>

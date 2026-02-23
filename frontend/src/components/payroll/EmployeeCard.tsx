@@ -24,8 +24,12 @@ export default function EmployeeCard({
     <div className="p-4 rounded border border-[var(--border)] bg-[var(--card-bg)] hover:shadow-sm transition">
       <div className="flex items-start gap-3">
         {/* Avatar */}
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-          {employee.avatar}
+        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 overflow-hidden border border-[var(--border)]">
+          {employee.avatar && (employee.avatar.startsWith('http') || employee.avatar.startsWith('/')) ? (
+            <img src={employee.avatar} alt={employee.name} className="w-full h-full object-cover" />
+          ) : (
+            <span>{employee.avatar}</span>
+          )}
         </div>
 
         {/* Employee Info */}
@@ -94,9 +98,9 @@ export default function EmployeeCard({
             <Button size="sm" variant="ghost" onClick={onEdit}>
               Edit
             </Button>
-            <Button 
-              size="sm" 
-              variant="ghost" 
+            <Button
+              size="sm"
+              variant="ghost"
               onClick={onDelete}
               className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
             >

@@ -41,154 +41,82 @@ async function main() {
 
     console.log('✅ Created departments:', { engineering, marketing, operations })
 
-    // Create users (COMMENTED OUT REQUESTED BY USER)
-    // const john = await prisma.user.upsert({
-    //     where: { email: 'john.doe@savage.com' },
-    //     update: {},
-    //     create: {
-    //         email: 'john.doe@savage.com',
-    //         name: 'John Doe',
-    //         avatar: 'https://i.pravatar.cc/150?img=12',
-    //     },
-    // })
+    // Helper to create users with roles
+    const createUser = async (email: string, name: string, roleName: string, deptId: string, status: string = 'active', avatar?: string) => {
+        const user = await prisma.user.upsert({
+            where: { email },
+            update: { status, name, avatar },
+            create: {
+                email,
+                name,
+                avatar: avatar || `https://i.pravatar.cc/150?u=${email}`,
+                status,
+                appliedDate: status === 'pending' ? new Date() : null,
+            },
+        })
 
-    // const jane = await prisma.user.upsert({
-    //     where: { email: 'jane.smith@savage.com' },
-    //     update: {},
-    //     create: {
-    //         email: 'jane.smith@savage.com',
-    //         name: 'Jane Smith',
-    //         avatar: 'https://i.pravatar.cc/150?img=5',
-    //     },
-    // })
+        await prisma.userRole.upsert({
+            where: {
+                userId_departmentId_role: {
+                    userId: user.id,
+                    departmentId: deptId,
+                    role: roleName.toLowerCase(),
+                },
+            },
+            update: {},
+            create: {
+                userId: user.id,
+                departmentId: deptId,
+                role: roleName.toLowerCase(),
+            },
+        })
 
-    // const mike = await prisma.user.upsert({
-    //     where: { email: 'mike.johnson@savage.com' },
-    //     update: {},
-    //     create: {
-    //         email: 'mike.johnson@savage.com',
-    //         name: 'Mike Johnson',
-    //         avatar: 'https://i.pravatar.cc/150?img=33',
-    //     },
-    // })
+        if (status === 'active') {
+            await prisma.employeeProfile.upsert({
+                where: { userId: user.id },
+                update: { jobTitle: roleName },
+                create: {
+                    userId: user.id,
+                    jobTitle: roleName,
+                    baseSalary: 50000 + Math.random() * 50000,
+                }
+            })
+        }
 
-    // console.log('✅ Created users: (Skipped)')
+        return user
+    }
 
-    // Create user roles (COMMENTED OUT)
-    // await prisma.userRole.upsert({
-    //     where: {
-    //         userId_departmentId_role: {
-    //             userId: john.id,
-    //             departmentId: engineering.id,
-    //             role: 'admin',
-    //         },
-    //     },
-    //     update: {},
-    //     create: {
-    //         userId: john.id,
-    //         departmentId: engineering.id,
-    //         role: 'admin',
-    //     },
-    // })
+    // 11 Deployed Employees
+    await createUser('john.doe@savage.com', 'John Doe', 'Senior Engineer', engineering.id)
+    await createUser('jane.smith@savage.com', 'Jane Smith', 'Marketing Manager', marketing.id)
+    await createUser('mike.johnson@savage.com', 'Mike Johnson', 'Operations Specialist', operations.id)
+    await createUser('sarah.wilson@savage.com', 'Sarah Wilson', 'Frontend Lead', engineering.id)
+    await createUser('david.brown@savage.com', 'David Brown', 'Backend Developer', engineering.id)
+    await createUser('emily.davis@savage.com', 'Emily Davis', 'UX Designer', marketing.id)
+    await createUser('chris.evans@savage.com', 'Chris Evans', 'Logistics Manager', operations.id)
+    await createUser('anna.kendrick@savage.com', 'Anna Kendrick', 'HR Specialist', operations.id)
+    await createUser('robert.downey@savage.com', 'Robert Downey', 'CEO', operations.id)
+    await createUser('scarlett.j@savage.com', 'Scarlett Johansson', 'Brand Lead', marketing.id)
+    await createUser('tom.holland@savage.com', 'Tom Holland', 'Junior Developer', engineering.id)
 
-    // await prisma.userRole.upsert({
-    //     where: {
-    //         userId_departmentId_role: {
-    //             userId: jane.id,
-    //             departmentId: marketing.id,
-    //             role: 'manager',
-    //         },
-    //     },
-    //     update: {},
-    //     create: {
-    //         userId: jane.id,
-    //         departmentId: marketing.id,
-    //         role: 'manager',
-    //     },
-    // })
+    // 3 Pending Employees
+    const p1 = await createUser('peter.parker@savage.com', 'Peter Parker', 'Intern', engineering.id, 'pending')
+    const p2 = await createUser('bruce.wayne@savage.com', 'Bruce Wayne', 'Security Consultant', operations.id, 'pending')
+    const p3 = await createUser('natasha.romanoff@savage.com', 'Natasha Romanoff', 'Intelligence Analyst', marketing.id, 'pending')
 
-    // await prisma.userRole.upsert({
-    //     where: {
-    //         userId_departmentId_role: {
-    //             userId: mike.id,
-    //             departmentId: operations.id,
-    //             role: 'member',
-    //         },
-    //     },
-    //     update: {},
-    //     create: {
-    //         userId: mike.id,
-    //         departmentId: operations.id,
-    //         role: 'member',
-    //     },
-    // })
+    // Create a General channel and add all users
+    const allUsers = await prisma.user.findMany({ select: { id: true } })
+    await prisma.conversation.create({
+        data: {
+            type: 'group',
+            name: 'General',
+            participants: {
+                create: allUsers.map(u => ({ userId: u.id }))
+            }
+        }
+    })
 
-    // console.log('✅ Created user roles (Skipped)')
-
-    // Create tasks (COMMENTED OUT)
-    // const tasks = await Promise.all([
-    //     prisma.task.create({
-    //         data: {
-    //             title: 'Update employee handbook',
-    //             description: 'Review and update the employee handbook with new policies',
-    //             status: 'todo',
-    //             departmentId: operations.id,
-    //             assigneeId: mike.id,
-    //         },
-    //     }),
-    //     prisma.task.create({
-    //         data: {
-    //             title: 'API documentation update',
-    //             description: 'Document new API endpoints for the internal portal',
-    //             status: 'in_progress',
-    //             departmentId: engineering.id,
-    //             assigneeId: john.id,
-    //         },
-    //     }),
-    //     prisma.task.create({
-    //         data: {
-    //             title: 'Q1 Marketing campaign',
-    //             description: 'Plan and execute Q1 marketing campaign',
-    //             status: 'review',
-    //             departmentId: marketing.id,
-    //             assigneeId: jane.id,
-    //         },
-    //     }),
-    //     prisma.task.create({
-    //         data: {
-    //             title: 'Database migration',
-    //             description: 'Migrate legacy database to new PostgreSQL instance',
-    //             status: 'completed',
-    //             departmentId: engineering.id,
-    //             assigneeId: john.id,
-    //         },
-    //     }),
-    //     prisma.task.create({
-    //         data: {
-    //             title: 'Social media strategy',
-    //             description: 'Develop social media strategy for 2026',
-    //             status: 'todo',
-    //             departmentId: marketing.id,
-    //         },
-    //     }),
-    // ])
-
-    // console.log(`✅ Created tasks (Skipped)`)
-
-    // Create a General channel (COMMENTED OUT)
-    // const generalChannel = await prisma.conversation.create({
-    //     data: {
-    //         type: 'group',
-    //         name: 'General',
-    //         participants: {
-    //             create: [john, jane, mike].map(u => ({ userId: u.id }))
-    //         }
-    //     }
-    // })
-
-    // console.log('✅ Created General channel (Skipped)')
-
-    console.log('🎉 Database seeded successfully!')
+    console.log('🎉 Database seeded successfully with 11 deployed, 3 pending employees, and a General channel!')
 }
 
 main()

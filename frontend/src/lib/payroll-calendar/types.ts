@@ -6,7 +6,7 @@ export type EventType = "payday" | "holiday" | "deadline" | "time" | "meeting" |
 export type PayrollTab = "calendar" | "employees" | "payslips" | "reports";
 
 export interface Employee {
-  id: number;
+  id: string | number;
   name: string;
   role: string;
   department: string;
@@ -50,7 +50,7 @@ export type TimeEntryType = "work" | "vacation" | "sick" | "leave";
 
 export interface TimeEntry {
   id: string;
-  employeeId: number;
+  employeeId: string | number;
   date: string; // YYYY-MM-DD format
   type: TimeEntryType;
   clockIn?: string; // HH:MM format (for work type)
@@ -61,7 +61,7 @@ export interface TimeEntry {
 
 export interface LeaveRecord {
   id: string;
-  employeeId: number;
+  employeeId: string | number;
   type: "vacation" | "sick" | "leave";
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
@@ -98,7 +98,7 @@ export interface Deduction {
 
 export interface Payslip {
   id: string;
-  employeeId: number;
+  employeeId: string | number;
   employeeName: string;
   payPeriodStart: string; // YYYY-MM-DD
   payPeriodEnd: string; // YYYY-MM-DD
@@ -116,7 +116,7 @@ export type PayPeriod = "weekly" | "bi-weekly" | "monthly";
 // Completed task tracking
 export interface CompletedTask {
   id: string;
-  employeeId: number;
+  employeeId: string | number;
   date: string; // YYYY-MM-DD
   title: string;
   description?: string;
