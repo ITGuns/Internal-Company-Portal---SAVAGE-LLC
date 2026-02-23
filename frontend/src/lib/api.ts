@@ -1,5 +1,6 @@
 import { APP_CONFIG } from './config';
 import { STORAGE_KEYS } from './constants';
+import type { LoginCredentials, AuthResponse } from './types/auth';
 
 const API_URL = `${APP_CONFIG.apiUrl}/api`;
 const AUTH_URL = `${APP_CONFIG.apiUrl}/auth`;
@@ -34,15 +35,11 @@ export const setCurrentUser = (user: Record<string, unknown>) => {
 
 /**
  * Dev login function - manually login as a test user
- * @param email - Optional email, defaults to john.doe@savage.com
- * Available test users:
- * - john.doe@savage.com (Admin - Engineering)
- * - jane.smith@savage.com (Manager - Marketing)
- * - mike.johnson@savage.com (Member - Operations)
+ * Uses admin@savage.com by default for testing
  */
-export const devLogin = async (_email: string = 'john.doe@savage.com') => {
+export const devLogin = async () => {
     try {
-        // Use a generic admin account instead of specific person
+        // Use a generic admin account for dev testing
         const res = await fetch(`${AUTH_URL}/dev-login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -58,6 +55,51 @@ export const devLogin = async (_email: string = 'john.doe@savage.com') => {
         console.error('Dev login failed', err)
     }
     return null
+}
+
+/**
+ * Login with email and password
+ * @param credentials - Email and password
+ * @returns Auth response with user data and tokens
+ * @throws Error if login fails
+ * 
+ * NOTE: Email/password authentication not yet implemented in backend.
+ * This is a placeholder for future implementation.
+ */
+export const loginWithEmail = async (credentials: LoginCredentials): Promise<AuthResponse> => {
+    try {
+        const res = await fetch(`${AUTH_URL}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(credentials)
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success && data.tokens) {
+            // Store auth token and user data
+            setAuthToken(data.tokens.accessToken);
+            setCurrentUser(data.user);
+            return data;
+        }
+
+        // Return error response
+        throw new Error(data.error || 'Login failed');
+    } catch (err) {
+        console.error('Email login error:', err);
+        throw err instanceof Error ? err : new Error('Login failed. Please try again.');
+    }
+}
+
+/**
+ * Logout user
+ * Clears auth tokens and user data from localStorage
+ */
+export const logout = () => {
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem(STORAGE_KEYS.USER);
+    }
 }
 
 interface APIOptions extends RequestInit {

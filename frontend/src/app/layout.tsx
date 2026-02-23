@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Sidebar from "../components/Sidebar";
+import LayoutWrapper from "../components/LayoutWrapper";
 import { SocketProvider } from "../context/SocketContext";
 import { ToastProvider } from "../components/ToastProvider";
 import { ErrorBoundary } from "../components/ErrorBoundary";
@@ -43,8 +43,7 @@ export default function RootLayout({
           <UserProvider>
             <SocketProvider>
               <ToastProvider>
-                <Sidebar />
-                <div className="min-h-screen pl-64 pt-[112px] bg-[var(--background)] text-[var(--foreground)]">{children}</div>
+                <LayoutWrapper>{children}</LayoutWrapper>
               </ToastProvider>
             </SocketProvider>
           </UserProvider>

@@ -1,0 +1,373 @@
+/**
+ * Login Page Styles
+ * Monochromatic design system with 8px grid spacing
+ */
+
+/* ============================================
+   MONOCHROMATIC COLOR PALETTE - LIGHT MODE
+   ============================================ */
+.loginContainer {
+  /* Background & Surfaces */
+  --login-bg: #FAFAFA;
+  --login-card-bg: #FFFFFF;
+  --login-border: #E5E5E5;
+  
+  /* Text Colors */
+  --login-text-primary: #1A1A1A;
+  --login-text-secondary: #737373;
+  --login-text-disabled: #A3A3A3;
+  
+  /* Input Colors */
+  --login-input-bg: #FFFFFF;
+  --login-input-border: #D4D4D4;
+  --login-input-focus: #525252;
+  --login-input-text: #1A1A1A;
+  --login-input-placeholder: #A3A3A3;
+  
+  /* Button Colors */
+  --login-btn-bg: #171717;
+  --login-btn-text: #FFFFFF;
+  --login-btn-hover: #404040;
+  --login-btn-active: #0A0A0A;
+  
+  /* Secondary Button */
+  --login-btn-secondary-bg: transparent;
+  --login-btn-secondary-text: #1A1A1A;
+  --login-btn-secondary-border: #D4D4D4;
+  --login-btn-secondary-hover: #F5F5F5;
+  
+  /* Shadows & Effects */
+  --login-shadow: rgba(0, 0, 0, 0.05);
+  --login-shadow-hover: rgba(0, 0, 0, 0.1);
+  
+  /* Error States */
+  --login-error: #DC2626;
+  --login-error-bg: #FEE2E2;
+  --login-error-border: #FECACA;
+}
+
+/* ============================================
+   MONOCHROMATIC COLOR PALETTE - DARK MODE
+   ============================================ */
+:global(.dark) .loginContainer {
+  /* Background & Surfaces */
+  --login-bg: #0A0A0A;
+  --login-card-bg: #171717;
+  --login-border: #262626;
+  
+  /* Text Colors */
+  --login-text-primary: #FAFAFA;
+  --login-text-secondary: #A3A3A3;
+  --login-text-disabled: #525252;
+  
+  /* Input Colors */
+  --login-input-bg: #1A1A1A;
+  --login-input-border: #404040;
+  --login-input-focus: #737373;
+  --login-input-text: #FAFAFA;
+  --login-input-placeholder: #737373;
+  
+  /* Button Colors */
+  --login-btn-bg: #FAFAFA;
+  --login-btn-text: #0A0A0A;
+  --login-btn-hover: #E5E5E5;
+  --login-btn-active: #D4D4D4;
+  
+  /* Secondary Button */
+  --login-btn-secondary-bg: transparent;
+  --login-btn-secondary-text: #FAFAFA;
+  --login-btn-secondary-border: #404040;
+  --login-btn-secondary-hover: #262626;
+  
+  /* Shadows & Effects */
+  --login-shadow: rgba(0, 0, 0, 0.3);
+  --login-shadow-hover: rgba(0, 0, 0, 0.5);
+  
+  /* Error States */
+  --login-error: #EF4444;
+  --login-error-bg: #7F1D1D;
+  --login-error-border: #991B1B;
+}
+
+/* ============================================
+   LAYOUT
+   ============================================ */
+.loginContainer {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--login-bg);
+  padding: 16px; /* 2 grid units - mobile */
+  transition: background-color 200ms ease;
+}
+
+.card {
+  width: 100%;
+  max-width: 400px; /* 50 grid units */
+  background-color: var(--login-card-bg);
+  border: 1px solid var(--login-border);
+  border-radius: 8px; /* 1 grid unit */
+  padding: 32px; /* 4 grid units */
+  box-shadow: 0 4px 16px var(--login-shadow);
+  transition: all 200ms ease;
+}
+
+/* ============================================
+   TYPOGRAPHY (Modular Scale 1.25)
+   ============================================ */
+.title {
+  font-size: 1.953rem; /* 31.25px - xl */
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--login-text-primary);
+  margin: 0;
+  text-align: center;
+}
+
+.subtitle {
+  font-size: 1rem; /* 16px - sm */
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--login-text-secondary);
+  margin: 8px 0 0 0; /* 1 grid unit top */
+  text-align: center;
+}
+
+.header {
+  margin-bottom: 32px; /* 4 grid units */
+}
+
+/* ============================================
+   FORM
+   ============================================ */
+.form {
+  margin-top: 24px; /* 3 grid units */
+}
+
+.formGroup {
+  margin-bottom: 16px; /* 2 grid units */
+}
+
+.formGroup:last-of-type {
+  margin-bottom: 0;
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* 1 grid unit */
+  font-size: 1rem; /* 16px - sm */
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--login-text-primary);
+  margin-bottom: 8px; /* 1 grid unit */
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 16px; /* 2 grid units */
+  color: var(--login-text-secondary);
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+
+.input {
+  width: 100%;
+  height: 40px; /* 5 grid units */
+  padding: 8px 16px 8px 44px; /* Icon offset */
+  font-size: 1.25rem; /* 20px - md */
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--login-input-text);
+  background-color: var(--login-input-bg);
+  border: 1px solid var(--login-input-border);
+  border-radius: 8px; /* 1 grid unit */
+  transition: all 150ms ease;
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--login-input-placeholder);
+}
+
+.input:focus {
+  border-color: var(--login-input-focus);
+  border-width: 2px;
+  padding-left: 43px; /* Adjust for border width */
+}
+
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+.submitButton {
+  width: 100%;
+  height: 40px; /* 5 grid units */
+  margin-top: 24px; /* 3 grid units */
+  padding: 8px 32px; /* Vertical: 1 unit, Horizontal: 4 units */
+  font-size: 1rem; /* 16px - sm */
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--login-btn-text);
+  background-color: var(--login-btn-bg);
+  border: none;
+  border-radius: 8px; /* 1 grid unit */
+  cursor: pointer;
+  transition: all 200ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px; /* 1 grid unit */
+}
+
+.submitButton:hover:not(:disabled) {
+  background-color: var(--login-btn-hover);
+}
+
+.submitButton:active:not(:disabled) {
+  background-color: var(--login-btn-active);
+  transform: translateY(1px);
+}
+
+.submitButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secondaryButton {
+  width: 100%;
+  height: 40px; /* 5 grid units */
+  padding: 8px 32px;
+  font-size: 1rem; /* 16px - sm */
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--login-btn-secondary-text);
+  background-color: var(--login-btn-secondary-bg);
+  border: 1px solid var(--login-btn-secondary-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background-color: var(--login-btn-secondary-hover);
+}
+
+.secondaryButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   DIVIDER
+   ============================================ */
+.divider {
+  display: flex;
+  align-items: center;
+  margin: 24px 0; /* 3 grid units top & bottom */
+  gap: 16px; /* 2 grid units */
+}
+
+.dividerLine {
+  flex: 1;
+  height: 1px;
+  background-color: var(--login-border);
+}
+
+.dividerText {
+  font-size: 0.8rem; /* 12.8px - xs */
+  font-weight: 400;
+  color: var(--login-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ============================================
+   DEV OPTIONS
+   ============================================ */
+.devSection {
+  margin-top: 16px; /* 2 grid units */
+}
+
+.devButton {
+  margin-bottom: 16px; /* 2 grid units */
+}
+
+.bypassOption {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* 1 grid unit */
+  margin-top: 16px; /* 2 grid units */
+}
+
+.bypassCheckbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.bypassLabel {
+  font-size: 0.8rem; /* 12.8px - xs */
+  font-weight: 400;
+  color: var(--login-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* ============================================
+   ERROR MESSAGE
+   ============================================ */
+.error {
+  margin-top: 16px; /* 2 grid units */
+  padding: 12px 16px; /* 1.5 × 2 grid units */
+  font-size: 1rem; /* 16px - sm */
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--login-error);
+  background-color: var(--login-error-bg);
+  border: 1px solid var(--login-error-border);
+  border-radius: 8px; /* 1 grid unit */
+}
+
+/* ============================================
+   LOADING SPINNER
+   ============================================ */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+@media (max-width: 640px) {
+  .title {
+    font-size: 1.5625rem; /* 25px - lg - slightly smaller on mobile */
+  }
+  
+  .input {
+    font-size: 1rem; /* 16px prevents zoom on iOS */
+  }
+}
