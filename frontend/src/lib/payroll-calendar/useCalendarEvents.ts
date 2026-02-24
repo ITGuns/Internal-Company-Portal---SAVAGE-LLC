@@ -12,73 +12,12 @@ export function useCalendarEvents(
   timeEntries: TimeEntry[],
   customEvents: PayrollEvent[]
 ) {
-  const [hiddenBuiltInIds, setHiddenBuiltInIds] = useState<string[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      return JSON.parse(
-        localStorage.getItem("savage-hidden-payroll-events") || "[]"
-      );
-    } catch {
-      return [];
-    }
-  });
+  // Built-in events (cleared - no longer hardcoded)
+  const builtInEvents: CalendarEvent[] = [];
 
-  // Save hidden built-in event IDs to localStorage
-  useEffect(() => {
-    localStorage.setItem(
-      "savage-hidden-payroll-events",
-      JSON.stringify(hiddenBuiltInIds)
-    );
-  }, [hiddenBuiltInIds]);
-
-  // Built-in events (recurring paydays, holidays, deadlines)
-  const builtInEvents: CalendarEvent[] = useMemo(() => {
-    return [
-      {
-        id: "holiday-1",
-        title: "Presidents' Day",
-        start: "2026-02-16",
-        extendedProps: {
-          type: "holiday" as EventType,
-          description: "Company-observed holiday.",
-        },
-      },
-      {
-        id: "deadline-1",
-        title: "Timesheet Submission Due",
-        start: "2026-02-20",
-        extendedProps: {
-          type: "deadline" as EventType,
-          description: "Deadline for payroll-related tasks.",
-        },
-      },
-      {
-        id: "deadline-2",
-        title: "Payroll Processing Deadline",
-        start: "2026-02-25",
-        extendedProps: {
-          type: "deadline" as EventType,
-          description: "Deadline for payroll-related tasks.",
-        },
-      },
-      {
-        id: "payday-1",
-        title: "Pay Day",
-        start: "2026-02-27",
-        extendedProps: {
-          type: "payday" as EventType,
-          description: "Employees will receive their paycheck on this date.",
-        },
-      },
-    ];
-  }, []);
-
-  // Merge built-in (excluding hidden) + custom events
+  // Merge custom events
   const events: CalendarEvent[] = useMemo(() => {
-    const visible = builtInEvents.filter(
-      (e) => !hiddenBuiltInIds.includes(e.id)
-    );
-    const custom = customEvents.map((e) => ({
+    return customEvents.map((e) => ({
       id: `custom-${e.id}`,
       title: e.title,
       start: e.date,
@@ -89,13 +28,14 @@ export function useCalendarEvents(
         customId: e.id,
       },
     }));
-    return [...visible, ...custom];
-  }, [builtInEvents, customEvents, hiddenBuiltInIds]);
+  }, [customEvents]);
 
-  // Display events including aggregated time entries
+  // Display events including individual clock-in/clock-out entries (permanent, non-deletable)
   const displayEvents: CalendarEvent[] = useMemo(() => {
-    // Group time entries by date and sum total minutes
-    const timeByDate = new Map<string, number>();
+    const sessionEvents: CalendarEvent[] = [];
+
+    // Build per-day session grouping first, so we can add a total badge
+    const dayMap = new Map<string, { entries: typeof timeEntries; totalMins: number }>();
 
     timeEntries.forEach((e) => {
       const date = getLocalDateString(e.start);
@@ -103,32 +43,70 @@ export function useCalendarEvents(
         e.durationMin != null
           ? e.durationMin
           : e.end
-            ? Math.max(
-              0,
-              Math.round(
-                (new Date(e.end).getTime() - new Date(e.start).getTime()) /
-                60000
-              )
-            )
+            ? Math.max(0, Math.round((new Date(e.end).getTime() - new Date(e.start).getTime()) / 60000))
             : 0;
 
-      const currentTotal = timeByDate.get(date) || 0;
-      timeByDate.set(date, currentTotal + mins);
+      const existing = dayMap.get(date) || { entries: [], totalMins: 0 };
+      existing.entries.push(e);
+      existing.totalMins += mins;
+      dayMap.set(date, existing);
     });
 
-    // Create one calendar event per day with total time
-    const derived = Array.from(timeByDate.entries()).map(([date, totalMins]) => {
-      const title =
-        totalMins >= 60 ? `${Math.round(totalMins / 60)}h` : `${totalMins}m`;
-      return {
-        id: `time-${date}`,
-        title,
-        start: date,
-        extendedProps: { type: "time" as EventType },
-      };
+    // For each day, emit individual IN/OUT session events
+    dayMap.forEach(({ entries, totalMins }, date) => {
+      entries.forEach((e, idx) => {
+        const sessionNum = entries.length > 1 ? ` #${idx + 1}` : "";
+        const inTime = new Date(e.start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+
+        // Clock-in event
+        sessionEvents.push({
+          id: `clockin-${e.id}`,
+          title: `🟢 IN${sessionNum} ${inTime}`,
+          start: date,
+          extendedProps: {
+            type: "time" as EventType,
+            clockEntry: true,
+            entryId: e.id,
+            direction: "in",
+          },
+        });
+
+        // Clock-out event (only if session ended)
+        if (e.end) {
+          const outTime = new Date(e.end).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+          sessionEvents.push({
+            id: `clockout-${e.id}`,
+            title: `🔴 OUT${sessionNum} ${outTime}`,
+            start: date,
+            extendedProps: {
+              type: "time" as EventType,
+              clockEntry: true,
+              entryId: e.id,
+              direction: "out",
+            },
+          });
+        }
+      });
+
+      // Daily total summary (shown last, only if there's at least one completed session)
+      if (totalMins > 0) {
+        const totalLabel = totalMins >= 60
+          ? `⏱ ${(totalMins / 60).toFixed(1)}h total`
+          : `⏱ ${totalMins}m total`;
+        sessionEvents.push({
+          id: `totalbadge-${date}`,
+          title: totalLabel,
+          start: date,
+          extendedProps: {
+            type: "time" as EventType,
+            clockEntry: true,
+            direction: "total",
+          },
+        });
+      }
     });
 
-    return [...events, ...derived];
+    return [...events, ...sessionEvents];
   }, [events, timeEntries]);
 
   // Calculate stats for event types
@@ -142,16 +120,10 @@ export function useCalendarEvents(
     return { payday, holiday, deadline, total: events.length };
   }, [events]);
 
-  const hideBuiltInEvent = (builtInId: string) => {
-    setHiddenBuiltInIds((prev) => [...prev, builtInId]);
-  };
-
   return {
     builtInEvents,
     events,
     displayEvents,
     stats,
-    hiddenBuiltInIds,
-    hideBuiltInEvent,
   };
 }

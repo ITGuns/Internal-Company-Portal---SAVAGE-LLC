@@ -26,6 +26,10 @@ model User {
     citizenship String?
     birthday    DateTime?
 
+    // Auth & Access Control
+    password   String?
+    isApproved Boolean @default(false)
+
     // Employee Workflow fields
     status      String    @default("active")
     appliedDate DateTime?

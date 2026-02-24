@@ -92,7 +92,17 @@ export class PayrollController {
                 if (!requesterId) return res.sendStatus(401)
 
                 let targetUserId = requesterId
+
+                // Allow admins/managers to query another user's entries via ?userId=
                 if (req.query.userId && req.query.userId !== requesterId) {
+                    // Check if requester is admin or manager
+                    const { prisma } = await import('../database/prisma.service')
+                    const requesterRoles = await prisma.userRole.findMany({ where: { userId: requesterId } })
+                    const isPrivileged = requesterRoles.some(r => ['admin', 'manager', 'operations manager'].includes(r.role))
+
+                    if (!isPrivileged) {
+                        return res.status(403).json({ error: 'Unauthorized to view another user\'s time entries' })
+                    }
                     targetUserId = req.query.userId as string
                 }
 
@@ -106,6 +116,7 @@ export class PayrollController {
                 res.status(500).json({ error: 'Failed to fetch entries' })
             }
         })
+
 
         router.post('/clock-in', authenticateToken, async (req: Request, res: Response) => {
             try {

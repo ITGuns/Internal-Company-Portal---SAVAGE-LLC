@@ -259,7 +259,7 @@ export default function UnifiedChatPage() {
     }
 
     return (
-        <div className="flex flex-col h-screen overflow-hidden pt-25">
+        <div className="flex flex-col h-[calc(100vh-112px)] overflow-hidden">
             <Header
                 title="Chat & Messages"
                 subtitle={isDirect ? `Direct Message with ${otherUser?.name}` : `# ${selectedConv?.name || "Select a channel"}`}

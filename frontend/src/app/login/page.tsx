@@ -5,12 +5,13 @@ import { useRouter } from 'next/navigation';
 import { Mail, Lock } from 'lucide-react';
 import LoginInput from '@/components/LoginInput';
 import { useUser } from '@/contexts/UserContext';
+import { devLogin, setCurrentUser, loginWithEmail } from '@/lib/api';
 import styles from './login.module.css';
 
 export default function LoginPage() {
   const router = useRouter();
   const { user, refreshUser } = useUser();
-  
+
   // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,9 +40,9 @@ export default function LoginPage() {
         return;
       }
 
-      // Email/password authentication not yet implemented in backend
-      setError('Email/password authentication is not yet implemented. Please use Dev Login below.');
-      setLoading(false);
+      await loginWithEmail({ email, password });
+      await refreshUser();
+      router.push('/dashboard');
     } catch (err: unknown) {
       console.error('Login error:', err);
       setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
@@ -55,23 +56,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:4000/auth/dev-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'admin@savage.com' }),
-      });
+      const token = await devLogin(); // uses APP_CONFIG.apiUrl, stores tokens automatically
 
-      const data = await res.json();
-
-      if (data.success && data.tokens) {
-        // Store auth token and user data
-        localStorage.setItem('accessToken', data.tokens.accessToken);
-        localStorage.setItem('currentUser', JSON.stringify(data.user));
-
-        // Refresh user context
+      if (token) {
+        // Refresh user context (devLogin already stores the token in localStorage)
         await refreshUser();
-
-        // Redirect to dashboard
         router.push('/dashboard');
       } else {
         setError('Dev login failed. Please try again.');
@@ -151,9 +140,9 @@ export default function LoginPage() {
           />
 
           {/* Forgot Password Link */}
-          <a 
-            href="/forgot-password" 
-            className={styles.forgotPassword} 
+          <a
+            href="/forgot-password"
+            className={styles.forgotPassword}
             onClick={(e) => {
               e.preventDefault();
               router.push('/forgot-password');
@@ -183,8 +172,8 @@ export default function LoginPage() {
         <div className={styles.signUpSection}>
           <p className={styles.signUpText}>
             Don't have an account?
-            <a 
-              href="/signup" 
+            <a
+              href="/signup"
               className={styles.signUpLink}
               onClick={(e) => {
                 e.preventDefault();

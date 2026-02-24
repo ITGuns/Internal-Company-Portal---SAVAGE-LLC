@@ -8,6 +8,7 @@ export interface CreateEmployeeDto {
     role: string
     department: string
     salary: number
+    passwordHash?: string
 }
 
 export class EmployeesService {
@@ -62,11 +63,10 @@ export class EmployeesService {
             data: {
                 email: data.email,
                 name: data.name,
+                password: data.passwordHash,
                 status: 'pending',
                 appliedDate: new Date(),
-                // Store role/department info - we might need to extend the User model further 
-                // but for now let's use what we have. 
-                // In a real app, we'd create UserRole or EmployeeProfile too.
+                // Store role/department info
             },
         })
 
@@ -91,6 +91,7 @@ export class EmployeesService {
             where: { id },
             data: {
                 status: 'active',
+                isApproved: true,
             },
         })
 

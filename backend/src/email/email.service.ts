@@ -220,7 +220,8 @@ export class EmailService {
     async sendWelcomeEmail(
         to: string,
         userName: string,
-        loginUrl: string
+        password?: string,
+        loginUrl: string = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`
     ): Promise<EmailResult> {
         return await this.sendTemplateEmail(
             to,
@@ -229,6 +230,7 @@ export class EmailService {
             {
                 userName,
                 userEmail: to,
+                password,
                 loginUrl,
             }
         );

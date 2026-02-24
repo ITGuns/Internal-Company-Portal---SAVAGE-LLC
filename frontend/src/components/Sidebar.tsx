@@ -120,7 +120,7 @@ export default function Sidebar() {
       {/* vertical divider recreated as an absolute element so other borders can align to it */}
       <div data-sidebar-divider className="absolute right-0 top-0 bottom-0 w-px z-50 bg-[var(--border)]" />
       <div className="flex flex-col h-full">
-        <header className="px-4 py-3 border-b border-[var(--border)] z-30 h-25 pl-6">
+        <header className="px-4 py-3 border-b border-[var(--border)] z-30 h-28 pl-6">
           <div className="flex items-center gap-3">
             <div className="font-semibold">SAVAGE LLC</div>
           </div>

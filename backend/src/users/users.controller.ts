@@ -49,6 +49,46 @@ export class UsersController {
             }
         })
 
+        // Upload / update user avatar
+        router.post('/:id/avatar', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+                const authReq = req as AuthRequest
+                const requesterId = authReq.user?.userId
+
+                // Check authorization: must be self or admin
+                if (requesterId !== id) {
+                    const userRoles = await this.service.getUserRoles(requesterId!)
+                    const isAdmin = userRoles.some(r => r.role === 'admin')
+                    if (!isAdmin) {
+                        return res.status(403).json({ error: 'Unauthorized to update another user\'s avatar' })
+                    }
+                }
+
+                // Accept base64 data URI or a URL string
+                const { avatar } = req.body
+                if (!avatar) {
+                    return res.status(400).json({ error: 'Avatar data is required' })
+                }
+
+                // Validate size if base64 (rough check: base64 length * 0.75 = bytes)
+                if (avatar.startsWith('data:image/')) {
+                    const base64Data = avatar.split(',')[1] || ''
+                    const sizeBytes = Math.round((base64Data.length * 3) / 4)
+                    if (sizeBytes > 5 * 1024 * 1024) {
+                        return res.status(400).json({ error: 'Avatar image must be less than 5MB' })
+                    }
+                }
+
+                const user = await this.service.update(id, { avatar })
+
+                res.json({ success: true, user })
+            } catch (error) {
+                console.error('Avatar upload error:', error)
+                res.status(500).json({ error: 'Failed to update avatar' })
+            }
+        })
+
         // Get user's roles
         router.get('/:id/roles', authenticateToken, async (req: Request, res: Response) => {
             try {

@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client'
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import 'dotenv/config'
+import * as bcrypt from 'bcrypt'
 
 const connectionString = process.env.DATABASE_URL
 const pool = new Pool({ connectionString })
@@ -9,7 +10,7 @@ const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
 async function main() {
-    console.log('🌱 Starting database seed...')
+    console.log('🌱 Starting refined database seed...')
 
     // Create departments
     const engineering = await prisma.department.upsert({
@@ -39,18 +40,34 @@ async function main() {
         },
     })
 
-    console.log('✅ Created departments:', { engineering, marketing, operations })
+    console.log('✅ Created departments')
 
-    // Helper to create users with roles
-    const createUser = async (email: string, name: string, roleName: string, deptId: string, status: string = 'active', avatar?: string) => {
+    // Helper to create users with hashing and roles
+    const passwordHash = await bcrypt.hash('Savage2025!', 10)
+
+    const createUser = async (
+        email: string,
+        name: string,
+        roleName: string,
+        deptId: string,
+        status: string = 'active',
+        isApproved: boolean = false
+    ) => {
         const user = await prisma.user.upsert({
             where: { email },
-            update: { status, name, avatar },
+            update: {
+                status,
+                name,
+                isApproved,
+                password: passwordHash
+            },
             create: {
                 email,
                 name,
-                avatar: avatar || `https://i.pravatar.cc/150?u=${email}`,
+                password: passwordHash,
+                avatar: `https://i.pravatar.cc/150?u=${email}`,
                 status,
+                isApproved,
                 appliedDate: status === 'pending' ? new Date() : null,
             },
         })
@@ -60,63 +77,101 @@ async function main() {
                 userId_departmentId_role: {
                     userId: user.id,
                     departmentId: deptId,
-                    role: roleName.toLowerCase(),
+                    role: roleName.toLowerCase().replace(/ /g, '_'),
                 },
             },
             update: {},
             create: {
                 userId: user.id,
                 departmentId: deptId,
-                role: roleName.toLowerCase(),
+                role: roleName.toLowerCase().replace(/ /g, '_'),
             },
         })
 
-        if (status === 'active') {
-            await prisma.employeeProfile.upsert({
-                where: { userId: user.id },
-                update: { jobTitle: roleName },
-                create: {
-                    userId: user.id,
-                    jobTitle: roleName,
-                    baseSalary: 50000 + Math.random() * 50000,
-                }
-            })
-        }
+        await prisma.employeeProfile.upsert({
+            where: { userId: user.id },
+            update: { jobTitle: roleName },
+            create: {
+                userId: user.id,
+                jobTitle: roleName,
+                baseSalary: 50000 + Math.random() * 50000,
+            }
+        })
 
         return user
     }
 
-    // 11 Deployed Employees
-    await createUser('john.doe@savage.com', 'John Doe', 'Senior Engineer', engineering.id)
-    await createUser('jane.smith@savage.com', 'Jane Smith', 'Marketing Manager', marketing.id)
-    await createUser('mike.johnson@savage.com', 'Mike Johnson', 'Operations Specialist', operations.id)
-    await createUser('sarah.wilson@savage.com', 'Sarah Wilson', 'Frontend Lead', engineering.id)
-    await createUser('david.brown@savage.com', 'David Brown', 'Backend Developer', engineering.id)
-    await createUser('emily.davis@savage.com', 'Emily Davis', 'UX Designer', marketing.id)
-    await createUser('chris.evans@savage.com', 'Chris Evans', 'Logistics Manager', operations.id)
-    await createUser('anna.kendrick@savage.com', 'Anna Kendrick', 'HR Specialist', operations.id)
-    await createUser('robert.downey@savage.com', 'Robert Downey', 'CEO', operations.id)
-    await createUser('scarlett.j@savage.com', 'Scarlett Johansson', 'Brand Lead', marketing.id)
-    await createUser('tom.holland@savage.com', 'Tom Holland', 'Junior Developer', engineering.id)
+    // 🧹 Purge existing user data for a clean slate
+    console.log('🧹 Purging existing user data...')
+    await prisma.userRole.deleteMany({})
+    await prisma.employeeProfile.deleteMany({})
+    await prisma.user.deleteMany({})
 
-    // 3 Pending Employees
-    const p1 = await createUser('peter.parker@savage.com', 'Peter Parker', 'Intern', engineering.id, 'pending')
-    const p2 = await createUser('bruce.wayne@savage.com', 'Bruce Wayne', 'Security Consultant', operations.id, 'pending')
-    const p3 = await createUser('natasha.romanoff@savage.com', 'Natasha Romanoff', 'Intelligence Analyst', marketing.id, 'pending')
+    // 👥 Seed Real Employees from provided list
+    console.log('👥 Seeding real employees...')
 
-    // Create a General channel and add all users
-    const allUsers = await prisma.user.findMany({ select: { id: true } })
-    await prisma.conversation.create({
-        data: {
-            type: 'group',
-            name: 'General',
-            participants: {
-                create: allUsers.map(u => ({ userId: u.id }))
-            }
-        }
-    })
+    // 1. Genrou Josh Catacutan (Operations Manager - Approved)
+    await createUser(
+        'genroujoshcatacutan25@gmail.com',
+        'Genrou Josh Catacutan',
+        'Operations Manager',
+        operations.id,
+        'active',
+        true
+    )
 
-    console.log('🎉 Database seeded successfully with 11 deployed, 3 pending employees, and a General channel!')
+    // 2. Daryl Dave Caña (Operations Assistant - Not yet approved/Pending)
+    await createUser(
+        'daryldave018@gmail.com',
+        'Daryl Dave Caña',
+        'Operations Assistant',
+        operations.id,
+        'pending',
+        false
+    )
+
+    // 3. Peter John Singalivo (Head of 3D Modeling)
+    await createUser(
+        'petersingalivo.prof@gmail.com',
+        'Peter John Singalivo',
+        'Head of 3D Modeling',
+        engineering.id,
+        'pending',
+        false
+    )
+
+    // 4. Pol Danyael H. Villorente (Web Developer)
+    await createUser(
+        'pdvillorente12@gmail.com',
+        'Pol Danyael H. Villorente',
+        'Web Developer',
+        engineering.id,
+        'pending',
+        false
+    )
+
+    // 5. Caetanya Arcipe (Project Manager)
+    await createUser(
+        'caetanya1@gmail.com',
+        'Caetanya Arcipe',
+        'Project Manager',
+        marketing.id,
+        'pending',
+        false
+    )
+
+    // 6. Guns\'n Full Embacanan
+    await createUser(
+        'gunsembacanan27@gmail.com',
+        'Guns\'n Full Embacanan',
+        'Web Developer',
+        engineering.id,
+        'pending',
+        false
+    )
+
+    console.log('🎉 Database seeded successfully with real employees!')
+    console.log('👉 Default password for all: Savage2025!')
 }
 
 main()

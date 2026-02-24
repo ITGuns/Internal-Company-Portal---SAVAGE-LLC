@@ -11,13 +11,15 @@ import type { PayrollTab, CalendarEvent } from "@/lib/payroll-calendar/types";
 import { usePayrollData } from "@/lib/payroll-calendar/usePayrollData";
 import { useCalendarEvents } from "@/lib/payroll-calendar/useCalendarEvents";
 import CalendarTab from "@/components/payroll/CalendarTab";
-import EmployeeOverviewTab from "@/components/payroll/EmployeeOverviewTab";
+import EmployeeOverviewTab from "../../components/payroll/EmployeeOverviewTab";
 import PayslipsTab from "@/components/payroll/PayslipsTab";
 import ReportsTab from "@/components/payroll/ReportsTab";
 import AddTimeEntryModal from "@/components/payroll/AddTimeEntryModal";
 import AddEventModal from "@/components/payroll/AddEventModal";
+import { useUser } from "@/contexts/UserContext";
 
 export default function PayrollCalendarPage() {
+  const { user } = useUser();
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<PayrollTab>("calendar");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -50,8 +52,11 @@ export default function PayrollCalendarPage() {
     events,
     displayEvents,
     stats,
-    hideBuiltInEvent,
   } = useCalendarEvents(timeEntries, customEvents);
+
+  // RBAC: Check if user has management access (Admin, Operations Manager, Operations Assistant)
+  const userRole = user?.role?.toLowerCase() || 'member';
+  const hasManagementAccess = ['admin', 'operations_manager', 'operations_assistant'].includes(userRole);
 
   // Event handlers
   const handleAddManualEntry = async (
@@ -78,20 +83,20 @@ export default function PayrollCalendarPage() {
   };
 
   const handleClockInClick = async () => {
-    const success = await handleClockIn();
-    if (success) {
+    const result = await handleClockIn();
+    if (result.success) {
       toast.success("Clocked in successfully");
     } else {
-      toast.error("Failed to clock in");
+      toast.error(result.error || "Failed to clock in");
     }
   };
 
   const handleClockOutClick = async () => {
-    const success = await handleClockOut();
-    if (success) {
+    const result = await handleClockOut();
+    if (result.success) {
       toast.success("Clocked out successfully");
     } else {
-      toast.error("Failed to clock out");
+      toast.error(result.error || "Failed to clock out");
     }
   };
 
@@ -148,12 +153,8 @@ export default function PayrollCalendarPage() {
       }
     } else {
       // Edit built-in event (creates a copy)
-      const ev = builtInEvents.find((e) => e.id === event.id);
-      if (ev) {
-        setEditingEvent(null); // No ID means it's a new event
-        hideBuiltInEvent(event.id);
-        setShowEventModal(true);
-      }
+      // Re-add as custom if needed, but we removed the hiding logic
+      setShowEventModal(true);
     }
   };
 
@@ -167,8 +168,7 @@ export default function PayrollCalendarPage() {
         toast.error("Failed to delete event");
       }
     } else {
-      // Hide built-in event
-      hideBuiltInEvent(event.id);
+      // No-op for built-in as they are gone/managed elsewhere
       toast.success("Event removed from calendar");
     }
   };
@@ -195,7 +195,7 @@ export default function PayrollCalendarPage() {
       style={{ minHeight: "calc(100vh - var(--header-height))" }}
       className="bg-[var(--background)] text-[var(--foreground)]"
     >
-      <div className="p-6 pt-0">
+      <div className="p-6 pt-0 transition-all duration-500">
         <Header
           title="Payroll Calendar"
           subtitle="Track pay periods, deadlines, and holidays"
@@ -212,30 +212,34 @@ export default function PayrollCalendarPage() {
             >
               Calendar
             </Button>
-            <Button
-              variant={activeTab === "employees" ? "primary" : "outline"}
-              size="md"
-              icon={<Users className="w-4 h-4" />}
-              onClick={() => setActiveTab("employees")}
-            >
-              Employee Overview
-            </Button>
-            <Button
-              variant={activeTab === "payslips" ? "primary" : "outline"}
-              size="md"
-              icon={<FileText className="w-4 h-4" />}
-              onClick={() => setActiveTab("payslips")}
-            >
-              Payslips Management
-            </Button>
-            <Button
-              variant={activeTab === "reports" ? "primary" : "outline"}
-              size="md"
-              icon={<BarChart3 className="w-4 h-4" />}
-              onClick={() => setActiveTab("reports")}
-            >
-              Reports
-            </Button>
+            {hasManagementAccess && (
+              <>
+                <Button
+                  variant={activeTab === "employees" ? "primary" : "outline"}
+                  size="md"
+                  icon={<Users className="w-4 h-4" />}
+                  onClick={() => setActiveTab("employees")}
+                >
+                  Employee Overview
+                </Button>
+                <Button
+                  variant={activeTab === "payslips" ? "primary" : "outline"}
+                  size="md"
+                  icon={<FileText className="w-4 h-4" />}
+                  onClick={() => setActiveTab("payslips")}
+                >
+                  Payslips Management
+                </Button>
+                <Button
+                  variant={activeTab === "reports" ? "primary" : "outline"}
+                  size="md"
+                  icon={<BarChart3 className="w-4 h-4" />}
+                  onClick={() => setActiveTab("reports")}
+                >
+                  Reports
+                </Button>
+              </>
+            )}
             {activeTab === "calendar" && (
               <Button
                 variant="primary"
@@ -267,9 +271,9 @@ export default function PayrollCalendarPage() {
             />
           )}
 
-          {activeTab === "employees" && <EmployeeOverviewTab />}
-          {activeTab === "payslips" && <PayslipsTab />}
-          {activeTab === "reports" && <ReportsTab />}
+          {hasManagementAccess && activeTab === "employees" && <EmployeeOverviewTab />}
+          {hasManagementAccess && activeTab === "payslips" && <PayslipsTab />}
+          {hasManagementAccess && activeTab === "reports" && <ReportsTab />}
         </div>
       </div>
 

@@ -12,45 +12,36 @@ export type TimeEntry = {
   notes?: string;
 };
 
-// Mapper
-const mapApiEntry = (data: any): TimeEntry => ({
-  id: data.id,
-  start: data.startTime, // Backend uses startTime field name in Prisma? Let's check Service.
-  // Actually, let's assume standard names or map them.
-  // Controller calls `service.addManualEntry(userId, start, end, notes)`.
-  // Prisma model usually has `startTime`, `endTime`.
-  // Let's verify backend model or response.
-  // Phase 1 verification showed responses.
-  // In `API_TESTING_GUIDE.md`, TimeEntry response:
-  // { "id": "...", "startTime": "...", "endTime": "...", "notes": "..." }
-  // So backend uses startTime/endTime.
-  end: data.endTime,
-  durationMin: data.durationMinutes, // calculate or from backend?
-  // The backend might not return durationMinutes if it's dynamic.
-  // Frontend calculates it usually.
-  // Let's stick to start/end and calculate duration in frontend if needed.
-  notes: data.notes
-});
 
 // Helper to correctly map backend fields
+// NOTE: Prisma schema uses `start`/`end` (not startTime/endTime)
+// `duration` is stored in minutes by the server (authoritative)
 const mapBackendToFrontend = (data: any): TimeEntry => {
+  // Prefer server-calculated duration, fall back to client calculation
+  const durationMin = data.duration != null
+    ? data.duration
+    : (data.end ? Math.round((new Date(data.end).getTime() - new Date(data.start).getTime()) / 60000) : undefined);
   return {
     id: data.id,
-    start: data.startTime,
-    end: data.endTime || undefined,
+    start: data.start,
+    end: data.end || undefined,
     notes: data.notes,
-    durationMin: data.endTime ? Math.round((new Date(data.endTime).getTime() - new Date(data.startTime).getTime()) / 60000) : undefined
+    durationMin
   };
 }
 
 /**
  * Fetch time entries from API
+ * @param startDate - ISO string for range start
+ * @param endDate - ISO string for range end
+ * @param userId - Optional: target a specific user (for admin/manager views)
  */
-export async function fetchTimeEntries(startDate?: string, endDate?: string): Promise<TimeEntry[]> {
+export async function fetchTimeEntries(startDate?: string, endDate?: string, userId?: string): Promise<TimeEntry[]> {
   try {
     const query = new URLSearchParams();
     if (startDate) query.append('start', startDate);
     if (endDate) query.append('end', endDate);
+    if (userId) query.append('userId', userId);
 
     const res = await apiFetch(`/payroll/time-entries?${query.toString()}`);
     if (res.status === 200) {
@@ -64,7 +55,7 @@ export async function fetchTimeEntries(startDate?: string, endDate?: string): Pr
 }
 
 /**
- * Clock In
+ * Clock In — returns the new TimeEntry, or throws with the server's error message
  */
 export async function clockIn(): Promise<TimeEntry | null> {
   try {
@@ -73,14 +64,17 @@ export async function clockIn(): Promise<TimeEntry | null> {
       const data = await res.json();
       return mapBackendToFrontend(data);
     }
+    // Non-2xx that didn't throw (e.g. 400 Already clocked in)
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || `Clock in failed (${res.status})`);
   } catch (error) {
     console.error('Clock in failed:', error);
+    throw error; // Re-throw so callers can show the real message
   }
-  return null;
 }
 
 /**
- * Clock Out
+ * Clock Out — returns the updated TimeEntry, or throws with the server's error message
  */
 export async function clockOut(): Promise<TimeEntry | null> {
   try {
@@ -89,10 +83,12 @@ export async function clockOut(): Promise<TimeEntry | null> {
       const data = await res.json();
       return mapBackendToFrontend(data);
     }
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || `Clock out failed (${res.status})`);
   } catch (error) {
     console.error('Clock out failed:', error);
+    throw error;
   }
-  return null;
 }
 
 /**

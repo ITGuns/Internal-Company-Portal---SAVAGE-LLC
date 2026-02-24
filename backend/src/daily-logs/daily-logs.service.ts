@@ -74,6 +74,24 @@ export class DailyLogsService {
         })
     }
 
+    async findById(id: string) {
+        return this.prisma.dailyLog.findUnique({
+            where: { id },
+            include: {
+                author: {
+                    select: { id: true, name: true, avatar: true }
+                },
+                likes: {
+                    include: {
+                        user: {
+                            select: { id: true, name: true, avatar: true }
+                        }
+                    }
+                }
+            }
+        })
+    }
+
     async create(data: CreateDailyLogDto) {
         return this.prisma.dailyLog.create({
             data: {

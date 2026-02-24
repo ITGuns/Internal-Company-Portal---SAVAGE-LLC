@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { APP_CONFIG } from '@/lib/config';
+import { setAuthToken, setRefreshToken, setCurrentUser } from '@/lib/api';
 
 const DEV_USERS = [
     { email: 'john.doe@savage.com', name: 'John Doe', role: 'Admin - Engineering' },
@@ -19,7 +21,7 @@ export default function DevLoginPage() {
         setError('');
 
         try {
-            const res = await fetch('http://localhost:4000/auth/dev-login', {
+            const res = await fetch(`${APP_CONFIG.apiUrl}/auth/dev-login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email }),
@@ -28,18 +30,16 @@ export default function DevLoginPage() {
             const data = await res.json();
 
             if (data.success && data.tokens) {
-                // Store auth token and user data
-                localStorage.setItem('accessToken', data.tokens.accessToken);
-                localStorage.setItem('currentUser', JSON.stringify(data.user));
-
-                // Redirect to dashboard
+                setAuthToken(data.tokens.accessToken);
+                if (data.tokens.refreshToken) setRefreshToken(data.tokens.refreshToken);
+                setCurrentUser(data.user);
                 router.push('/dashboard');
             } else {
                 setError('Login failed. Please try again.');
             }
         } catch (err) {
             console.error('Dev login error:', err);
-            setError('Connection error. Make sure backend is running on port 4000.');
+            setError('Connection error. Make sure backend is running.');
         } finally {
             setLoading(false);
         }

@@ -7,7 +7,7 @@ import { FileText, Download, Printer } from "lucide-react";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import type { Payslip } from "@/lib/payroll-calendar/types";
-import { MOCK_EMPLOYEES } from "@/lib/payroll-calendar/mock-data";
+
 
 interface PayslipDetailsModalProps {
   isOpen: boolean;
@@ -24,8 +24,6 @@ export default function PayslipDetailsModal({
 }: PayslipDetailsModalProps) {
   if (!payslip) return null;
 
-  const employee = MOCK_EMPLOYEES.find((e) => e.id === payslip.employeeId);
-
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("en-US", {
       year: "numeric",
@@ -40,22 +38,20 @@ export default function PayslipDetailsModal({
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
-            {employee?.avatar || "?"}
+            {payslip.employeeName?.[0] ?? "?"}
           </div>
           <div className="flex-1">
             <h2 className="text-xl font-bold text-[var(--foreground)]">
               {payslip.employeeName}
             </h2>
-            <p className="text-sm text-[var(--muted)]">{employee?.role}</p>
           </div>
           <div
-            className={`px-3 py-1 rounded-full text-xs font-semibold ${
-              payslip.status === "paid"
+            className={`px-3 py-1 rounded-full text-xs font-semibold ${payslip.status === "paid"
                 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
                 : payslip.status === "issued"
-                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                : "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400"
-            }`}
+                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                  : "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400"
+              }`}
           >
             {payslip.status.charAt(0).toUpperCase() + payslip.status.slice(1)}
           </div>

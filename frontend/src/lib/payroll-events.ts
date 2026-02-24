@@ -1,12 +1,9 @@
 /**
  * Payroll Events Library
- * Manages payroll calendar events via Backend API with localStorage fallback
+ * Manages payroll calendar events via Backend API
  */
 
 import { apiFetch } from './api';
-
-const SECTION = 'payroll-events';
-const STORAGE_KEY = 'savage-payroll-events';
 
 export type PayrollEventType = 'payday' | 'holiday' | 'deadline' | 'meeting' | 'other';
 
@@ -19,27 +16,6 @@ export type PayrollEvent = {
   isBuiltIn?: boolean;
 };
 
-// localStorage fallback functions
-function getStoredEvents(): PayrollEvent[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveStoredEvents(events: PayrollEvent[]): void {
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
-    } catch (e) {
-      console.error('Failed to save events to localStorage:', e);
-    }
-  }
-}
-
 // Helper to map API data to Frontend interface
 const mapApiEvent = (data: any): PayrollEvent => ({
   id: data.id,
@@ -51,7 +27,7 @@ const mapApiEvent = (data: any): PayrollEvent => ({
 });
 
 /**
- * Fetch all payroll events from API with localStorage fallback
+ * Fetch all payroll events from API
  */
 export async function fetchPayrollEvents(startDate?: string, endDate?: string): Promise<PayrollEvent[]> {
   try {
@@ -65,15 +41,13 @@ export async function fetchPayrollEvents(startDate?: string, endDate?: string): 
       return data.map(mapApiEvent);
     }
   } catch (error) {
-    console.warn('API not available, falling back to localStorage for payroll events');
+    console.error('Failed to fetch payroll events:', error);
   }
-  
-  // Fallback to localStorage
-  return getStoredEvents();
+  return [];
 }
 
 /**
- * Create a new payroll event with localStorage fallback
+ * Create a new payroll event
  */
 export async function createPayrollEvent(event: Omit<PayrollEvent, 'id'>): Promise<PayrollEvent | null> {
   try {
@@ -92,23 +66,13 @@ export async function createPayrollEvent(event: Omit<PayrollEvent, 'id'>): Promi
       return mapApiEvent(data);
     }
   } catch (error) {
-    console.warn('API not available, falling back to localStorage for payroll events');
-    
-    // Fallback to localStorage
-    const events = getStoredEvents();
-    const newEvent: PayrollEvent = {
-      ...event,
-      id: `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    };
-    const updatedEvents = [...events, newEvent];
-    saveStoredEvents(updatedEvents);
-    return newEvent;
+    console.error('Failed to create payroll event:', error);
   }
   return null;
 }
 
 /**
- * Update a payroll event with localStorage fallback
+ * Update a payroll event
  */
 export async function updatePayrollEvent(id: string, updates: Partial<Omit<PayrollEvent, 'id'>>): Promise<PayrollEvent | null> {
   try {
@@ -125,44 +89,22 @@ export async function updatePayrollEvent(id: string, updates: Partial<Omit<Payro
       return mapApiEvent(data);
     }
   } catch (error) {
-    console.warn('API not available, falling back to localStorage for payroll events');
-    
-    // Fallback to localStorage
-    const events = getStoredEvents();
-    const eventIndex = events.findIndex(e => e.id === id);
-    if (eventIndex !== -1) {
-      const updatedEvent = { ...events[eventIndex], ...updates };
-      events[eventIndex] = updatedEvent;
-      saveStoredEvents(events);
-      return updatedEvent;
-    }
+    console.error('Failed to update payroll event:', error);
   }
   return null;
 }
 
 /**
- * Delete a payroll event with localStorage fallback
+ * Delete a payroll event
  */
 export async function deletePayrollEvent(id: string): Promise<boolean> {
   try {
     const res = await apiFetch(`/payroll/events/${id}`, {
       method: 'DELETE'
     });
-    return res.status === 200;
+    return res.status === 200 || res.status === 204;
   } catch (error) {
-    console.warn('API not available, falling back to localStorage for payroll events');
-    
-    // Fallback to localStorage
-    const events = getStoredEvents();
-    const filteredEvents = events.filter(e => e.id !== id);
-    if (filteredEvents.length !== events.length) {
-      saveStoredEvents(filteredEvents);
-      return true;
-    }
-    return false;
+    console.error('Failed to delete payroll event:', error);
   }
+  return false;
 }
-
-// Deprecated functions (kept for compatibility during migration, but should result in errors/no-ops if called synchronously expectation)
-// We removed loadPayrollEvents and savePayrollEvents.
-

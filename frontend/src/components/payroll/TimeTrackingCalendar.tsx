@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Cake, Clock, CheckCircle2, Calendar, Loader2 } from "lucide-react";
-import type { Employee, TimeEntry, LeaveRecord } from "@/lib/payroll-calendar/types";
+import { ChevronLeft, ChevronRight, Cake, CheckCircle2, Calendar, Loader2 } from "lucide-react";
+import type { Employee, LeaveRecord, CompletedTask } from "@/lib/payroll-calendar/types";
 import { fetchTimeEntries } from "@/lib/time-entries";
-import { MOCK_LEAVE_RECORDS, MOCK_COMPLETED_TASKS } from "@/lib/payroll-calendar/mock-data";
-import DayDetailsModal from "./DayDetailsModal";
+
+import DayDetailsModal, { type DayTimeEntry } from "./DayDetailsModal";
 
 interface TimeTrackingCalendarProps {
   employee: Employee | null;
@@ -59,15 +59,8 @@ export default function TimeTrackingCalendar({
         const startOfMonth = new Date(year, month, 1).toISOString();
         const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
 
-        // Use the fetchTimeEntries with an explicit userId if supported or via query param
-        // My previous edit to controller allowed ?userId=...
-        const res = await fetchTimeEntries(startOfMonth, endOfMonth);
-        // We'll need to filter by employeeId if my fetchTimeEntries utility doesn't accept userId.
-        // Let's assume for now it fetches for currently logged in user, 
-        // but for manager view we need it to accept userId.
-
-        // Since I can't easily change fetchTimeEntries signature without updating many files,
-        // I'll used apiFetch directly here or just use the local state if it's the right user.
+        // Pass employee.id so admins/managers see the selected employee's data
+        const res = await fetchTimeEntries(startOfMonth, endOfMonth, String(employee.id));
         setTimeEntries(res);
       } catch (err) {
         console.error("Failed to fetch entries", err);
@@ -79,10 +72,10 @@ export default function TimeTrackingCalendar({
     fetchEntries();
   }, [employee, month, year]);
 
+  // Leave records — no mock data; real API to be wired later
   const employeeLeaveRecords = useMemo(() => {
-    if (!employee) return [];
-    return MOCK_LEAVE_RECORDS.filter((record) => record.employeeId === employee.id);
-  }, [employee]);
+    return [] as ReturnType<typeof Array.prototype.filter>;
+  }, []);
 
   // Calculate total hours and salary for the month
   const { totalHours, monthlySalary } = useMemo(() => {
@@ -123,29 +116,29 @@ export default function TimeTrackingCalendar({
     return birthday.getMonth() === month && birthday.getDate() === day;
   };
 
-  // Get time entry for specific date
-  const getTimeEntry = (dateStr: string) => {
-    const entry = timeEntries.find((e) => e.start.startsWith(dateStr));
-    if (!entry) return null;
+  // Get aggregated time entry for a specific date (sums all sessions that day)
+  const getTimeEntry = (dateStr: string): DayTimeEntry | null => {
+    const dayEntries = timeEntries.filter((e) => e.start.startsWith(dateStr));
+    if (dayEntries.length === 0) return null;
 
-    // Map backend/frontend time-entry to what the template expects
+    const totalMinutes = dayEntries.reduce((sum, e) => sum + (e.durationMin || 0), 0);
+
     return {
-      id: entry.id,
-      employeeId: employee!.id,
       date: dateStr,
-      hours: entry.durationMin ? entry.durationMin / 60 : 0,
       type: "work" as const,
-      notes: entry.notes
+      hours: totalMinutes / 60,
+      sessions: dayEntries.map((e) => ({
+        id: e.id,
+        start: e.start,
+        end: e.end,
+        durationMin: e.durationMin,
+      })),
     };
   };
 
-  // Get tasks for specific date
-  const getTasksForDate = (dateStr: string) => {
-    if (!employee) return [];
-    // Convert IDs to strings for comparison if needed
-    return MOCK_COMPLETED_TASKS.filter(
-      (task: any) => String(task.employeeId) === String(employee.id) && task.date === dateStr
-    );
+  // Tasks — no mock data; returns empty until real API is wired
+  const getTasksForDate = (_dateStr: string): CompletedTask[] => {
+    return [];
   };
 
   // Handle day click
@@ -207,14 +200,63 @@ export default function TimeTrackingCalendar({
         <button
           key={day}
           onClick={() => handleDayClick(dateStr)}
-          className={`h-16 md:h-20 ${bgClass} ${borderClass} rounded-xl p-2 text-left hover:shadow-lg hover:scale-[1.02] transition-all duration-200 relative group cursor-pointer`}
+          className={`h-24 md:h-28 ${bgClass} ${borderClass} rounded-xl p-1.5 text-left hover:shadow-lg hover:scale-[1.02] transition-all duration-200 relative group cursor-pointer flex flex-col`}
         >
-          {/* Day number */}
-          <div className="text-sm font-medium text-[var(--foreground)]">{day}</div>
+          {/* Day number + total hours inline */}
+          <div className="flex items-center justify-between mb-0.5 flex-shrink-0">
+            <span className="text-sm font-medium text-[var(--foreground)]">{day}</span>
+            {timeEntry?.hours != null && timeEntry.hours > 0 && (
+              <span className="text-[9px] font-bold text-sky-500 dark:text-sky-400">
+                {timeEntry.hours.toFixed(1)}h
+              </span>
+            )}
+          </div>
+
+          {/* Per-session IN/OUT markers */}
+          {timeEntry?.sessions && timeEntry.sessions.length > 0 && (
+            <div className="flex flex-col gap-[2px] flex-1 overflow-hidden">
+              {timeEntry.sessions.map((session, idx) => {
+                const inTime = new Date(session.start).toLocaleTimeString([], {
+                  hour: "2-digit", minute: "2-digit", hour12: false,
+                });
+                const outTime = session.end
+                  ? new Date(session.end).toLocaleTimeString([], {
+                    hour: "2-digit", minute: "2-digit", hour12: false,
+                  })
+                  : null;
+
+                return (
+                  <React.Fragment key={session.id}>
+                    {idx > 0 && <div className="border-t border-white/10 my-[1px]" />}
+                    {/* Clock In */}
+                    <div className="flex items-center bg-emerald-600/90 text-white rounded px-1 py-[1px]">
+                      <span className="text-[8px] leading-tight font-bold tracking-tight">
+                        🟢 {inTime}
+                      </span>
+                    </div>
+                    {/* Clock Out or running */}
+                    {outTime ? (
+                      <div className="flex items-center bg-red-600/90 text-white rounded px-1 py-[1px]">
+                        <span className="text-[8px] leading-tight font-bold tracking-tight">
+                          🔴 {outTime}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center bg-emerald-500/50 text-white rounded px-1 py-[1px]">
+                        <span className="text-[8px] leading-tight font-semibold animate-pulse">
+                          ● running
+                        </span>
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          )}
 
           {/* Vacation striped pattern */}
           {leaveRecord?.type === "vacation" && filters.vacation && (
-            <div className="absolute inset-0 opacity-20">
+            <div className="absolute inset-0 opacity-20 pointer-events-none rounded-xl overflow-hidden">
               <svg width="100%" height="100%">
                 <defs>
                   <pattern id={`stripes-${day}`} patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
@@ -228,34 +270,27 @@ export default function TimeTrackingCalendar({
 
           {/* Birthday indicator */}
           {hasBirthday && (
-            <div className="absolute top-1 right-1 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-full p-1.5 shadow-md">
-              <Cake className="w-3 h-3 text-white" />
+            <div className="absolute top-1 right-1 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-full p-1 shadow-md">
+              <Cake className="w-2.5 h-2.5 text-white" />
             </div>
           )}
 
-          {/* Badges for hours and tasks */}
-          {timeEntry?.hours && timeEntry.hours > 0 && (
-            <div className="absolute bottom-1 left-1 flex items-center gap-1 bg-gradient-to-r from-blue-500 to-sky-500 dark:from-blue-600 dark:to-sky-600 text-white px-2 py-1 rounded-md text-xs font-bold shadow-md">
-              <Clock className="w-3 h-3" />
-              <span>{timeEntry.hours}h</span>
-            </div>
-          )}
-
+          {/* Task badge */}
           {tasksForDay.length > 0 && (
-            <div className="absolute bottom-1 right-1 flex items-center gap-1 bg-gradient-to-r from-emerald-500 to-teal-500 dark:from-emerald-600 dark:to-teal-600 text-white px-2 py-1 rounded-md text-xs font-bold shadow-md">
-              <CheckCircle2 className="w-3 h-3" />
+            <div className="absolute bottom-1 right-1 flex items-center gap-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-1.5 py-0.5 rounded text-[9px] font-bold shadow">
+              <CheckCircle2 className="w-2.5 h-2.5" />
               <span>{tasksForDay.length}</span>
             </div>
           )}
 
-          {/* Leave indicator - only show if no work hours */}
+          {/* Leave indicator — only show if no work hours */}
           {leaveRecord && !timeEntry?.hours && (
-            <div className="absolute bottom-1 left-1 text-xs font-medium text-[var(--muted)]">
+            <div className="mt-auto text-xs font-medium text-[var(--muted)]">
               {leaveRecord.type === "vacation" ? "🏖️" : "😷"}
             </div>
           )}
 
-          {/* Hover tooltip */}
+          {/* Hover overlay */}
           <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg pointer-events-none" />
         </button>
       );

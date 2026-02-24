@@ -28,6 +28,7 @@ export interface EmailResult {
 export interface WelcomeEmailData {
     userName: string;
     userEmail: string;
+    password?: string;
     loginUrl: string;
 }
 

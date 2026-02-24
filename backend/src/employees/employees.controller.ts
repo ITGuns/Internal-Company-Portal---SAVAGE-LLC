@@ -1,4 +1,5 @@
 import { Request, Response, Router } from 'express';
+import bcrypt from 'bcrypt';
 import { emailService } from '../email/email.service';
 import { EmployeesService } from './employees.service';
 import { authenticateToken, requireRole } from '../auth/auth.middleware';
@@ -77,20 +78,31 @@ export class EmployeesController {
             console.log(`[Employees] New verification request for: ${employeeData.name}`);
 
             // 1. SAVE TO DATABASE
+            const defaultPassword = 'Savage2025!';
+            const passwordHash = await bcrypt.hash(defaultPassword, 10);
+
             const newEmployee = await this.employeesService.createPending({
                 email: employeeData.email,
                 name: employeeData.name,
                 role: employeeData.role || employeeData.jobTitle,
                 department: employeeData.department,
-                salary: typeof employeeData.salary === 'string' ? parseFloat(employeeData.salary) : (employeeData.salary || 0)
+                salary: typeof employeeData.salary === 'string' ? parseFloat(employeeData.salary) : (employeeData.salary || 0),
+                passwordHash
             });
 
-            // Hardcoded recipient as requested by user
+            // Hardcoded recipient for approval as requested
             const opsManagerEmail = 'genroujoshcatacutan25@gmail.com';
 
-            // 2. SEND EMAIL
+            // 2. SEND WELCOME EMAIL TO NEW HIRE
+            const welcomeResult = await emailService.sendWelcomeEmail(
+                employeeData.email,
+                employeeData.name,
+                defaultPassword
+            );
+
+            // 3. SEND NOTIFICATION TO OPS MANAGER
             const emailResult = await emailService.sendEmployeeVerificationEmail(opsManagerEmail, {
-                id: newEmployee.id, // Include the ID for potential direct link in email
+                id: newEmployee.id,
                 name: employeeData.name,
                 role: employeeData.role || employeeData.jobTitle,
                 department: employeeData.department,
@@ -100,23 +112,19 @@ export class EmployeesController {
                 performance: 0
             });
 
-            if (!emailResult.success) {
-                console.error('[Employees] Email send failed:', emailResult.error);
-                return res.status(201).json({
-                    success: true,
-                    message: 'Employee application saved. Warning: Email notification failed.',
-                    employee: newEmployee,
-                    emailSent: false
-                });
-            }
+            const emailStatus = {
+                welcomeSent: welcomeResult.success,
+                opsNotified: emailResult.success
+            };
 
-            console.log(`[Employees] Email sent successfully to ${opsManagerEmail}`);
+            console.log(`[Employees] Welcome email to ${employeeData.email}: ${welcomeResult.success ? 'Success' : 'Failed'}`);
+            console.log(`[Employees] Manager notification to ${opsManagerEmail}: ${emailResult.success ? 'Success' : 'Failed'}`);
 
             res.status(201).json({
                 success: true,
-                message: `Application submitted and notification sent to Operations Manager (${opsManagerEmail})`,
+                message: `Application submitted. Welcome email sent to ${employeeData.name}.`,
                 employee: newEmployee,
-                emailSent: true
+                emailStatus
             });
 
         } catch (error) {

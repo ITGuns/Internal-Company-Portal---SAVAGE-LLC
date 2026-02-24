@@ -2,7 +2,7 @@
  * Calendar Tab - main payroll calendar view with time tracking
  */
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -36,6 +36,25 @@ interface CalendarTabProps {
   onDeleteTimeEntry: (id: string) => void;
 }
 
+/** Format total seconds into "Xh XXm XXs" or "Xm XXs" */
+function formatElapsed(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) {
+    return `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
+  }
+  return `${m}m ${String(s).padStart(2, "0")}s`;
+}
+
+/** Format completed minutes into "Xh Xm" or "Xm" */
+function formatMinutes(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
 export default function CalendarTab({
   displayEvents,
   events,
@@ -52,31 +71,26 @@ export default function CalendarTab({
 }: CalendarTabProps) {
   const calendarRef = useRef<FullCalendar>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  // Ticks every second so active timers update live
+  const [now, setNow] = useState(() => new Date());
 
-  // Calculate today's total time
-  const todayTotal = (() => {
-    const today = getLocalDateString(new Date());
-    const mins = timeEntries.reduce((acc, e) => {
-      const startDay = getLocalDateString(e.start);
-      if (startDay !== today) return acc;
-      if (e.durationMin != null) return acc + e.durationMin;
-      const end = e.end ? new Date(e.end) : new Date();
-      return (
-        acc +
-        Math.max(
-          0,
-          Math.round((end.getTime() - new Date(e.start).getTime()) / 60000)
-        )
-      );
-    }, 0);
-    return `${mins}m`;
-  })();
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // Filter today's entries
   const todayEntries = (() => {
     const today = getLocalDateString(new Date());
     return timeEntries.filter((e) => getLocalDateString(e.start) === today);
   })();
+
+  // Calculate today's total — completed entries use durationMin, active entry uses live elapsed
+  const todayTotalSeconds = todayEntries.reduce((acc, e) => {
+    if (e.durationMin != null) return acc + e.durationMin * 60;
+    // Active entry (no end) — count live elapsed seconds
+    return acc + Math.max(0, Math.round((now.getTime() - new Date(e.start).getTime()) / 1000));
+  }, 0);
 
   return (
     <>
@@ -123,30 +137,56 @@ export default function CalendarTab({
           <span className="w-3 h-3 rounded-full bg-indigo-500" /> Meeting
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-sky-500" /> Time
+          <span className="w-3 h-3 rounded-full bg-emerald-600" /> 🟢 Clock In
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-red-600" /> 🔴 Clock Out
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-sky-600" /> ⏱ Day Total
         </div>
       </div>
 
       {/* Calendar + Sidebar Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Calendar */}
+        {/* FullCalendar */}
         <div className="lg:col-span-2">
           <div className="rounded border border-[var(--border)] bg-[var(--card-bg)] p-4">
             <FullCalendar
               ref={calendarRef}
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView="dayGridMonth"
-              initialDate={new Date().toISOString().split('T')[0]}
+              initialDate={new Date().toISOString().split("T")[0]}
               headerToolbar={false}
               events={displayEvents}
               eventContent={(arg) => {
                 const evt = arg.event;
                 const t = evt.extendedProps?.type;
+                const isClockEntry = evt.extendedProps?.clockEntry;
+                const direction = evt.extendedProps?.direction;
+
+                if (isClockEntry) {
+                  // Direction-specific colours: green=in, red=out, blue=total
+                  const bg =
+                    direction === "in"
+                      ? "bg-emerald-600 dark:bg-emerald-700"
+                      : direction === "out"
+                        ? "bg-red-600 dark:bg-red-700"
+                        : "bg-sky-600 dark:bg-sky-700";
+                  return (
+                    <div
+                      className={`px-1.5 py-0.5 rounded text-white text-[10px] w-full truncate overflow-hidden font-medium flex items-center gap-1 ${bg}`}
+                      title={evt.title + " (permanent record)"}
+                    >
+                      <span className="truncate">{evt.title}</span>
+                      <span className="text-white/50 ml-auto text-[9px] flex-shrink-0">🔒</span>
+                    </div>
+                  );
+                }
+
                 return (
                   <div
-                    className={`px-2 py-1 rounded text-white text-xs w-full truncate overflow-hidden ${colorForType(
-                      t
-                    )}`}
+                    className={`px-2 py-1 rounded text-white text-xs w-full truncate overflow-hidden ${colorForType(t)}`}
                   >
                     {evt.title}
                   </div>
@@ -154,9 +194,10 @@ export default function CalendarTab({
               }}
               datesSet={(info) => onTitleChange(info.view.title)}
               dateClick={(info) => setSelectedDate(info.dateStr)}
-              eventClick={(info) =>
-                setSelectedDate(info.event.startStr)
-              }
+              eventClick={(info) => {
+                // Clock entries just highlight the date — no detail panel
+                setSelectedDate(info.event.startStr);
+              }}
               height={600}
             />
           </div>
@@ -164,129 +205,145 @@ export default function CalendarTab({
 
         {/* Sidebar */}
         <div>
-          {/* Time Clock */}
+          {/* ── Time Clock ── */}
           <div className="rounded border border-[var(--border)] bg-[var(--card-surface)] p-4 mb-4">
-            <div className="flex items-center justify-between">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-3">
               <div className="text-sm font-semibold">Time Clock</div>
-              {clockedIn ? (
+              {clockedIn && (
                 <div className="inline-flex items-center gap-2 bg-emerald-600 text-white text-xs px-2 py-1 rounded-full">
                   <span className="w-2 h-2 rounded-full bg-white/90 animate-pulse inline-block" />
                   <span>Clocked In</span>
                 </div>
-              ) : null}
+              )}
             </div>
-            <div className="mt-3 text-sm text-[var(--muted)]">
-              <div className="flex items-center gap-3 mb-3">
-                {!clockedIn ? (
-                  <button
-                    onClick={onClockIn}
-                    className="px-4 py-2 rounded bg-emerald-600 text-white flex items-center gap-2"
-                  >
-                    <Clock className="w-4 h-4" aria-hidden="true" />
-                    Clock In
-                  </button>
-                ) : (
-                  <button
-                    onClick={onClockOut}
-                    className="px-4 py-2 rounded bg-red-600 text-white flex items-center gap-2"
-                  >
-                    <Square className="w-4 h-4" aria-hidden="true" />
-                    Clock Out
-                  </button>
-                )}
 
+            {/* Clock In / Out buttons */}
+            <div className="flex items-center gap-3 mb-4">
+              {!clockedIn ? (
                 <button
-                  onClick={onAddManualEntry}
-                  className="px-3 py-2 rounded border border-[var(--border)] bg-[var(--card-bg)] hover:bg-[var(--card-surface)] transition-colors flex items-center gap-2"
+                  onClick={onClockIn}
+                  className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 transition-colors"
                 >
-                  <Plus className="w-4 h-4" />
-                  Manual
+                  <Clock className="w-4 h-4" aria-hidden="true" />
+                  Clock In
                 </button>
-              </div>
-
-              <div className="mb-3">
-                <div className="text-xs text-[var(--muted)]">Today&apos;s Total</div>
-                <div className="text-lg font-semibold">{todayTotal}</div>
-              </div>
-
-              <div className="text-xs text-[var(--muted)] mb-2">
-                TODAY&apos;S ENTRIES
-              </div>
-              <ul className="space-y-2">
-                {todayEntries.map((e) => {
-                  const start = new Date(e.start);
-                  const end = e.end ? new Date(e.end) : null;
-                  const label = end
-                    ? `${start.toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })} - ${end.toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}`
-                    : `${start.toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })} - --:--`;
-                  const mins =
-                    e.durationMin != null
-                      ? e.durationMin
-                      : end
-                        ? Math.max(
-                          0,
-                          Math.round(
-                            (end.getTime() - start.getTime()) / 60000
-                          )
-                        )
-                        : 0;
-                  return (
-                    <li
-                      key={e.id}
-                      className="flex items-center justify-between gap-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="w-2 h-2 rounded-full bg-sky-500" />
-                        <div className="text-sm">{label}</div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-xs text-[var(--muted)]">
-                          {end ? `${mins}m` : "In progress"}
-                        </div>
-                        <button
-                          aria-label="Delete entry"
-                          onClick={() => onDeleteTimeEntry(e.id)}
-                          className="p-1 rounded border bg-[var(--card-bg)] text-[var(--muted)] hover:bg-red-600 hover:text-white transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+              ) : (
+                <button
+                  onClick={onClockOut}
+                  className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white flex items-center gap-2 transition-colors"
+                >
+                  <Square className="w-4 h-4" aria-hidden="true" />
+                  Clock Out
+                </button>
+              )}
+              <button
+                onClick={onAddManualEntry}
+                className="px-3 py-2 rounded border border-[var(--border)] bg-[var(--card-bg)] hover:bg-[var(--card-surface)] transition-colors flex items-center gap-2 text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                Manual
+              </button>
             </div>
+
+            {/* Live today's total */}
+            <div className="mb-4">
+              <div className="text-xs text-[var(--muted)] mb-0.5">Today&apos;s Total</div>
+              <div className={`text-xl font-bold font-mono tabular-nums ${clockedIn ? "text-emerald-500" : "text-[var(--foreground)]"}`}>
+                {formatElapsed(todayTotalSeconds)}
+              </div>
+            </div>
+
+            {/* Today's entry list */}
+            <div className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-2">
+              Today&apos;s Entries
+            </div>
+            <ul className="space-y-2">
+              {todayEntries.length === 0 && (
+                <li className="text-xs text-[var(--muted)] italic">No entries yet today.</li>
+              )}
+              {todayEntries.map((e) => {
+                const start = new Date(e.start);
+                const end = e.end ? new Date(e.end) : null;
+                const isActive = !end;
+
+                const elapsedSecs = isActive
+                  ? Math.max(0, Math.round((now.getTime() - start.getTime()) / 1000))
+                  : null;
+
+                const clockInStr = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                const clockOutStr = end
+                  ? end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                  : null;
+
+                const completedMins =
+                  e.durationMin != null
+                    ? e.durationMin
+                    : end
+                      ? Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000))
+                      : null;
+
+                return (
+                  <li
+                    key={e.id}
+                    className={`flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 ${isActive ? "bg-emerald-500/10 border border-emerald-500/30" : "bg-[var(--card-bg)]"}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className={`w-2 h-2 flex-shrink-0 rounded-full ${isActive ? "bg-emerald-500 animate-pulse" : "bg-sky-500"}`}
+                      />
+                      <div className="text-sm font-medium text-[var(--foreground)] truncate">
+                        {/* Clock-in time → clock-out time (live if active) */}
+                        {clockInStr}
+                        {clockOutStr ? (
+                          <span className="text-[var(--muted)]"> → {clockOutStr}</span>
+                        ) : (
+                          <span className="text-emerald-500 font-mono">
+                            {" "}→ {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Duration — ticking for active entry */}
+                      <span className={`text-xs font-mono tabular-nums ${isActive ? "text-emerald-500 font-semibold" : "text-[var(--muted)]"}`}>
+                        {isActive && elapsedSecs !== null
+                          ? formatElapsed(elapsedSecs)
+                          : completedMins !== null
+                            ? formatMinutes(completedMins)
+                            : "—"}
+                      </span>
+                      <button
+                        aria-label="Delete entry"
+                        onClick={() => onDeleteTimeEntry(e.id)}
+                        className="p-1 rounded border border-transparent bg-transparent text-[var(--muted)] hover:bg-red-600 hover:text-white transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
 
-          {/* Event Details */}
+          {/* ── Event Details ── */}
           <div className="rounded border border-[var(--border)] bg-[var(--card-surface)] p-4 mb-4">
             <div className="text-sm font-semibold">
               {selectedDate
-                ? new Date(selectedDate).toLocaleDateString(
-                  undefined,
-                  {
-                    weekday: "long",
-                    month: "long",
-                    day: "numeric",
-                  }
-                )
+                ? new Date(selectedDate).toLocaleDateString(undefined, {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                })
                 : "Event Details"}
             </div>
             <div className="mt-3">
               {selectedDate ? (
                 (() => {
-                  const dateStr = selectedDate;
                   const eventsForDate = events.filter(
-                    (e: CalendarEvent) => e.start === dateStr
+                    (e: CalendarEvent) => e.start === selectedDate
                   );
                   return eventsForDate.length ? (
                     eventsForDate.map((e: CalendarEvent) => (
@@ -298,37 +355,28 @@ export default function CalendarTab({
                       />
                     ))
                   ) : (
-                    <div className="text-[var(--muted)]">
-                      No events on this date.
-                    </div>
+                    <div className="text-[var(--muted)] text-sm">No events on this date.</div>
                   );
                 })()
               ) : (
-                <div className="text-[var(--muted)]">
+                <div className="text-[var(--muted)] text-sm">
                   Select a date on the calendar to view details.
                 </div>
               )}
             </div>
           </div>
 
-          {/* Upcoming Events */}
+          {/* ── Upcoming Events ── */}
           <div className="rounded border border-[var(--border)] bg-[var(--card-surface)] p-4">
-            <div className="text-sm font-semibold">Upcoming Events</div>
-            <ul className="mt-3 space-y-3">
+            <div className="text-sm font-semibold mb-3">Upcoming Events</div>
+            <ul className="space-y-3">
               {events
                 .filter((e: CalendarEvent) => e.extendedProps.type !== "time")
                 .sort((a: CalendarEvent, b: CalendarEvent) => a.start.localeCompare(b.start))
                 .map((e: CalendarEvent) => (
-                  <li
-                    key={e.id}
-                    className="flex items-start justify-between gap-2"
-                  >
+                  <li key={e.id} className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-3">
-                      <span
-                        className={`w-3 h-3 rounded-full ${dotForType(
-                          e.extendedProps.type
-                        )}`}
-                      />
+                      <span className={`w-3 h-3 rounded-full flex-shrink-0 ${dotForType(e.extendedProps.type)}`} />
                       <div>
                         <div className="text-sm">{e.title}</div>
                         <div className="text-xs text-[var(--muted)]">
@@ -339,7 +387,7 @@ export default function CalendarTab({
                         </div>
                       </div>
                     </div>
-                    <div className="text-xs text-[var(--muted)]">
+                    <div className="text-xs text-[var(--muted)] flex-shrink-0">
                       {new Date(e.start).toLocaleDateString()}
                     </div>
                   </li>

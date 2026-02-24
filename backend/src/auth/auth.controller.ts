@@ -70,6 +70,58 @@ export class AuthController {
             }
         )
 
+        // Standard Email/Password Login
+        router.post('/login', async (req: Request, res: Response) => {
+            const { email, password } = req.body
+
+            if (!email || !password) {
+                return res.status(400).json({ error: 'Email and password required' })
+            }
+
+            try {
+                const { prisma } = await import('../database/prisma.service');
+                const bcrypt = await import('bcrypt');
+
+                const user = await prisma.user.findUnique({
+                    where: { email },
+                    include: { roles: true }
+                })
+
+                if (!user || !user.password) {
+                    return res.status(401).json({ error: 'Invalid credentials' })
+                }
+
+                const valid = await bcrypt.compare(password, user.password)
+                if (!valid) {
+                    return res.status(401).json({ error: 'Invalid credentials' })
+                }
+
+                const tokens = JwtService.generateTokenPair({
+                    userId: user.id,
+                    email: user.email,
+                    name: user.name || undefined,
+                })
+
+                // Map roles for cleaner frontend usage
+                const roleList = user.roles.map(r => r.role)
+                const primaryRole = roleList.includes('admin') ? 'admin' : roleList[0] || 'member'
+
+                res.json({
+                    success: true,
+                    user: {
+                        ...user,
+                        password: '', // Redact password
+                        role: primaryRole,
+                        roles: roleList
+                    },
+                    tokens,
+                })
+            } catch (error) {
+                console.error('Login failed:', error)
+                res.status(500).json({ error: 'Login failed' })
+            }
+        })
+
         // Refresh token endpoint
         router.post('/refresh', (req: Request, res: Response) => {
             const { refreshToken } = req.body
@@ -103,15 +155,25 @@ export class AuthController {
                 const { prisma } = await import('../database/prisma.service');
 
                 const user = await prisma.user.findUnique({
-                    where: { id: authReq.user.userId }
+                    where: { id: authReq.user.userId },
+                    include: { roles: true }
                 })
 
                 if (!user) {
                     return res.status(401).json({ error: 'User no longer exists' })
                 }
 
+                // Map roles for cleaner frontend usage
+                const roleList = user.roles.map(r => r.role)
+                const primaryRole = roleList.includes('admin') ? 'admin' : roleList[0] || 'member'
+
                 res.json({
-                    user: user, // Return fresh user data from DB
+                    user: {
+                        ...user,
+                        password: '', // Redact password
+                        role: primaryRole,
+                        roles: roleList
+                    },
                 })
             } catch (error) {
                 console.error('Failed to fetch user in /me:', error)
@@ -149,7 +211,8 @@ export class AuthController {
 
                 // Try to find user, or create if missing (Dev convenience)
                 let user = await prisma.user.findUnique({
-                    where: { email }
+                    where: { email },
+                    include: { roles: true }
                 })
 
                 if (!user) {
@@ -159,19 +222,15 @@ export class AuthController {
                             email,
                             name: 'Admin User',
                             avatar: `https://ui-avatars.com/api/?name=Admin+User&background=random`,
-                            status: 'active'
-                        }
+                            status: 'active',
+                            isApproved: true
+                        },
+                        include: { roles: true }
                     })
                 }
 
                 // Ensure the user has the 'admin' role in UserRole table for RBAC to work
-                const existingRole = await prisma.userRole.findFirst({
-                    where: {
-                        userId: user.id,
-                        role: 'admin',
-                        departmentId: null
-                    }
-                })
+                const existingRole = user.roles.find(r => r.role === 'admin' && r.departmentId === null);
 
                 if (!existingRole) {
                     await prisma.userRole.create({
@@ -181,17 +240,30 @@ export class AuthController {
                             departmentId: null
                         }
                     })
+                    // Refresh user data with roles
+                    user = await prisma.user.findUnique({
+                        where: { id: user.id },
+                        include: { roles: true }
+                    }) as any
                 }
 
                 const tokens = JwtService.generateTokenPair({
-                    userId: user.id,
-                    email: user.email,
-                    name: user.name || undefined,
+                    userId: user!.id,
+                    email: user!.email,
+                    name: user!.name || undefined,
                 })
+
+                const roleList = user!.roles.map(r => r.role)
+                const primaryRole = roleList.includes('admin') ? 'admin' : roleList[0] || 'member'
 
                 res.json({
                     success: true,
-                    user,
+                    user: {
+                        ...user,
+                        password: '',
+                        role: primaryRole,
+                        roles: roleList
+                    },
                     tokens
                 })
             } catch (error) {

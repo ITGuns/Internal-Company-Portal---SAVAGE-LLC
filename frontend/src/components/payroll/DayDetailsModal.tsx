@@ -1,19 +1,54 @@
 /**
  * Day Details Modal - shows hours worked and tasks completed for a specific day
+ * Reads real clock-in/out data from the TimeEntry sessions for that day.
  */
 
 import React from "react";
 import { Clock, CheckCircle2 } from "lucide-react";
 import Modal from "@/components/Modal";
-import type { TimeEntry, CompletedTask } from "@/lib/payroll-calendar/types";
+import type { CompletedTask } from "@/lib/payroll-calendar/types";
+
+/** One session row (from the actual backend TimeEntry) */
+export interface DayTimeSession {
+  id: string;
+  start: string;        // ISO string
+  end?: string;         // ISO string — undefined if still running
+  durationMin?: number; // server-calculated minutes
+}
+
+/** Aggregated summary passed to the modal */
+export interface DayTimeEntry {
+  date: string;
+  type: "work" | "leave" | "sick";
+  hours: number;          // total hours for the day
+  sessions: DayTimeSession[];
+}
 
 interface DayDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   date: string;
-  timeEntry: TimeEntry | null;
+  timeEntry: DayTimeEntry | null;
   tasks: CompletedTask[];
   employeeName: string;
+}
+
+// Format an ISO string to a readable time e.g. "09:32 AM"
+function fmtTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+// Format minutes to "Xh Ym"
+function fmtDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
 }
 
 export default function DayDetailsModal({
@@ -24,7 +59,6 @@ export default function DayDetailsModal({
   tasks,
   employeeName,
 }: DayDetailsModalProps) {
-  // Format date for display
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.toLocaleDateString("en-US", {
@@ -34,6 +68,8 @@ export default function DayDetailsModal({
       day: "numeric",
     });
   };
+
+  const hasSessions = timeEntry && timeEntry.sessions.length > 0;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Day Details" size="md">
@@ -57,30 +93,70 @@ export default function DayDetailsModal({
             </h3>
           </div>
           <div className="bg-gradient-to-br from-blue-50 to-sky-50 dark:from-blue-950/40 dark:to-sky-950/40 rounded-xl p-4 border border-blue-200 dark:border-blue-800/40 shadow-sm">
-            {timeEntry && timeEntry.type === "work" ? (
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-[var(--muted)]">Clock In:</span>
-                  <span className="text-sm font-medium text-[var(--foreground)]">
-                    {timeEntry.clockIn}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-[var(--muted)]">Clock Out:</span>
-                  <span className="text-sm font-medium text-[var(--foreground)]">
-                    {timeEntry.clockOut}
-                  </span>
-                </div>
-                <div className="pt-2 mt-2 border-t border-blue-200 dark:border-blue-800/40">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-semibold text-[var(--foreground)]">
-                      Total Hours:
-                    </span>
-                    <span className="text-lg font-bold bg-gradient-to-r from-blue-600 to-sky-600 dark:from-blue-400 dark:to-sky-400 bg-clip-text text-transparent">
-                      {timeEntry.hours}h
-                    </span>
+            {hasSessions ? (
+              <div className="space-y-3">
+                {timeEntry!.sessions.map((session, i) => {
+                  const sessionMinutes =
+                    session.durationMin ??
+                    (session.end
+                      ? Math.round(
+                        (new Date(session.end).getTime() -
+                          new Date(session.start).getTime()) /
+                        60000
+                      )
+                      : null);
+
+                  return (
+                    <div key={session.id} className="space-y-1.5">
+                      {timeEntry!.sessions.length > 1 && (
+                        <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                          Session {i + 1}
+                        </p>
+                      )}
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-[var(--muted)]">Clock In:</span>
+                        <span className="text-sm font-medium text-[var(--foreground)]">
+                          {fmtTime(session.start)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-[var(--muted)]">Clock Out:</span>
+                        <span className="text-sm font-medium text-[var(--foreground)]">
+                          {session.end ? fmtTime(session.end) : (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold animate-pulse">
+                              Currently clocked in
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      {sessionMinutes != null && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-[var(--muted)]">Duration:</span>
+                          <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                            {fmtDuration(sessionMinutes)}
+                          </span>
+                        </div>
+                      )}
+                      {i < timeEntry!.sessions.length - 1 && (
+                        <hr className="border-blue-200 dark:border-blue-800/40 mt-2" />
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Total row (only if multiple sessions) */}
+                {timeEntry!.sessions.length > 1 && (
+                  <div className="pt-2 mt-2 border-t-2 border-blue-200 dark:border-blue-800/40">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-semibold text-[var(--foreground)]">
+                        Total Hours:
+                      </span>
+                      <span className="text-lg font-bold bg-gradient-to-r from-blue-600 to-sky-600 dark:from-blue-400 dark:to-sky-400 bg-clip-text text-transparent">
+                        {timeEntry!.hours.toFixed(2)}h
+                      </span>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             ) : (
               <p className="text-sm text-[var(--muted)] text-center py-2">
@@ -137,7 +213,7 @@ export default function DayDetailsModal({
         <div className="flex items-center justify-between p-5 bg-gradient-to-r from-blue-100 via-purple-100 to-emerald-100 dark:from-blue-950/40 dark:via-purple-950/40 dark:to-emerald-950/40 rounded-xl border-2 border-blue-200 dark:border-blue-800/40 shadow-lg">
           <div className="text-center flex-1">
             <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-sky-600 dark:from-blue-400 dark:to-sky-400 bg-clip-text text-transparent">
-              {timeEntry?.hours || 0}h
+              {timeEntry?.hours != null ? timeEntry.hours.toFixed(1) : "0"}h
             </div>
             <div className="text-xs font-medium text-blue-700 dark:text-blue-300 mt-1">Total Hours</div>
           </div>

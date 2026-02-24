@@ -35,6 +35,10 @@ export interface CalendarEvent {
     description?: string;
     custom?: boolean;
     customId?: string;
+    // Clock-in/out session flags — these events are permanent, never deletable
+    clockEntry?: boolean;
+    entryId?: string;
+    direction?: "in" | "out" | "total";
   };
 }
 

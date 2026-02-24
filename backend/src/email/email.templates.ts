@@ -132,8 +132,13 @@ export const welcomeEmailTemplate = (data: WelcomeEmailData): string => {
       <div class="content">
         <p>Hi <strong>${data.userName}</strong>,</p>
         <p>Welcome to the SAVAGE LLC Internal Company Portal! We're excited to have you on board.</p>
-        <p>Your account has been successfully created with the email: <strong>${data.userEmail}</strong></p>
+        <p>Your account has been successfully created. Here are your login credentials:</p>
+        <div class="task-card" style="border-left-color: #667eea; background-color: #f8f9fa;">
+          <p style="margin: 5px 0;"><strong>Email:</strong> ${data.userEmail}</p>
+          ${data.password ? `<p style="margin: 5px 0;"><strong>Password:</strong> ${data.password}</p>` : ''}
+        </div>
         <p>You can now access the portal to view your tasks, collaborate with your department, and stay updated on company activities.</p>
+        <p style="font-size: 13px; color: #666;"><em>Note: For security reasons, please change your password after your first login.</em></p>
         <center>
           <a href="${data.loginUrl}" class="button">Access Portal</a>
         </center>

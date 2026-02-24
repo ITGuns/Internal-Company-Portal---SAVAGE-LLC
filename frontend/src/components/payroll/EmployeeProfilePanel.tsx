@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import Button from "@/components/Button";
 import type { Employee } from "@/lib/payroll-calendar/types";
-import { MOCK_DOCUMENTS } from "@/lib/payroll-calendar/mock-data";
+
 
 interface EmployeeProfilePanelProps {
   employee: Employee | null;
@@ -158,43 +158,10 @@ export default function EmployeeProfilePanel({
           Documents
         </h4>
         <div className="space-y-2">
-          {MOCK_DOCUMENTS.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-6 rounded-lg bg-gray-50 dark:bg-white/5 border border-dashed border-[var(--border)]">
-              <Upload className="w-8 h-8 text-[var(--muted)] mb-2" />
-              <p className="text-sm text-[var(--muted)]">Insert documents here</p>
-            </div>
-          ) : (
-            MOCK_DOCUMENTS.map((doc) => (
-              <div
-                key={doc.id}
-                className="flex items-center gap-3 p-2 rounded-lg bg-gray-50 dark:bg-white/5 border border-[var(--border)]"
-              >
-                <div
-                  className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${doc.type === "contract"
-                      ? "bg-blue-100 dark:bg-blue-900/30"
-                      : doc.type === "resume"
-                        ? "bg-orange-100 dark:bg-orange-900/30"
-                        : "bg-orange-100 dark:bg-orange-900/30"
-                    }`}
-                >
-                  <FileText
-                    className={`w-5 h-5 ${doc.type === "contract"
-                        ? "text-blue-600 dark:text-blue-400"
-                        : doc.type === "resume"
-                          ? "text-orange-600 dark:text-orange-400"
-                          : "text-orange-600 dark:text-orange-400"
-                      }`}
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-[var(--foreground)] truncate">
-                    {doc.name}
-                  </div>
-                  <div className="text-xs text-[var(--muted)]">{doc.fileSize}</div>
-                </div>
-              </div>
-            ))
-          )}
+          <div className="flex flex-col items-center justify-center p-6 rounded-lg bg-gray-50 dark:bg-white/5 border border-dashed border-[var(--border)]">
+            <Upload className="w-8 h-8 text-[var(--muted)] mb-2" />
+            <p className="text-sm text-[var(--muted)]">No documents uploaded</p>
+          </div>
         </div>
       </div>
 

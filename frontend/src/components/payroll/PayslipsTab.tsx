@@ -11,7 +11,7 @@ import TimeTrackingCalendar from "./TimeTrackingCalendar";
 import EmployeeProfilePanel from "./EmployeeProfilePanel";
 import GeneratePayslipModal from "./GeneratePayslipModal";
 import PayslipDetailsModal from "./PayslipDetailsModal";
-import { MOCK_EMPLOYEES, MOCK_PAYSLIPS } from "@/lib/payroll-calendar/mock-data";
+
 import { generatePayslipPDF } from "@/lib/payroll-calendar/payslip-utils";
 import type { Employee, Payslip } from "@/lib/payroll-calendar/types";
 
@@ -59,8 +59,6 @@ export default function PayslipsTab() {
       }
     } catch (err: any) {
       console.error("Failed to fetch data", err);
-      setEmployees(MOCK_EMPLOYEES);
-      setSelectedEmployee(MOCK_EMPLOYEES[0]);
       toast.error(err.message === "Failed to fetch" ? "Connection failed" : (err.message || "Failed to load employees"));
     } finally {
       setIsLoading(false);
@@ -104,7 +102,6 @@ export default function PayslipsTab() {
           }
         } catch (err) {
           console.error("Failed to fetch payslips", err);
-          setEmployeePayslips(MOCK_PAYSLIPS.filter(p => p.employeeId === selectedEmployee.id));
         }
       };
       fetchPayslips();

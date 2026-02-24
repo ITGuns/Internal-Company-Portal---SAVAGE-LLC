@@ -51,25 +51,33 @@ export function usePayrollData() {
     loadData();
   }, []);
 
-  const clockIn = async () => {
-    const entry = await clockInAPI();
-    if (entry) {
-      setTimeEntries((prev) => [entry, ...prev]);
-      setClockedIn(true);
-      return true;
+  const clockIn = async (): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const entry = await clockInAPI();
+      if (entry) {
+        setTimeEntries((prev) => [entry, ...prev]);
+        setClockedIn(true);
+        return { success: true };
+      }
+      return { success: false };
+    } catch (err: any) {
+      return { success: false, error: err?.message };
     }
-    return false;
   };
 
-  const clockOut = async () => {
-    const entry = await clockOutAPI();
-    if (entry) {
-      const updatedEntries = await fetchTimeEntries();
-      setTimeEntries(updatedEntries);
-      setClockedIn(false);
-      return true;
+  const clockOut = async (): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const entry = await clockOutAPI();
+      if (entry) {
+        const updatedEntries = await fetchTimeEntries();
+        setTimeEntries(updatedEntries);
+        setClockedIn(false);
+        return { success: true };
+      }
+      return { success: false };
+    } catch (err: any) {
+      return { success: false, error: err?.message };
     }
-    return false;
   };
 
   const createTimeEntry = async (

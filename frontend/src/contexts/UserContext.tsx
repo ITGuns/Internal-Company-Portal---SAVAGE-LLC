@@ -1,8 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { getCurrentUser, setCurrentUser as saveCurrentUser } from '@/lib/api';
-import { APP_CONFIG } from '@/lib/config';
+import { getCurrentUser, setCurrentUser as saveCurrentUser, getRefreshToken, setAuthToken, setRefreshToken } from '@/lib/api';
 import { STORAGE_KEYS } from '@/lib/constants';
 
 export interface User {
@@ -17,6 +16,7 @@ export interface User {
   bio?: string;
   birthday?: string;
   hireDate?: string;
+  isApproved?: boolean;
 }
 
 interface UserContextType {
@@ -35,12 +35,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Logout - clear user data
+  // Logout - clear user data and all tokens
   const logout = useCallback(() => {
     setUser(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem(STORAGE_KEYS.USER);
       localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
     }
   }, []);
 
@@ -65,7 +66,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
         // Verify with backend
         try {
-          const res = await fetch(`${APP_CONFIG.apiUrl}/auth/me`, {
+          const res = await fetch(`/backend-auth/me`, {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
             }
@@ -83,8 +84,31 @@ export function UserProvider({ children }: { children: ReactNode }) {
               saveCurrentUser(data.user);
             }
           } else if (res.status === 401) {
-            // Token invalid
-            console.warn('[UserContext] Session expired or invalid token -> Logging out');
+            // Access token expired — try to refresh
+            const refreshToken = getRefreshToken();
+            if (refreshToken) {
+              try {
+                const refreshRes = await fetch(`/backend-auth/refresh`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ refreshToken })
+                });
+                if (refreshRes.ok) {
+                  const refreshData = await refreshRes.json();
+                  if (refreshData.accessToken) {
+                    setAuthToken(refreshData.accessToken);
+                    if (refreshData.refreshToken) setRefreshToken(refreshData.refreshToken);
+                    console.log('[UserContext] Token refreshed successfully');
+                    // Don't logout — next poll will re-verify cleanly
+                    return;
+                  }
+                }
+              } catch (refreshErr) {
+                console.error('[UserContext] Token refresh failed:', refreshErr);
+              }
+            }
+            // Refresh also failed — log the user out
+            console.warn('[UserContext] Session expired, could not refresh -> Logging out');
             if (typeof window !== 'undefined') sessionStorage.setItem('auth_error', 'true');
             logout();
           }
@@ -125,7 +149,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     const interval = setInterval(() => {
       refreshUser();
-    }, APP_CONFIG.userPollInterval);
+    }, 30000); // 30 seconds poll interval
 
     return () => clearInterval(interval);
   }, [user, refreshUser]);

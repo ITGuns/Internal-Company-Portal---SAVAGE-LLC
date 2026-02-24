@@ -2,8 +2,8 @@ import { APP_CONFIG } from './config';
 import { STORAGE_KEYS } from './constants';
 import type { LoginCredentials, AuthResponse } from './types/auth';
 
-const API_URL = `${APP_CONFIG.apiUrl}/api`;
-const AUTH_URL = `${APP_CONFIG.apiUrl}/auth`;
+const API_URL = '/api';
+const AUTH_URL = '/backend-auth';
 
 
 export const getAuthToken = () => {
@@ -16,6 +16,19 @@ export const getAuthToken = () => {
 export const setAuthToken = (token: string) => {
     if (typeof window !== 'undefined') {
         localStorage.setItem('accessToken', token)
+    }
+}
+
+export const getRefreshToken = () => {
+    if (typeof window !== 'undefined') {
+        return localStorage.getItem('refreshToken')
+    }
+    return null
+}
+
+export const setRefreshToken = (token: string) => {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('refreshToken', token)
     }
 }
 
@@ -48,11 +61,38 @@ export const devLogin = async () => {
         const data = await res.json()
         if (data.success && data.tokens) {
             setAuthToken(data.tokens.accessToken)
+            if (data.tokens.refreshToken) setRefreshToken(data.tokens.refreshToken)
             setCurrentUser(data.user);
             return data.tokens.accessToken
         }
     } catch (err) {
         console.error('Dev login failed', err)
+    }
+    return null
+}
+
+/**
+ * Attempt to refresh the access token using the stored refresh token.
+ * Returns the new access token on success, null on failure.
+ */
+const tryRefreshToken = async (): Promise<string | null> => {
+    const refreshToken = getRefreshToken()
+    if (!refreshToken) return null
+    try {
+        const res = await fetch(`${AUTH_URL}/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken })
+        })
+        if (res.ok) {
+            const data = await res.json()
+            if (data.accessToken) {
+                setAuthToken(data.accessToken)
+                return data.accessToken
+            }
+        }
+    } catch (err) {
+        console.error('Token refresh failed:', err)
     }
     return null
 }
@@ -124,7 +164,7 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
         headers,
     })
 
-    // If 403, and in dev, maybe the role was added recently. Try re-logging in.
+    // If 403 in dev, the role may have been added recently. Re-login and retry once.
     if (response.status === 403 && process.env.NODE_ENV !== 'production' && !options._isRetry) {
         console.warn('403 Forbidden - Attempting dev re-login');
         if (typeof window !== 'undefined') {
@@ -133,10 +173,34 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
         return apiFetch(endpoint, { ...options, _isRetry: true });
     }
 
-    // If 401, return response to let caller handle it (usually triggers logout in UserContext)
-    if (response.status === 401) {
-        console.warn('401 Unauthorized');
-        // Do NOT auto-login. Let UserContext or the component handle the auth failure.
+    // If 401, try refreshing the token once before giving up
+    if (response.status === 401 && !options._isRetry) {
+        console.warn('401 Unauthorized — attempting token refresh');
+
+        // Try refresh token first
+        const newToken = await tryRefreshToken()
+        if (newToken) {
+            return apiFetch(endpoint, { ...options, _isRetry: true })
+        }
+
+        // In dev, fall back to dev-login
+        if (process.env.NODE_ENV !== 'production') {
+            const devToken = await devLogin()
+            if (devToken) {
+                return apiFetch(endpoint, { ...options, _isRetry: true })
+            }
+        }
+
+        // Nothing worked — clear tokens silently.
+        // DO NOT redirect here: window.location.href cancels all in-flight fetches
+        // with TypeError("Failed to fetch"), flooding the UI with error toasts.
+        // UserContext will detect the 401 on its next /auth/me poll and handle logout.
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('accessToken')
+            localStorage.removeItem('refreshToken')
+            localStorage.removeItem(STORAGE_KEYS.USER)
+        }
+        console.warn('Auth failed — tokens cleared. UserContext will handle re-login.')
     }
 
     if (!response.ok && response.status !== 401) {
@@ -201,29 +265,29 @@ export const updateUserProfile = async (userId: string | number, profileData: Pa
  */
 export const uploadAvatar = async (userId: string | number, file: File | string) => {
     try {
-        let body;
-        const headers: Record<string, string> = {};
+        let avatarData: string;
 
         if (typeof file === 'string') {
-            // Base64 string
-            body = JSON.stringify({ avatar: file });
-            headers['Content-Type'] = 'application/json';
+            // Already a base64 data URI or URL
+            avatarData = file;
         } else {
-            // File upload
-            const formData = new FormData();
-            formData.append('avatar', file);
-            body = formData;
-            // Don't set Content-Type for FormData, browser will set it with boundary
+            // Convert File to base64 data URI
+            avatarData = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
         }
 
         const token = getAuthToken();
         const response = await fetch(`${API_URL}/users/${userId}/avatar`, {
             method: 'POST',
             headers: {
+                'Content-Type': 'application/json',
                 ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-                ...headers,
             },
-            body,
+            body: JSON.stringify({ avatar: avatarData }),
         });
 
         if (!response.ok) {
@@ -232,7 +296,7 @@ export const uploadAvatar = async (userId: string | number, file: File | string)
 
         const data = await response.json();
 
-        // Update localStorage with new avatar
+        // Update localStorage with new user data
         if (data.user) {
             setCurrentUser(data.user);
         }

@@ -22,15 +22,11 @@ export class DailyLogsController {
                 const user = (req as AuthRequest).user
                 if (!user) return res.sendStatus(401)
 
-                const log = await this.service.findAll() // Not efficient but works for now to check author
-                const found = log.find(l => l.id === id)
+                const found = await this.service.findById(id)
 
                 if (!found) return res.status(404).json({ error: 'Log not found' })
 
                 // Allow if author or admin
-                // Note: AuthRequest doesn't explicitly have 'roles', we check UserRole table in requireRole, 
-                // but for simplicity here we just check if it's the author. 
-                // In a robust system we'd check req.user.roles.
                 if (found.authorId !== user.userId) {
                     return res.status(403).json({ error: 'Unauthorized' })
                 }
