@@ -209,6 +209,36 @@
   cursor: not-allowed;
 }
 
+.passwordInput {
+  padding-right: 48px; /* Space for the eye icon */
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--login-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 150ms ease;
+  z-index: 1;
+}
+
+.passwordToggle:hover {
+  color: var(--login-text-primary);
+  background-color: var(--login-btn-secondary-hover);
+}
+
+.eyeIcon {
+  width: 20px;
+  height: 20px;
+}
+
 /* ============================================
    BUTTONS
    ============================================ */

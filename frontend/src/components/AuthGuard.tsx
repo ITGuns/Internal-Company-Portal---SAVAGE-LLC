@@ -16,7 +16,7 @@ interface AuthGuardProps {
 export default function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isLoading } = useUser();
+  const { user, isLoading, logout } = useUser();
 
   // Routes that don't require authentication
   const exemptRoutes = ['/login', '/dev-login', '/signup', '/forgot-password'];
@@ -125,8 +125,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
               </button>
               <button
                 onClick={() => {
-                  localStorage.removeItem('token');
-                  localStorage.removeItem('refreshToken');
+                  logout();
                   window.location.href = '/login';
                 }}
                 className="w-full py-3 px-4 bg-[var(--card-surface)] hover:bg-[var(--border)] text-[var(--foreground)] rounded-xl font-semibold border border-[var(--border)] transition-all active:scale-[0.98]"

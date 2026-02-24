@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { LucideIcon } from 'lucide-react';
+import { LucideIcon, Eye, EyeOff } from 'lucide-react';
 import styles from '../app/login/login.module.css';
 
 export interface LoginInputProps {
@@ -26,7 +26,7 @@ export interface LoginInputProps {
 export default function LoginInput({
   id,
   label,
-  type = 'text',
+  type: initialType = 'text',
   value,
   onChange,
   placeholder,
@@ -36,6 +36,13 @@ export default function LoginInput({
   autoComplete,
   error
 }: LoginInputProps) {
+  const [showPassword, setShowPassword] = React.useState(false);
+  const isPassword = initialType === 'password';
+  const inputType = isPassword ? (showPassword ? 'text' : 'password') : initialType;
+
+  const togglePassword = () => {
+    setShowPassword(!showPassword);
+  };
   return (
     <div className={styles.formGroup}>
       <label htmlFor={id} className={styles.label}>
@@ -43,24 +50,39 @@ export default function LoginInput({
         {label}
         {required && <span style={{ color: 'var(--login-error)' }}>*</span>}
       </label>
-      
+
       <div className={styles.inputWrapper}>
         {Icon && <Icon className={styles.inputIcon} size={16} />}
         <input
           id={id}
-          type={type}
+          type={inputType}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           disabled={disabled}
           required={required}
           autoComplete={autoComplete}
-          className={styles.input}
+          className={`${styles.input} ${isPassword ? styles.passwordInput : ''}`}
           aria-invalid={error ? 'true' : 'false'}
           aria-describedby={error ? `${id}-error` : undefined}
         />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={togglePassword}
+            className={styles.passwordToggle}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            tabIndex={-1}
+          >
+            {showPassword ? (
+              <EyeOff className={styles.eyeIcon} size={20} />
+            ) : (
+              <Eye className={styles.eyeIcon} size={20} />
+            )}
+          </button>
+        )}
       </div>
-      
+
       {error && (
         <div id={`${id}-error`} className={styles.error} role="alert">
           {error}
