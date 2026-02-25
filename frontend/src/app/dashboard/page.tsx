@@ -9,6 +9,9 @@ import { Clock, CheckCircle2, AlertCircle, TrendingUp, ExternalLink, Send, Megap
 import { fetchTasks, calculateWeeklyStats } from '@/lib/tasks'
 import { fetchTimeEntries, getTotalMinutesForDate, type TimeEntry } from '@/lib/time-entries'
 import { fetchAnnouncements, getTimeAgo, type Announcement } from '@/lib/announcements'
+import { useRouter } from 'next/navigation'
+import { useSocket } from '@/context/SocketContext'
+import { fetchConversations, fetchMessages, sendMessage, type Message, type Conversation } from '@/lib/chat'
 
 function QuickLink({ title, subtitle, icon: Icon }: { title: string; subtitle?: string; icon: React.ComponentType<{ className?: string }> }) {
   return (
@@ -33,6 +36,18 @@ export default function DashboardPage() {
   const [recentAnnouncements, setRecentAnnouncements] = useState<Announcement[]>([]);
   const [recentShoutouts, setRecentShoutouts] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const { user, isLoading: userLoading } = useUser();
+
+  // Chat State
+  const { socket, isConnected } = useSocket();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
+  const [onlineCount, setOnlineCount] = useState(0);
+  const chatScrollRef = React.useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     async function loadData() {
@@ -70,14 +85,119 @@ export default function DashboardPage() {
     loadData();
   }, []);
 
+  // Chat Initialization
+  useEffect(() => {
+    async function initChat() {
+      try {
+        const conversations = await fetchConversations();
+        // Strictly find a public channel (General/Global) for the dashboard widget
+        const globalConv = conversations.find(c =>
+          c.type === 'channel' &&
+          (c.name?.toLowerCase() === 'general' || c.name?.toLowerCase() === 'global')
+        ) || conversations.find(c => c.type === 'channel');
+
+        if (globalConv) {
+          setActiveConversation(globalConv);
+          const history = await fetchMessages(globalConv.id, 10);
+          setMessages(history);
+
+          if (socket) {
+            socket.emit('join:conversation', globalConv.id);
+          }
+        }
+      } catch (err) {
+        console.error('Dashboard chat init failed', err);
+      }
+    }
+
+    if (user) {
+      initChat();
+    }
+  }, [user, socket]);
+
+  // Socket Listener
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewMessage = (msg: Message) => {
+      if (activeConversation && msg.conversationId === activeConversation.id) {
+        setMessages(prev => {
+          // Prevent duplicates by ID
+          if (prev.some(m => m.id === msg.id)) return prev;
+
+          // Handle race condition: check if this is a real message replacing our optimistic one
+          const isFromMe = String(msg.senderId) === String(user?.id);
+          if (isFromMe) {
+            const tempIndex = prev.findIndex(m => m.id.startsWith('temp-') && m.content === msg.content);
+            if (tempIndex !== -1) {
+              const next = [...prev];
+              next[tempIndex] = msg;
+              return next;
+            }
+          }
+
+          return [...prev, msg].slice(-10); // Keep last 10
+        });
+      }
+    };
+
+    socket.on('chat:message', handleNewMessage);
+    return () => {
+      socket.off('chat:message', handleNewMessage);
+    };
+  }, [socket, activeConversation]);
+
+  // Scroll chat to bottom
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!newMessage.trim() || !activeConversation || sending) return;
+
+    const content = newMessage.trim();
+    const tempId = `temp-${Date.now()}`;
+
+    // Optimistic Update
+    const optimisticMsg: Message = {
+      id: tempId,
+      content,
+      senderId: String(user?.id || ''),
+      conversationId: activeConversation.id,
+      createdAt: new Date().toISOString(),
+      sender: {
+        id: String(user?.id || ''),
+        name: user?.name || 'Me',
+        avatar: user?.avatar || '',
+        email: user?.email || ''
+      }
+    };
+
+    setMessages(prev => [...prev, optimisticMsg].slice(-10));
+    setNewMessage('');
+
+    try {
+      setSending(true);
+      const result = await sendMessage(activeConversation.id, content);
+      setMessages(prev => prev.map(m => m.id === tempId ? result : m));
+    } catch (err) {
+      console.error('Failed to send msg', err);
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      setNewMessage(content); // Put back for retry
+    } finally {
+      setSending(false);
+    }
+  };
+
 
   const formatHours = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
-
-  const { user, isLoading: userLoading } = useUser();
 
   if (loading || userLoading) {
     return (
@@ -171,24 +291,63 @@ export default function DashboardPage() {
               </Card.Content>
             </Card>
 
-            <Card variant="elevated" className="overflow-hidden">
+            <Card variant="elevated" className="overflow-hidden flex flex-col h-[400px]">
               <Card.Header>
-                <h3 className="font-semibold text-sm">Company Chat</h3>
-                <span className="text-xs text-[var(--muted)]">0 online</span>
+                <div className="flex items-center justify-between w-full">
+                  <h3 className="font-semibold text-sm">Company Chat</h3>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`}></span>
+                    <span className="text-[10px] text-[var(--muted)]">{onlineCount > 0 ? `${onlineCount} online` : 'Active'}</span>
+                  </div>
+                </div>
               </Card.Header>
 
-              <div className="p-8 text-center bg-[var(--card-surface)]">
-                <Send className="w-12 h-12 mx-auto text-[var(--muted)] opacity-50 mb-3" />
-                <div className="text-sm text-[var(--muted)]">No messages yet</div>
+              <div
+                ref={chatScrollRef}
+                className="flex-1 overflow-y-auto p-4 space-y-3 bg-[var(--card-surface)] chat-scroll"
+              >
+                {messages.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
+                    <Send className="w-8 h-8 mx-auto text-[var(--muted)] mb-2" />
+                    <div className="text-xs text-[var(--muted)]">No messages yet</div>
+                  </div>
+                ) : (
+                  messages.map((msg) => {
+                    const isMe = String(msg.senderId) === String(user?.id);
+                    return (
+                      <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                        {!isMe && <span className="text-[10px] text-[var(--muted)] mb-0.5 ml-1">{msg.sender.name}</span>}
+                        <div className={`px-3 py-1.5 rounded-2xl text-xs max-w-[85%] ${isMe
+                          ? 'bg-[var(--accent)] text-white rounded-tr-none'
+                          : 'bg-[var(--background)] text-[var(--foreground)] border border-[var(--border)] rounded-tl-none'
+                          }`}>
+                          {msg.content}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
 
-              <Card.Footer>
-                <div className="flex items-center gap-3">
-                  <input aria-label="Type a message" className="flex-1 p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]" placeholder="Type a message..." />
-                  <button aria-label="Send message" className="p-2 rounded bg-[var(--card-bg)] border border-[var(--border)] hover:shadow-sm">
-                    <Send className="w-4 h-4 text-[var(--foreground)]" />
+              <Card.Footer className="border-t border-[var(--border)]">
+                <form onSubmit={handleSendMessage} className="flex items-center gap-2 w-full">
+                  <input
+                    aria-label="Type a message"
+                    className="flex-1 p-2 text-xs rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                    placeholder="Type a message..."
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    disabled={!isConnected || !activeConversation}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!newMessage.trim() || sending || !isConnected}
+                    aria-label="Send message"
+                    className="p-2 rounded bg-[var(--accent)] text-white hover:opacity-90 disabled:opacity-30 transition-all active:scale-95"
+                  >
+                    <Send className="w-3.5 h-3.5" />
                   </button>
-                </div>
+                </form>
               </Card.Footer>
             </Card>
           </div>
@@ -268,10 +427,10 @@ export default function DashboardPage() {
                 </Card.Header>
 
                 <Card.Content className="grid grid-cols-2 gap-3 items-start">
-                  <button className="py-2 px-3 bg-[var(--background)] rounded text-[var(--foreground)] border border-[var(--border)] hover:shadow-sm transition">New Task</button>
-                  <button className="py-2 px-3 bg-[var(--background)] rounded text-[var(--foreground)] border border-[var(--border)] hover:shadow-sm transition">Schedule</button>
-                  <button className="py-2 px-3 bg-[var(--background)] rounded text-[var(--foreground)] border border-[var(--border)] hover:shadow-sm transition">Announce</button>
-                  <button className="py-2 px-3 bg-[var(--background)] rounded text-[var(--foreground)] border border-[var(--border)] hover:shadow-sm transition">Shoutout</button>
+                  <button onClick={() => router.push('/task-tracking')} className="py-2 px-3 bg-[var(--background)] rounded text-xs text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--card-surface)] hover:shadow-sm transition">New Task</button>
+                  <button onClick={() => router.push('/payroll-calendar')} className="py-2 px-3 bg-[var(--background)] rounded text-xs text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--card-surface)] hover:shadow-sm transition">Schedule</button>
+                  <button onClick={() => router.push('/announcements')} className="py-2 px-3 bg-[var(--background)] rounded text-xs text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--card-surface)] hover:shadow-sm transition">Announce</button>
+                  <button onClick={() => router.push('/announcements')} className="py-2 px-3 bg-[var(--background)] rounded text-xs text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--card-surface)] hover:shadow-sm transition">Shoutout</button>
                 </Card.Content>
               </Card>
             </div>

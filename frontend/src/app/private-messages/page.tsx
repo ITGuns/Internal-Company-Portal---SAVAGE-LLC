@@ -71,7 +71,23 @@ export default function PrivateMessagesPage() {
     if (!socket) return
     const handleNewMessage = (msg: Message) => {
       if (msg.conversationId === selectedId) {
-        setMessages(prev => [...prev, msg])
+        setMessages(prev => {
+          // Prevent duplicates by ID
+          if (prev.some(m => m.id === msg.id)) return prev;
+
+          // Handle race condition: check if this is a real message replacing our optimistic one
+          const isFromMe = String(msg.senderId) === String(currentUser?.id);
+          if (isFromMe) {
+            const tempIndex = prev.findIndex(m => m.id.startsWith('temp-') && m.content === msg.content);
+            if (tempIndex !== -1) {
+              const next = [...prev];
+              next[tempIndex] = msg;
+              return next;
+            }
+          }
+
+          return [...prev, msg];
+        })
       }
       // Update sidebar
       setConversations(prev => {
@@ -115,11 +131,40 @@ export default function PrivateMessagesPage() {
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault()
     if (!newMessage.trim() || !selectedId || sending) return
+
+    const content = newMessage.trim()
+    const tempId = `temp-${Date.now()}`
+
+    // Optimistic Update
+    const optimisticMsg: Message = {
+      id: tempId,
+      content,
+      senderId: String(currentUser?.id || ''),
+      conversationId: selectedId,
+      createdAt: new Date().toISOString(),
+      sender: {
+        id: String(currentUser?.id || ''),
+        name: currentUser?.name || 'Me',
+        avatar: currentUser?.avatar || '',
+        email: currentUser?.email || ''
+      }
+    }
+
+    setMessages(prev => [...prev, optimisticMsg])
+    setNewMessage('')
+
     try {
       setSending(true)
-      await sendMessage(selectedId, newMessage.trim())
-      setNewMessage('')
-    } finally { setSending(false) }
+      const result = await sendMessage(selectedId, content)
+      // Replace temp with real
+      setMessages(prev => prev.map(m => m.id === tempId ? result : m))
+    } catch (err) {
+      console.error("Failed to send", err)
+      setMessages(prev => prev.filter(m => m.id !== tempId))
+      setNewMessage(content)
+    } finally {
+      setSending(false)
+    }
   }
 
   const startChat = async (targetUser: SystemUser) => {
@@ -202,8 +247,8 @@ export default function PrivateMessagesPage() {
                       handleDeleteConversation(c.id)
                     }}
                     className={`absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-2 rounded-full transition-all z-10 shadow-sm ${selectedId === c.id
-                        ? 'bg-white text-red-600 hover:bg-gray-100'
-                        : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-600 hover:text-white'
+                      ? 'bg-white text-red-600 hover:bg-gray-100'
+                      : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-600 hover:text-white'
                       }`}
                     title="Delete Conversation"
                   >

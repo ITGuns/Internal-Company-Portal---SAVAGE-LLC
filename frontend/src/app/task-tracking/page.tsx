@@ -16,6 +16,10 @@ import {
   Plus,
   MoreHorizontal,
   Trash2,
+  Check,
+  ChevronDown,
+  ArrowUpDown,
+  Search,
 } from "lucide-react";
 import LoadingSpinner from '@/components/LoadingSpinner';
 import FullCalendar from "@fullcalendar/react";
@@ -118,6 +122,21 @@ export default function TaskTrackingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [view, setView] = useState<"grid" | "list" | "calendar">('calendar');
+
+  // Filter & Sort State
+  const [filterStatus, setFilterStatus] = useState<TaskStatus[]>([]);
+  const [filterPriority, setFilterPriority] = useState<TaskPriority[]>([]);
+  const [filterUserId, setFilterUserId] = useState<string>("");
+  const [filterDeptId, setFilterDeptId] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [sortBy, setSortBy] = useState<"dueDate" | "priority" | "title" | "status">("dueDate");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [groupBy, setGroupBy] = useState<"status" | "priority" | "department" | "assignee" | "none">("status");
+
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showGroupMenu, setShowGroupMenu] = useState(false);
 
   // Load initial data
   useEffect(() => {
@@ -270,11 +289,75 @@ export default function TaskTrackingPage() {
     }
   }
 
-  // Filtered lists for Grid View
-  const todoTasks = tasks.filter(t => t.status === 'todo');
-  const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
-  const reviewTasks = tasks.filter(t => t.status === 'review');
-  const completedTasks = tasks.filter(t => t.status === 'completed');
+  // Filtering Logic
+  const filteredTasks = tasks.filter(t => {
+    if (filterStatus.length > 0 && !filterStatus.includes(t.status)) return false;
+    if (filterPriority.length > 0 && !filterPriority.includes(t.priority)) return false;
+    if (filterUserId && t.assigneeId !== filterUserId) return false;
+    if (filterDeptId && t.departmentId !== filterDeptId) return false;
+    if (searchQuery.trim() && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
+
+  // Sorting Logic
+  const sortedTasks = [...filteredTasks].sort((a, b) => {
+    let comparison = 0;
+    if (sortBy === "title") comparison = a.title.localeCompare(b.title);
+    else if (sortBy === "dueDate") {
+      comparison = (a.dueDate || "9999-99-99").localeCompare(b.dueDate || "9999-99-99");
+    } else if (sortBy === "priority") {
+      const pMap = { High: 3, Med: 2, Low: 1 };
+      comparison = pMap[a.priority] - pMap[b.priority];
+    } else if (sortBy === "status") {
+      const sMap = { todo: 1, in_progress: 2, review: 3, completed: 4 };
+      comparison = sMap[a.status] - sMap[b.status];
+    }
+    return sortOrder === "asc" ? comparison : -comparison;
+  });
+
+  // Grouping Logic for "Board" view
+  type GroupColumn = { id: string; label: string; items: Task[] };
+  let columns: GroupColumn[] = [];
+
+  if (groupBy === "status") {
+    columns = [
+      { id: 'todo', label: 'To Do', items: sortedTasks.filter(t => t.status === 'todo') },
+      { id: 'in_progress', label: 'In Progress', items: sortedTasks.filter(t => t.status === 'in_progress') },
+      { id: 'review', label: 'Review', items: sortedTasks.filter(t => t.status === 'review') },
+      { id: 'completed', label: 'Completed', items: sortedTasks.filter(t => t.status === 'completed') },
+    ];
+  } else if (groupBy === "priority") {
+    columns = [
+      { id: 'High', label: 'High Priority', items: sortedTasks.filter(t => t.priority === 'High') },
+      { id: 'Med', label: 'Medium Priority', items: sortedTasks.filter(t => t.priority === 'Med') },
+      { id: 'Low', label: 'Low Priority', items: sortedTasks.filter(t => t.priority === 'Low') },
+    ];
+  } else if (groupBy === "department") {
+    columns = departments.map(d => ({
+      id: d.id,
+      label: d.name,
+      items: sortedTasks.filter(t => t.departmentId === d.id)
+    }));
+    columns.push({
+      id: 'none',
+      label: 'No Department',
+      items: sortedTasks.filter(t => !t.departmentId)
+    });
+  } else if (groupBy === "assignee") {
+    columns = users.map(u => ({
+      id: u.id,
+      label: u.name || u.email,
+      items: sortedTasks.filter(t => t.assigneeId === u.id)
+    }));
+    columns.push({
+      id: 'unassigned',
+      label: 'Unassigned',
+      items: sortedTasks.filter(t => !t.assigneeId)
+    });
+  } else {
+    // Single column if no grouping
+    columns = [{ id: 'all', label: 'All Tasks', items: sortedTasks }];
+  }
 
   // Stats for "Today" and "Overdue" (client-side calculation)
   const todayStr = new Date().toISOString().split('T')[0];
@@ -318,7 +401,7 @@ export default function TaskTrackingPage() {
         />
 
         <div className="mt-6">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex flex-wrap items-center gap-3 mb-4">
             <Button
               onClick={openNewTask}
               variant="primary"
@@ -326,17 +409,187 @@ export default function TaskTrackingPage() {
             >
               New Task
             </Button>
-            <Button variant="secondary" icon={<Filter className="w-4 h-4" />}>
-              Filter
-            </Button>
-            <Button variant="secondary" icon={<SortAsc className="w-4 h-4" />}>
-              Sort
-            </Button>
-            <Button variant="secondary" icon={<Users className="w-4 h-4" />}>
-              Group by
-            </Button>
+
+            <div className="relative">
+              <Button
+                variant={filterStatus.length || filterPriority.length || filterUserId || filterDeptId ? "primary" : "secondary"}
+                icon={<Filter className="w-4 h-4" />}
+                onClick={() => setShowFilterMenu(!showFilterMenu)}
+              >
+                Filter {(filterStatus.length + filterPriority.length + (filterUserId ? 1 : 0) + (filterDeptId ? 1 : 0)) > 0 && `(${filterStatus.length + filterPriority.length + (filterUserId ? 1 : 0) + (filterDeptId ? 1 : 0)})`}
+              </Button>
+
+              {showFilterMenu && (
+                <div className="absolute top-full left-0 mt-2 w-72 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-xl z-30 p-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="font-semibold text-sm">Filters</span>
+                    <button
+                      className="text-xs text-[var(--accent)] hover:underline"
+                      onClick={() => {
+                        setFilterStatus([]);
+                        setFilterPriority([]);
+                        setFilterUserId("");
+                        setFilterDeptId("");
+                      }}
+                    >
+                      Clear all
+                    </button>
+                  </div>
+
+                  <div className="space-y-4 max-h-[400px] overflow-y-auto chat-scroll pr-1">
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-2">Status</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {Object.entries(STATUS_LABELS).map(([val, label]) => (
+                          <button
+                            key={val}
+                            onClick={() => {
+                              const v = val as TaskStatus;
+                              setFilterStatus(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+                            }}
+                            className={`px-2 py-1.5 text-xs rounded border transition-colors flex items-center justify-between ${filterStatus.includes(val as TaskStatus)
+                              ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
+                              : 'bg-[var(--background)] text-[var(--muted)] border-[var(--border)]'
+                              }`}
+                          >
+                            {label}
+                            {filterStatus.includes(val as TaskStatus) && <Check className="w-3 h-3" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-2">Priority</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {["High", "Med", "Low"].map((p) => (
+                          <button
+                            key={p}
+                            onClick={() => {
+                              const v = p as TaskPriority;
+                              setFilterPriority(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+                            }}
+                            className={`px-2 py-1.5 text-xs rounded border transition-colors flex items-center justify-between ${filterPriority.includes(p as TaskPriority)
+                              ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
+                              : 'bg-[var(--background)] text-[var(--muted)] border-[var(--border)]'
+                              }`}
+                          >
+                            {p}
+                            {filterPriority.includes(p as TaskPriority) && <Check className="w-3 h-3" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-1">Assignee</label>
+                      <select
+                        value={filterUserId}
+                        onChange={(e) => setFilterUserId(e.target.value)}
+                        className="w-full bg-[var(--background)] border border-[var(--border)] rounded p-1.5 text-xs"
+                      >
+                        <option value="">All Members</option>
+                        {users.map(u => <option key={u.id} value={u.id}>{u.name || u.email}</option>)}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-1">Department</label>
+                      <select
+                        value={filterDeptId}
+                        onChange={(e) => setFilterDeptId(e.target.value)}
+                        className="w-full bg-[var(--background)] border border-[var(--border)] rounded p-1.5 text-xs"
+                      >
+                        <option value="">All Departments</option>
+                        {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <Button
+                variant="secondary"
+                icon={<ArrowUpDown className="w-4 h-4" />}
+                onClick={() => setShowSortMenu(!showSortMenu)}
+              >
+                Sort
+              </Button>
+              {showSortMenu && (
+                <div className="absolute top-full left-0 mt-2 w-48 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-xl z-30 p-2">
+                  {[
+                    { val: "dueDate", label: "Due Date" },
+                    { val: "priority", label: "Priority" },
+                    { val: "status", label: "Status" },
+                    { val: "title", label: "Title" },
+                  ].map(opt => (
+                    <button
+                      key={opt.val}
+                      onClick={() => {
+                        if (sortBy === opt.val) setSortOrder(prev => prev === "asc" ? "desc" : "asc");
+                        else {
+                          setSortBy(opt.val as any);
+                          setSortOrder("asc");
+                        }
+                        setShowSortMenu(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-xs rounded-md transition-colors flex items-center justify-between hover:bg-[var(--card-surface)] ${sortBy === opt.val ? 'text-[var(--accent)] font-semibold' : 'text-[var(--foreground)]'
+                        }`}
+                    >
+                      {opt.label}
+                      {sortBy === opt.val && (sortOrder === "asc" ? <SortAsc className="w-3 h-3" /> : <ChevronDown className="w-3 h-3 rotate-180" />)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <Button
+                variant="secondary"
+                icon={<Users className="w-4 h-4" />}
+                onClick={() => setShowGroupMenu(!showGroupMenu)}
+              >
+                Group: {groupBy.charAt(0).toUpperCase() + groupBy.slice(1)}
+              </Button>
+              {showGroupMenu && (
+                <div className="absolute top-full left-0 mt-2 w-48 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-xl z-30 p-2">
+                  {[
+                    { val: "status", label: "By Status" },
+                    { val: "priority", label: "By Priority" },
+                    { val: "department", label: "By Department" },
+                    { val: "assignee", label: "By Assignee" },
+                    { val: "none", label: "No Grouping" },
+                  ].map(opt => (
+                    <button
+                      key={opt.val}
+                      onClick={() => {
+                        setGroupBy(opt.val as any);
+                        setShowGroupMenu(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-xs rounded-md transition-colors flex items-center justify-between hover:bg-[var(--card-surface)] ${groupBy === opt.val ? 'text-[var(--accent)] font-semibold' : 'text-[var(--foreground)]'
+                        }`}
+                    >
+                      {opt.label}
+                      {groupBy === opt.val && <Check className="w-3 h-3" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <div className="ml-auto flex items-center gap-2">
+              <div className="relative mr-2">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--muted)]" />
+                <input
+                  placeholder="Search tasks..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 rounded-full bg-[var(--card-bg)] border border-[var(--border)] text-xs focus:ring-1 focus:ring-[var(--accent)] outline-none w-48 transition-all focus:w-64"
+                />
+              </div>
               <Button
                 onClick={() => setView("list")}
                 aria-pressed={view === "list"}
@@ -363,26 +616,22 @@ export default function TaskTrackingPage() {
 
           {view === "grid" && (
             <div>
-              {tasks.length === 0 && (
+              {sortedTasks.length === 0 && (
                 <div className="pb-6 text-center text-[var(--muted)] py-20">
-                  <div className="text-2xl font-semibold">No tasks yet</div>
-                  <div className="mt-2">Create a new task to get started.</div>
+                  <div className="text-2xl font-semibold">No tasks found</div>
+                  <div className="mt-2">Try adjusting your filters or create a new task.</div>
                 </div>
               )}
 
-              {tasks.length > 0 && (
+              {sortedTasks.length > 0 && (
                 <div className="overflow-x-auto pb-6 chat-scroll">
-                  <div className="flex gap-4 min-w-[1100px]">
-                    {[
-                      { status: 'todo', items: todoTasks, label: 'To Do' },
-                      { status: 'in_progress', items: inProgressTasks, label: 'In Progress' },
-                      { status: 'review', items: reviewTasks, label: 'Review' },
-                      { status: 'completed', items: completedTasks, label: 'Completed' }
-                    ].map(col => (
-                      <div className="w-100" key={col.status}>
-                        <Card className="overflow-hidden bg-[var(--card-bg)]">
-                          <div className="px-4 py-3 flex items-center justify-between border-b border-[var(--border)]">
-                            <div className="text-sm font-semibold">
+                  <div className="flex gap-4 min-w-[300px]" style={{ width: 'max-content' }}>
+                    {columns.map(col => (
+                      <div className="w-[300px]" key={col.id}>
+                        <Card className="overflow-hidden bg-[var(--card-bg)] h-full">
+                          <div className={`px-4 py-3 flex items-center justify-between border-b ${groupBy === 'priority' && col.id === 'High' ? 'border-red-500/30 bg-red-500/5' : 'border-[var(--border)]'
+                            }`}>
+                            <div className="text-sm font-semibold truncate">
                               {col.label}{" "}
                               <span className="text-xs text-[var(--muted)] ml-1">
                                 {col.items.length}
@@ -390,14 +639,18 @@ export default function TaskTrackingPage() {
                             </div>
                             <MoreHorizontal className="w-4 h-4 text-[var(--muted)]" />
                           </div>
-                          <div className="p-3 bg-[var(--card-surface)] min-h-[320px]">
-                            {col.items.map((t) => (
-                              <BoardCard
-                                key={t.id}
-                                task={t}
-                                onClick={() => openEdit(t)}
-                              />
-                            ))}
+                          <div className="p-3 bg-[var(--card-surface)] min-h-[400px]">
+                            {col.items.length === 0 ? (
+                              <div className="py-10 text-center opacity-30 text-xs">Empty</div>
+                            ) : (
+                              col.items.map((t) => (
+                                <BoardCard
+                                  key={t.id}
+                                  task={t}
+                                  onClick={() => openEdit(t)}
+                                />
+                              ))
+                            )}
                           </div>
                         </Card>
                       </div>
@@ -410,38 +663,44 @@ export default function TaskTrackingPage() {
 
           {view === "list" && (
             <div className="pb-6">
-              {tasks.length === 0 ? (
+              {sortedTasks.length === 0 ? (
                 <div className="text-center text-[var(--muted)] py-20">
-                  <div className="text-2xl font-semibold">No tasks yet</div>
+                  <div className="text-2xl font-semibold">No tasks found</div>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {tasks.map((t) => (
+                  {sortedTasks.map((t) => (
                     <div
                       key={t.id}
                       onClick={() => openEdit(t)}
-                      className="p-3 bg-[var(--card-surface)] border border-[var(--border)] rounded flex items-center justify-between cursor-pointer hover:bg-[var(--card-bg)] transition-colors"
+                      className="p-3 bg-[var(--card-surface)] border border-[var(--border)] rounded flex items-center justify-between cursor-pointer hover:bg-[var(--card-bg)] transition-all animate-in fade-in slide-in-from-left-2 duration-200"
                     >
                       <div className="flex-1">
                         <div className="font-medium text-sm flex items-center gap-2">
                           <span
-                            className="w-2.5 h-2.5 rounded-full"
+                            className="w-2.5 h-2.5 rounded-full shadow-[0_0_5px_rgba(0,0,0,0.1)]"
                             style={{ backgroundColor: PRIORITY_COLORS[t.priority] }}
                           />
                           {t.title}
                         </div>
-                        {t.description && (
-                          <div className="text-xs text-[var(--muted)] mt-1 line-clamp-1">{t.description}</div>
-                        )}
+                        <div className="flex items-center gap-2 mt-1">
+                          {t.description && (
+                            <div className="text-[10px] text-[var(--muted)] truncate max-w-md">{t.description}</div>
+                          )}
+                          <span className="text-[10px] bg-[var(--card-bg)] px-1 rounded border border-[var(--border)] text-[var(--muted)]">
+                            {t.department?.name}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-4 text-xs text-[var(--muted)]">
-                        <div className="px-2 py-1 bg-[var(--card-bg)] rounded border border-[var(--border)]">
+                      <div className="flex items-center gap-6 text-xs text-[var(--muted)]">
+                        <div className={`px-2 py-0.5 rounded border ${t.status === 'completed' ? 'bg-green-500/10 border-green-500/20 text-green-600' : 'bg-[var(--card-bg)] border-[var(--border)]'
+                          }`}>
                           {STATUS_LABELS[t.status]}
                         </div>
-                        <div className="w-24 truncate text-right">
+                        <div className="w-24 truncate text-right font-medium">
                           {t.assignee ? (t.assignee.name || t.assignee.email) : 'Unassigned'}
                         </div>
-                        <div className="w-24 text-right">{t.dueDate || '-'}</div>
+                        <div className="w-24 text-right tabular-nums">{t.dueDate || '-'}</div>
                       </div>
                     </div>
                   ))}

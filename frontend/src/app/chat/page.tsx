@@ -139,7 +139,20 @@ export default function UnifiedChatPage() {
             // Add message to current view if it belongs here
             if (msg.conversationId === selectedId) {
                 setMessages(prev => {
+                    // Prevent duplicates by ID (e.g. from multiple socket events)
                     if (prev.some(m => m.id === msg.id)) return prev
+
+                    // Handle race condition: check if this is a real message replacing our optimistic one
+                    const isFromMe = String(msg.senderId) === String(currentUser?.id);
+                    if (isFromMe) {
+                        const tempIndex = prev.findIndex(m => m.id.startsWith('temp-') && m.content === msg.content);
+                        if (tempIndex !== -1) {
+                            const next = [...prev];
+                            next[tempIndex] = msg;
+                            return next;
+                        }
+                    }
+
                     return [...prev, msg]
                 })
             }

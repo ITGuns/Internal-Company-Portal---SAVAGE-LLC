@@ -82,7 +82,20 @@ export default function CompanyChatPage() {
     const handleNewMessage = (msg: Message) => {
       // Only add if not already present (optimistic update fallback)
       setMessages(prev => {
-        if (prev.some(m => m.id === msg.id)) return prev
+        // Prevent duplicates by ID
+        if (prev.some(m => m.id === msg.id)) return prev;
+
+        // Handle race condition: check if this is a real message replacing our optimistic one
+        const isFromMe = String(msg.senderId) === String(currentUser?.id);
+        if (isFromMe) {
+          const tempIndex = prev.findIndex(m => m.id.startsWith('temp-') && m.content === msg.content);
+          if (tempIndex !== -1) {
+            const next = [...prev];
+            next[tempIndex] = msg;
+            return next;
+          }
+        }
+
         if (msg.conversationId === selectedId) {
           return [...prev, msg]
         }
