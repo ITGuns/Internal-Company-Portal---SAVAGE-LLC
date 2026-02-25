@@ -77,12 +77,15 @@ export default function LoginPage() {
   const handleBypass = () => {
     if (!bypass) return;
 
-    // Set mock user data
+    // Set mock user data with full admin access
     const mockUser = {
       id: 'bypass-user',
       email: 'bypass@savage.com',
       name: 'Bypass User',
       avatar: 'https://ui-avatars.com/api/?name=Bypass+User&background=random',
+      role: 'admin',
+      department: 'Engineering',
+      isApproved: true,
     };
 
     const mockToken = 'bypass-token-' + Date.now();
@@ -221,8 +224,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={handleBypass}
-                  className={styles.secondaryButton}
-                  style={{ marginTop: '16px' }}
+                  className={`${styles.secondaryButton} mt-4`}
                 >
                   Enter with Bypass
                 </button>

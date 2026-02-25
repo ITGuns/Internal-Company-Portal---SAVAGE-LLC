@@ -5,6 +5,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import Header from '@/components/Header'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
+import EmptyState from '@/components/ui/EmptyState'
 import { Send, User, Search, MessageSquare, Loader2, Paperclip, Plus, X, Trash2 } from 'lucide-react'
 import { fetchConversations, fetchMessages, sendMessage, createConversation, deleteMessage, deleteConversation, type Message, type Conversation } from '@/lib/chat'
 import { fetchUsers, type User as SystemUser } from '@/lib/users'
@@ -224,7 +225,12 @@ export default function PrivateMessagesPage() {
               )
             })}
             {conversations.length === 0 && (
-              <div className="p-8 text-center text-sm text-[var(--muted)]">No messages yet.</div>
+              <EmptyState
+                icon={MessageSquare}
+                title="No conversations yet"
+                description="Start a new chat to connect with your team."
+                variant="compact"
+              />
             )}
           </div>
         </div>
@@ -267,7 +273,14 @@ export default function PrivateMessagesPage() {
                     </div>
                   )
                 })}
-                {messages.length === 0 && <div className="text-center py-20 text-[var(--muted)] text-sm">No messages.</div>}
+                {messages.length === 0 && (
+                  <EmptyState
+                    icon={MessageSquare}
+                    title="No messages yet"
+                    description="Start the conversation!"
+                    variant="compact"
+                  />
+                )}
               </div>
 
               <div className="p-4 bg-[var(--card-surface)] border-t border-[var(--border)]">
@@ -278,7 +291,7 @@ export default function PrivateMessagesPage() {
                     placeholder="Type a message..."
                     className="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                   />
-                  <button type="submit" disabled={!newMessage.trim() || sending} className="p-2 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 transition-all"><Send className="w-5 h-5" /></button>
+                  <button type="submit" disabled={!newMessage.trim() || sending} className="p-2 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 transition-all" aria-label="Send message"><Send className="w-5 h-5" /></button>
                 </form>
               </div>
             </>
@@ -291,7 +304,7 @@ export default function PrivateMessagesPage() {
             <Card className="w-full max-w-md h-[400px] flex flex-col overflow-hidden">
               <div className="p-4 border-b border-[var(--border)] flex justify-between items-center">
                 <h3 className="font-semibold">New Message</h3>
-                <button onClick={() => setShowNewChat(false)}><X className="w-5 h-5" /></button>
+                <button onClick={() => setShowNewChat(false)} aria-label="Close"><X className="w-5 h-5" /></button>
               </div>
               <div className="p-4">
                 <div className="relative">

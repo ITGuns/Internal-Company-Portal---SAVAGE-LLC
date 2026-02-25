@@ -101,7 +101,7 @@ export default function DailyLogsPage() {
 
   if (loading) {
     return (
-      <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)]">
+      <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
         <div className="p-6 pt-3">
           <Header title="Daily Logs" subtitle="Track daily progress and tasks" />
           <LoadingSpinner message="Loading daily logs..." />
@@ -179,7 +179,7 @@ export default function DailyLogsPage() {
   };
 
   return (
-    <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)]">
+    <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-6 pt-3">
         <Header
           title="Daily Logs"
@@ -213,6 +213,7 @@ export default function DailyLogsPage() {
                   value={dateFilter}
                   onChange={(e) => setDateFilter(e.target.value as DateFilter)}
                   className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-sm [color-scheme:light] dark:[color-scheme:dark]"
+                  aria-label="Date Range"
                 >
                   <option value="today">Today</option>
                   <option value="week">This Week</option>
@@ -227,6 +228,7 @@ export default function DailyLogsPage() {
                   value={departmentFilter}
                   onChange={(e) => setDepartmentFilter(e.target.value)}
                   className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-sm [color-scheme:light] dark:[color-scheme:dark]"
+                  aria-label="Department"
                 >
                   {DEPARTMENTS.map(dept => (
                     <option key={dept} value={dept}>{dept}</option>
@@ -240,6 +242,7 @@ export default function DailyLogsPage() {
                   value={userFilter}
                   onChange={(e) => setUserFilter(e.target.value)}
                   className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-sm [color-scheme:light] dark:[color-scheme:dark]"
+                  aria-label="Team Member"
                 >
                   <option value="all">All Members</option>
                   {users.map(user => (
@@ -441,6 +444,7 @@ export default function DailyLogsPage() {
                 value={formDepartment}
                 onChange={(e) => setFormDepartment(e.target.value)}
                 className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] dark:[color-scheme:dark]"
+                aria-label="Department"
               >
                 <option value="">Select department</option>
                 {DEPARTMENTS.map(dept => (
@@ -455,6 +459,7 @@ export default function DailyLogsPage() {
                 value={formStatus}
                 onChange={(e) => setFormStatus(e.target.value as LogStatus)}
                 className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] dark:[color-scheme:dark]"
+                aria-label="Status"
               >
                 <option value="in-progress">In Progress</option>
                 <option value="completed">Completed</option>
@@ -486,6 +491,7 @@ export default function DailyLogsPage() {
                       checked={task.completed}
                       onChange={() => handleToggleTask(task.id)}
                       className="w-4 h-4 rounded [color-scheme:light] dark:[color-scheme:dark]"
+                      aria-label="Mark task as completed"
                     />
                     <span className={`flex-1 text-sm ${task.completed ? 'line-through text-[var(--muted)]' : ''}`}>
                       {task.text}

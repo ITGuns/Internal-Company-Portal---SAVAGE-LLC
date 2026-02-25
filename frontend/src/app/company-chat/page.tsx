@@ -5,6 +5,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import Header from '@/components/Header'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
+import EmptyState from '@/components/ui/EmptyState'
 import { Send, Hash, Users, MessageSquare, Loader2, Paperclip } from 'lucide-react'
 import { fetchConversations, fetchMessages, sendMessage, createConversation, type Message, type Conversation } from '@/lib/chat'
 import { useSocket } from '@/context/SocketContext'
@@ -270,21 +271,20 @@ export default function CompanyChatPage() {
                       )}
                     </div>
                   )
-                })}
-                {messages.length === 0 && (
-                  <div className="text-center py-20 text-[var(--muted)] flex flex-col items-center">
-                    <div className="p-3 rounded-full bg-[var(--card-surface)] mb-4">
-                      <MessageSquare className="w-6 h-6 opacity-30" />
-                    </div>
-                    <p className="text-sm">No messages yet. Say hi! 👋</p>
-                  </div>
+                })}                {messages.length === 0 && (
+                  <EmptyState
+                    icon={MessageSquare}
+                    title="No messages yet"
+                    description="Say hi! 👋 Start a conversation with your team."
+                    variant="compact"
+                  />
                 )}
               </div>
 
               {/* Message Input */}
               <div className="p-4 border-t border-[var(--border)] bg-[var(--card-surface)]">
                 <form onSubmit={handleSend} className="flex items-center gap-3">
-                  <button type="button" className="p-2 text-[var(--muted)] hover:text-[var(--accent)] transition-colors">
+                  <button type="button" className="p-2 text-[var(--muted)] hover:text-[var(--accent)] transition-colors" aria-label="Attach file">
                     <Paperclip className="w-5 h-5" />
                   </button>
                   <input
@@ -296,8 +296,7 @@ export default function CompanyChatPage() {
                   <button
                     type="submit"
                     disabled={!newMessage.trim() || sending}
-                    className="p-2 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition-all active:scale-95"
-                  >
+                    className="p-2 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition-all active:scale-95"                    aria-label="Send message"                  >
                     <Send className="w-5 h-5" />
                   </button>
                 </form>

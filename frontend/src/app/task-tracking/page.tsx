@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Button from "@/components/Button";
 import Card from "@/components/Card";
+import EmptyState from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ToastProvider";
 import { DEPARTMENT_ROLES } from '@/lib/departments';
 import {
@@ -16,6 +17,7 @@ import {
   Plus,
   MoreHorizontal,
   Trash2,
+  CheckSquare,
 } from "lucide-react";
 import LoadingSpinner from '@/components/LoadingSpinner';
 import FullCalendar from "@fullcalendar/react";
@@ -307,10 +309,7 @@ export default function TaskTrackingPage() {
   }
 
   return (
-    <main
-      style={{ minHeight: "calc(100vh - var(--header-height))" }}
-      className="bg-[var(--background)] text-[var(--foreground)]"
-    >
+    <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-6 pt-0">
         <Header
           title="Task Tracking"
@@ -364,10 +363,13 @@ export default function TaskTrackingPage() {
           {view === "grid" && (
             <div>
               {tasks.length === 0 && (
-                <div className="pb-6 text-center text-[var(--muted)] py-20">
-                  <div className="text-2xl font-semibold">No tasks yet</div>
-                  <div className="mt-2">Create a new task to get started.</div>
-                </div>
+                <EmptyState
+                  icon={CheckSquare}
+                  title="No tasks yet"
+                  description="Create a new task to get started and organize your work."
+                  actionLabel="Create your first task"
+                  onAction={() => setShowModal(true)}
+                />
               )}
 
               {tasks.length > 0 && (
@@ -411,9 +413,13 @@ export default function TaskTrackingPage() {
           {view === "list" && (
             <div className="pb-6">
               {tasks.length === 0 ? (
-                <div className="text-center text-[var(--muted)] py-20">
-                  <div className="text-2xl font-semibold">No tasks yet</div>
-                </div>
+                <EmptyState
+                  icon={CheckSquare}
+                  title="No tasks yet"
+                  description="Create a new task to get started and organize your work."
+                  actionLabel="Create your first task"
+                  onAction={() => setShowModal(true)}
+                />
               ) : (
                 <div className="space-y-3">
                   {tasks.map((t) => (
@@ -605,6 +611,7 @@ export default function TaskTrackingPage() {
                     }}
                     className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
                     required
+                    aria-label="Department"
                   >
                     <option value="">Select department</option>
                     {departments.map(d => (
@@ -619,6 +626,7 @@ export default function TaskTrackingPage() {
                     value={priority}
                     onChange={(e) => setPriority(e.target.value as TaskPriority)}
                     className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                    aria-label="Priority"
                   >
                     <option value="Low">Low</option>
                     <option value="Med">Med</option>
@@ -634,6 +642,7 @@ export default function TaskTrackingPage() {
                     value={assigneeId}
                     onChange={(e) => setAssigneeId(e.target.value)}
                     className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                    aria-label="Assign To"
                   >
                     <option value="">Unassigned</option>
                     {users.map(u => (
@@ -649,6 +658,7 @@ export default function TaskTrackingPage() {
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
                     className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                    aria-label="Due Date"
                   />
                 </div>
               </div>
@@ -660,6 +670,7 @@ export default function TaskTrackingPage() {
                     value={status}
                     onChange={(e) => setStatus(e.target.value as TaskStatus)}
                     className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                    aria-label="Status"
                   >
                     {Object.entries(STATUS_LABELS).map(([val, label]) => (
                       <option key={val} value={val}>{label}</option>
@@ -673,6 +684,7 @@ export default function TaskTrackingPage() {
                     onChange={(e) => setRole(e.target.value)}
                     disabled={!departmentId}
                     className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] disabled:opacity-50"
+                    aria-label="Role"
                   >
                     <option value="">Select role</option>
                     {availableRoles.map((r) => (

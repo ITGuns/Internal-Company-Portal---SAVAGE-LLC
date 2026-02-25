@@ -5,7 +5,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import Header from '@/components/Header'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import { Send, Hash, Users, MessageSquare, Loader2, Paperclip, Plus, X, Trash2, Search, User } from 'lucide-react'
+import { Send, Hash, Users, MessageSquare, Paperclip, Plus, X, Trash2, Search } from 'lucide-react'
 import { fetchConversations, fetchMessages, sendMessage, createConversation, deleteMessage, deleteConversation, type Message, type Conversation } from '@/lib/chat'
 import { fetchUsers, type User as SystemUser } from '@/lib/users'
 import { useSocket } from '@/context/SocketContext'
@@ -19,7 +19,6 @@ export default function UnifiedChatPage() {
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [messages, setMessages] = useState<Message[]>([])
     const [newMessage, setNewMessage] = useState('')
-    const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
     const [sending, setSending] = useState(false)
     const [showNewChat, setShowNewChat] = useState(false)
@@ -60,7 +59,6 @@ export default function UnifiedChatPage() {
         async function load() {
             try {
                 setLoading(true)
-                setError(null)
                 const [convData, userData] = await Promise.all([
                     fetchConversations().catch(err => {
                         console.warn("Retrying fetch in 2s...", err)
@@ -68,8 +66,8 @@ export default function UnifiedChatPage() {
                             setTimeout(async () => {
                                 try {
                                     resolve(await fetchConversations())
-                                } catch (e) {
-                                    setError("Failed to load conversations.")
+                                } catch {
+                                    console.error("Failed to load conversations after retry")
                                     resolve([])
                                 }
                             }, 2000)
@@ -88,13 +86,12 @@ export default function UnifiedChatPage() {
                 }
             } catch (err: any) {
                 console.error("Initial load failed", err)
-                setError("Failed to load data.")
             } finally {
                 setLoading(false)
             }
         }
         load()
-    }, [currentUser])
+    }, [currentUser, selectedId])
 
     // Fetch messages when conversation changes
     useEffect(() => {
@@ -349,6 +346,7 @@ export default function UnifiedChatPage() {
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleDeleteConversation(c.id); }}
                                             className={`absolute right-2 opacity-0 group-hover:opacity-100 p-1.5 rounded-full bg-red-500 text-white transition-opacity ${isActive ? 'bg-white text-red-500' : ''}`}
+                                            aria-label="Delete conversation"
                                         >
                                             <Trash2 className="w-3 h-3" />
                                         </button>
@@ -424,6 +422,7 @@ export default function UnifiedChatPage() {
                                                         <button
                                                             onClick={() => handleDeleteMessage(msg.id)}
                                                             className="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1.5 text-red-500 hover:bg-red-50 rounded-full transition-all"
+                                                            aria-label="Delete message"
                                                         >
                                                             <Trash2 className="w-3 h-3" />
                                                         </button>
@@ -455,7 +454,7 @@ export default function UnifiedChatPage() {
                             {/* Message Input */}
                             <div className="p-4 bg-[var(--card-surface)] border-t border-[var(--border)] shadow-lg">
                                 <form onSubmit={handleSend} className="flex gap-3 items-center">
-                                    <button type="button" className="p-2 text-[var(--muted)] hover:text-[var(--accent)] transition-colors rounded-full hover:bg-[var(--background)]">
+                                    <button type="button" className="p-2 text-[var(--muted)] hover:text-[var(--accent)] transition-colors rounded-full hover:bg-[var(--background)]" aria-label="Attach file">
                                         <Paperclip className="w-5 h-5" />
                                     </button>
                                     <div className="relative flex-1">
@@ -476,6 +475,7 @@ export default function UnifiedChatPage() {
                                         type="submit"
                                         disabled={!newMessage.trim() || sending}
                                         className="p-3 bg-[var(--accent)] text-white rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
+                                        aria-label="Send message"
                                     >
                                         <Send className="w-5 h-5" />
                                     </button>
@@ -494,6 +494,7 @@ export default function UnifiedChatPage() {
                                 <button
                                     onClick={() => setShowNewChat(false)}
                                     className="p-1 hover:bg-[var(--background)] rounded-full transition-colors"
+                                    aria-label="Close"
                                 >
                                     <X className="w-6 h-6" />
                                 </button>
@@ -554,6 +555,7 @@ export default function UnifiedChatPage() {
                                 <button
                                     onClick={() => setShowCreateChannel(false)}
                                     className="p-1 hover:bg-[var(--background)] rounded-full transition-colors"
+                                    aria-label="Close"
                                 >
                                     <X className="w-6 h-6" />
                                 </button>
