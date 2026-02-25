@@ -225,7 +225,7 @@ export default function AnnouncementsPage() {
 
   if (loading) {
     return (
-      <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)]">
+      <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
         <div className="p-6 pt-3">
           <Header
             title="Announcements & Shoutouts"
@@ -238,7 +238,7 @@ export default function AnnouncementsPage() {
   }
 
   return (
-    <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)]">
+    <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-6 pt-3">
         <Header
           title="Announcements & Shoutouts"
@@ -317,6 +317,7 @@ export default function AnnouncementsPage() {
                   setIsBirthday(e.target.value === 'birthdays');
                 }}
                 className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+                aria-label="Category"
               >
                 <option value="company-news">Company News</option>
                 <option value="shoutouts">Shoutouts</option>
@@ -369,6 +370,7 @@ export default function AnnouncementsPage() {
                     value={eventDate}
                     onChange={(e) => setEventDate(e.target.value)}
                     className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer dark:[&::-webkit-calendar-picker-indicator]:filter dark:[&::-webkit-calendar-picker-indicator]:invert-[1] dark:[&::-webkit-calendar-picker-indicator]:brightness-[1.5]"
+                    aria-label="Event date and time"
                   />
                 </div>
 
@@ -391,6 +393,7 @@ export default function AnnouncementsPage() {
                   value={birthdayDate}
                   onChange={(e) => setBirthdayDate(e.target.value)}
                   className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer dark:[&::-webkit-calendar-picker-indicator]:filter dark:[&::-webkit-calendar-picker-indicator]:invert-[1] dark:[&::-webkit-calendar-picker-indicator]:brightness-[1.5]"
+                  aria-label="Birthday date"
                 />
               </div>
             )}
@@ -673,6 +676,7 @@ export default function AnnouncementsPage() {
                               <button
                                 onClick={() => handleAddComment(announcement.id)}
                                 className="p-2 rounded bg-[var(--foreground)] text-[var(--background)] hover:opacity-90 transition"
+                                aria-label="Post comment"
                               >
                                 <Send className="w-4 h-4" />
                               </button>

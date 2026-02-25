@@ -13,9 +13,17 @@ import { useRouter } from 'next/navigation'
 import { useSocket } from '@/context/SocketContext'
 import { fetchConversations, fetchMessages, sendMessage, type Message, type Conversation } from '@/lib/chat'
 
-function QuickLink({ title, subtitle, icon: Icon }: { title: string; subtitle?: string; icon: React.ComponentType<{ className?: string }> }) {
+function QuickLink({ title, subtitle, icon: Icon, onClick, href }: { title: string; subtitle?: string; icon: React.ComponentType<{ className?: string }>; onClick?: () => void; href?: string }) {
+  const handleClick = () => {
+    if (onClick) {
+      onClick();
+    } else if (href) {
+      window.open(href, '_blank');
+    }
+  };
+
   return (
-    <Card variant="interactive" padding="sm">
+    <Card variant="interactive" padding="sm" onClick={handleClick}>
       <div className="flex items-center gap-3">
         <Icon className="w-4 h-4 text-[var(--muted)]" />
         <div className="flex-1">
@@ -201,7 +209,7 @@ export default function DashboardPage() {
 
   if (loading || userLoading) {
     return (
-      <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)] p-6">
+      <main className="main-content-height bg-[var(--background)] text-[var(--foreground)] p-6">
         <Header />
         <LoadingSpinner message="Loading dashboard..." />
       </main>
@@ -210,7 +218,7 @@ export default function DashboardPage() {
 
   if (!user) {
     return (
-      <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)] p-6">
+      <main className="main-content-height bg-[var(--background)] text-[var(--foreground)] p-6">
         <Header />
         <div className="flex flex-col items-center justify-center h-[60vh] text-center">
           <h2 className="text-2xl font-bold mb-4">Please Log In</h2>
@@ -222,7 +230,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main style={{ minHeight: 'calc(100vh - var(--header-height))' }} className="bg-[var(--background)] text-[var(--foreground)]">
+    <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-6 pt-3">
         <Header />
 
@@ -285,9 +293,25 @@ export default function DashboardPage() {
               </Card.Header>
 
               <Card.Content className="grid gap-3">
-                <QuickLink title="Discord Server" subtitle="Join the conversation" icon={Send} />
-                <QuickLink title="Google Drive" subtitle="Access shared files" icon={ExternalLink} />
-                <QuickLink title="Shared Resources" subtitle="Company documents" icon={ExternalLink} />
+                <QuickLink 
+                  title="Discord Server" 
+                  subtitle="Join the conversation" 
+                  icon={Send}
+                  onClick={() => {
+                    // Try to open Discord app
+                    window.location.href = 'discord://discord.com/channels/1464856711813660694/1464865716200018042';
+                    // Fallback to web after 500ms if app doesn't open
+                    setTimeout(() => {
+                      window.open('https://discord.com/channels/1464856711813660694/1464865716200018042', '_blank');
+                    }, 500);
+                  }}
+                />
+                <QuickLink 
+                  title="Google Drive" 
+                  subtitle="Access shared files" 
+                  icon={ExternalLink}
+                  href="https://drive.google.com"
+                />
               </Card.Content>
             </Card>
 

@@ -48,7 +48,6 @@ export default function PayrollCalendarPage() {
   } = usePayrollData();
 
   const {
-    builtInEvents,
     events,
     displayEvents,
     stats,
@@ -176,8 +175,7 @@ export default function PayrollCalendarPage() {
   if (loading) {
     return (
       <main
-        style={{ minHeight: "calc(100vh - var(--header-height))" }}
-        className="bg-[var(--background)] text-[var(--foreground)]"
+        className="main-content-height bg-[var(--background)] text-[var(--foreground)]"
       >
         <div className="p-6 pt-0">
           <Header
@@ -192,8 +190,7 @@ export default function PayrollCalendarPage() {
 
   return (
     <main
-      style={{ minHeight: "calc(100vh - var(--header-height))" }}
-      className="bg-[var(--background)] text-[var(--foreground)]"
+      className="main-content-height bg-[var(--background)] text-[var(--foreground)]"
     >
       <div className="p-6 pt-0 transition-all duration-500">
         <Header

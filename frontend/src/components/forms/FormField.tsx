@@ -103,7 +103,7 @@ export default function FormField({
           disabled:opacity-50 disabled:cursor-not-allowed
           ${className}
         `}
-        aria-invalid={error ? 'true' : 'false'}
+        {...(error && { 'aria-invalid': 'true' })}
         aria-describedby={
           error ? `${id}-error` : helperText ? `${id}-helper` : undefined
         }

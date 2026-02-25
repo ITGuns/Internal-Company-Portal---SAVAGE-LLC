@@ -19,6 +19,7 @@ import {
   DollarSign,
   Megaphone,
   Mail,
+  Folder,
 } from 'lucide-react'
 
 function NavItem({ icon: Icon, label, badge, href }: { icon: React.ComponentType<React.SVGProps<SVGSVGElement>>; label: string; badge?: number; href: string }) {
@@ -54,10 +55,13 @@ function SidebarDepartment({ dept, roles, depth = 0 }: { dept: string; roles: st
 
   // Count all nested roles recursively
   const totalRoles = roles.reduce((sum, r) => sum + 1 + (DEPARTMENT_ROLES[r]?.length || 0), 0);
+  
+  // ARIA attribute value must be string literal
+  const ariaExpanded = open ? "true" : "false";
 
   return (
     <div>
-      <button onClick={() => setOpen(open => !open)} className={`${base} ${depth > 0 ? 'text-sm' : ''}`} aria-expanded={open}>
+      <button onClick={() => setOpen(open => !open)} className={`${base} ${depth > 0 ? 'text-sm' : ''}`} aria-expanded={ariaExpanded}>
         <span className="flex-1">{dept}</span>
         {totalRoles > 0 && <span className="text-sm text-muted">{totalRoles}</span>}
       </button>
@@ -149,15 +153,8 @@ export default function Sidebar() {
           <div className="text-xs text-muted uppercase px-2 mb-2">Collaboration</div>
           <nav className="space-y-1 mb-4">
             <NavItem href="/chat" icon={MessageSquare} label="Messages & Chat" />
+            <NavItem href="/file-directory" icon={Folder} label="File Directory" />
             <NavItem href="/whiteboard" icon={Grid} label="Whiteboard" />
-          </nav>
-
-          <div className="text-xs text-muted uppercase px-2 mb-2">Departments</div>
-          <nav className="space-y-1 mb-6">
-            {/* Departments list - top-level only, sub-departments nest inside */}
-            {SIDEBAR_DEPARTMENTS.map((dept) => (
-              <SidebarDepartment key={dept} dept={dept} roles={DEPARTMENT_ROLES[dept]} />
-            ))}
           </nav>
         </div>
 

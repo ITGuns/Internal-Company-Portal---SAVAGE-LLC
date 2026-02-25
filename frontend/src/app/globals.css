@@ -47,6 +47,16 @@ body {
   --status-blocked: #ef4444; /* red-500 */
   --status-blocked-bg: rgba(239, 68, 68, 0.1);
   
+  /* Department Colors */
+  --dept-operations: #3b82f6; /* blue-500 */
+  --dept-operations-bg: rgba(59, 130, 246, 0.1);
+  --dept-creatives: #a855f7; /* purple-500 */
+  --dept-creatives-bg: rgba(168, 85, 247, 0.1);
+  --dept-finance: #10b981; /* green-500 */
+  --dept-finance-bg: rgba(16, 185, 129, 0.1);
+  --dept-engineering: #f59e0b; /* amber-500 */
+  --dept-engineering-bg: rgba(245, 158, 11, 0.1);
+  
   /* Scrollbar Colors */
   --scrollbar-thumb: #e5e7eb; /* light gray for light mode */
   --scrollbar-thumb-hover: #d1d5db;
@@ -88,6 +98,16 @@ body {
     --status-completed-bg: rgba(16, 185, 129, 0.15);
     --status-blocked: #ef4444;
     --status-blocked-bg: rgba(239, 68, 68, 0.15);
+    
+    /* Department Colors (brighter for dark mode) */
+    --dept-operations: #60a5fa; /* blue-400 */
+    --dept-operations-bg: rgba(96, 165, 250, 0.15);
+    --dept-creatives: #c084fc; /* purple-400 */
+    --dept-creatives-bg: rgba(192, 132, 252, 0.15);
+    --dept-finance: #34d399; /* green-400 */
+    --dept-finance-bg: rgba(52, 211, 153, 0.15);
+    --dept-engineering: #fbbf24; /* amber-400 */
+    --dept-engineering-bg: rgba(251, 191, 36, 0.15);
     
     /* Scrollbar Colors */
     --scrollbar-thumb: rgba(255, 255, 255, 0.06); /* subtle white for dark mode */
@@ -144,6 +164,16 @@ html.dark {
   --status-blocked: #ef4444;
   --status-blocked-bg: rgba(239, 68, 68, 0.15);
   
+  /* Department Colors (brighter for dark mode) */
+  --dept-operations: #60a5fa; /* blue-400 */
+  --dept-operations-bg: rgba(96, 165, 250, 0.15);
+  --dept-creatives: #c084fc; /* purple-400 */
+  --dept-creatives-bg: rgba(192, 132, 252, 0.15);
+  --dept-finance: #34d399; /* green-400 */
+  --dept-finance-bg: rgba(52, 211, 153, 0.15);
+  --dept-engineering: #fbbf24; /* amber-400 */
+  --dept-engineering-bg: rgba(251, 191, 36, 0.15);
+  
   /* Scrollbar Colors */
   --scrollbar-thumb: rgba(255, 255, 255, 0.06);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.12);
@@ -158,6 +188,16 @@ html[data-theme="light"] {
   --card-surface: #ebebeb;
   --border: #e5e7eb;
   --accent: #c03333;
+  
+  /* Department Colors */
+  --dept-operations: #3b82f6;
+  --dept-operations-bg: rgba(59, 130, 246, 0.1);
+  --dept-creatives: #a855f7;
+  --dept-creatives-bg: rgba(168, 85, 247, 0.1);
+  --dept-finance: #10b981;
+  --dept-finance-bg: rgba(16, 185, 129, 0.1);
+  --dept-engineering: #f59e0b;
+  --dept-engineering-bg: rgba(245, 158, 11, 0.1);
 }
 
 body {
@@ -539,4 +579,9 @@ html[data-theme="dark"] .priority-dot.med {
 }
 html[data-theme="dark"] .priority-dot.high {
   background: #ef4444;
+}
+
+/* Utility: Main content height (for pages that need to fill viewport minus header) */
+.main-content-height {
+  min-height: calc(100vh - var(--header-height));
 }
