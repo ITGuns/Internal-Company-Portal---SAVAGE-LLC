@@ -41,8 +41,9 @@ export class DailyLogsController {
             try {
                 const department = req.query.department as string | undefined
                 const status = req.query.status as string | undefined
+                const logType = req.query.logType as string | undefined
 
-                const items = await this.service.findAll(department, status)
+                const items = await this.service.findAll(department, status, logType)
                 res.json(items)
             } catch (error) {
                 console.error('Error fetching logs:', error)
@@ -67,7 +68,7 @@ export class DailyLogsController {
         // Create log
         router.post('/', authenticateToken, async (req: Request, res: Response) => {
             try {
-                const { content, date, department, status, hoursLogged, tasks } = req.body
+                const { content, date, department, status, hoursLogged, tasks, shiftNotes, logType } = req.body
                 const user = (req as AuthRequest).user
 
                 if (!content) {
@@ -89,6 +90,8 @@ export class DailyLogsController {
                     status,
                     hoursLogged,
                     tasks,
+                    shiftNotes,
+                    logType,
                     authorId: user.userId
                 })
 
@@ -103,14 +106,16 @@ export class DailyLogsController {
         router.patch('/:id', authenticateToken, checkOwnership, async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
-                const { content, department, status, hoursLogged, tasks } = req.body
+                const { content, department, status, hoursLogged, tasks, shiftNotes, logType } = req.body
 
                 const item = await this.service.update(id, {
                     content,
                     department,
                     status,
                     hoursLogged,
-                    tasks
+                    tasks,
+                    shiftNotes,
+                    logType
                 })
 
                 res.json(item)

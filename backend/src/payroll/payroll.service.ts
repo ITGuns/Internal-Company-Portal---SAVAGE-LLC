@@ -213,6 +213,43 @@ export class PayrollService {
     }
 
     /**
+     * Auto-create a semi-monthly payroll period for right now
+     * Called when no periods exist yet (first-time setup convenience)
+     */
+    async ensureCurrentPeriodExists(): Promise<string> {
+        const existing = await this.prisma.payrollPeriod.findFirst({
+            orderBy: { startDate: 'desc' }
+        })
+        if (existing) return existing.id
+
+        // Create a semi-monthly period: 1st–15 or 16th–end-of-month
+        const now = new Date()
+        const year = now.getFullYear()
+        const month = now.getMonth()
+        const day = now.getDate()
+
+        let startDate: Date
+        let endDate: Date
+        if (day <= 15) {
+            startDate = new Date(year, month, 1)
+            endDate = new Date(year, month, 15, 23, 59, 59)
+        } else {
+            startDate = new Date(year, month, 16)
+            endDate = new Date(year, month + 1, 0, 23, 59, 59) // last day of month
+        }
+
+        const payDate = new Date(endDate)
+        payDate.setDate(payDate.getDate() + 5)
+
+        const period = await this.prisma.payrollPeriod.create({
+            data: { startDate, endDate, payDate, status: 'draft' }
+        })
+
+        console.log(`[PayrollService] Auto-created payroll period: ${period.id} (${startDate.toDateString()} – ${endDate.toDateString()})`)
+        return period.id
+    }
+
+    /**
      * Generate Payslip for a User in a Period
      */
     async generatePayslip(periodId: string, userId: string) {
@@ -254,6 +291,7 @@ export class PayrollService {
                     const logs = await this.prisma.dailyLog.findMany({
                         where: {
                             authorId: userId,
+                            logType: 'daily',
                             date: {
                                 gte: period.startDate,
                                 lte: period.endDate
@@ -308,6 +346,26 @@ export class PayrollService {
 
         const netPay = grossPay - tax
 
+        // Gather EOD notes/shiftNotes for this period
+        const logsWithNotes = await this.prisma.dailyLog.findMany({
+            where: {
+                authorId: userId,
+                logType: 'daily',
+                date: {
+                    gte: period.startDate,
+                    lte: period.endDate
+                },
+                OR: [
+                    { shiftNotes: { not: "" } },
+                    { content: { not: "" } }
+                ]
+            }
+        })
+
+        const aggregatedNotes = logsWithNotes.map(log =>
+            `[${log.date.toLocaleDateString()}] ${log.shiftNotes || log.content}`
+        ).join('\n')
+
         // Create or Update Payslip
         // Check existing
         const existing = await this.prisma.payslip.findFirst({
@@ -323,6 +381,7 @@ export class PayrollService {
                 data: {
                     grossPay,
                     netPay,
+                    notes: aggregatedNotes || null,
                     items: {
                         create: items
                     }
@@ -337,6 +396,7 @@ export class PayrollService {
                     userId,
                     grossPay,
                     netPay,
+                    notes: aggregatedNotes || null,
                     items: {
                         create: items,
                     },
@@ -378,6 +438,58 @@ export class PayrollService {
             },
             orderBy: { generatedAt: 'desc' }
         })
+    }
+
+    /**
+     * Get Report Statistics for Admins
+     */
+    async getReportStats() {
+        const periods = await this.prisma.payrollPeriod.findMany({
+            include: {
+                payslips: {
+                    include: { items: true }
+                }
+            },
+            orderBy: { startDate: 'desc' },
+            take: 5
+        })
+
+        const stats = periods.map(p => {
+            const totalGross = p.payslips.reduce((sum, ps) => sum + ps.grossPay, 0)
+            const totalNet = p.payslips.reduce((sum, ps) => sum + ps.netPay, 0)
+            const totalDeductions = totalGross - totalNet
+
+            // Aggregated breakdown
+            const breakdown = {
+                tax: 0,
+                benefits: 0
+            }
+
+            p.payslips.forEach(ps => {
+                ps.items.forEach((item: any) => {
+                    const amt = Math.abs(item.amount)
+                    if (item.amount < 0) {
+                        if (item.description.toLowerCase().includes('tax')) {
+                            breakdown.tax += amt
+                        } else {
+                            breakdown.benefits += amt
+                        }
+                    }
+                })
+            })
+
+            return {
+                periodId: p.id,
+                label: `${p.startDate.toLocaleDateString()} - ${p.endDate.toLocaleDateString()}`,
+                gross: totalGross,
+                net: totalNet,
+                deductions: totalDeductions,
+                breakdown,
+                count: p.payslips.length
+            }
+        })
+
+        return stats
     }
 }
 

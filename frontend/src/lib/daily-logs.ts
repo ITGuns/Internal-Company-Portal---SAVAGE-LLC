@@ -23,8 +23,10 @@ export interface DailyLog {
   status: LogStatus;
   hoursLogged: number;
   tasks: LogTask[];
+  shiftNotes: string; // EOD shift notes
   likes: string[]; // Array of user IDs who liked
   comments: number; // Comment count
+  logType?: string; // daily, weekly, monthly
 }
 
 // Helper to map API data to Frontend interface
@@ -45,22 +47,22 @@ const mapApiLog = (data: any): DailyLog => {
     status: data.status as LogStatus,
     hoursLogged: data.hoursLogged || 0,
     tasks: data.tasks || [],
+    shiftNotes: data.shiftNotes || '',
     likes: data.likes?.map((l: any) => l.userId || l.user?.id) || [],
-    comments: 0 // Backend doesn't return comments count or list in findAll yet? 
-    // Using `include` in service: `likes` included. `comments` NOT included in `findAll` of service.
-    // I should assume 0 for now or update backend. 
-    // The frontend interface has `comments: number`.
+    comments: 0,
+    logType: data.logType || 'daily'
   };
 };
 
 /**
  * Fetch all daily logs from API
  */
-export async function fetchDailyLogs(department?: string, status?: string): Promise<DailyLog[]> {
+export async function fetchDailyLogs(department?: string, status?: string, logType?: string): Promise<DailyLog[]> {
   try {
     const query = new URLSearchParams();
     if (department) query.append('department', department);
     if (status) query.append('status', status);
+    if (logType) query.append('logType', logType);
 
     const res = await apiFetch(`/daily-logs?${query.toString()}`);
     if (res.status === 200) {
@@ -88,7 +90,9 @@ export async function createDailyLog(
   date: string,
   hoursLogged: number,
   tasks: LogTask[],
-  status: LogStatus = 'in-progress'
+  status: LogStatus = 'in-progress',
+  shiftNotes: string = '',
+  logType: string = 'daily'
 ): Promise<DailyLog | null> {
   try {
     const payload = {
@@ -97,7 +101,9 @@ export async function createDailyLog(
       date: new Date(date).toISOString(), // Send as ISO
       hoursLogged,
       tasks, // Send JSON
-      status
+      status,
+      shiftNotes,
+      logType
     };
 
     const res = await apiFetch('/daily-logs', {
@@ -128,6 +134,8 @@ export async function updateDailyLog(id: string, updates: Partial<Omit<DailyLog,
     if (updates.hoursLogged !== undefined) payload.hoursLogged = updates.hoursLogged;
     if (updates.tasks) payload.tasks = updates.tasks;
     if (updates.status) payload.status = updates.status;
+    if ('shiftNotes' in updates) payload.shiftNotes = updates.shiftNotes;
+    if (updates.logType) payload.logType = updates.logType;
 
     const res = await apiFetch(`/daily-logs/${id}`, {
       method: 'PATCH',

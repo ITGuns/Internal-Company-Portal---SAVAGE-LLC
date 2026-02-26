@@ -14,7 +14,7 @@ export interface TaskNote {
 }
 
 export interface TaskUser {
-  id: string;
+  id: number | string;
   name: string | null;
   email: string;
   avatar: string | null;
@@ -35,12 +35,19 @@ export interface Task {
   departmentId?: string;
   department?: TaskDepartment;
 
-  assigneeId?: string;
+  assigneeId?: number;
   assignee?: TaskUser;
 
   dueDate?: string; // ISO Date string (was 'when')
   role?: string;
   notes?: TaskNote[];
+
+  // Timer & Progress Fields
+  progress?: number; // 0-100
+  timerStatus?: 'playing' | 'paused' | 'stopped';
+  timerStart?: string;
+  totalElapsed?: number; // in seconds
+  estimatedTime?: number; // in minutes
 
   createdAt?: string;
   updatedAt?: string;
@@ -52,10 +59,11 @@ export interface CreateTaskPayload {
   status?: TaskStatus;
   priority?: TaskPriority;
   departmentId: string;
-  assigneeId?: string;
+  assigneeId?: number | string;
   dueDate?: string;
   role?: string;
   notes?: TaskNote[];
+  estimatedTime?: number;
 }
 
 export interface UpdateTaskPayload {
@@ -64,16 +72,22 @@ export interface UpdateTaskPayload {
   status?: TaskStatus;
   priority?: TaskPriority;
   departmentId?: string;
-  assigneeId?: string;
+  assigneeId?: number | string;
   dueDate?: string;
   role?: string;
   notes?: TaskNote[];
+
+  progress?: number;
+  timerStatus?: 'playing' | 'paused' | 'stopped';
+  timerStart?: string;
+  totalElapsed?: number;
+  estimatedTime?: number;
 }
 
 /**
  * Fetch all tasks
  */
-export async function fetchTasks(departmentId?: string, assigneeId?: string): Promise<Task[]> {
+export async function fetchTasks(departmentId?: string, assigneeId?: number | string): Promise<Task[]> {
   const params = new URLSearchParams();
   let url = '/tasks';
 

@@ -2,15 +2,17 @@
  * Modal for manually adding time entries
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
+import { fetchUsers, type TaskUser } from "@/lib/tasks";
+import { useUser } from "@/contexts/UserContext";
 
 interface AddTimeEntryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (startIso: string, endIso?: string, notes?: string) => Promise<boolean>;
+  onSubmit: (startIso: string, endIso?: string, notes?: string, userId?: string) => Promise<boolean>;
   onSuccess?: () => void;
   onError?: () => void;
 }
@@ -22,15 +24,37 @@ export default function AddTimeEntryModal({
   onSuccess,
   onError,
 }: AddTimeEntryModalProps) {
+  const { user } = useUser();
+  const isAdmin = ["admin", "operations_manager", "operations_assistant"].includes(user?.role?.toLowerCase() || "");
+
   const [manualDate, setManualDate] = useState<string>(
     new Date().toISOString().slice(0, 10)
   );
   const [manualIn, setManualIn] = useState<string>("09:00");
   const [manualOut, setManualOut] = useState<string>("17:00");
   const [manualNotes, setManualNotes] = useState<string>("");
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [users, setUsers] = useState<TaskUser[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [validationErrors, setValidationErrors] = useState<
     Record<string, string>
   >({});
+
+  useEffect(() => {
+    if (isOpen && isAdmin && users.length === 0) {
+      setIsLoadingUsers(true);
+      fetchUsers().then(data => {
+        setUsers(data as TaskUser[]);
+        setIsLoadingUsers(false);
+      });
+    }
+  }, [isOpen, isAdmin, users.length]);
+
+  useEffect(() => {
+    if (isOpen && user && !selectedUserId) {
+      setSelectedUserId(user.id.toString());
+    }
+  }, [isOpen, user, selectedUserId]);
 
   const validateTimeEntry = () => {
     const errors: Record<string, string> = {};
@@ -73,7 +97,7 @@ export default function AddTimeEntryModal({
         ? new Date(`${manualDate}T${manualOut}`).toISOString()
         : undefined;
 
-      const success = await onSubmit(startIso, endIso, manualNotes);
+      const success = await onSubmit(startIso, endIso, manualNotes, selectedUserId || undefined);
 
       if (success) {
         handleClose();
@@ -92,6 +116,7 @@ export default function AddTimeEntryModal({
     setManualIn("09:00");
     setManualOut("17:00");
     setManualNotes("");
+    setSelectedUserId(user?.id.toString() || "");
     setValidationErrors({});
     onClose();
   };
@@ -120,6 +145,31 @@ export default function AddTimeEntryModal({
       }
     >
       <div className="space-y-4">
+        {isAdmin && (
+          <div>
+            <label
+              htmlFor="user-select"
+              className="block text-sm font-medium text-[var(--foreground)] mb-1"
+            >
+              Employee
+            </label>
+            <select
+              id="user-select"
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+              className="w-full border border-[var(--border)] rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+              disabled={isLoadingUsers}
+            >
+              <option value="">Select an employee</option>
+              {users.map((u: TaskUser) => (
+                <option key={u.id} value={u.id}>
+                  {u.name || u.email}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div>
           <label
             htmlFor="manual-date"
@@ -138,11 +188,10 @@ export default function AddTimeEntryModal({
               }
             }}
             max={new Date().toISOString().slice(0, 10)}
-            className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer dark:[&::-webkit-calendar-picker-indicator]:filter dark:[&::-webkit-calendar-picker-indicator]:invert-[1] dark:[&::-webkit-calendar-picker-indicator]:brightness-[1.5] ${
-              validationErrors.date
-                ? "border-red-500"
-                : "border-[var(--border)]"
-            }`}
+            className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer dark:[&::-webkit-calendar-picker-indicator]:filter dark:[&::-webkit-calendar-picker-indicator]:invert-[1] dark:[&::-webkit-calendar-picker-indicator]:brightness-[1.5] ${validationErrors.date
+              ? "border-red-500"
+              : "border-[var(--border)]"
+              }`}
           />
           {validationErrors.date && (
             <p className="text-red-500 text-xs mt-1">{validationErrors.date}</p>
@@ -167,11 +216,10 @@ export default function AddTimeEntryModal({
                   setValidationErrors((prev) => ({ ...prev, timeIn: "" }));
                 }
               }}
-              className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${
-                validationErrors.timeIn
-                  ? "border-red-500"
-                  : "border-[var(--border)]"
-              }`}
+              className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${validationErrors.timeIn
+                ? "border-red-500"
+                : "border-[var(--border)]"
+                }`}
             />
             {validationErrors.timeIn && (
               <p className="text-red-500 text-xs mt-1">
@@ -196,11 +244,10 @@ export default function AddTimeEntryModal({
                   setValidationErrors((prev) => ({ ...prev, timeOut: "" }));
                 }
               }}
-              className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${
-                validationErrors.timeOut
-                  ? "border-red-500"
-                  : "border-[var(--border)]"
-              }`}
+              className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${validationErrors.timeOut
+                ? "border-red-500"
+                : "border-[var(--border)]"
+                }`}
             />
             {validationErrors.timeOut && (
               <p className="text-red-500 text-xs mt-1">

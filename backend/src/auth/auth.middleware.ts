@@ -86,7 +86,8 @@ export function requireRole(allowedRoles: string | string[]) {
                 where: {
                     userId: authReq.user!.userId,
                     role: {
-                        in: roles
+                        in: roles,
+                        mode: 'insensitive'
                     }
                 }
             })

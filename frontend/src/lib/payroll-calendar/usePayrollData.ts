@@ -83,9 +83,10 @@ export function usePayrollData() {
   const createTimeEntry = async (
     startIso: string,
     endIso?: string,
-    notes?: string
+    notes?: string,
+    userId?: string
   ) => {
-    const entry = await createTimeEntryAPI(startIso, endIso, notes);
+    const entry = await createTimeEntryAPI(startIso, endIso, notes, userId);
     if (entry) {
       setTimeEntries((prev) => [entry, ...prev]);
       return true;

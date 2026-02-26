@@ -104,7 +104,7 @@ export class TasksController {
     // Create task
     router.post('/', authenticateToken, requireRole(['admin', 'manager', 'operations manager']), async (req: Request, res: Response) => {
       try {
-        const { title, description, status, departmentId, assigneeId, priority, dueDate, notes } = req.body
+        const { title, description, status, departmentId, assigneeId, priority, dueDate, notes, estimatedTime } = req.body
 
         if (!title) {
           return res.status(400).json({ error: 'Title is required' })
@@ -122,7 +122,8 @@ export class TasksController {
           assigneeId,
           priority,
           dueDate,
-          notes
+          notes,
+          estimatedTime
         })
 
         // Send task assigned email & notification if there's an assignee
@@ -137,7 +138,7 @@ export class TasksController {
               userName: task.assignee.name || 'Team Member',
               taskTitle: task.title,
               taskDescription: task.description || 'No description provided',
-              assignedBy: 'Admin', // TODO: Get from authenticated user context
+              assignedBy: (req as any).user?.name || (req as any).user?.email || 'Admin',
               taskUrl,
               departmentName: task.department.name
             }
@@ -167,7 +168,7 @@ export class TasksController {
     router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
       try {
         const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
-        const { title, description, status, departmentId, assigneeId, priority, dueDate, notes } = req.body
+        const { title, description, status, departmentId, assigneeId, priority, dueDate, notes, progress, timerStatus, timerStart, totalElapsed, estimatedTime } = req.body
 
         // Check if task exists
         const existingTask = await this.service.findById(id)
@@ -183,7 +184,12 @@ export class TasksController {
           assigneeId,
           priority,
           dueDate,
-          notes
+          notes,
+          progress,
+          timerStatus,
+          timerStart,
+          totalElapsed,
+          estimatedTime
         })
 
         // Send status changed email & notification if status was updated
@@ -199,7 +205,7 @@ export class TasksController {
               taskTitle: task.title,
               oldStatus: existingTask.status,
               newStatus: status,
-              changedBy: 'Admin', // TODO: Get from authenticated user context
+              changedBy: (req as any).user?.name || (req as any).user?.email || 'Admin',
               taskUrl
             }
           ).catch(err => console.error('Failed to send status change email:', err))

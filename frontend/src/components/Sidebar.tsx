@@ -55,7 +55,7 @@ function SidebarDepartment({ dept, roles, depth = 0 }: { dept: string; roles: st
 
   // Count all nested roles recursively
   const totalRoles = roles.reduce((sum, r) => sum + 1 + (DEPARTMENT_ROLES[r]?.length || 0), 0);
-  
+
   // ARIA attribute value must be string literal
   const ariaExpanded = open ? "true" : "false";
 
@@ -154,7 +154,9 @@ export default function Sidebar() {
           <nav className="space-y-1 mb-4">
             <NavItem href="/chat" icon={MessageSquare} label="Messages & Chat" />
             <NavItem href="/file-directory" icon={Folder} label="File Directory" />
-            <NavItem href="/whiteboard" icon={Grid} label="Whiteboard" />
+            {user?.role?.toLowerCase() === 'admin' && (
+              <NavItem href="/whiteboard" icon={Grid} label="Whiteboard" />
+            )}
           </nav>
         </div>
 

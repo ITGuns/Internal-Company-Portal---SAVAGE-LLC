@@ -13,6 +13,11 @@ export interface CreateTaskDto {
   priority?: string
   dueDate?: Date | string
   notes?: any
+  progress?: number
+  timerStatus?: string
+  timerStart?: Date | string
+  totalElapsed?: number
+  estimatedTime?: number
 }
 
 export interface UpdateTaskDto {
@@ -24,6 +29,11 @@ export interface UpdateTaskDto {
   priority?: string
   dueDate?: Date | string
   notes?: any
+  progress?: number
+  timerStatus?: string
+  timerStart?: Date | string
+  totalElapsed?: number
+  estimatedTime?: number
 }
 
 // Task with relations type
@@ -155,6 +165,10 @@ export class TasksService {
         priority: data.priority || 'Med',
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
         notes: data.notes ?? undefined,
+        progress: 0,
+        timerStatus: 'stopped',
+        totalElapsed: 0,
+        estimatedTime: (data as any).estimatedTime ?? undefined,
       },
       include: {
         department: true,
@@ -185,6 +199,11 @@ export class TasksService {
         priority: data.priority,
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
         notes: data.notes === undefined ? undefined : data.notes,
+        progress: data.progress ?? undefined,
+        timerStatus: data.timerStatus ?? undefined,
+        timerStart: data.timerStart ? new Date(data.timerStart) : (data.timerStatus === 'paused' || data.timerStatus === 'stopped' ? null : undefined),
+        totalElapsed: data.totalElapsed ?? undefined,
+        estimatedTime: data.estimatedTime ?? undefined,
       },
       include: {
         department: true,

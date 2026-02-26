@@ -26,6 +26,9 @@ export default function UnifiedChatPage() {
     const [newChannelName, setNewChannelName] = useState('')
     const [users, setUsers] = useState<SystemUser[]>([])
     const [searchQuery, setSearchQuery] = useState('')
+    const [attachment, setAttachment] = useState<File | null>(null)
+    const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null)
+    const fileInputRef = useRef<HTMLInputElement>(null)
     const scrollRef = useRef<HTMLDivElement>(null)
 
     const handleCreateChannel = async (e: React.FormEvent) => {
@@ -177,9 +180,27 @@ export default function UnifiedChatPage() {
         }
     }, [messages])
 
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (file) {
+            setAttachment(file)
+            const reader = new FileReader()
+            reader.onloadend = () => {
+                setAttachmentPreview(reader.result as string)
+            }
+            reader.readAsDataURL(file)
+        }
+    }
+
+    const clearAttachment = () => {
+        setAttachment(null)
+        setAttachmentPreview(null)
+        if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+
     const handleSend = async (e?: React.FormEvent) => {
         e?.preventDefault()
-        if (!newMessage.trim() || !selectedId || sending) return
+        if ((!newMessage.trim() && !attachment) || !selectedId || sending) return
 
         const content = newMessage.trim()
         const tempId = `temp-${Date.now()}`
@@ -202,10 +223,12 @@ export default function UnifiedChatPage() {
 
         setMessages(prev => [...prev, optimisticMsg])
         setNewMessage('')
+        const curAttachment = attachmentPreview
+        clearAttachment()
 
         try {
             setSending(true)
-            const result = await sendMessage(selectedId, content)
+            const result = await sendMessage(selectedId, content, curAttachment || undefined)
             // Replace temp with real
             setMessages(prev => prev.map(m => m.id === tempId ? result : m))
         } catch (err: any) {
@@ -429,6 +452,28 @@ export default function UnifiedChatPage() {
                                                     : 'bg-[var(--card-surface)] text-[var(--foreground)] border border-[var(--border)] rounded-tl-none'
                                                     }`}>
                                                     {msg.content}
+                                                    {msg.attachment && (
+                                                        <div className="mt-2 rounded-lg overflow-hidden border border-[var(--border)] bg-black/10">
+                                                            {msg.attachment.startsWith('data:image/') || msg.attachment.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                                                                <img
+                                                                    src={msg.attachment}
+                                                                    alt="Attachment"
+                                                                    className="max-h-60 w-auto object-contain cursor-pointer transition-transform hover:scale-[1.02]"
+                                                                    onClick={() => window.open(msg.attachment, '_blank')}
+                                                                />
+                                                            ) : (
+                                                                <a
+                                                                    href={msg.attachment}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="flex items-center gap-2 p-3 text-xs bg-[var(--background)] hover:bg-[var(--card-surface)] transition-colors"
+                                                                >
+                                                                    <Paperclip className="w-4 h-4" />
+                                                                    <span className="truncate max-w-[200px]">View Attachment</span>
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    )}
 
                                                     {/* Message Actions (Delete) */}
                                                     {isMe && (
@@ -466,8 +511,43 @@ export default function UnifiedChatPage() {
 
                             {/* Message Input */}
                             <div className="p-4 bg-[var(--card-surface)] border-t border-[var(--border)] shadow-lg">
+                                {attachmentPreview && (
+                                    <div className="mb-4 flex items-center gap-3 p-2 bg-[var(--background)] rounded-xl border border-[var(--border)] animate-in slide-in-from-bottom-2">
+                                        <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-[var(--border)]">
+                                            {attachment?.type.startsWith('image/') ? (
+                                                <img src={attachmentPreview} alt="Preview" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center bg-[var(--accent)] text-white">
+                                                    <Paperclip className="w-6 h-6" />
+                                                </div>
+                                            )}
+                                            <button
+                                                onClick={clearAttachment}
+                                                className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-bold truncate">{attachment?.name}</p>
+                                            <p className="text-[10px] text-[var(--muted)]">{(attachment!.size / 1024).toFixed(1)} KB</p>
+                                        </div>
+                                    </div>
+                                )}
                                 <form onSubmit={handleSend} className="flex gap-3 items-center">
-                                    <button type="button" className="p-2 text-[var(--muted)] hover:text-[var(--accent)] transition-colors rounded-full hover:bg-[var(--background)]" aria-label="Attach file">
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        className="hidden"
+                                        onChange={handleFileSelect}
+                                        accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="p-2 text-[var(--muted)] hover:text-[var(--accent)] transition-colors rounded-full hover:bg-[var(--background)]"
+                                        aria-label="Attach file"
+                                    >
                                         <Paperclip className="w-5 h-5" />
                                     </button>
                                     <div className="relative flex-1">
@@ -486,7 +566,7 @@ export default function UnifiedChatPage() {
                                     </div>
                                     <button
                                         type="submit"
-                                        disabled={!newMessage.trim() || sending}
+                                        disabled={(!newMessage.trim() && !attachment) || sending}
                                         className="p-3 bg-[var(--accent)] text-white rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
                                         aria-label="Send message"
                                     >

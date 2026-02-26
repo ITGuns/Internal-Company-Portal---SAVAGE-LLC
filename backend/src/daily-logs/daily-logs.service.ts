@@ -9,6 +9,8 @@ export interface CreateDailyLogDto {
     status?: string
     hoursLogged?: number
     tasks?: any[] // Array of {id, text, completed}
+    shiftNotes?: string
+    logType?: string
 }
 
 export interface UpdateDailyLogDto {
@@ -17,6 +19,8 @@ export interface UpdateDailyLogDto {
     status?: string
     hoursLogged?: number
     tasks?: any[]
+    shiftNotes?: string
+    logType?: string
 }
 
 export class DailyLogsService {
@@ -26,7 +30,7 @@ export class DailyLogsService {
         this.prisma = prisma
     }
 
-    async findAll(department?: string, status?: string) {
+    async findAll(department?: string, status?: string, logType?: string) {
         const where: any = {}
 
         if (department) {
@@ -35,6 +39,10 @@ export class DailyLogsService {
 
         if (status) {
             where.status = status
+        }
+
+        if (logType) {
+            where.logType = logType
         }
 
         return this.prisma.dailyLog.findMany({
@@ -101,7 +109,9 @@ export class DailyLogsService {
                 department: data.department,
                 status: data.status || 'in-progress',
                 hoursLogged: data.hoursLogged || 0,
-                tasks: data.tasks || []
+                tasks: data.tasks || [],
+                shiftNotes: data.shiftNotes || null,
+                logType: data.logType || 'daily'
             },
             include: {
                 author: {
@@ -126,7 +136,9 @@ export class DailyLogsService {
                 ...(data.department && { department: data.department }),
                 ...(data.status && { status: data.status }),
                 ...(data.hoursLogged !== undefined && { hoursLogged: data.hoursLogged }),
-                ...(data.tasks && { tasks: data.tasks })
+                ...(data.tasks && { tasks: data.tasks }),
+                ...('shiftNotes' in data && { shiftNotes: data.shiftNotes ?? null }),
+                ...(data.logType && { logType: data.logType })
             },
             include: {
                 author: {

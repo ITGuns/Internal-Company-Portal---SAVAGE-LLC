@@ -10,7 +10,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import FormField from '@/components/forms/FormField';
 import { useToast } from '@/components/ToastProvider';
 import { useUser } from '@/contexts/UserContext';
-import { Search, Plus, Clock, CheckCircle2, MessageCircle, ThumbsUp, FileText } from 'lucide-react';
+import { Search, Plus, Clock, CheckCircle2, MessageCircle, ThumbsUp, FileText, StickyNote } from 'lucide-react';
 import { DEPARTMENTS } from '@/lib/departments';
 import {
   fetchDailyLogs,
@@ -45,6 +45,7 @@ export default function DailyLogsPage() {
     'in-progress': true,
     blocked: true,
   });
+  const [logTypeFilter, setLogTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Form state
@@ -54,6 +55,8 @@ export default function DailyLogsPage() {
   const [formStatus, setFormStatus] = useState<LogStatus>('in-progress');
   const [formTasks, setFormTasks] = useState<LogTask[]>([]);
   const [formTaskInput, setFormTaskInput] = useState('');
+  const [formShiftNotes, setFormShiftNotes] = useState('');
+  const [formLogType, setFormLogType] = useState<string>('daily');
 
   const loadData = async () => {
     setLoading(true);
@@ -78,6 +81,9 @@ export default function DailyLogsPage() {
       const weekLogs = getThisWeekLogs(logs);
       if (!weekLogs.find(l => l.id === log.id)) return false;
     }
+
+    // Log type filter
+    if (logTypeFilter !== 'all' && log.logType !== logTypeFilter) return false;
 
     // Department filter
     if (log.department !== departmentFilter) return false;
@@ -147,10 +153,12 @@ export default function DailyLogsPage() {
           hoursLogged: formHours,
           tasks: formTasks,
           status: formStatus,
+          shiftNotes: formShiftNotes,
+          logType: formLogType,
         });
         toast.success('Daily log updated successfully');
       } else {
-        await createDailyLog(formDepartment, formDate, formHours, formTasks, formStatus);
+        await createDailyLog(formDepartment, formDate, formHours, formTasks, formStatus, formShiftNotes, formLogType);
         toast.success('Daily log added successfully');
       }
 
@@ -170,6 +178,8 @@ export default function DailyLogsPage() {
     setFormStatus('in-progress');
     setFormTasks([]);
     setFormTaskInput('');
+    setFormShiftNotes('');
+    setFormLogType('daily');
     setEditingLog(null);
   };
 
@@ -248,6 +258,21 @@ export default function DailyLogsPage() {
                   {users.map(user => (
                     <option key={user.id} value={user.id}>{user.name}</option>
                   ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Log Type</label>
+                <select
+                  value={logTypeFilter}
+                  onChange={(e) => setLogTypeFilter(e.target.value)}
+                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-sm [color-scheme:light] dark:[color-scheme:dark]"
+                  aria-label="Log Type"
+                >
+                  <option value="all">All Types</option>
+                  <option value="daily">Daily / EOD</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
                 </select>
               </div>
 
@@ -350,7 +375,7 @@ export default function DailyLogsPage() {
                               <StatusBadge status={log.status} size="md" />
                             </div>
                             <div className="text-sm text-[var(--muted)] mt-1">
-                              {log.department} • {formatLogDate(log.date)}
+                              {log.department} • {formatLogDate(log.date)} • <span className="capitalize">{log.logType}</span>
                             </div>
                           </div>
                           <button className="text-[var(--muted)] hover:text-[var(--foreground)]">⋮</button>
@@ -374,6 +399,19 @@ export default function DailyLogsPage() {
                             ))}
                           </div>
                         </div>
+
+                        {/* EOD Shift Notes */}
+                        {log.shiftNotes && (
+                          <div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1.5">
+                              <StickyNote className="w-3.5 h-3.5" />
+                              EOD Shift Notes
+                            </div>
+                            <p className="text-sm text-[var(--foreground)] whitespace-pre-wrap leading-relaxed">
+                              {log.shiftNotes}
+                            </p>
+                          </div>
+                        )}
 
                         {/* Footer Stats */}
                         <div className="flex items-center gap-4 text-sm text-[var(--muted)]">
@@ -454,6 +492,20 @@ export default function DailyLogsPage() {
             </div>
 
             <div>
+              <label className="block text-sm font-medium mb-2">Log Type</label>
+              <select
+                value={formLogType}
+                onChange={(e) => setFormLogType(e.target.value)}
+                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] dark:[color-scheme:dark]"
+                aria-label="Log Type"
+              >
+                <option value="daily">Daily / EOD</option>
+                <option value="weekly">End of Week</option>
+                <option value="monthly">End of Month</option>
+              </select>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium mb-2">Status</label>
               <select
                 value={formStatus}
@@ -505,6 +557,25 @@ export default function DailyLogsPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* EOD Shift Notes */}
+            <div>
+              <label className="block text-sm font-medium mb-1" htmlFor="shift-notes">
+                <span className="flex items-center gap-1.5">
+                  <StickyNote className="w-4 h-4 text-amber-500" />
+                  EOD Shift Notes
+                  <span className="text-[var(--muted)] font-normal text-xs">(optional)</span>
+                </span>
+              </label>
+              <textarea
+                id="shift-notes"
+                value={formShiftNotes}
+                onChange={(e) => setFormShiftNotes(e.target.value)}
+                placeholder="Summarize handover info, blockers, highlights, or anything the next shift should know..."
+                rows={4}
+                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-sm resize-none [color-scheme:light] dark:[color-scheme:dark]"
+              />
             </div>
 
             <div className="flex gap-3 justify-end pt-4">

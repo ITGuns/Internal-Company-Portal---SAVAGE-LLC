@@ -61,9 +61,10 @@ export default function PayrollCalendarPage() {
   const handleAddManualEntry = async (
     startIso: string,
     endIso?: string,
-    notes?: string
+    notes?: string,
+    userId?: string
   ) => {
-    const success = await createTimeEntry(startIso, endIso, notes);
+    const success = await createTimeEntry(startIso, endIso, notes, userId);
     if (success) {
       toast.success("Time entry added successfully");
     } else {

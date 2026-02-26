@@ -22,6 +22,9 @@ import {
   ArrowUpDown,
   Search,
   CheckSquare,
+  Play,
+  Pause,
+  CheckCircle2,
 } from "lucide-react";
 import LoadingSpinner from '@/components/LoadingSpinner';
 import FullCalendar from "@fullcalendar/react";
@@ -42,6 +45,8 @@ import {
   type TaskDepartment,
   type TaskUser
 } from "@/lib/tasks";
+import LogReportModal from "@/components/tasks/LogReportModal";
+import { ClipboardCheck } from "lucide-react";
 
 // Map backend status to nice labels
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -57,20 +62,29 @@ const PRIORITY_COLORS: Record<TaskPriority, string> = {
   High: "var(--priority-high)",
 };
 
-function BoardCard({ task, onClick }: { task: Task; onClick?: () => void }) {
+const formatTime = (seconds: number) => {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m ${s}s`;
+};
+
+function BoardCard({ task, onClick, onAction }: { task: Task; onClick?: () => void; onAction?: (e: React.MouseEvent, taskId: string, action: 'play' | 'pause' | 'complete') => void }) {
   const assigneeName = task.assignee?.name || task.assignee?.email || "Unassigned";
   const deptName = task.department?.name || "";
+  const progress = task.progress || 0;
 
   return (
     <Card
       padding="sm"
-      className="mb-3 cursor-pointer hover:shadow-md transition-shadow"
+      className="mb-3 cursor-pointer hover:shadow-md transition-shadow group"
       onClick={onClick}
       data-task-id={task.id}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
-          <div className="font-medium text-sm text-[var(--foreground)]">
+          <div className="font-medium text-sm text-[var(--foreground)] flex items-center gap-2">
             <span
               className={`priority-dot ${task.priority.toLowerCase()}`}
               style={{ backgroundColor: PRIORITY_COLORS[task.priority] }}
@@ -82,31 +96,74 @@ function BoardCard({ task, onClick }: { task: Task; onClick?: () => void }) {
               {task.description}
             </div>
           ) : null}
-          {task.notes && task.notes.length ? (
-            <div className="text-xs text-[var(--muted)] mt-2 italic">
-              Latest: {task.notes[0].text}
+
+          {/* Progress Bar */}
+          <div className="mt-3">
+            <div className="flex justify-between text-[10px] mb-1">
+              <span className="text-[var(--muted)]">Progress</span>
+              <span className="font-medium text-[var(--foreground)]">{progress}%</span>
             </div>
-          ) : null}
-          {(deptName || task.role) ? (
-            <div className="text-xs text-[var(--muted)] mt-1 font-medium">
-              {[deptName, task.role].filter(Boolean).join(" — ")}
+            <div className="w-full bg-[var(--border)] h-1 rounded-full overflow-hidden">
+              <div
+                className="bg-[var(--accent)] h-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
             </div>
-          ) : null}
-        </div>
-        <div className="text-xs text-[var(--muted)] ml-2 whitespace-nowrap">{task.priority}</div>
-      </div>
-      <div className="mt-3 flex items-center justify-between text-xs text-[var(--muted)]">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-[var(--card-bg)] flex items-center justify-center text-[var(--muted)] border border-[var(--border)] overflow-hidden">
-            {task.assignee?.avatar ? (
-              <img src={task.assignee.avatar} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-              <span>{assigneeName.charAt(0).toUpperCase()}</span>
-            )}
           </div>
-          <div className="truncate max-w-[80px]">{assigneeName}</div>
+
+          {/* Time Tracking Comparison */}
+          <div className="mt-2 flex items-center justify-between text-[10px]">
+            <span className="text-[var(--muted)]">Time (Act/Est)</span>
+            <span className={`font-medium ${task.estimatedTime && (task.totalElapsed || 0) / 60 > task.estimatedTime ? 'text-red-500' : 'text-[var(--foreground)]'}`}>
+              {formatTime(task.totalElapsed || 0)} / {task.estimatedTime ? `${task.estimatedTime}m` : '-'}
+            </span>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-full bg-[var(--card-bg)] flex items-center justify-center text-[var(--muted)] border border-[var(--border)] overflow-hidden">
+                {task.assignee?.avatar ? (
+                  <img src={task.assignee.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-[10px]">{assigneeName.charAt(0).toUpperCase()}</span>
+                )}
+              </div>
+              <div className="text-[10px] text-[var(--muted)] truncate max-w-[60px]">{assigneeName}</div>
+            </div>
+
+            {/* Timer Controls */}
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {task.status !== 'completed' && (
+                <>
+                  {task.timerStatus === 'playing' ? (
+                    <button
+                      onClick={(e) => onAction?.(e, task.id, 'pause')}
+                      className="p-1 hover:bg-[var(--card-bg)] rounded text-[var(--accent)]"
+                      title="Pause Task"
+                    >
+                      <Pause className="w-3.5 h-3.5 fill-current" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => onAction?.(e, task.id, 'play')}
+                      className="p-1 hover:bg-[var(--card-bg)] rounded text-emerald-500"
+                      title="Start Task"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => onAction?.(e, task.id, 'complete')}
+                    className="p-1 hover:bg-[var(--card-bg)] rounded text-blue-500"
+                    title="Complete Task"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
-        <div>{task.dueDate || "No due date"}</div>
       </div>
     </Card>
   );
@@ -128,7 +185,7 @@ export default function TaskTrackingPage() {
   // Filter & Sort State
   const [filterStatus, setFilterStatus] = useState<TaskStatus[]>([]);
   const [filterPriority, setFilterPriority] = useState<TaskPriority[]>([]);
-  const [filterUserId, setFilterUserId] = useState<string>("");
+  const [filterUserId, setFilterUserId] = useState<number | string>("");
   const [filterDeptId, setFilterDeptId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -139,6 +196,7 @@ export default function TaskTrackingPage() {
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showGroupMenu, setShowGroupMenu] = useState(false);
+  const [showEODModal, setShowEODModal] = useState(false);
 
   // Load initial data
   useEffect(() => {
@@ -166,6 +224,53 @@ export default function TaskTrackingPage() {
     loadData();
   }, [toast]);
 
+  // Action hander for Play/Pause/Complete
+  const handleTaskAction = async (e: React.MouseEvent, taskId: string, action: 'play' | 'pause' | 'complete') => {
+    e.stopPropagation();
+
+    // Find local task
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    let updates: Partial<Task> = {};
+
+    if (action === 'play') {
+      updates = {
+        status: 'in_progress',
+        timerStatus: 'playing',
+        timerStart: new Date().toISOString()
+      };
+    } else if (action === 'pause') {
+      // Calculate elapsed since timerStart
+      let additionalSecs = 0;
+      if (task.timerStart) {
+        additionalSecs = Math.floor((new Date().getTime() - new Date(task.timerStart).getTime()) / 1000);
+      }
+      updates = {
+        timerStatus: 'paused',
+        timerStart: undefined,
+        totalElapsed: (task.totalElapsed || 0) + additionalSecs
+      };
+    } else if (action === 'complete') {
+      updates = {
+        status: 'completed',
+        progress: 100,
+        timerStatus: 'stopped',
+        timerStart: undefined
+      };
+    }
+
+    try {
+      const updatedTask = await updateTask(taskId, updates);
+      if (updatedTask) {
+        setTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
+        toast.success(`Task ${action === 'complete' ? 'completed' : (action === 'play' ? 'started' : 'paused')}`);
+      }
+    } catch (err) {
+      toast.error("Failed to update task action");
+    }
+  };
+
   // Save view preference whenever it changes
   useEffect(() => {
     saveTaskViewPreference(view);
@@ -174,12 +279,13 @@ export default function TaskTrackingPage() {
   // Form State
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [assigneeId, setAssigneeId] = useState("");
+  const [assigneeId, setAssigneeId] = useState<number | string>("");
   const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("Med");
   const [departmentId, setDepartmentId] = useState("");
   const [role, setRole] = useState("");
   const [status, setStatus] = useState<TaskStatus>("todo");
+  const [estimatedTime, setEstimatedTime] = useState<string>("");
 
   const [editTaskData, setEditTaskData] = useState<Task | null>(null);
   const [progressNotes, setProgressNotes] = useState("");
@@ -195,6 +301,7 @@ export default function TaskTrackingPage() {
     setRole("");
     setStatus("todo");
     setProgressNotes("");
+    setEstimatedTime("");
     setShowModal(true);
   }
 
@@ -209,6 +316,7 @@ export default function TaskTrackingPage() {
     setRole(task.role || "");
     setStatus(task.status);
     setProgressNotes("");
+    setEstimatedTime(task.estimatedTime?.toString() || "");
     setShowModal(true);
   }
 
@@ -241,6 +349,7 @@ export default function TaskTrackingPage() {
           assigneeId: assigneeId || undefined,
           dueDate: dueDate || undefined,
           role: role || undefined,
+          estimatedTime: estimatedTime ? parseInt(estimatedTime) : undefined,
         };
 
         if (progressNotes.trim()) {
@@ -264,7 +373,8 @@ export default function TaskTrackingPage() {
           assigneeId: assigneeId || undefined,
           dueDate: dueDate || undefined,
           role: role || undefined,
-          notes: []
+          notes: [],
+          estimatedTime: estimatedTime ? parseInt(estimatedTime) : undefined,
         });
         setTasks(prev => [created, ...prev]);
         toast.success("Task created");
@@ -318,7 +428,7 @@ export default function TaskTrackingPage() {
   });
 
   // Grouping Logic for "Board" view
-  type GroupColumn = { id: string; label: string; items: Task[] };
+  type GroupColumn = { id: string | number; label: string; items: Task[] };
   let columns: GroupColumn[] = [];
 
   if (groupBy === "status") {
@@ -407,6 +517,15 @@ export default function TaskTrackingPage() {
               icon={<Plus className="w-4 h-4" />}
             >
               New Task
+            </Button>
+
+            <Button
+              onClick={() => setShowEODModal(true)}
+              variant="secondary"
+              className="bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/20"
+              icon={<ClipboardCheck className="w-4 h-4" />}
+            >
+              Generate EOD Report
             </Button>
 
             <div className="relative">
@@ -650,6 +769,7 @@ export default function TaskTrackingPage() {
                                   key={t.id}
                                   task={t}
                                   onClick={() => openEdit(t)}
+                                  onAction={handleTaskAction}
                                 />
                               ))
                             )}
@@ -679,34 +799,70 @@ export default function TaskTrackingPage() {
                     <div
                       key={t.id}
                       onClick={() => openEdit(t)}
-                      className="p-3 bg-[var(--card-surface)] border border-[var(--border)] rounded flex items-center justify-between cursor-pointer hover:bg-[var(--card-bg)] transition-all animate-in fade-in slide-in-from-left-2 duration-200"
+                      className="p-3 bg-[var(--card-surface)] border border-[var(--border)] rounded flex items-center justify-between cursor-pointer hover:bg-[var(--card-bg)] transition-all animate-in fade-in slide-in-from-left-2 duration-200 group"
                     >
-                      <div className="flex-1">
-                        <div className="font-medium text-sm flex items-center gap-2">
+                      <div className="flex-1 flex items-center gap-4">
+                        <div className="flex items-center gap-2 min-w-[200px]">
                           <span
-                            className="w-2.5 h-2.5 rounded-full shadow-[0_0_5px_rgba(0,0,0,0.1)]"
+                            className="w-2.5 h-2.5 rounded-full shadow-[0_0_5px_rgba(0,0,0,0.1)] flex-shrink-0"
                             style={{ backgroundColor: PRIORITY_COLORS[t.priority] }}
                           />
-                          {t.title}
+                          <div className="font-medium text-sm truncate">{t.title}</div>
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          {t.description && (
-                            <div className="text-[10px] text-[var(--muted)] truncate max-w-md">{t.description}</div>
-                          )}
+
+                        {/* Progress Inline */}
+                        <div className="w-32 hidden sm:block">
+                          <div className="w-full bg-[var(--border)] h-1 rounded-full overflow-hidden">
+                            <div className="bg-[var(--accent)] h-full transition-all" style={{ width: `${t.progress || 0}%` }} />
+                          </div>
+                        </div>
+
+                        {/* Time Comparison List */}
+                        <div className="hidden lg:block w-32 text-[10px] text-right">
+                          <div className="text-[var(--muted)]">Time Spent</div>
+                          <div className={t.estimatedTime && (t.totalElapsed || 0) / 60 > t.estimatedTime ? 'text-red-500 font-medium' : 'text-[var(--foreground)]'}>
+                            {formatTime(t.totalElapsed || 0)} / {t.estimatedTime ? `${t.estimatedTime}m` : '-'}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
                           <span className="text-[10px] bg-[var(--card-bg)] px-1 rounded border border-[var(--border)] text-[var(--muted)]">
                             {t.department?.name}
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-6 text-xs text-[var(--muted)]">
-                        <div className={`px-2 py-0.5 rounded border ${t.status === 'completed' ? 'bg-green-500/10 border-green-500/20 text-green-600' : 'bg-[var(--card-bg)] border-[var(--border)]'
-                          }`}>
-                          {STATUS_LABELS[t.status]}
+
+                      <div className="flex items-center gap-6">
+                        {/* Inline Controls */}
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {t.status !== 'completed' && (
+                            <>
+                              {t.timerStatus === 'playing' ? (
+                                <button onClick={(e) => handleTaskAction(e, t.id, 'pause')} className="p-1.5 hover:bg-[var(--card-bg)] rounded text-[var(--accent)]">
+                                  <Pause className="w-3.5 h-3.5 fill-current" />
+                                </button>
+                              ) : (
+                                <button onClick={(e) => handleTaskAction(e, t.id, 'play')} className="p-1.5 hover:bg-[var(--card-bg)] rounded text-emerald-500">
+                                  <Play className="w-3.5 h-3.5 fill-current" />
+                                </button>
+                              )}
+                              <button onClick={(e) => handleTaskAction(e, t.id, 'complete')} className="p-1.5 hover:bg-[var(--card-bg)] rounded text-blue-500">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
                         </div>
-                        <div className="w-24 truncate text-right font-medium">
-                          {t.assignee ? (t.assignee.name || t.assignee.email) : 'Unassigned'}
+
+                        <div className="flex items-center gap-6 text-xs text-[var(--muted)]">
+                          <div className={`px-2 py-0.5 rounded border ${t.status === 'completed' ? 'bg-green-500/10 border-green-500/20 text-green-600' : 'bg-[var(--card-bg)] border-[var(--border)]'
+                            }`}>
+                            {STATUS_LABELS[t.status]}
+                          </div>
+                          <div className="w-24 truncate text-right font-medium">
+                            {t.assignee ? (t.assignee.name || t.assignee.email) : 'Unassigned'}
+                          </div>
+                          <div className="w-24 text-right tabular-nums">{t.dueDate || '-'}</div>
                         </div>
-                        <div className="w-24 text-right tabular-nums">{t.dueDate || '-'}</div>
                       </div>
                     </div>
                   ))}
@@ -937,20 +1093,31 @@ export default function TaskTrackingPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm mb-1 font-medium">Role (optional)</label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    disabled={!departmentId}
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] disabled:opacity-50"
-                    aria-label="Role"
-                  >
-                    <option value="">Select role</option>
-                    {availableRoles.map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
+                  <label className="block text-sm mb-1 font-medium">ETOC (Est. Minutes)</label>
+                  <input
+                    type="number"
+                    value={estimatedTime}
+                    onChange={(e) => setEstimatedTime(e.target.value)}
+                    placeholder="e.g. 60"
+                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                  />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1 font-medium">Role (optional)</label>
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  disabled={!departmentId}
+                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] disabled:opacity-50"
+                  aria-label="Role"
+                >
+                  <option value="">Select role</option>
+                  {availableRoles.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
               </div>
 
               {editTaskData && (
@@ -991,6 +1158,13 @@ export default function TaskTrackingPage() {
           </div>
         </div>
       )}
+
+      {/* Log Report Modal */}
+      <LogReportModal
+        isOpen={showEODModal}
+        onClose={() => setShowEODModal(false)}
+        tasks={tasks}
+      />
     </main>
   );
 }

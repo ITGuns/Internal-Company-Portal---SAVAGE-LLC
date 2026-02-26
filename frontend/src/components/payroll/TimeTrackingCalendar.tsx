@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Cake, CheckCircle2, Calendar, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Cake, CheckCircle2, Calendar, Loader2, DollarSign, Globe } from "lucide-react";
 import type { Employee, LeaveRecord, CompletedTask } from "@/lib/payroll-calendar/types";
 import { fetchTimeEntries } from "@/lib/time-entries";
+import { useExchangeRate } from "@/contexts/ExchangeRateContext";
 
 import DayDetailsModal, { type DayTimeEntry } from "./DayDetailsModal";
 
@@ -43,6 +44,8 @@ export default function TimeTrackingCalendar({
   });
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
   const [showDayDetails, setShowDayDetails] = useState(false);
+  const [currency, setCurrency] = useState<'USD' | 'PHP'>('USD');
+  const { usdToPhp: exchangeRate } = useExchangeRate();
   const [isFetching, setIsFetching] = useState(false);
   const [timeEntries, setTimeEntries] = useState<any[]>([]);
 
@@ -315,9 +318,26 @@ export default function TimeTrackingCalendar({
       {/* Header with hours/salary totals */}
       <div className="mb-3">
         {/* Hours and Salary Display */}
-        <div className="text-center mb-3">
+        <div className="text-center mb-3 flex flex-col items-center">
+          <div className="flex items-center gap-2 mb-2">
+            <button
+              onClick={() => setCurrency(prev => prev === 'USD' ? 'PHP' : 'USD')}
+              className="px-2 py-1 text-[10px] bg-[var(--card-surface)] border border-[var(--border)] rounded flex items-center gap-1 hover:bg-[var(--card-bg)] transition-colors"
+            >
+              {currency === 'USD' ? <DollarSign className="w-2.5 h-2.5" /> : <Globe className="w-2.5 h-2.5" />}
+              Convert to {currency === 'USD' ? 'PHP' : 'USD'}
+            </button>
+          </div>
           <div className="text-3xl font-bold text-[var(--foreground)]">
-            {totalHours.toFixed(2)} hrs / ${monthlySalary.toLocaleString()}
+            {totalHours.toFixed(2)} hrs / {currency === 'USD' ? '$' : '₱'}
+            {currency === 'USD'
+              ? monthlySalary.toLocaleString()
+              : (monthlySalary * exchangeRate).toLocaleString()}
+          </div>
+          <div className="text-xs text-[var(--muted)] mt-1">
+            ({currency === 'USD'
+              ? `₱${(monthlySalary * exchangeRate).toLocaleString()}`
+              : `$${(monthlySalary / exchangeRate).toLocaleString()}`} equivalent)
           </div>
         </div>
 

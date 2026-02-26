@@ -49,14 +49,14 @@ export default function OperationsPage() {
       toast.error('Department name is required');
       return;
     }
-    
+
     setLoading(true);
     try {
       const res = await apiFetch('/departments', {
         method: 'POST',
         body: JSON.stringify({ name: name.trim(), driveId: driveId.trim() || undefined })
       });
-      
+
       if (res.ok) {
         setShowModal(false);
         setName("");
@@ -76,7 +76,7 @@ export default function OperationsPage() {
 
   async function handleDelete(id: string, departmentName: string) {
     if (!confirm(`Delete "${departmentName}"? This may affect users/tasks linked to it.`)) return;
-    
+
     try {
       const res = await apiFetch(`/departments/${id}`, { method: 'DELETE' });
       if (res.ok) {
@@ -170,6 +170,7 @@ export default function OperationsPage() {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <FormField
+            id="dept-name"
             label="Department Name"
             value={name}
             onChange={(value) => setName(value)}
@@ -179,6 +180,7 @@ export default function OperationsPage() {
           />
 
           <FormField
+            id="dept-drive-id"
             label="Google Drive ID (Optional)"
             value={driveId}
             onChange={(value) => setDriveId(value)}

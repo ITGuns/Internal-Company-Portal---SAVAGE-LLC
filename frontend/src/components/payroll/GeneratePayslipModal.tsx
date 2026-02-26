@@ -176,14 +176,15 @@ export default function GeneratePayslipModal({
 
           {/* Hours Worked */}
           <div>
-            <label className="block text-sm font-medium mb-2 text-[var(--foreground)]">
-              Hours Worked
+            <label className="block text-sm font-medium mb-2 text-[var(--foreground)] flex justify-between">
+              <span>Hours Worked</span>
+              <span className="text-[10px] text-blue-500 font-normal">Calculated from Daily Logs & Timers</span>
             </label>
             <input
               type="number"
               value={hoursWorked}
-              onChange={(e) => setHoursWorked(e.target.value)}
-              className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+              readOnly
+              className="w-full p-2 rounded border border-[var(--border)] bg-[var(--card-surface)] text-[var(--muted)] cursor-not-allowed focus:outline-none"
               min="0"
               step="0.5"
             />

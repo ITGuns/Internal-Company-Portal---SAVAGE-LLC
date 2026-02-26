@@ -1,6 +1,5 @@
 import { PrismaClient, User } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
-import { emailService } from '../email/email.service'
 
 export interface CreateEmployeeDto {
     email: string
@@ -36,22 +35,54 @@ export class EmployeesService {
     }
 
     /**
-     * Get all deployed employees
+     * Get all deployed employees with their current-week hours computed
      */
-    async getDeployed(): Promise<User[]> {
-        return this.prisma.user.findMany({
+    async getDeployed() {
+        const users = await this.prisma.user.findMany({
             where: {
                 status: {
                     in: ['active', 'vacation', 'leave'],
                 },
             },
-            include: {
-                employeeProfile: true
-            },
-            orderBy: {
-                name: 'asc',
-            },
+            include: { employeeProfile: true },
+            orderBy: { name: 'asc' },
         })
+
+        // Compute current week boundaries (Mon–Sun)
+        const now = new Date()
+        const dayOfWeek = now.getDay() // 0 = Sunday
+        const diffToMonday = (dayOfWeek === 0 ? -6 : 1 - dayOfWeek)
+        const weekStart = new Date(now)
+        weekStart.setDate(now.getDate() + diffToMonday)
+        weekStart.setHours(0, 0, 0, 0)
+        const weekEnd = new Date(weekStart)
+        weekEnd.setDate(weekStart.getDate() + 7)
+
+        // Fetch all relevant time entries in one query (more efficient than N+1)
+        const allEntries = await this.prisma.timeEntry.findMany({
+            where: {
+                userId: { in: users.map(u => u.id) },
+                start: { gte: weekStart, lt: weekEnd },
+                duration: { not: null }
+            },
+            select: { userId: true, duration: true }
+        })
+
+        // Build a map: userId -> total minutes this week
+        const minutesByUser: Record<string, number> = {}
+        for (const entry of allEntries) {
+            minutesByUser[entry.userId] = (minutesByUser[entry.userId] || 0) + (entry.duration || 0)
+        }
+
+        // Merge computed fields into each user object
+        // Note: EmployeeProfile has no Department relation in schema — department comes from UserRole
+        return users.map(u => ({
+            ...u,
+            hoursThisWeek: parseFloat(((minutesByUser[u.id] || 0) / 60).toFixed(2)),
+            role: u.employeeProfile?.jobTitle || null,
+            salary: u.employeeProfile?.baseSalary || 0,
+            performance: 0, // placeholder — no performance model yet
+        }))
     }
 
     /**

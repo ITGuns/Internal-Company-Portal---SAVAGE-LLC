@@ -94,9 +94,9 @@ export async function clockOut(): Promise<TimeEntry | null> {
 /**
  * Add manual entry
  */
-export async function createTimeEntry(start: string, end?: string, notes?: string): Promise<TimeEntry | null> {
+export async function createTimeEntry(start: string, end?: string, notes?: string, userId?: string): Promise<TimeEntry | null> {
   try {
-    const payload = { start, end, notes };
+    const payload = { start, end, notes, userId };
     const res = await apiFetch('/payroll/entry', {
       method: 'POST',
       body: JSON.stringify(payload)

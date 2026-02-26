@@ -82,6 +82,12 @@ model Task {
     departmentId String?
     assigneeId   String?
 
+    progress      Int?      @default(0)
+    timerStatus   String?   @default("stopped")
+    timerStart    DateTime?
+    totalElapsed  Int?      @default(0)
+    estimatedTime Int? // In minutes
+
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
@@ -203,19 +209,22 @@ model DailyLog {
     status      String   @default("in-progress")
     hoursLogged Float    @default(0)
     tasks       Json?
-    authorId    String
+    shiftNotes  String?
+    authorId    String?
+    logType     String   @default("daily")
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
     // Relations
-    author User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+    author User?          @relation(fields: [authorId], references: [id], onDelete: SetNull)
     likes  DailyLogLike[]
 
     @@index([authorId])
     @@index([date])
     @@index([department])
     @@index([status])
+    @@index([logType])
 }
 
 model DailyLogLike {
@@ -313,6 +322,7 @@ model Payslip {
     grossPay    Float    @default(0)
     netPay      Float    @default(0)
     status      String   @default("draft")
+    notes       String?
     generatedAt DateTime @default(now())
 
     // Relations

@@ -130,35 +130,30 @@ export default function PayslipsTab() {
     if (!selectedEmployee) return;
 
     try {
-      // 1. Ensure a period exists for these dates (Backend handles this or we need a specific periodId)
-      // For simplicity, let's assume there's an endpoint that generates for dates
-      // Or we can get existing periods first.
-
-      const res = await apiFetch(`/payroll/periods`);
-      const periods = await res.json();
-
-      // Find matching period or use the first one for demo
-      const periodId = periods[0]?.id;
-
-      if (!periodId) {
-        toast.error("No payroll period available. Create a period in Reports first.");
+      // 1. Ensure a period exists (auto-create if none) — idempotent
+      const ensureRes = await apiFetch('/payroll/periods/ensure', { method: 'POST' });
+      if (!ensureRes.ok) {
+        toast.error("Failed to initialize payroll period.");
         return;
       }
+      const { periodId } = await ensureRes.json();
 
+      // 2. Generate the payslip for this employee in that period
       const genRes = await apiFetch(`/payroll/periods/${periodId}/generate/${selectedEmployee.id}`, {
         method: 'POST'
       });
 
       if (genRes.ok) {
         toast.success(`Payslip generated for ${selectedEmployee.name}`);
-        // Refresh payslips
+        // Refresh payslips list
         fetchData();
       } else {
-        throw new Error("Generation failed");
+        const errData = await genRes.json().catch(() => ({}));
+        throw new Error(errData.error || "Generation failed");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to generate", err);
-      toast.error("Failed to generate payslip");
+      toast.error(err.message || "Failed to generate payslip");
     }
   };
 

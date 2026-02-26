@@ -747,16 +747,16 @@ export function saveCustomFolder(folder: Omit<FileDirectory, 'id'>): FileDirecto
     isCustom: true,
     createdAt: new Date().toISOString(),
   };
-  
+
   const existing = getCustomFolders();
   existing.push(newFolder);
-  
+
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
   } catch (error) {
     console.error('Error saving custom folder:', error);
   }
-  
+
   return newFolder;
 }
 
@@ -789,16 +789,16 @@ export function getChildCount(folderId: string): number {
 
 export function getBreadcrumbs(folderId: string | null): FileDirectory[] {
   if (!folderId) return [];
-  
+
   const path: FileDirectory[] = [];
   const allFolders = getAllFolders();
   let current = allFolders.find(f => f.id === folderId);
-  
+
   while (current) {
     path.unshift(current);
     current = current.parentId ? allFolders.find(f => f.id === current!.parentId) : undefined;
   }
-  
+
   return path;
 }
 
@@ -814,7 +814,7 @@ export function filterFolders(
   departmentFilter?: string
 ): FileDirectory[] {
   return folders.filter(f => {
-    const matchesSearch = !searchQuery || 
+    const matchesSearch = !searchQuery ||
       f.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDept = !departmentFilter || f.department === departmentFilter;
     return matchesSearch && matchesDept;
@@ -826,7 +826,7 @@ export function sortFolders(
   sortBy: 'name' | 'department' | 'date'
 ): FileDirectory[] {
   const sorted = [...folders];
-  
+
   switch (sortBy) {
     case 'name':
       return sorted.sort((a, b) => a.name.localeCompare(b.name));
@@ -856,6 +856,109 @@ export function isValidDriveLink(url: string): boolean {
 export function extractDriveFolderId(url: string): string | null {
   const match = url.match(/folders\/([a-zA-Z0-9_-]+)/);
   return match ? match[1] : null;
+}
+
+export interface DriveSubfolder {
+  id: string;
+  name: string;
+  driveLink: string;
+  mimeType: string;
+}
+
+export interface DriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  isFolder: boolean;
+  driveLink: string;
+  iconLink?: string;
+  thumbnailLink?: string;
+  size?: string;
+  modifiedTime?: string;
+  webViewLink?: string;
+}
+
+/**
+ * Fetches immediate subfolders-only (used by AddFolderModal preview).
+ */
+export async function fetchDriveSubfolders(folderId: string): Promise<DriveSubfolder[]> {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY;
+  if (!apiKey) {
+    console.warn('NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY is not set — subfolder detection unavailable.');
+    return [];
+  }
+
+  try {
+    const query = encodeURIComponent(
+      `'${folderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
+    );
+    const fields = encodeURIComponent('files(id,name,mimeType)');
+    const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=${fields}&key=${apiKey}&pageSize=50`;
+
+    const res = await fetch(url);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error('Drive API error:', err);
+      return [];
+    }
+
+    const data = await res.json();
+    return (data.files || []).map((f: any) => ({
+      id: f.id,
+      name: f.name,
+      mimeType: f.mimeType,
+      driveLink: `https://drive.google.com/drive/folders/${f.id}`,
+    }));
+  } catch (err) {
+    console.error('Failed to fetch Drive subfolders:', err);
+    return [];
+  }
+}
+
+/**
+ * Fetches ALL contents (files + folders) of a Drive folder for the inline Drive browser.
+ * Requires NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY and the folder to be publicly shared.
+ */
+export async function fetchDriveFiles(folderId: string): Promise<DriveFile[]> {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY;
+  if (!apiKey) return [];
+
+  try {
+    const query = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
+    const fields = encodeURIComponent(
+      'files(id,name,mimeType,iconLink,thumbnailLink,size,modifiedTime,webViewLink)'
+    );
+    const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=${fields}&key=${apiKey}&pageSize=100&orderBy=folder,name`;
+
+    const res = await fetch(url);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error('Drive API (files) error:', err);
+      return [];
+    }
+
+    const data = await res.json();
+    return (data.files || []).map((f: any) => {
+      const isFolder = f.mimeType === 'application/vnd.google-apps.folder';
+      return {
+        id: f.id,
+        name: f.name,
+        mimeType: f.mimeType,
+        isFolder,
+        driveLink: isFolder
+          ? `https://drive.google.com/drive/folders/${f.id}`
+          : (f.webViewLink || `https://drive.google.com/file/d/${f.id}/view`),
+        iconLink: f.iconLink,
+        thumbnailLink: f.thumbnailLink,
+        size: f.size,
+        modifiedTime: f.modifiedTime,
+        webViewLink: f.webViewLink,
+      };
+    });
+  } catch (err) {
+    console.error('Failed to fetch Drive files:', err);
+    return [];
+  }
 }
 
 // ========== VIEW PREFERENCE ==========
@@ -891,7 +994,7 @@ export const DEPARTMENT_COLORS: Record<string, string> = {
   'Creatives': 'var(--dept-creatives)',
   'Finance': 'var(--dept-finance)',
   'Engineering': 'var(--dept-engineering)',
-  
+
   // Real organization departments
   'Website Developers': '#3b82f6', // Blue
   'Operations Manager': '#10b981', // Green
@@ -907,7 +1010,7 @@ export const DEPARTMENT_COLORS_BG: Record<string, string> = {
   'Creatives': 'var(--dept-creatives-bg)',
   'Finance': 'var(--dept-finance-bg)',
   'Engineering': 'var(--dept-engineering-bg)',
-  
+
   // Real organization departments
   'Website Developers': 'rgba(59, 130, 246, 0.1)', // Blue
   'Operations Manager': 'rgba(16, 185, 129, 0.1)', // Green

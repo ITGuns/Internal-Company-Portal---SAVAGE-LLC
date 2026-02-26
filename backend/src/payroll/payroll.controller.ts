@@ -146,14 +146,29 @@ export class PayrollController {
 
         router.post('/entry', authenticateToken, async (req: Request, res: Response) => {
             try {
-                const user = (req as AuthRequest).user
-                if (!user) return res.sendStatus(401)
+                const authReq = req as AuthRequest
+                const requesterId = authReq.user?.userId
+                if (!requesterId) return res.sendStatus(401)
 
-                const { start, end, notes } = req.body
+                const { start, end, notes, userId } = req.body
                 if (!start) return res.status(400).json({ error: 'Start time required' })
 
+                let targetUserId = requesterId
+
+                // Allow admins/managers to add entry for another user
+                if (userId && userId !== requesterId) {
+                    const { prisma } = await import('../database/prisma.service')
+                    const requesterRoles = await prisma.userRole.findMany({ where: { userId: requesterId } })
+                    const isPrivileged = requesterRoles.some(r => ['admin', 'manager', 'operations manager'].includes(r.role.toLowerCase()))
+
+                    if (!isPrivileged) {
+                        return res.status(403).json({ error: 'Unauthorized to add manual entry for another user' })
+                    }
+                    targetUserId = userId
+                }
+
                 const entry = await this.service.addManualEntry(
-                    user.userId,
+                    targetUserId,
                     new Date(start),
                     end ? new Date(end) : null,
                     notes
@@ -161,7 +176,7 @@ export class PayrollController {
                 res.json(entry)
             } catch (e) {
                 console.error('Error adding entry:', e)
-                res.status(500).json({ error: 'Failed to add entry' })
+                res.status(500).json({ error: 'Failed' })
             }
         })
 
@@ -183,44 +198,87 @@ export class PayrollController {
         // Payroll Processing Endpoints
         // ==========================================
 
-        // Get Employee Profile (Self or Admin)
+        // Get Employee Profile (Self or Privileged Role)
         router.get('/config/:userId', authenticateToken, async (req: Request, res: Response) => {
             try {
-                // @ts-ignore
-                const user = (req as AuthRequest).user
+                const authReq = req as AuthRequest
+                const requesterId = authReq.user?.userId
+                if (!requesterId) return res.sendStatus(401)
+
                 const targetUserId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId
 
-                // Allow if self or admin
-                if (user?.userId !== targetUserId) {
-                    // requireRole logic inside here is hard, let's just make the route check it
+                // Only allow self, or admin/manager
+                if (requesterId !== targetUserId) {
+                    const { prisma } = await import('../database/prisma.service')
+                    const roles = await prisma.userRole.findMany({ where: { userId: requesterId } })
+                    const isPrivileged = roles.some(r =>
+                        ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
+                    )
+                    if (!isPrivileged) {
+                        return res.status(403).json({ error: 'Unauthorized to view another user\'s payroll profile' })
+                    }
                 }
 
                 const profile = await this.service.getEmployeeProfile(targetUserId)
                 res.json(profile)
             } catch (e) {
+                console.error('Error fetching payroll config:', e)
                 res.status(500).json({ error: 'Failed to fetch profile' })
             }
         })
 
-        // Update Employee Profile (Admin only ideally)
+        // Update Employee Profile (Self or Privileged Role)
         router.post('/config/:userId', authenticateToken, async (req: Request, res: Response) => {
             try {
+                const authReq = req as AuthRequest
+                const requesterId = authReq.user?.userId
+                if (!requesterId) return res.sendStatus(401)
+
                 const targetUserId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId
+
+                // Only allow self, or admin/manager
+                if (requesterId !== targetUserId) {
+                    const { prisma } = await import('../database/prisma.service')
+                    const roles = await prisma.userRole.findMany({ where: { userId: requesterId } })
+                    const isPrivileged = roles.some(r =>
+                        ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
+                    )
+                    if (!isPrivileged) {
+                        return res.status(403).json({ error: 'Unauthorized to update another user\'s payroll profile' })
+                    }
+                }
+
                 const profile = await this.service.updateEmployeeProfile(targetUserId, req.body)
                 res.json(profile)
             } catch (e) {
-                console.error(e)
+                console.error('Error updating payroll config:', e)
                 res.status(500).json({ error: 'Failed to update profile' })
             }
         })
 
-        // Get Payroll Periods
-        router.get('/periods', authenticateToken, requireRole(['admin', 'operations manager']), async (req: Request, res: Response) => {
-            const periods = await this.service.getPayrollPeriods()
-            res.json(periods)
+        // Get Payroll Periods (accessible to all authenticated users so PayslipsTab can work)
+        router.get('/periods', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const periods = await this.service.getPayrollPeriods()
+                res.json(periods)
+            } catch (e) {
+                res.status(500).json({ error: 'Failed to fetch periods' })
+            }
         })
 
-        // Create Payroll Period
+        // Auto-ensure a current period exists (first-time / convenience setup)
+        // Any authenticated user can trigger this — service is idempotent
+        router.post('/periods/ensure', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const periodId = await this.service.ensureCurrentPeriodExists()
+                res.json({ periodId })
+            } catch (e) {
+                console.error('Error ensuring period:', e)
+                res.status(500).json({ error: 'Failed to ensure period' })
+            }
+        })
+
+        // Create Payroll Period (Admin / Ops Manager only)
         router.post('/periods', authenticateToken, requireRole(['admin', 'operations manager']), async (req: Request, res: Response) => {
             try {
                 const { startDate, endDate, payDate } = req.body
@@ -254,14 +312,46 @@ export class PayrollController {
             }
         )
 
-        // Get My Payslips
+        // Get Payslips (own, or any user if admin/manager)
         router.get('/my-payslips', authenticateToken, async (req: Request, res: Response) => {
-            // @ts-ignore
-            const user = (req as AuthRequest).user
-            if (!user) return res.sendStatus(401)
+            try {
+                const authReq = req as AuthRequest
+                const requesterId = authReq.user?.userId
+                if (!requesterId) return res.sendStatus(401)
 
-            const payslips = await this.service.getUserPayslips(user.userId)
-            res.json(payslips)
+                let targetUserId = requesterId
+
+                // Allow managers/admins to fetch another user's payslips via ?userId=
+                const queriedUserId = req.query.userId as string | undefined
+                if (queriedUserId && queriedUserId !== requesterId) {
+                    const { prisma } = await import('../database/prisma.service')
+                    const roles = await prisma.userRole.findMany({ where: { userId: requesterId } })
+                    const isPrivileged = roles.some(r =>
+                        ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
+                    )
+                    if (!isPrivileged) {
+                        return res.status(403).json({ error: 'Unauthorized to view another user\'s payslips' })
+                    }
+                    targetUserId = queriedUserId
+                }
+
+                const payslips = await this.service.getUserPayslips(targetUserId)
+                res.json(payslips)
+            } catch (e) {
+                console.error('Error fetching payslips:', e)
+                res.status(500).json({ error: 'Failed to fetch payslips' })
+            }
+        })
+
+        // Get Payroll Reports (Admin / Ops Manager only)
+        router.get('/reports', authenticateToken, requireRole(['admin', 'operations manager']), async (req: Request, res: Response) => {
+            try {
+                const stats = await this.service.getReportStats()
+                res.json(stats)
+            } catch (e) {
+                console.error('Error fetching report stats:', e)
+                res.status(500).json({ error: 'Failed to fetch report stats' })
+            }
         })
 
         return router
