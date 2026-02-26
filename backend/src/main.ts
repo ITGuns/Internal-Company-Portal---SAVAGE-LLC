@@ -109,20 +109,27 @@ async function bootstrap() {
   app.use('/api/employees', employeesController.router())
 
 
+  // Expose app for Vercel
+  if (process.env.VERCEL) {
+    return app;
+  }
+
   // Listen on HTTP Server instead of App
   httpServer.listen(config.port, () => {
     // eslint-disable-next-line no-console
     console.log(`🚀 Backend listening on http://localhost:${config.port}`)
     console.log(`📡 Socket.io server initialized`)
     console.log(`📝 Environment: ${config.nodeEnv}`)
-    console.log(`🔐 OAuth endpoints:`)
-    console.log(`   - Google: http://localhost:${config.port}/auth/google`)
-    console.log(`   - Discord: http://localhost:${config.port}/auth/discord`)
   })
 }
 
-bootstrap().catch((err) => {
+const appPromise = bootstrap();
+export default async (req: any, res: any) => {
+  const app = await appPromise;
+  return (app as any)(req, res);
+};
+
+appPromise.catch((err) => {
   // eslint-disable-next-line no-console
   console.error('❌ Failed to start server', err)
-  process.exit(1)
-})
+});
