@@ -10,6 +10,7 @@ export interface CreateUserDto {
 export interface UpdateUserDto {
     name?: string
     avatar?: string
+    email?: string       // Recovery/Primary email
     birthday?: string    // ISO date string (YYYY-MM-DD)
     phone?: string       // Phone number with country code
     address?: string     // Street address
@@ -112,6 +113,7 @@ export class UsersService {
         const updateData: any = {}
 
         if (data.name !== undefined) updateData.name = data.name
+        if (data.email !== undefined) updateData.email = data.email
         if (data.avatar !== undefined) updateData.avatar = data.avatar
         if (data.phone !== undefined) updateData.phone = data.phone
         if (data.address !== undefined) updateData.address = data.address

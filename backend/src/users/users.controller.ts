@@ -153,7 +153,7 @@ export class UsersController {
         router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
-                const { name, avatar, birthday, phone, address, city, citizenship, status, appliedDate, salary, role, department } = req.body
+                const { name, email, avatar, birthday, phone, address, city, citizenship, status, appliedDate, salary, role, department } = req.body
                 const authReq = req as AuthRequest
                 const requesterId = authReq.user?.userId
 
@@ -176,6 +176,7 @@ export class UsersController {
                 // Update basic user info
                 const user = await this.service.update(id, {
                     name,
+                    email,
                     avatar,
                     birthday,
                     phone,
@@ -214,7 +215,7 @@ export class UsersController {
                     await this.service.assignRole(id, newRole, departmentId)
                 }
 
-                res.json(user)
+                res.json({ success: true, user })
             } catch (error) {
                 console.error('Update user error:', error)
                 res.status(500).json({ error: 'Failed to update user' })
