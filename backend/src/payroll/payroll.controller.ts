@@ -98,7 +98,7 @@ export class PayrollController {
                     // Check if requester is admin or manager
                     const { prisma } = await import('../database/prisma.service')
                     const requesterRoles = await prisma.userRole.findMany({ where: { userId: requesterId } })
-                    const isPrivileged = requesterRoles.some(r => ['admin', 'manager', 'operations manager'].includes(r.role))
+                    const isPrivileged = requesterRoles.some(r => ['admin', 'manager', 'operations_manager'].includes(r.role.toLowerCase()))
 
                     if (!isPrivileged) {
                         return res.status(403).json({ error: 'Unauthorized to view another user\'s time entries' })
@@ -279,7 +279,7 @@ export class PayrollController {
         })
 
         // Create Payroll Period (Admin / Ops Manager only)
-        router.post('/periods', authenticateToken, requireRole(['admin', 'operations manager']), async (req: Request, res: Response) => {
+        router.post('/periods', authenticateToken, requireRole(['admin', 'operations_manager']), async (req: Request, res: Response) => {
             try {
                 const { startDate, endDate, payDate } = req.body
                 const period = await this.service.createPayrollPeriod(
@@ -297,7 +297,7 @@ export class PayrollController {
         router.post(
             '/periods/:periodId/generate/:userId',
             authenticateToken,
-            requireRole(['admin', 'operations manager']), // Restricted
+            requireRole(['admin', 'operations_manager']), // Restricted
             async (req: Request, res: Response) => {
                 try {
                     const periodId = Array.isArray(req.params.periodId) ? req.params.periodId[0] : req.params.periodId
@@ -344,7 +344,7 @@ export class PayrollController {
         })
 
         // Get Payroll Reports (Admin / Ops Manager only)
-        router.get('/reports', authenticateToken, requireRole(['admin', 'operations manager']), async (req: Request, res: Response) => {
+        router.get('/reports', authenticateToken, requireRole(['admin', 'operations_manager']), async (req: Request, res: Response) => {
             try {
                 const stats = await this.service.getReportStats()
                 res.json(stats)

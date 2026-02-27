@@ -45,7 +45,7 @@ export class AnnouncementsController {
         })
 
         // Create announcement
-        router.post('/', authenticateToken, requireRole(['admin', 'manager', 'operations manager']), async (req: Request, res: Response) => {
+        router.post('/', authenticateToken, requireRole(['admin', 'manager', 'operations_manager']), async (req: Request, res: Response) => {
             try {
                 const { title, content, category, priority, isImportant, eventDate, eventLocation, birthdayDate } = req.body
                 const user = (req as AuthRequest).user
@@ -74,7 +74,7 @@ export class AnnouncementsController {
         })
 
         // Update announcement
-        router.patch('/:id', authenticateToken, requireRole(['admin', 'manager', 'operations manager']), async (req: Request, res: Response) => {
+        router.patch('/:id', authenticateToken, requireRole(['admin', 'manager', 'operations_manager']), async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
                 const { title, content, category, priority, isImportant, eventDate, eventLocation, birthdayDate } = req.body
@@ -98,7 +98,7 @@ export class AnnouncementsController {
         })
 
         // Delete announcement
-        router.delete('/:id', authenticateToken, requireRole(['admin', 'manager', 'operations manager']), async (req: Request, res: Response) => {
+        router.delete('/:id', authenticateToken, requireRole(['admin', 'manager', 'operations_manager']), async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
                 await this.service.delete(id)

@@ -102,7 +102,7 @@ export class TasksController {
     })
 
     // Create task
-    router.post('/', authenticateToken, requireRole(['admin', 'manager', 'operations manager']), async (req: Request, res: Response) => {
+    router.post('/', authenticateToken, requireRole(['admin', 'manager', 'operations_manager']), async (req: Request, res: Response) => {
       try {
         const { title, description, status, departmentId, assigneeId, priority, dueDate, notes, estimatedTime } = req.body
 
@@ -231,7 +231,7 @@ export class TasksController {
     })
 
     // Delete task
-    router.delete('/:id', authenticateToken, requireRole(['admin', 'manager', 'operations manager']), async (req: Request, res: Response) => {
+    router.delete('/:id', authenticateToken, requireRole(['admin', 'manager', 'operations_manager']), async (req: Request, res: Response) => {
       try {
         const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
 
