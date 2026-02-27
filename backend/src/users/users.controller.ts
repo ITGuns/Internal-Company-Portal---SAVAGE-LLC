@@ -2,9 +2,13 @@ import express, { Request, Response, Router } from 'express'
 import { UsersService } from './users.service'
 import { authenticateToken, requireRole, AuthRequest } from '../auth/auth.middleware'
 import { emailService } from '../email/email.service'
+import { PayrollService } from '../payroll/payroll.service'
+import { DepartmentsService } from '../departments/departments.service'
 
 export class UsersController {
     private service = new UsersService()
+    private payrollService = new PayrollService()
+    private departmentsService = new DepartmentsService()
 
     router(): Router {
         const router = express.Router()
@@ -145,20 +149,20 @@ export class UsersController {
             }
         })
 
-        // Update user (Self or Admin)
+        // Update user (Self or Admin/Operations Manager)
         router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
-                const { name, avatar, birthday, phone, address, city, citizenship, status, appliedDate } = req.body
+                const { name, avatar, birthday, phone, address, city, citizenship, status, appliedDate, salary, role, department } = req.body
                 const authReq = req as AuthRequest
                 const requesterId = authReq.user?.userId
 
                 // Check authorization
                 if (requesterId !== id) {
-                    // Check if requester is admin
+                    // Check if requester is admin or operations_manager
                     const userRoles = await this.service.getUserRoles(requesterId!)
-                    const isAdmin = userRoles.some(r => r.role === 'admin')
-                    if (!isAdmin) {
+                    const isPrivileged = userRoles.some(r => r.role === 'admin' || r.role === 'operations_manager')
+                    if (!isPrivileged) {
                         return res.status(403).json({ error: 'Unauthorized to update another user' })
                     }
                 }
@@ -169,36 +173,7 @@ export class UsersController {
                     return res.status(404).json({ error: 'User not found' })
                 }
 
-                // Validate birthday if provided
-                if (birthday !== undefined && birthday !== null && birthday !== '') {
-                    const birthDate = new Date(birthday)
-                    if (isNaN(birthDate.getTime())) {
-                        return res.status(400).json({
-                            error: 'Invalid birthday format',
-                            code: 'VALIDATION_ERROR',
-                            details: { field: 'birthday', message: 'Must be a valid date (YYYY-MM-DD)' }
-                        })
-                    }
-                    if (birthDate > new Date()) {
-                        return res.status(400).json({
-                            error: 'Birthday cannot be in the future',
-                            code: 'VALIDATION_ERROR',
-                            details: { field: 'birthday', message: 'Date must be in the past' }
-                        })
-                    }
-                }
-
-                // Validate phone if provided
-                if (phone !== undefined && phone !== null && phone !== '') {
-                    if (!/^[\d\s\-\+\(\)]+$/.test(phone)) {
-                        return res.status(400).json({
-                            error: 'Invalid phone number format',
-                            code: 'VALIDATION_ERROR',
-                            details: { field: 'phone', message: 'Phone must contain only digits, spaces, +, -, (, )' }
-                        })
-                    }
-                }
-
+                // Update basic user info
                 const user = await this.service.update(id, {
                     name,
                     avatar,
@@ -210,6 +185,35 @@ export class UsersController {
                     status,
                     appliedDate
                 })
+
+                // Handle Salary / Payroll Update
+                if (salary !== undefined) {
+                    await this.payrollService.getEmployeeProfile(id) // Ensure profile exists
+                    await this.payrollService.updateEmployeeProfile(id, {
+                        baseSalary: salary,
+                        currency: 'PHP' // Default to PHP as requested
+                    })
+                }
+
+                // Handle Role / Department Update
+                if (role !== undefined || department !== undefined) {
+                    // If department provided, look up ID
+                    let departmentId = undefined
+                    if (department) {
+                        const dept = await this.departmentsService.findByName(department)
+                        if (dept) departmentId = dept.id
+                    }
+
+                    // For now, we update the primary role (simplified logic: remove old roles and add new one)
+                    const currentRoles = await this.service.getUserRoles(id)
+                    for (const r of currentRoles) {
+                        await this.service.removeRole(id, r.role, r.departmentId || undefined)
+                    }
+
+                    const newRole = role || (currentRoles[0]?.role || 'employee')
+                    await this.service.assignRole(id, newRole, departmentId)
+                }
+
                 res.json(user)
             } catch (error) {
                 console.error('Update user error:', error)

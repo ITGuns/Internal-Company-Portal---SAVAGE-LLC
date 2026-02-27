@@ -64,6 +64,20 @@ export class DepartmentsService {
     }
 
     /**
+     * Get department by name
+     */
+    async findByName(name: string): Promise<Department | null> {
+        return this.prisma.department.findFirst({
+            where: {
+                name: {
+                    equals: name,
+                    mode: 'insensitive'
+                }
+            }
+        })
+    }
+
+    /**
      * Create new department
      */
     async create(data: CreateDepartmentDto): Promise<Department> {

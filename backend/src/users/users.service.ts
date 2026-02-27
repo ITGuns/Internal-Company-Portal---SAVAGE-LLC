@@ -43,6 +43,7 @@ export class UsersService {
                     },
                 },
                 tasks: true,
+                employeeProfile: true,
             },
             orderBy: {
                 createdAt: 'desc',
@@ -67,6 +68,7 @@ export class UsersService {
                         department: true,
                     },
                 },
+                employeeProfile: true,
             },
         })
     }
@@ -83,6 +85,7 @@ export class UsersService {
                         department: true,
                     },
                 },
+                employeeProfile: true,
             },
         })
     }
@@ -186,6 +189,7 @@ export class UsersService {
                         department: true,
                     },
                 },
+                employeeProfile: true,
             },
         })
     }

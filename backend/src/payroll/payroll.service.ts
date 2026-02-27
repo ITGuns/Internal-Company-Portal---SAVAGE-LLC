@@ -170,17 +170,18 @@ export class PayrollService {
      * Update Employee Profile
      */
     async updateEmployeeProfile(userId: string, data: any) {
+        const updateData: any = {}
+        if (data.jobTitle !== undefined) updateData.jobTitle = data.jobTitle
+        if (data.employmentType !== undefined) updateData.employmentType = data.employmentType
+        if (data.baseSalary !== undefined) updateData.baseSalary = parseFloat(data.baseSalary)
+        if (data.currency !== undefined) updateData.currency = data.currency
+        if (data.paymentFrequency !== undefined) updateData.paymentFrequency = data.paymentFrequency
+        if (data.bankAccount !== undefined) updateData.bankAccount = data.bankAccount
+        if (data.taxId !== undefined) updateData.taxId = data.taxId
+
         return this.prisma.employeeProfile.update({
             where: { userId },
-            data: {
-                jobTitle: data.jobTitle,
-                employmentType: data.employmentType,
-                baseSalary: parseFloat(data.baseSalary),
-                currency: data.currency,
-                paymentFrequency: data.paymentFrequency,
-                bankAccount: data.bankAccount,
-                taxId: data.taxId
-            }
+            data: updateData
         })
     }
 
