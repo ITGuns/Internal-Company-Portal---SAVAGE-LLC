@@ -123,13 +123,19 @@ async function bootstrap() {
   })
 }
 
-const appPromise = bootstrap();
+// For Vercel, we export the app instance directly
+let cachedApp: any;
+
 export default async (req: any, res: any) => {
-  const app = await appPromise;
-  return (app as any)(req, res);
+  if (!cachedApp) {
+    try {
+      cachedApp = await bootstrap();
+    } catch (err) {
+      console.error('Failed to bootstrap application:', err);
+      return res.status(500).send('Server Boot Error');
+    }
+  }
+  return cachedApp(req, res);
 };
 
-appPromise.catch((err) => {
-  // eslint-disable-next-line no-console
-  console.error('❌ Failed to start server', err)
-});
+
