@@ -1,13 +1,19 @@
 import { PrismaClient } from '@prisma/client'
-import { Pool } from 'pg'
-import { PrismaPg } from '@prisma/adapter-pg'
 import 'dotenv/config'
 import * as bcrypt from 'bcrypt'
 
-const connectionString = process.env.DATABASE_URL
-const pool = new Pool({ connectionString })
-const adapter = new PrismaPg(pool)
-const prisma = new PrismaClient({ adapter })
+const connectionString = (process.env.DATABASE_URL || '').trim()
+
+if (!connectionString || connectionString.length < 10) {
+    console.error('❌ Error: DATABASE_URL is not defined or too short in your environment!')
+    process.exit(1)
+}
+
+// Log a safe version of the URL for debugging
+const maskedUrl = connectionString.replace(/:([^@]+)@/, ':****@')
+console.log(`📡 Connecting to: ${maskedUrl}`)
+
+const prisma = new PrismaClient()
 
 async function main() {
     console.log('🌱 Starting refined database seed...')
@@ -160,23 +166,26 @@ async function main() {
         false
     )
 
-    // 6. Guns\'n Full Embacanan
+    // 7. Admin Account (Savage Admin)
     await createUser(
-        'gunsembacanan27@gmail.com',
-        'Guns\'n Full Embacanan',
-        'Web Developer',
-        engineering.id,
-        'pending',
-        false
+        'admin@savage.com',
+        'Savage Admin',
+        'Administrator',
+        operations.id,
+        'active',
+        true
     )
 
-    console.log('🎉 Database seeded successfully with real employees!')
+    console.log('🎉 Database seeded successfully with real employees and Admin!')
     console.log('👉 Default password for all: Savage2025!')
 }
 
 main()
     .catch((e) => {
-        console.error('❌ Seed failed:', e)
+        console.error('❌ Seed failed!')
+        console.error('Error Name:', e.name)
+        console.error('Error Message:', e.message)
+        console.error('Full Error:', JSON.stringify(e, null, 2))
         process.exit(1)
     })
     .finally(async () => {
