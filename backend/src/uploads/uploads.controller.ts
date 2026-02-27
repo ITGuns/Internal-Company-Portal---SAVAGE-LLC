@@ -7,10 +7,18 @@ export class UploadsController {
     router(): Router {
         const router = express.Router()
 
-        // Ensure uploads directory exists
-        const uploadDir = path.join(__dirname, '../../uploads')
+        // Use /tmp for uploads on Vercel as the app directory is read-only
+        const isVercel = process.env.VERCEL === '1'
+        const uploadDir = isVercel
+            ? path.join('/tmp', 'uploads')
+            : path.join(__dirname, '../../uploads')
+
         if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true })
+            try {
+                fs.mkdirSync(uploadDir, { recursive: true })
+            } catch (err) {
+                console.warn('Failed to create uploads directory:', err)
+            }
         }
 
         router.post('/', authenticateToken, async (req: Request, res: Response) => {

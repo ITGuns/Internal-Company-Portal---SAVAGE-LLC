@@ -41,7 +41,10 @@ async function bootstrap() {
   app.use(passport.initialize())
 
   // Serve static uploads (from backend/uploads)
-  app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
+  const uploadsPath = process.env.VERCEL === '1'
+    ? path.join('/tmp', 'uploads')
+    : path.join(__dirname, '../uploads')
+  app.use('/uploads', express.static(uploadsPath))
 
   // Debug Logging Middleware
   app.use((req: Request, res: Response, next: NextFunction) => {
