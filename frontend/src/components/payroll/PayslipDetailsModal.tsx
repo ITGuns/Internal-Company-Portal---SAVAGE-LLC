@@ -47,10 +47,10 @@ export default function PayslipDetailsModal({
           </div>
           <div
             className={`px-3 py-1 rounded-full text-xs font-semibold ${payslip.status === "paid"
-                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                : payslip.status === "issued"
-                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                  : "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400"
+              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+              : payslip.status === "issued"
+                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                : "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400"
               }`}
           >
             {payslip.status.charAt(0).toUpperCase() + payslip.status.slice(1)}
@@ -96,7 +96,7 @@ export default function PayslipDetailsModal({
                     Base Salary
                   </td>
                   <td className="px-4 py-3 text-sm font-medium text-right text-[var(--foreground)]">
-                    ${payslip.grossPay.toLocaleString()}
+                    ₱{payslip.grossPay.toLocaleString()}
                   </td>
                 </tr>
                 <tr className="border-t border-[var(--border)]">
@@ -112,7 +112,7 @@ export default function PayslipDetailsModal({
                     Total Gross Pay
                   </td>
                   <td className="px-4 py-3 text-sm font-bold text-right text-emerald-600 dark:text-emerald-400">
-                    ${payslip.grossPay.toLocaleString()}
+                    ₱{payslip.grossPay.toLocaleString()}
                   </td>
                 </tr>
               </tbody>
@@ -155,7 +155,7 @@ export default function PayslipDetailsModal({
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-right text-red-600 dark:text-red-400">
-                      -${deduction.amount.toLocaleString()}
+                      -₱{deduction.amount.toLocaleString()}
                     </td>
                   </tr>
                 ))}
@@ -164,7 +164,7 @@ export default function PayslipDetailsModal({
                     Total Deductions
                   </td>
                   <td className="px-4 py-3 text-sm font-bold text-right text-red-600 dark:text-red-400">
-                    -${payslip.deductions
+                    -₱{payslip.deductions
                       .reduce((sum, d) => sum + d.amount, 0)
                       .toLocaleString()}
                   </td>
@@ -179,7 +179,7 @@ export default function PayslipDetailsModal({
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm opacity-90 mb-1">Net Pay</div>
-              <div className="text-3xl font-bold">${payslip.netPay.toLocaleString()}</div>
+              <div className="text-3xl font-bold">₱{payslip.netPay.toLocaleString()}</div>
             </div>
             <FileText className="w-12 h-12 opacity-50" />
           </div>

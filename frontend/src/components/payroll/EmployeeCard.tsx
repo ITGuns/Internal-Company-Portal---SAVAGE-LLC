@@ -21,7 +21,7 @@ export default function EmployeeCard({
   onEdit,
   onDelete,
 }: EmployeeCardProps) {
-  const [currency, setCurrency] = useState<'USD' | 'PHP'>('USD');
+  const [currency, setCurrency] = useState<'USD' | 'PHP'>('PHP');
   const [period, setPeriod] = useState<'Annual' | 'Monthly'>('Annual');
   const { usdToPhp: exchangeRate } = useExchangeRate();
 

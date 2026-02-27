@@ -167,7 +167,7 @@ export default function EmployeeEditModal({
             </label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-semibold">
-                $
+                ₱
               </span>
               <input
                 type="number"

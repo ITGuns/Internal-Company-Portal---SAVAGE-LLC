@@ -355,7 +355,7 @@ export default function EmployeeOverviewTab() {
                                         <div className="flex justify-between">
                                             <span className="text-[var(--muted)]">Salary</span>
                                             <span className="font-medium text-[var(--foreground)]">
-                                                ${employee.salary.toLocaleString()}
+                                                ₱{employee.salary.toLocaleString()}
                                             </span>
                                         </div>
                                         {employee.appliedDate && (

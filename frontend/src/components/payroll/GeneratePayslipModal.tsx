@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { DollarSign, Save, Plus, X } from "lucide-react";
+import { PhilippinePeso, Save, Plus, X } from "lucide-react";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import type { Deduction, Employee } from "@/lib/payroll-calendar/types";
@@ -55,7 +55,7 @@ export default function GeneratePayslipModal({
   const monthlySalary = employee ? employee.salary / 12 : 0;
 
   const deductions: Omit<Deduction, "id">[] = [
-    { type: "tax", name: "Federal Tax", amount: Math.round((monthlySalary * 15) / 100), percentage: 15 },
+    { type: "tax", name: "Income Tax", amount: Math.round((monthlySalary * 15) / 100), percentage: 15 },
     { type: "insurance", name: "Health Insurance", amount: 250 },
   ];
 
@@ -112,7 +112,7 @@ export default function GeneratePayslipModal({
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-white font-semibold">
-            <DollarSign className="w-5 h-5" />
+            <PhilippinePeso className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-xl font-bold text-[var(--foreground)]">
@@ -197,7 +197,7 @@ export default function GeneratePayslipModal({
                 Gross Pay (Monthly)
               </span>
               <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                ${monthlySalary.toLocaleString()}
+                ₱{monthlySalary.toLocaleString()}
               </span>
             </div>
           </div>
@@ -272,7 +272,7 @@ export default function GeneratePayslipModal({
             <div className="mt-2 p-2 rounded bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
               <span className="text-sm font-medium">Total Deductions</span>
               <span className="text-sm font-bold text-red-600 dark:text-red-400">
-                -${finalTotalDeductions.toLocaleString()}
+                -₱{finalTotalDeductions.toLocaleString()}
               </span>
             </div>
           </div>
@@ -284,7 +284,7 @@ export default function GeneratePayslipModal({
                 Net Pay
               </span>
               <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                ${finalNetPay.toLocaleString()}
+                ₱{finalNetPay.toLocaleString()}
               </span>
             </div>
           </div>

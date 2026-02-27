@@ -25,38 +25,31 @@ export function calculateGrossPay(
 export function calculateStandardDeductions(grossPay: number): Deduction[] {
   return [
     {
-      id: "tax-federal",
+      id: "tax-income",
       type: "tax",
-      name: "Federal Tax",
+      name: "Income Tax",
       amount: Math.round(grossPay * 0.15),
       percentage: 15,
     },
     {
-      id: "tax-state",
+      id: "sss-contribution",
       type: "tax",
-      name: "State Tax",
+      name: "SSS Contribution",
       amount: Math.round(grossPay * 0.05),
       percentage: 5,
     },
     {
-      id: "insurance-health",
+      id: "insurance-philhealth",
       type: "insurance",
-      name: "Health Insurance",
+      name: "PhilHealth",
       amount: 250,
     },
     {
-      id: "insurance-dental",
+      id: "pagibig-fund",
       type: "insurance",
-      name: "Dental Insurance",
-      amount: 50,
-    },
-    {
-      id: "retirement-401k",
-      type: "retirement",
-      name: "401(k) Contribution",
-      amount: Math.round(grossPay * 0.05),
-      percentage: 5,
-    },
+      name: "Pag-IBIG Fund",
+      amount: 100,
+    }
   ];
 }
 
@@ -75,9 +68,9 @@ export function calculateNetPay(
  * Format currency to USD string
  */
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-PH", {
     style: "currency",
-    currency: "USD",
+    currency: "PHP",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);

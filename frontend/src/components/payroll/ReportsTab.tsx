@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { BarChart3, Download, TrendingUp, TrendingDown, DollarSign, Users, FileText } from "lucide-react";
+import { BarChart3, Download, TrendingUp, TrendingDown, PhilippinePeso, Users, FileText } from "lucide-react";
 import Button from "@/components/Button";
 import { useToast } from "@/components/ToastProvider";
 import { apiFetch } from "@/lib/api";
@@ -69,21 +69,21 @@ export default function ReportsTab() {
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
-          icon={<DollarSign className="w-5 h-5" />}
+          icon={<PhilippinePeso className="w-5 h-5" />}
           label="Total Gross"
-          value={`$${latest.gross.toLocaleString()}`}
+          value={`₱${latest.gross.toLocaleString()}`}
           bgColor="bg-blue-500"
         />
         <StatCard
           icon={<TrendingUp className="w-5 h-5" />}
           label="Net Income"
-          value={`$${latest.net.toLocaleString()}`}
+          value={`₱${latest.net.toLocaleString()}`}
           bgColor="bg-emerald-500"
         />
         <StatCard
           icon={<TrendingDown className="w-5 h-5" />}
           label="Total Deductions"
-          value={`$${latest.deductions.toLocaleString()}`}
+          value={`₱${latest.deductions.toLocaleString()}`}
           bgColor="bg-red-500"
         />
         <StatCard
@@ -118,9 +118,9 @@ export default function ReportsTab() {
               {stats.map((row) => (
                 <tr key={row.periodId} className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
                   <td className="px-6 py-4 font-medium text-[var(--foreground)]">{row.label}</td>
-                  <td className="px-6 py-4 text-[var(--foreground)]">${row.gross.toLocaleString()}</td>
-                  <td className="px-6 py-4 text-red-500">-${row.deductions.toLocaleString()}</td>
-                  <td className="px-6 py-4 text-emerald-500 font-semibold">${row.net.toLocaleString()}</td>
+                  <td className="px-6 py-4 text-[var(--foreground)]">₱{row.gross.toLocaleString()}</td>
+                  <td className="px-6 py-4 text-red-500">-₱{row.deductions.toLocaleString()}</td>
+                  <td className="px-6 py-4 text-emerald-500 font-semibold">₱{row.net.toLocaleString()}</td>
                   <td className="px-6 py-4 text-[var(--muted)]">{row.count} slips</td>
                   <td className="px-6 py-4 text-right">
                     <button className="text-blue-500 hover:text-blue-600 font-medium">View Details</button>
@@ -147,7 +147,7 @@ export default function ReportsTab() {
                   style={{ height: `${(row.net / latest.net) * 100}%`, minHeight: '4px' }}
                 >
                   <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-10">
-                    ${row.net.toLocaleString()}
+                    ₱{row.net.toLocaleString()}
                   </div>
                 </div>
                 <span className="text-[10px] text-[var(--muted)] rotate-45 origin-left truncate max-w-[60px]">
@@ -167,7 +167,7 @@ export default function ReportsTab() {
             <div className="flex items-center justify-between text-xs">
               <span className="text-[var(--muted)]">Tax Withholding</span>
               <span className="font-medium">
-                ${(latest.breakdown?.tax || 0).toLocaleString()} ({(latest.deductions > 0 ? ((latest.breakdown?.tax || 0) / latest.deductions) * 100 : 0).toFixed(1)}%)
+                ₱{(latest.breakdown?.tax || 0).toLocaleString()} ({(latest.deductions > 0 ? ((latest.breakdown?.tax || 0) / latest.deductions) * 100 : 0).toFixed(1)}%)
               </span>
             </div>
             <div className="w-full h-2 bg-[var(--card-surface)] rounded-full overflow-hidden">
@@ -180,7 +180,7 @@ export default function ReportsTab() {
             <div className="flex items-center justify-between text-xs">
               <span className="text-[var(--muted)]">Benefits & Other</span>
               <span className="font-medium">
-                ${(latest.breakdown?.benefits || 0).toLocaleString()} ({(latest.deductions > 0 ? ((latest.breakdown?.benefits || 0) / latest.deductions) * 100 : 0).toFixed(1)}%)
+                ₱{(latest.breakdown?.benefits || 0).toLocaleString()} ({(latest.deductions > 0 ? ((latest.breakdown?.benefits || 0) / latest.deductions) * 100 : 0).toFixed(1)}%)
               </span>
             </div>
             <div className="w-full h-2 bg-[var(--card-surface)] rounded-full overflow-hidden">
