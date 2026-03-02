@@ -141,4 +141,13 @@ export default async (req: any, res: any) => {
   return cachedApp(req, res);
 };
 
+// Start the server for local development
+if (!process.env.VERCEL) {
+  bootstrap().catch(err => {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  });
+}
+
+
 
