@@ -79,7 +79,19 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Roles or Department info could go here if we fetched it */}
+              {user.roles && user.roles.length > 0 && (
+                <div>
+                  <label className="text-xs text-[var(--muted)] uppercase font-semibold">Primary Role / Department</label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {user.roles.map((r: any, idx: number) => (
+                      <div key={idx} className="px-3 py-1 rounded-full bg-[var(--accent)] text-white text-sm font-medium flex items-center gap-2">
+                        <Shield className="w-3 h-3" />
+                        {r}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

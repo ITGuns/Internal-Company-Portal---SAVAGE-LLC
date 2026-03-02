@@ -76,8 +76,10 @@ export default function AddFolderModal({
         // Pre-select all detected subfolders
         setSelectedSubfolders(new Set(subs.map(s => s.id)));
         setDetectionStatus('done');
-      } catch {
-        setDetectionStatus('error');
+      } catch (err: any) {
+        if (err.message === 'API_KEY_MISSING') setDetectionStatus('no-key');
+        else if (err.message === 'ACCESS_DENIED') setDetectionStatus('error');
+        else setDetectionStatus('error');
       } finally {
         setDetectingSubfolders(false);
       }
@@ -237,9 +239,14 @@ export default function AddFolderModal({
               )}
 
               {detectionStatus === 'error' && (
-                <div className="flex items-center gap-2 text-sm text-red-500 py-1">
-                  <AlertCircle className="w-4 h-4" />
-                  Could not detect subfolders. Make sure the folder is set to "Anyone with the link" access.
+                <div className="flex flex-col gap-2 py-1">
+                  <div className="flex items-center gap-2 text-sm text-red-500">
+                    <AlertCircle className="w-4 h-4" />
+                    Could not detect subfolders.
+                  </div>
+                  <p className="text-xs text-[var(--muted)] ml-6">
+                    Make sure the folder is set to <strong>"Anyone with the link"</strong> access in Google Drive.
+                  </p>
                 </div>
               )}
 
@@ -256,8 +263,8 @@ export default function AddFolderModal({
                     <label
                       key={sub.id}
                       className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${selectedSubfolders.has(sub.id)
-                          ? 'bg-blue-50 dark:bg-blue-950/30'
-                          : 'hover:bg-[var(--card-surface)]'
+                        ? 'bg-blue-50 dark:bg-blue-950/30'
+                        : 'hover:bg-[var(--card-surface)]'
                         }`}
                     >
                       <input
@@ -285,7 +292,7 @@ export default function AddFolderModal({
           value={folderName}
           onChange={(value) => setFolderName(value)}
           placeholder="e.g., Marketing Assets 2026"
-          required
+          required={true}
           helperText="Enter a descriptive name for this folder"
         />
 
@@ -311,15 +318,16 @@ export default function AddFolderModal({
         {/* Folder Color Picker */}
         <div className="w-full">
           <label className="text-sm font-medium text-[var(--text-primary)] mb-2 block">
-            Folder Color (Optional)
+            Folder Color <span className="text-red-500">*</span>
           </label>
           <select
             value={customColor || ''}
             onChange={(e) => setCustomColor(e.target.value || null)}
             className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg text-[var(--foreground)] focus:outline-none focus:border-blue-500 [color-scheme:light] dark:[color-scheme:dark]"
             aria-label="Folder color"
+            required
           >
-            <option value="">● Default (Department Color)</option>
+            <option value="">Select Folder Color</option>
             {PRESET_FOLDER_COLORS.map((color) => (
               <option key={color.value} value={color.value}>
                 ● {color.name}

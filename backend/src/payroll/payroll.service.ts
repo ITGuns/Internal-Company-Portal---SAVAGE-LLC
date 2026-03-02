@@ -428,6 +428,34 @@ export class PayrollService {
     }
 
     /**
+     * Generate Payslip for all employees for a given period
+     */
+    async bulkGeneratePayslips(periodId: string) {
+        const period = await this.prisma.payrollPeriod.findUnique({ where: { id: periodId } })
+        if (!period) throw new Error('Period not found')
+
+        // Fetch all active employees (users with a 'deployed' status or similar)
+        const employees = await this.prisma.user.findMany({
+            where: {
+                status: 'deployed', // Only generate for deployed employees
+            }
+        })
+
+        const results = []
+        for (const emp of employees) {
+            try {
+                const payslip = await this.generatePayslip(periodId, emp.id)
+                results.push({ userId: emp.id, success: true, payslipId: payslip.id })
+            } catch (err: any) {
+                console.error(`Failed to generate bulk payslip for ${emp.id}:`, err.message)
+                results.push({ userId: emp.id, success: false, error: err.message })
+            }
+        }
+
+        return results
+    }
+
+    /**
      * Get Payslips for a User
      */
     async getUserPayslips(userId: string) {

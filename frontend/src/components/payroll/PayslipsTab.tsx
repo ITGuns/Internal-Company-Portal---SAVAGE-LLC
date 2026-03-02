@@ -157,6 +157,35 @@ export default function PayslipsTab() {
     }
   };
 
+  // Handle payslip generation for ALL employees
+  const handleBulkGenerate = async () => {
+    if (!confirm("This will automatically calculate hours for ALL deployed employees and generate/overwrite their payslips for the current period. Proceed?")) return;
+
+    try {
+      setIsLoading(true);
+      // 1. Ensure a period exists
+      const ensureRes = await apiFetch('/payroll/periods/ensure', { method: 'POST' });
+      if (!ensureRes.ok) throw new Error("Failed to initialize period");
+      const { periodId } = await ensureRes.json();
+
+      // 2. Perform bulk generation
+      const bulkRes = await apiFetch(`/payroll/periods/${periodId}/generate-all`, { method: 'POST' });
+      if (bulkRes.ok) {
+        const results = await bulkRes.json();
+        const successCount = results.filter((r: any) => r.success).length;
+        toast.success(`Generated ${successCount} payslips successfully!`);
+        fetchData(); // Refresh everything
+      } else {
+        throw new Error("Bulk generation failed");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Bulk generation failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Handle PDF download
   const handleDownloadPDF = (payslip?: Payslip) => {
     const targetPayslip = payslip || employeePayslips[0];
@@ -195,6 +224,16 @@ export default function PayslipsTab() {
         <div className="flex flex-col bg-[var(--card-bg)] rounded-lg border border-[var(--border)] overflow-hidden">
           {/* Search Header */}
           <div className="p-4 border-b border-[var(--border)]">
+            <div className="p-3 border-b border-[var(--border)] bg-blue-500/5">
+              <button
+                onClick={handleBulkGenerate}
+                className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
+              >
+                <Loader2 className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
+                Automate & Generate All
+              </button>
+            </div>
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
               <input

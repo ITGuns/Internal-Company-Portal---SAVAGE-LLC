@@ -197,12 +197,13 @@ export class UsersController {
                 }
 
                 // Handle Role / Department Update
-                if (role !== undefined || department !== undefined) {
-                    // If department provided, look up ID
-                    let departmentId = undefined
-                    if (department) {
+                if (role !== undefined || department !== undefined || req.body.departmentId !== undefined) {
+                    let departmentIdToAssign = req.body.departmentId || undefined
+
+                    // If department name provided instead of ID, look up ID
+                    if (department && !departmentIdToAssign) {
                         const dept = await this.departmentsService.findByName(department)
-                        if (dept) departmentId = dept.id
+                        if (dept) departmentIdToAssign = dept.id
                     }
 
                     // For now, we update the primary role (simplified logic: remove old roles and add new one)
@@ -212,7 +213,7 @@ export class UsersController {
                     }
 
                     const newRole = role || (currentRoles[0]?.role || 'employee')
-                    await this.service.assignRole(id, newRole, departmentId)
+                    await this.service.assignRole(id, newRole, departmentIdToAssign)
                 }
 
                 res.json({ success: true, user })

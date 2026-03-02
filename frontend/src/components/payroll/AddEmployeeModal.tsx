@@ -56,6 +56,9 @@ export default function AddEmployeeModal({
     if (!name.trim()) {
       return;
     }
+    if (!email.trim()) {
+      return;
+    }
     if (!role.trim()) {
       return;
     }
@@ -188,12 +191,13 @@ export default function AddEmployeeModal({
 
             <div>
               <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
-                Status
+                Status <span className="text-red-500">*</span>
               </label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as "active" | "vacation" | "leave" | "pending")}
                 className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+                required
               >
                 <option value="pending">Pending Approval</option>
                 <option value="active">Active</option>

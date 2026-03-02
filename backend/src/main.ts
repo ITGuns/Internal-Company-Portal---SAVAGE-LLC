@@ -7,6 +7,7 @@ import { AppModule } from './app.module'
 import { TasksController } from './tasks/tasks.controller'
 import { UsersController } from './users/users.controller'
 import { DepartmentsController } from './departments/departments.controller'
+import { RolesController } from './roles/roles.controller'
 import { EmailController } from './email/email.controller'
 import { AuthController } from './auth/auth.controller'
 import { AnnouncementsController } from './announcements/announcements.controller'
@@ -89,6 +90,9 @@ async function bootstrap() {
 
   const departmentsController = new DepartmentsController()
   app.use('/api/departments', departmentsController.router())
+
+  const rolesController = new RolesController()
+  app.use('/api/roles', rolesController.router())
 
   const emailController = new EmailController()
   app.use('/api/email', emailController.router())

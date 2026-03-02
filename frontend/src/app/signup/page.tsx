@@ -10,12 +10,17 @@ import styles from '../login/login.module.css';
 export default function SignUpPage() {
   const router = useRouter();
   const { user } = useUser();
-  
+
   // Form state
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [departmentId, setDepartmentId] = useState('');
+  const [role, setRole] = useState('');
+
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [roles, setRoles] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -26,6 +31,28 @@ export default function SignUpPage() {
       router.push('/dashboard');
     }
   }, [user, router]);
+
+  // Fetch departments and roles on mount
+  useEffect(() => {
+    async function loadOptions() {
+      try {
+        const [deptRes, roleRes] = await Promise.all([
+          fetch('/api/departments').then(r => r.json()),
+          fetch('/api/roles').then(r => r.json())
+        ]);
+        setDepartments(Array.isArray(deptRes) ? deptRes : []);
+        setRoles(Array.isArray(roleRes) ? roleRes : []);
+      } catch (e) {
+        console.error('Failed to load signup options', e);
+      }
+    }
+    loadOptions();
+  }, []);
+
+  // Filter roles based on selected department
+  const filteredRoles = departmentId
+    ? roles.filter(r => !r.departmentId || r.departmentId === departmentId)
+    : roles.filter(r => !r.departmentId);
 
   // Validate password match
   const validatePasswords = () => {
@@ -48,7 +75,7 @@ export default function SignUpPage() {
 
     try {
       // Validate inputs
-      if (!name || !email || !password || !confirmPassword) {
+      if (!name || !email || !password || !confirmPassword || !departmentId || !role) {
         setError('Please fill in all fields');
         setLoading(false);
         return;
@@ -68,19 +95,28 @@ export default function SignUpPage() {
         return;
       }
 
-      // Sign up not yet implemented in backend
-      // Simulate success for now
-      setSuccess(true);
-      setError('');
-      
-      // Show success message and redirect to login after 2 seconds
-      setTimeout(() => {
-        router.push('/login');
-      }, 2000);
+      // Submit to backend
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, departmentId, role })
+      });
+
+      if (res.ok) {
+        setSuccess(true);
+        setError('');
+        setTimeout(() => {
+          router.push('/login');
+        }, 2000);
+      } else {
+        const data = await res.json();
+        setError(data.error || 'Sign up failed. Please try again.');
+        setLoading(false);
+      }
 
     } catch (err: unknown) {
       console.error('Sign up error:', err);
-      setError(err instanceof Error ? err.message : 'Sign up failed. Please try again.');
+      setError('Connection failed. Please try again.');
       setLoading(false);
     }
   };
@@ -182,6 +218,49 @@ export default function SignUpPage() {
               autoComplete="new-password"
             />
 
+            <div className={styles.formGroup}>
+              <label htmlFor="department" className={styles.label}>
+                Department <span style={{ color: 'var(--login-error)' }}>*</span>
+              </label>
+              <select
+                id="department"
+                value={departmentId}
+                onChange={(e) => {
+                  setDepartmentId(e.target.value);
+                  setRole(''); // Reset role when department changes
+                }}
+                className={styles.input}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '0.375rem', backgroundColor: 'var(--login-input-bg)', color: 'var(--login-text-primary)', border: '1px solid var(--login-border)' }}
+                required
+                disabled={loading}
+              >
+                <option value="">Select Department</option>
+                {departments.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.formGroup}>
+              <label htmlFor="role" className={styles.label}>
+                Role <span style={{ color: 'var(--login-error)' }}>*</span>
+              </label>
+              <select
+                id="role"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className={styles.input}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '0.375rem', backgroundColor: 'var(--login-input-bg)', color: 'var(--login-text-primary)', border: '1px solid var(--login-border)' }}
+                required
+                disabled={loading || !departmentId}
+              >
+                <option value="">Select Role</option>
+                {filteredRoles.map(r => (
+                  <option key={r.id} value={r.name}>{r.name}</option>
+                ))}
+              </select>
+            </div>
+
             <button
               type="submit"
               className={styles.submitButton}
@@ -205,8 +284,8 @@ export default function SignUpPage() {
           <div className={styles.signUpSection}>
             <p className={styles.signUpText}>
               Already have an account?
-              <a 
-                href="/login" 
+              <a
+                href="/login"
                 className={styles.signUpLink}
                 onClick={(e) => {
                   e.preventDefault();

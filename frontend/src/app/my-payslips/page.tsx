@@ -266,6 +266,22 @@ export default function MyPayslipsPage() {
                 subtitle="Your complete payroll history from SAVAGE LLC"
             />
 
+            <div className="ml-64 px-8 mt-4 flex justify-end">
+                <Button
+                    variant="outline"
+                    icon={<Download className="w-4 h-4" />}
+                    onClick={() => {
+                        ytdPayslips.forEach((ps, i) => {
+                            setTimeout(() => handleDownload(ps), i * 1000); // Stagger downloads
+                        });
+                        toast.info(`Starting download of ${ytdPayslips.length} slips...`);
+                    }}
+                    disabled={ytdPayslips.length === 0}
+                >
+                    Download All (YTD)
+                </Button>
+            </div>
+
             <main className="ml-64 pt-28 px-8 pb-10">
                 {loading ? (
                     <div className="flex items-center justify-center py-32">

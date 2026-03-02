@@ -147,134 +147,122 @@ export function generatePayslipPDF(payslip: Payslip, employee: Employee): void {
     let yPos = 20;
 
     // Company Header
-    doc.setFontSize(20);
-    doc.setFont("helvetica", "bold");
-    doc.text("SAVAGE LLC", pageWidth / 2, yPos, { align: "center" });
-    yPos += 10;
+    doc.setFillColor(30, 41, 59); // Dark blue header
+    doc.rect(0, 0, pageWidth, 45, "F");
 
-    doc.setFontSize(12);
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont("helvetica", "bold");
+    doc.text("SAVAGE LLC", pageWidth / 2, 25, { align: "center" });
+
+    doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text("Internal Company Portal - Payslip", pageWidth / 2, yPos, {
-      align: "center",
-    });
+    doc.text("ENTERPRISE MANAGEMENT PORTAL", pageWidth / 2, 35, { align: "center" });
+
+    yPos = 60;
+    doc.setTextColor(30, 41, 59);
+
+    // Payslip Title
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("PAYSLIP ADVICE", 15, yPos);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`#${payslip.id.slice(-8).toUpperCase()}`, pageWidth - 15, yPos, { align: "right" });
     yPos += 15;
 
-    // Divider Line
-    doc.setDrawColor(200, 200, 200);
+    // Grid Layout for Info
+    doc.setDrawColor(226, 232, 240);
+    doc.line(15, yPos - 5, pageWidth - 15, yPos - 5);
+
+    // Left: Employee Info
+    doc.setFont("helvetica", "bold");
+    doc.text("EMPLOYEE", 15, yPos);
+    doc.setFont("helvetica", "normal");
+    doc.text(employee.name, 15, yPos + 6);
+    doc.text(employee.role, 15, yPos + 12);
+    doc.text(employee.department, 15, yPos + 18);
+
+    // Right: Period Info
+    doc.setFont("helvetica", "bold");
+    doc.text("PAYMENT PERIOD", 110, yPos);
+    doc.setFont("helvetica", "normal");
+    doc.text(formatPayPeriod(payslip.payPeriodStart, payslip.payPeriodEnd), 110, yPos + 6);
+    doc.text(`Issue Date: ${new Date(payslip.issueDate).toLocaleDateString()}`, 110, yPos + 12);
+    doc.text(`Status: ${payslip.status.toUpperCase()}`, 110, yPos + 18);
+
+    yPos += 35;
+
+    // Table Header
+    doc.setFillColor(248, 250, 252);
+    doc.rect(15, yPos, pageWidth - 30, 10, "F");
+    doc.setFont("helvetica", "bold");
+    doc.text("DESCRIPTION", 20, yPos + 7);
+    doc.text("AMOUNT", pageWidth - 20, yPos + 7, { align: "right" });
+    yPos += 15;
+
+    // Earnings
+    doc.setFont("helvetica", "normal");
+    doc.text("Gross Earnings / Base Salary", 20, yPos);
+    doc.text(formatCurrency(payslip.grossPay), pageWidth - 20, yPos, { align: "right" });
+    yPos += 10;
+
+    // Deductions
+    doc.setFont("helvetica", "bold");
+    doc.text("DEDUCTIONS", 15, yPos + 5);
+    yPos += 12;
+    doc.setFont("helvetica", "normal");
+
+    if (payslip.deductions.length === 0) {
+      doc.text("No deductions applied", 20, yPos);
+      yPos += 10;
+    } else {
+      payslip.deductions.forEach(d => {
+        doc.text(d.name, 20, yPos);
+        doc.text(`-${formatCurrency(d.amount)}`, pageWidth - 20, yPos, { align: "right" });
+        yPos += 8;
+      });
+    }
+
+    yPos += 5;
     doc.line(15, yPos, pageWidth - 15, yPos);
     yPos += 10;
 
-    // Employee Information
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("Employee Information", 15, yPos);
-    yPos += 8;
+    // Summary Box
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(110, yPos, 85, 30, 3, 3, "F");
 
-    doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(`Name: ${employee.name}`, 15, yPos);
-    yPos += 6;
-    doc.text(`Role: ${employee.role}`, 15, yPos);
-    yPos += 6;
-    doc.text(`Department: ${employee.department}`, 15, yPos);
-    yPos += 6;
-    doc.text(`Email: ${employee.email || "N/A"}`, 15, yPos);
-    yPos += 10;
+    doc.text("Total Gross:", 115, yPos + 8);
+    doc.text(formatCurrency(payslip.grossPay), 190, yPos + 8, { align: "right" });
 
-    // Pay Period
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("Pay Period", 15, yPos);
-    yPos += 8;
-
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(
-      `Period: ${formatPayPeriod(payslip.payPeriodStart, payslip.payPeriodEnd)}`,
-      15,
-      yPos
-    );
-    yPos += 6;
-    doc.text(
-      `Issue Date: ${new Date(payslip.issueDate).toLocaleDateString("en-US")}`,
-      15,
-      yPos
-    );
-    yPos += 6;
-    doc.text(`Hours Worked: ${payslip.hoursWorked}`, 15, yPos);
-    yPos += 10;
-
-    // Earnings Section
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("Earnings", 15, yPos);
-    yPos += 8;
-
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Base Salary", 15, yPos);
-    doc.text(formatCurrency(payslip.grossPay), pageWidth - 15, yPos, {
-      align: "right",
-    });
-    yPos += 8;
-
-    doc.setFont("helvetica", "bold");
-    doc.text("Total Gross Pay", 15, yPos);
-    doc.text(formatCurrency(payslip.grossPay), pageWidth - 15, yPos, {
-      align: "right",
-    });
-    yPos += 12;
-
-    // Deductions Section
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("Deductions", 15, yPos);
-    yPos += 8;
-
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-
-    payslip.deductions.forEach((deduction) => {
-      const percentageText = deduction.percentage
-        ? ` (${deduction.percentage}%)`
-        : "";
-      doc.text(`${deduction.name}${percentageText}`, 15, yPos);
-      doc.text(formatCurrency(deduction.amount), pageWidth - 15, yPos, {
-        align: "right",
-      });
-      yPos += 6;
-    });
-
-    yPos += 2;
-    doc.setFont("helvetica", "bold");
+    doc.text("Total Deductions:", 115, yPos + 16);
     const totalDeductions = calculateTotalDeductions(payslip.deductions);
-    doc.text("Total Deductions", 15, yPos);
-    doc.text(formatCurrency(totalDeductions), pageWidth - 15, yPos, {
-      align: "right",
-    });
-    yPos += 12;
+    doc.text(`-${formatCurrency(totalDeductions)}`, 190, yPos + 16, { align: "right" });
 
-    // Net Pay Section (Highlighted)
-    doc.setFillColor(59, 130, 246); // Blue background
-    doc.roundedRect(15, yPos - 6, pageWidth - 30, 12, 2, 2, "F");
-
-    doc.setTextColor(255, 255, 255); // White text
-    doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("NET PAY", 20, yPos);
-    doc.text(formatCurrency(payslip.netPay), pageWidth - 20, yPos, {
-      align: "right",
-    });
-    yPos += 15;
+    doc.setFontSize(12);
+    doc.text("NET PAY:", 115, yPos + 25);
+    doc.text(formatCurrency(payslip.netPay), 190, yPos + 25, { align: "right" });
 
-    // Reset text color
-    doc.setTextColor(0, 0, 0);
+    yPos += 50;
 
-    // Footer
+    // Signatures
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.line(15, yPos, 85, yPos);
+    doc.text("Employee Signature", 15, yPos + 5);
+
+    doc.line(110, yPos, 190, yPos);
+    doc.text("Authorized Signature", 110, yPos + 5);
+
+    // Reset text color for footer
+    doc.setTextColor(148, 163, 184);
     doc.setFontSize(8);
     doc.setFont("helvetica", "italic");
     doc.text(
-      "This is a computer-generated payslip and does not require a signature.",
+      "This is a legally binding document generated by the Savage LLC Enterprises Portal.",
       pageWidth / 2,
       doc.internal.pageSize.getHeight() - 15,
       { align: "center" }

@@ -70,6 +70,70 @@ export class AuthController {
             }
         )
 
+        // Standard Email/Password Signup
+        router.post('/signup', async (req: Request, res: Response) => {
+            const { name, email, password, departmentId, role } = req.body
+
+            if (!email || !password || !name) {
+                return res.status(400).json({ error: 'Name, email and password required' })
+            }
+
+            try {
+                const { prisma } = await import('../database/prisma.service');
+                const bcrypt = await import('bcrypt');
+
+                // Check if user exists
+                const existing = await prisma.user.findUnique({ where: { email } })
+                if (existing) {
+                    return res.status(409).json({ error: 'User already exists' })
+                }
+
+                const passwordHash = await bcrypt.hash(password, 10)
+
+                // Create user, profile and role in a transaction
+                const user = await prisma.$transaction(async (tx) => {
+                    const newUser = await tx.user.create({
+                        data: {
+                            email,
+                            name,
+                            password: passwordHash,
+                            status: 'active',
+                            isApproved: false // Requires admin approval
+                        }
+                    })
+
+                    // Create employee profile
+                    await tx.employeeProfile.create({
+                        data: {
+                            userId: newUser.id,
+                            jobTitle: role,
+                            // departmentId: departmentId // Wait, check if the model has this
+                        }
+                    })
+
+                    // Create user role
+                    await tx.userRole.create({
+                        data: {
+                            userId: newUser.id,
+                            role,
+                            departmentId: departmentId || null
+                        }
+                    })
+
+                    return newUser
+                })
+
+                res.status(201).json({
+                    success: true,
+                    message: 'User created successfully. Awaiting approval.',
+                    user: { id: user.id, email: user.email, name: user.name }
+                })
+            } catch (error) {
+                console.error('Signup failed:', error)
+                res.status(500).json({ error: 'Signup failed' })
+            }
+        })
+
         // Standard Email/Password Login
         router.post('/login', async (req: Request, res: Response) => {
             const { email, password } = req.body

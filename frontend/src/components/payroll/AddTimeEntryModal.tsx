@@ -58,6 +58,9 @@ export default function AddTimeEntryModal({
 
   const validateTimeEntry = () => {
     const errors: Record<string, string> = {};
+    if (isAdmin && !selectedUserId) {
+      errors.userId = "Employee is required";
+    }
 
     if (!manualDate) {
       errors.date = "Date is required";
@@ -74,12 +77,18 @@ export default function AddTimeEntryModal({
       errors.timeIn = "Time In is required";
     }
 
-    if (manualOut && manualIn) {
+    if (!manualOut) {
+      errors.timeOut = "Time Out is required";
+    } else if (manualIn) {
       const timeInDate = new Date(`${manualDate}T${manualIn}`);
       const timeOutDate = new Date(`${manualDate}T${manualOut}`);
       if (timeOutDate <= timeInDate) {
         errors.timeOut = "Time Out must be after Time In";
       }
+    }
+
+    if (!manualNotes.trim()) {
+      errors.notes = "Notes are required";
     }
 
     setValidationErrors(errors);
@@ -137,7 +146,7 @@ export default function AddTimeEntryModal({
             variant="success"
             icon={<Plus className="w-4 h-4" />}
             onClick={handleSubmit}
-            disabled={!manualDate || !manualIn}
+            disabled={!manualDate || !manualIn || !manualOut || !manualNotes.trim() || (isAdmin && !selectedUserId)}
           >
             Add Entry
           </Button>
@@ -151,14 +160,20 @@ export default function AddTimeEntryModal({
               htmlFor="user-select"
               className="block text-sm font-medium text-[var(--foreground)] mb-1"
             >
-              Employee
+              Employee <span className="text-red-500">*</span>
             </label>
             <select
               id="user-select"
               value={selectedUserId}
-              onChange={(e) => setSelectedUserId(e.target.value)}
-              className="w-full border border-[var(--border)] rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+              onChange={(e) => {
+                setSelectedUserId(e.target.value);
+                if (validationErrors.userId) {
+                  setValidationErrors((prev) => ({ ...prev, userId: "" }));
+                }
+              }}
+              className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${validationErrors.userId ? "border-red-500" : "border-[var(--border)]"}`}
               disabled={isLoadingUsers}
+              required
             >
               <option value="">Select an employee</option>
               {users.map((u: TaskUser) => (
@@ -167,6 +182,9 @@ export default function AddTimeEntryModal({
                 </option>
               ))}
             </select>
+            {validationErrors.userId && (
+              <p className="text-red-500 text-xs mt-1">{validationErrors.userId}</p>
+            )}
           </div>
         )}
 
@@ -175,7 +193,7 @@ export default function AddTimeEntryModal({
             htmlFor="manual-date"
             className="block text-sm font-medium text-[var(--foreground)] mb-1"
           >
-            Date
+            Date <span className="text-red-500">*</span>
           </label>
           <input
             id="manual-date"
@@ -192,6 +210,7 @@ export default function AddTimeEntryModal({
               ? "border-red-500"
               : "border-[var(--border)]"
               }`}
+            required
           />
           {validationErrors.date && (
             <p className="text-red-500 text-xs mt-1">{validationErrors.date}</p>
@@ -204,7 +223,7 @@ export default function AddTimeEntryModal({
               htmlFor="manual-in"
               className="block text-sm font-medium text-[var(--foreground)] mb-1"
             >
-              Time In
+              Time In <span className="text-red-500">*</span>
             </label>
             <input
               id="manual-in"
@@ -220,6 +239,7 @@ export default function AddTimeEntryModal({
                 ? "border-red-500"
                 : "border-[var(--border)]"
                 }`}
+              required
             />
             {validationErrors.timeIn && (
               <p className="text-red-500 text-xs mt-1">
@@ -232,7 +252,7 @@ export default function AddTimeEntryModal({
               htmlFor="manual-out"
               className="block text-sm font-medium text-[var(--foreground)] mb-1"
             >
-              Time Out
+              Time Out <span className="text-red-500">*</span>
             </label>
             <input
               id="manual-out"
@@ -248,6 +268,7 @@ export default function AddTimeEntryModal({
                 ? "border-red-500"
                 : "border-[var(--border)]"
                 }`}
+              required
             />
             {validationErrors.timeOut && (
               <p className="text-red-500 text-xs mt-1">
@@ -262,17 +283,25 @@ export default function AddTimeEntryModal({
             htmlFor="manual-notes"
             className="block text-sm font-medium text-[var(--foreground)] mb-1"
           >
-            Notes{" "}
-            <span className="text-[var(--muted)] font-normal">(optional)</span>
+            Notes <span className="text-red-500">*</span>
           </label>
           <input
             id="manual-notes"
             type="text"
             value={manualNotes}
-            onChange={(e) => setManualNotes(e.target.value)}
+            onChange={(e) => {
+              setManualNotes(e.target.value);
+              if (validationErrors.notes) {
+                setValidationErrors((prev) => ({ ...prev, notes: "" }));
+              }
+            }}
             placeholder="e.g. Overtime, client meeting..."
-            className="w-full border border-[var(--border)] rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+            className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${validationErrors.notes ? "border-red-500" : "border-[var(--border)]"}`}
+            required
           />
+          {validationErrors.notes && (
+            <p className="text-red-500 text-xs mt-1">{validationErrors.notes}</p>
+          )}
         </div>
       </div>
     </Modal>

@@ -68,7 +68,14 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!content.trim()) return;
+        const isContentValid = content.trim();
+        const isNotesValid = logType === 'daily' ? shiftNotes.trim() : true;
+        const isHoursValid = hoursLogged > 0;
+
+        if (!isContentValid || !isNotesValid || !isHoursValid) {
+            toast.error("Please fill in all required fields accurately.");
+            return;
+        }
 
         try {
             setIsSubmitting(true);
@@ -162,7 +169,7 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
 
                     <div>
                         <label className="block text-sm font-semibold mb-2 flex items-center justify-between">
-                            <span>Summary Content</span>
+                            <span>Summary Content <span className="text-red-500">*</span></span>
                             <span className="text-[10px] text-[var(--muted)]">Auto-generated for {logType} period</span>
                         </label>
                         <textarea
@@ -177,13 +184,14 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
                     {logType === 'daily' && (
                         <div>
                             <label className="block text-sm font-semibold mb-2">
-                                Additional Shift Notes
+                                Additional Shift Notes <span className="text-red-500">*</span>
                             </label>
                             <textarea
                                 value={shiftNotes}
                                 onChange={(e) => setShiftNotes(e.target.value)}
                                 className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl p-4 text-sm min-h-[100px] focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                                 placeholder="Any roadblocks, handovers, or notes for the next shift..."
+                                required
                             />
                         </div>
                     )}
@@ -191,7 +199,7 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
                     <div className="flex items-center gap-4 pt-2">
                         <div className="flex-1">
                             <label className="block text-xs font-semibold text-[var(--muted)] mb-1 uppercase tracking-wider">
-                                {logType === 'daily' ? 'Overridden Hours' : 'Total Hours for Period'}
+                                {logType === 'daily' ? 'Overridden Hours' : 'Total Hours for Period'} <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="number"
@@ -199,6 +207,8 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
                                 value={hoursLogged}
                                 onChange={(e) => setHoursLogged(parseFloat(e.target.value) || 0)}
                                 className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                                required
+                                min="0.1"
                             />
                         </div>
                     </div>

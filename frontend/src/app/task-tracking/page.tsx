@@ -25,7 +25,10 @@ import {
   Play,
   Pause,
   CheckCircle2,
+  Download,
 } from "lucide-react";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 import LoadingSpinner from '@/components/LoadingSpinner';
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -331,9 +334,10 @@ export default function TaskTrackingPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim()) return;
-    if (!departmentId) {
-      toast.error("Please select a department");
+
+    // Validation
+    if (!title.trim() || !description.trim() || !departmentId || !assigneeId || !dueDate || !estimatedTime || !role) {
+      toast.error("Please fill in all required fields");
       return;
     }
 
@@ -342,14 +346,14 @@ export default function TaskTrackingPage() {
         // Update existing
         const updates: any = {
           title: title.trim(),
-          description: description.trim() || undefined,
+          description: description.trim(),
           status,
           priority,
           departmentId,
-          assigneeId: assigneeId || undefined,
-          dueDate: dueDate || undefined,
-          role: role || undefined,
-          estimatedTime: estimatedTime ? parseInt(estimatedTime) : undefined,
+          assigneeId,
+          dueDate,
+          role,
+          estimatedTime: parseInt(estimatedTime),
         };
 
         if (progressNotes.trim()) {
@@ -366,15 +370,15 @@ export default function TaskTrackingPage() {
         // Create new
         const created = await createTask({
           title: title.trim(),
-          description: description.trim() || undefined,
+          description: description.trim(),
           status,
           priority,
           departmentId,
-          assigneeId: assigneeId || undefined,
-          dueDate: dueDate || undefined,
-          role: role || undefined,
+          assigneeId,
+          dueDate,
+          role,
           notes: [],
-          estimatedTime: estimatedTime ? parseInt(estimatedTime) : undefined,
+          estimatedTime: parseInt(estimatedTime),
         });
         setTasks(prev => [created, ...prev]);
         toast.success("Task created");
@@ -400,6 +404,54 @@ export default function TaskTrackingPage() {
       toast.error("Failed to delete task");
     }
   }
+
+  const handleDownloadPDF = () => {
+    try {
+      const doc = new jsPDF('landscape');
+
+      // Add Title
+      doc.setFontSize(20);
+      doc.text("Task Report", 14, 15);
+
+      doc.setFontSize(10);
+      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 22);
+
+      // Table Header
+      const tableColumn = ["Task Name", "Status", "Priority", "Department", "Assignee", "Due Date", "Progress", "ETOC (m)"];
+      const tableRows: any[] = [];
+
+      sortedTasks.forEach(task => {
+        const taskData = [
+          task.title,
+          STATUS_LABELS[task.status] || task.status,
+          task.priority,
+          task.department?.name || "N/A",
+          task.assignee?.name || task.assignee?.email || "Unassigned",
+          task.dueDate || "No Date",
+          `${task.progress || 0}%`,
+          task.estimatedTime || "-"
+        ];
+        tableRows.push(taskData);
+      });
+
+      // Generate Table
+      (doc as any).autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 30,
+        theme: 'grid',
+        headStyles: { fillColor: [59, 130, 246] }, // Blue-500
+        styles: { fontSize: 8 },
+        margin: { top: 30 },
+      });
+
+      doc.save(`Task_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+      toast.success("PDF Report generated successfully");
+    } catch (err) {
+      console.error("PDF generation error:", err);
+      toast.error("Failed to generate PDF");
+    }
+  };
 
   // Filtering Logic
   const filteredTasks = tasks.filter(t => {
@@ -517,6 +569,14 @@ export default function TaskTrackingPage() {
               icon={<Plus className="w-4 h-4" />}
             >
               New Task
+            </Button>
+
+            <Button
+              onClick={handleDownloadPDF}
+              variant="secondary"
+              icon={<Download className="w-4 h-4" />}
+            >
+              Download PDF
             </Button>
 
             <Button
@@ -994,7 +1054,7 @@ export default function TaskTrackingPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm mb-1 font-medium">Task Name</label>
+                  <label className="block text-sm mb-1 font-medium">Task Name <span className="text-red-500">*</span></label>
                   <input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
@@ -1006,12 +1066,13 @@ export default function TaskTrackingPage() {
               </div>
 
               <div>
-                <label className="block text-sm mb-1 font-medium">Description</label>
+                <label className="block text-sm mb-1 font-medium">Description <span className="text-red-500">*</span></label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Tell us more about this task..."
                   className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] h-24 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                  required
                 />
               </div>
 
@@ -1036,12 +1097,13 @@ export default function TaskTrackingPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm mb-1 font-medium">Priority</label>
+                  <label className="block text-sm mb-1 font-medium">Priority <span className="text-red-500">*</span></label>
                   <select
                     value={priority}
                     onChange={(e) => setPriority(e.target.value as TaskPriority)}
                     className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
                     aria-label="Priority"
+                    required
                   >
                     <option value="Low">Low</option>
                     <option value="Med">Med</option>
@@ -1052,12 +1114,13 @@ export default function TaskTrackingPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm mb-1 font-medium">Assign To</label>
+                  <label className="block text-sm mb-1 font-medium">Assign To <span className="text-red-500">*</span></label>
                   <select
                     value={assigneeId}
                     onChange={(e) => setAssigneeId(e.target.value)}
                     className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
                     aria-label="Assign To"
+                    required
                   >
                     <option value="">Unassigned</option>
                     {users.map(u => (
@@ -1067,25 +1130,27 @@ export default function TaskTrackingPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm mb-1 font-medium">Due Date</label>
+                  <label className="block text-sm mb-1 font-medium">Due Date <span className="text-red-500">*</span></label>
                   <input
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
                     className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
                     aria-label="Due Date"
+                    required
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm mb-1 font-medium">Status</label>
+                  <label className="block text-sm mb-1 font-medium">Status <span className="text-red-500">*</span></label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as TaskStatus)}
                     className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
                     aria-label="Status"
+                    required
                   >
                     {Object.entries(STATUS_LABELS).map(([val, label]) => (
                       <option key={val} value={val}>{label}</option>
@@ -1093,25 +1158,27 @@ export default function TaskTrackingPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm mb-1 font-medium">ETOC (Est. Minutes)</label>
+                  <label className="block text-sm mb-1 font-medium">ETOC (Est. Minutes) <span className="text-red-500">*</span></label>
                   <input
                     type="number"
                     value={estimatedTime}
                     onChange={(e) => setEstimatedTime(e.target.value)}
                     placeholder="e.g. 60"
                     className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                    required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm mb-1 font-medium">Role (optional)</label>
+                <label className="block text-sm mb-1 font-medium">Role <span className="text-red-500">*</span></label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
                   disabled={!departmentId}
                   className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] disabled:opacity-50"
                   aria-label="Role"
+                  required
                 >
                   <option value="">Select role</option>
                   {availableRoles.map((r) => (

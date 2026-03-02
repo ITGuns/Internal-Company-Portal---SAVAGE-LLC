@@ -12,6 +12,7 @@ import { fetchAnnouncements, getTimeAgo, type Announcement } from '@/lib/announc
 import { useRouter } from 'next/navigation'
 import { useSocket } from '@/context/SocketContext'
 import { fetchConversations, fetchMessages, sendMessage, type Message, type Conversation } from '@/lib/chat'
+import TimeClock from '@/components/TimeClock'
 
 function QuickLink({ title, subtitle, icon: Icon, onClick, href }: { title: string; subtitle?: string; icon: React.ComponentType<{ className?: string }>; onClick?: () => void; href?: string }) {
   const handleClick = () => {
@@ -234,6 +235,16 @@ export default function DashboardPage() {
       <div className="p-6 pt-3">
         <Header />
 
+        {user && (
+          <div className="mt-8 mb-4 flex justify-between items-center bg-gradient-to-r from-blue-600/10 to-indigo-600/10 p-6 rounded-3xl border border-blue-500/20">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-xl font-bold text-[var(--foreground)]">Track Your Work Hours</h2>
+              <p className="text-sm text-[var(--muted)]">Every minute counts towards your next payslip. Don't forget to Clock In!</p>
+            </div>
+            <TimeClock />
+          </div>
+        )}
+
         {/* Stats Overview */}
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card padding="md">
@@ -293,9 +304,9 @@ export default function DashboardPage() {
               </Card.Header>
 
               <Card.Content className="grid gap-3">
-                <QuickLink 
-                  title="Discord Server" 
-                  subtitle="Join the conversation" 
+                <QuickLink
+                  title="Discord Server"
+                  subtitle="Join the conversation"
                   icon={Send}
                   onClick={() => {
                     // Try to open Discord app
@@ -306,9 +317,9 @@ export default function DashboardPage() {
                     }, 500);
                   }}
                 />
-                <QuickLink 
-                  title="Google Drive" 
-                  subtitle="Access shared files" 
+                <QuickLink
+                  title="Google Drive"
+                  subtitle="Access shared files"
                   icon={ExternalLink}
                   href="https://drive.google.com"
                 />
@@ -462,6 +473,6 @@ export default function DashboardPage() {
         </div>
 
       </div>
-    </main>
+    </main >
   )
 }

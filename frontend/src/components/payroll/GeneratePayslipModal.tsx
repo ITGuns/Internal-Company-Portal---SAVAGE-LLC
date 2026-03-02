@@ -177,7 +177,7 @@ export default function GeneratePayslipModal({
           {/* Hours Worked */}
           <div>
             <label className="block text-sm font-medium mb-2 text-[var(--foreground)] flex justify-between">
-              <span>Hours Worked</span>
+              <span>Hours Worked <span className="text-red-500 dark:text-red-400">*</span></span>
               <span className="text-[10px] text-blue-500 font-normal">Calculated from Daily Logs & Timers</span>
             </label>
             <input
@@ -187,6 +187,7 @@ export default function GeneratePayslipModal({
               className="w-full p-2 rounded border border-[var(--border)] bg-[var(--card-surface)] text-[var(--muted)] cursor-not-allowed focus:outline-none"
               min="0"
               step="0.5"
+              required
             />
           </div>
 
@@ -205,7 +206,7 @@ export default function GeneratePayslipModal({
           {/* Deductions */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-[var(--foreground)]">Deductions</label>
+              <label className="text-sm font-medium text-[var(--foreground)]">Deductions <span className="text-red-500 dark:text-red-400">*</span></label>
               <Button
                 type="button"
                 variant="ghost"

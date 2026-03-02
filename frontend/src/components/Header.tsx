@@ -11,6 +11,7 @@ import ProfileSidebar from './ProfileSidebar'
 import { Bell, Search } from 'lucide-react'
 import { useSocket } from '@/context/SocketContext'
 import { useUser } from '@/contexts/UserContext'
+import TimeClock from './TimeClock'
 
 export default function Header({ title, subtitle }: { title?: string; subtitle?: string }) {
   const pathname = usePathname() || '/'
@@ -127,6 +128,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
 
       <div className="flex items-center gap-3">
         {/* Search and Add Task intentionally removed for a cleaner header */}
+        {user && <TimeClock />}
 
         <ThemeToggle />
 

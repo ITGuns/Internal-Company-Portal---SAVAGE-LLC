@@ -72,6 +72,7 @@ export default function AddEventModal({
     const errors: Record<string, string> = {};
     if (!eventTitle.trim()) errors.title = "Title is required";
     if (!eventDate) errors.date = "Date is required";
+    if (!eventDescription.trim()) errors.description = "Description is required";
     setEventErrors(errors);
     if (Object.keys(errors).length) return;
 
@@ -79,7 +80,7 @@ export default function AddEventModal({
       eventTitle.trim(),
       eventDate,
       eventType,
-      eventDescription.trim() || undefined
+      eventDescription.trim()
     );
 
     if (success) {
@@ -121,7 +122,7 @@ export default function AddEventModal({
               )
             }
             onClick={handleSubmit}
-            disabled={!eventTitle.trim() || !eventDate}
+            disabled={!eventTitle.trim() || !eventDate || !eventDescription.trim()}
           >
             {editingEvent ? "Save Changes" : "Add Event"}
           </Button>
@@ -134,7 +135,7 @@ export default function AddEventModal({
             htmlFor="event-title"
             className="block text-sm font-medium text-[var(--foreground)] mb-1"
           >
-            Event Title
+            Event Title <span className="text-red-500">*</span>
           </label>
           <input
             id="event-title"
@@ -146,9 +147,9 @@ export default function AddEventModal({
                 setEventErrors((prev) => ({ ...prev, title: "" }));
             }}
             placeholder="e.g. Team Meeting, Bonus Payout..."
-            className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${
-              eventErrors.title ? "border-red-500" : "border-[var(--border)]"
-            }`}
+            className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${eventErrors.title ? "border-red-500" : "border-[var(--border)]"
+              }`}
+            required
           />
           {eventErrors.title && (
             <p className="text-red-500 text-xs mt-1">{eventErrors.title}</p>
@@ -161,7 +162,7 @@ export default function AddEventModal({
               htmlFor="event-date"
               className="block text-sm font-medium text-[var(--foreground)] mb-1"
             >
-              Date
+              Date <span className="text-red-500">*</span>
             </label>
             <input
               id="event-date"
@@ -172,9 +173,9 @@ export default function AddEventModal({
                 if (eventErrors.date)
                   setEventErrors((prev) => ({ ...prev, date: "" }));
               }}
-              className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] [color-scheme:light] dark:[color-scheme:dark] ${
-                eventErrors.date ? "border-red-500" : "border-[var(--border)]"
-              }`}
+              className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] [color-scheme:light] dark:[color-scheme:dark] ${eventErrors.date ? "border-red-500" : "border-[var(--border)]"
+                }`}
+              required
             />
             {eventErrors.date && (
               <p className="text-red-500 text-xs mt-1">{eventErrors.date}</p>
@@ -185,13 +186,14 @@ export default function AddEventModal({
               htmlFor="event-type"
               className="block text-sm font-medium text-[var(--foreground)] mb-1"
             >
-              Type
+              Type <span className="text-red-500">*</span>
             </label>
             <select
               id="event-type"
               value={eventType}
               onChange={(e) => setEventType(e.target.value as PayrollEventType)}
               className="w-full border border-[var(--border)] rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] [color-scheme:light] dark:[color-scheme:dark]"
+              required
             >
               <option value="payday">Pay Day</option>
               <option value="holiday">Holiday</option>
@@ -207,17 +209,25 @@ export default function AddEventModal({
             htmlFor="event-desc"
             className="block text-sm font-medium text-[var(--foreground)] mb-1"
           >
-            Description{" "}
-            <span className="text-[var(--muted)] font-normal">(optional)</span>
+            Description <span className="text-red-500">*</span>
           </label>
           <textarea
             id="event-desc"
             value={eventDescription}
-            onChange={(e) => setEventDescription(e.target.value)}
+            onChange={(e) => {
+              setEventDescription(e.target.value);
+              if (eventErrors.description)
+                setEventErrors((prev) => ({ ...prev, description: "" }));
+            }}
             placeholder="Add event details..."
             rows={3}
-            className="w-full border border-[var(--border)] rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] resize-none"
+            className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] resize-none ${eventErrors.description ? "border-red-500" : "border-[var(--border)]"
+              }`}
+            required
           />
+          {eventErrors.description && (
+            <p className="text-red-500 text-xs mt-1">{eventErrors.description}</p>
+          )}
         </div>
       </div>
     </Modal>

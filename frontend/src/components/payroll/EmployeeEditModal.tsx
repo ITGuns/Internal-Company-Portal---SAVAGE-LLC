@@ -55,6 +55,7 @@ export default function EmployeeEditModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!employee) return;
+    if (!name.trim() || !email.trim() || !role.trim() || !department.trim() || !salary) return;
 
     onSave(employee.id, {
       name: name.trim(),
@@ -97,7 +98,7 @@ export default function EmployeeEditModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
-              Full Name
+              Full Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -110,7 +111,7 @@ export default function EmployeeEditModal({
 
           <div>
             <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
-              Email
+              Email <span className="text-red-500">*</span>
             </label>
             <input
               type="email"
@@ -118,12 +119,13 @@ export default function EmployeeEditModal({
               onChange={(e) => setEmail(e.target.value)}
               className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
               placeholder="employee@company.com"
+              required
             />
           </div>
 
           <div>
             <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
-              Role / Position
+              Role / Position <span className="text-red-500">*</span>
             </label>
             <select
               value={role}
@@ -145,7 +147,7 @@ export default function EmployeeEditModal({
 
           <div>
             <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
-              Department
+              Department <span className="text-red-500">*</span>
             </label>
             <select
               value={department}
@@ -163,7 +165,7 @@ export default function EmployeeEditModal({
 
           <div>
             <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
-              Annual Salary
+              Annual Salary <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-semibold">
@@ -183,12 +185,13 @@ export default function EmployeeEditModal({
 
           <div>
             <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
-              Status
+              Status <span className="text-red-500">*</span>
             </label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as "active" | "vacation" | "leave" | "pending")}
               className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+              required
             >
               <option value="active">Active</option>
               <option value="vacation">On Vacation</option>

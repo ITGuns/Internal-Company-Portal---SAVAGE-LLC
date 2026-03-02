@@ -155,8 +155,8 @@ export default function FileDirectoryPage() {
               <button
                 onClick={() => handleBreadcrumbClick(folder.id)}
                 className={`hover:text-[var(--foreground)] transition-colors ${index === breadcrumbs.length - 1 && !driveMode
-                    ? 'text-[var(--foreground)] font-medium'
-                    : 'text-[var(--muted)]'
+                  ? 'text-[var(--foreground)] font-medium'
+                  : 'text-[var(--muted)]'
                   }`}
               >
                 {folder.name}
@@ -290,7 +290,7 @@ export default function FileDirectoryPage() {
                   <FolderCard
                     folder={folder}
                     onClick={() => handleFolderClick(folder)}
-                    onDelete={folder.isCustom ? () => handleDeleteFolder(folder.id) : undefined}
+                    onDelete={() => handleDeleteFolder(folder.id)}
                     viewMode="grid"
                   />
                 </div>
@@ -303,7 +303,7 @@ export default function FileDirectoryPage() {
                   key={folder.id}
                   folder={folder}
                   onClick={() => handleFolderClick(folder)}
-                  onDelete={folder.isCustom ? () => handleDeleteFolder(folder.id) : undefined}
+                  onDelete={() => handleDeleteFolder(folder.id)}
                   viewMode="list"
                 />
               ))}

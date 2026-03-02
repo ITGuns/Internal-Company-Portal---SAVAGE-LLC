@@ -312,6 +312,23 @@ export class PayrollController {
             }
         )
 
+        // Generate All Payslips for a Period
+        router.post(
+            '/periods/:periodId/generate-all',
+            authenticateToken,
+            requireRole(['admin', 'operations_manager']),
+            async (req: Request, res: Response) => {
+                try {
+                    const periodId = Array.isArray(req.params.periodId) ? req.params.periodId[0] : req.params.periodId
+                    const results = await this.service.bulkGeneratePayslips(periodId)
+                    res.json(results)
+                } catch (e: any) {
+                    console.error(e)
+                    res.status(500).json({ error: e.message || 'Bulk generation failed' })
+                }
+            }
+        )
+
         // Get Payslips (own, or any user if admin/manager)
         router.get('/my-payslips', authenticateToken, async (req: Request, res: Response) => {
             try {

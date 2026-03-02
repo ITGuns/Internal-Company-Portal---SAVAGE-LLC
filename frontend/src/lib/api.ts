@@ -307,3 +307,40 @@ export const uploadAvatar = async (userId: string | number, file: File | string)
         throw error;
     }
 };
+// ============================================
+// ROLES API
+// ============================================
+
+/**
+ * Get all available roles
+ * @param departmentId - Optional department ID to filter by
+ * @returns Array of roles
+ */
+export const fetchRoles = async (departmentId?: string) => {
+    const endpoint = departmentId ? `/roles?departmentId=${departmentId}` : '/roles';
+    const response = await apiFetch(endpoint);
+    return response.json();
+};
+
+/**
+ * Create a new available role
+ * @param roleData - Role name and optional departmentId
+ * @returns Created role
+ */
+export const createRole = async (roleData: { name: string; departmentId?: string }) => {
+    const response = await apiFetch('/roles', {
+        method: 'POST',
+        body: JSON.stringify(roleData),
+    });
+    return response.json();
+};
+
+/**
+ * Delete an available role
+ * @param roleId - Role ID to delete
+ */
+export const deleteRole = async (roleId: string) => {
+    await apiFetch(`/roles/${roleId}`, {
+        method: 'DELETE',
+    });
+};

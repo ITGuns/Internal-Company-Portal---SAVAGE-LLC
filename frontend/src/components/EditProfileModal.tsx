@@ -47,10 +47,30 @@ export default function EditProfileModal({
     city: "",
     citizenship: "",
     avatar: "",
+    department: "",
+    role: "",
   });
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [roles, setRoles] = useState<any[]>([]);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    async function loadOptions() {
+      try {
+        const [deptRes, roleRes] = await Promise.all([
+          fetch('/api/departments').then(r => r.json()),
+          fetch('/api/roles').then(r => r.json())
+        ]);
+        setDepartments(Array.isArray(deptRes) ? deptRes : []);
+        setRoles(Array.isArray(roleRes) ? roleRes : []);
+      } catch (e) {
+        console.error('Failed to load profile options', e);
+      }
+    }
+    loadOptions();
+  }, []);
 
   useEffect(() => {
     if (isOpen && user) {
@@ -63,6 +83,8 @@ export default function EditProfileModal({
         city: user.city || "",
         citizenship: user.citizenship || "",
         avatar: user.avatar || "",
+        department: (user as any).department || "",
+        role: (user as any).role || "",
       });
       setAvatarPreview(user.avatar || "");
       setErrors({});
@@ -82,7 +104,9 @@ export default function EditProfileModal({
       newErrors.email = "Invalid email format";
     }
 
-    if (formData.birthday) {
+    if (!formData.birthday) {
+      newErrors.birthday = "Birthday is required";
+    } else {
       const birthDate = new Date(formData.birthday);
       const today = new Date();
       if (birthDate > today) {
@@ -90,8 +114,30 @@ export default function EditProfileModal({
       }
     }
 
-    if (formData.phone && !/^[\d\s\-\+\(\)]+$/.test(formData.phone)) {
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^[\d\s\-\+\(\)]+$/.test(formData.phone)) {
       newErrors.phone = "Invalid phone number format";
+    }
+
+    if (!formData.address.trim()) {
+      newErrors.address = "Address is required";
+    }
+
+    if (!formData.city.trim()) {
+      newErrors.city = "City is required";
+    }
+
+    if (!formData.citizenship.trim()) {
+      newErrors.citizenship = "Citizenship is required";
+    }
+
+    if (!formData.department) {
+      newErrors.department = "Department is required";
+    }
+
+    if (!formData.role) {
+      newErrors.role = "Role is required";
     }
 
     setErrors(newErrors);
@@ -116,7 +162,7 @@ export default function EditProfileModal({
     try {
       // Separate avatar upload from profile update
       const hasAvatarChanged = formData.avatar && formData.avatar !== user.avatar;
-      
+
       // Update profile data (without avatar)
       const profileData = {
         name: formData.name,
@@ -126,11 +172,13 @@ export default function EditProfileModal({
         address: formData.address,
         city: formData.city,
         citizenship: formData.citizenship,
+        department: formData.department,
+        position: formData.role, // Mapping role to position for compatibility
       };
 
       // Call API to update profile
       const profileResponse = await updateUserProfile(user.id, profileData);
-      
+
       let finalUser = profileResponse.user;
 
       // If avatar changed, upload it separately
@@ -144,7 +192,7 @@ export default function EditProfileModal({
 
       // Call parent onSave callback
       onSave(finalUser);
-      
+
       showToast('success', "Profile updated successfully!");
       onClose();
     } catch (err) {
@@ -263,7 +311,7 @@ export default function EditProfileModal({
           >
             <div className="flex items-center gap-2">
               <User className="w-4 h-4" />
-              Full Name
+              Full Name <span className="text-red-500">*</span>
             </div>
           </label>
           <input
@@ -271,12 +319,12 @@ export default function EditProfileModal({
             type="text"
             value={formData.name}
             onChange={(e) => handleChange("name", e.target.value)}
-            className={`w-full px-3 py-2 rounded-md border ${
-              errors.name
-                ? "border-red-500 focus:ring-red-500"
-                : "border-[var(--border)] focus:ring-[var(--accent)]"
-            } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
+            className={`w-full px-3 py-2 rounded-md border ${errors.name
+              ? "border-red-500 focus:ring-red-500"
+              : "border-[var(--border)] focus:ring-[var(--accent)]"
+              } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
             placeholder="Enter your full name"
+            required
           />
           {errors.name && (
             <p className="mt-1 text-sm text-red-500">{errors.name}</p>
@@ -291,7 +339,7 @@ export default function EditProfileModal({
           >
             <div className="flex items-center gap-2">
               <Mail className="w-4 h-4" />
-              Email Address
+              Email Address <span className="text-red-500">*</span>
             </div>
           </label>
           <input
@@ -299,12 +347,12 @@ export default function EditProfileModal({
             type="email"
             value={formData.email}
             onChange={(e) => handleChange("email", e.target.value)}
-            className={`w-full px-3 py-2 rounded-md border ${
-              errors.email
-                ? "border-red-500 focus:ring-red-500"
-                : "border-[var(--border)] focus:ring-[var(--accent)]"
-            } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
+            className={`w-full px-3 py-2 rounded-md border ${errors.email
+              ? "border-red-500 focus:ring-red-500"
+              : "border-[var(--border)] focus:ring-[var(--accent)]"
+              } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
             placeholder="your.email@savage.com"
+            required
           />
           {errors.email && (
             <p className="mt-1 text-sm text-red-500">{errors.email}</p>
@@ -319,7 +367,7 @@ export default function EditProfileModal({
           >
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
-              Birthday
+              Birthday <span className="text-red-500">*</span>
             </div>
           </label>
           <input
@@ -327,11 +375,11 @@ export default function EditProfileModal({
             type="date"
             value={formData.birthday}
             onChange={(e) => handleChange("birthday", e.target.value)}
-            className={`w-full px-3 py-2 rounded-md border ${
-              errors.birthday
-                ? "border-red-500 focus:ring-red-500"
-                : "border-[var(--border)] focus:ring-[var(--accent)]"
-            } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
+            className={`w-full px-3 py-2 rounded-md border ${errors.birthday
+              ? "border-red-500 focus:ring-red-500"
+              : "border-[var(--border)] focus:ring-[var(--accent)]"
+              } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
+            required
           />
           {errors.birthday && (
             <p className="mt-1 text-sm text-red-500">{errors.birthday}</p>
@@ -346,7 +394,7 @@ export default function EditProfileModal({
           >
             <div className="flex items-center gap-2">
               <Phone className="w-4 h-4" />
-              Phone Number
+              Phone Number <span className="text-red-500">*</span>
             </div>
           </label>
           <input
@@ -354,12 +402,12 @@ export default function EditProfileModal({
             type="tel"
             value={formData.phone}
             onChange={(e) => handleChange("phone", e.target.value)}
-            className={`w-full px-3 py-2 rounded-md border ${
-              errors.phone
-                ? "border-red-500 focus:ring-red-500"
-                : "border-[var(--border)] focus:ring-[var(--accent)]"
-            } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
+            className={`w-full px-3 py-2 rounded-md border ${errors.phone
+              ? "border-red-500 focus:ring-red-500"
+              : "border-[var(--border)] focus:ring-[var(--accent)]"
+              } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
             placeholder="+63 XXX XXX XXXX"
+            required
           />
           {errors.phone && (
             <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
@@ -374,7 +422,7 @@ export default function EditProfileModal({
           >
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4" />
-              Address
+              Address <span className="text-red-500">*</span>
             </div>
           </label>
           <input
@@ -382,12 +430,12 @@ export default function EditProfileModal({
             type="text"
             value={formData.address}
             onChange={(e) => handleChange("address", e.target.value)}
-            className={`w-full px-3 py-2 rounded-md border ${
-              errors.address
-                ? "border-red-500 focus:ring-red-500"
-                : "border-[var(--border)] focus:ring-[var(--accent)]"
-            } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
+            className={`w-full px-3 py-2 rounded-md border ${errors.address
+              ? "border-red-500 focus:ring-red-500"
+              : "border-[var(--border)] focus:ring-[var(--accent)]"
+              } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
             placeholder="Street address"
+            required
           />
           {errors.address && (
             <p className="mt-1 text-sm text-red-500">{errors.address}</p>
@@ -402,7 +450,7 @@ export default function EditProfileModal({
           >
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4" />
-              City
+              City <span className="text-red-500">*</span>
             </div>
           </label>
           <input
@@ -410,12 +458,12 @@ export default function EditProfileModal({
             type="text"
             value={formData.city}
             onChange={(e) => handleChange("city", e.target.value)}
-            className={`w-full px-3 py-2 rounded-md border ${
-              errors.city
-                ? "border-red-500 focus:ring-red-500"
-                : "border-[var(--border)] focus:ring-[var(--accent)]"
-            } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
+            className={`w-full px-3 py-2 rounded-md border ${errors.city
+              ? "border-red-500 focus:ring-red-500"
+              : "border-[var(--border)] focus:ring-[var(--accent)]"
+              } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
             placeholder="City"
+            required
           />
           {errors.city && (
             <p className="mt-1 text-sm text-red-500">{errors.city}</p>
@@ -430,7 +478,7 @@ export default function EditProfileModal({
           >
             <div className="flex items-center gap-2">
               <Flag className="w-4 h-4" />
-              Citizenship
+              Citizenship <span className="text-red-500">*</span>
             </div>
           </label>
           <input
@@ -438,16 +486,60 @@ export default function EditProfileModal({
             type="text"
             value={formData.citizenship}
             onChange={(e) => handleChange("citizenship", e.target.value)}
-            className={`w-full px-3 py-2 rounded-md border ${
-              errors.citizenship
-                ? "border-red-500 focus:ring-red-500"
-                : "border-[var(--border)] focus:ring-[var(--accent)]"
-            } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
+            className={`w-full px-3 py-2 rounded-md border ${errors.citizenship
+              ? "border-red-500 focus:ring-red-500"
+              : "border-[var(--border)] focus:ring-[var(--accent)]"
+              } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
             placeholder="Country"
+            required
           />
           {errors.citizenship && (
             <p className="mt-1 text-sm text-red-500">{errors.citizenship}</p>
           )}
+        </div>
+
+        {/* Department & Role Fields */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="department" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+              Department <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="department"
+              value={formData.department}
+              onChange={(e) => handleChange("department", e.target.value)}
+              className={`w-full px-3 py-2 rounded-md border ${errors.department ? "border-red-500" : "border-[var(--border)]"} bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]`}
+              required
+            >
+              <option value="">Select Department</option>
+              {departments.map(d => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+            {errors.department && (
+              <p className="mt-1 text-sm text-red-500">{errors.department}</p>
+            )}
+          </div>
+          <div>
+            <label htmlFor="role" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+              Primary Role <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="role"
+              value={formData.role}
+              onChange={(e) => handleChange("role", e.target.value)}
+              className={`w-full px-3 py-2 rounded-md border ${errors.role ? "border-red-500" : "border-[var(--border)]"} bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]`}
+              required
+            >
+              <option value="">Select Role</option>
+              {roles.map(r => (
+                <option key={r.id} value={r.name}>{r.name}</option>
+              ))}
+            </select>
+            {errors.role && (
+              <p className="mt-1 text-sm text-red-500">{errors.role}</p>
+            )}
+          </div>
         </div>
 
         {/* Action Buttons */}

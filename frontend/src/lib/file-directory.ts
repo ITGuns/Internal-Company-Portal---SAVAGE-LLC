@@ -728,6 +728,7 @@ export const MOCK_DIRECTORIES: FileDirectory[] = [
 // ========== CUSTOM FOLDERS (User-Added via Frontend) ==========
 
 const STORAGE_KEY = 'customDirectories';
+const REMOVED_MOCK_KEY = 'removedMockDirectories';
 
 export function getCustomFolders(): FileDirectory[] {
   if (typeof window === 'undefined') return [];
@@ -736,6 +737,16 @@ export function getCustomFolders(): FileDirectory[] {
     return stored ? JSON.parse(stored) : [];
   } catch (error) {
     console.error('Error loading custom folders:', error);
+    return [];
+  }
+}
+
+export function getRemovedMockIds(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(REMOVED_MOCK_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
     return [];
   }
 }
@@ -761,16 +772,45 @@ export function saveCustomFolder(folder: Omit<FileDirectory, 'id'>): FileDirecto
 }
 
 export function deleteCustomFolder(id: string): void {
-  const folders = getCustomFolders().filter(f => f.id !== id);
+  const allCustom = getCustomFolders();
+  const allFolders = getAllFolders(); // All including mock
+
+  // Find all descendants recursively
+  const idsToDelete = new Set<string>([id]);
+  const findDescendants = (parentId: string) => {
+    allFolders.forEach(f => {
+      if (f.parentId === parentId) {
+        idsToDelete.add(f.id);
+        findDescendants(f.id);
+      }
+    });
+  };
+  findDescendants(id);
+
+  // If it's a mock folder, add to removed list
+  if (MOCK_DIRECTORIES.some(m => m.id === id)) {
+    const removed = getRemovedMockIds();
+    idsToDelete.forEach(idToDelete => {
+      if (MOCK_DIRECTORIES.some(m => m.id === idToDelete) && !removed.includes(idToDelete)) {
+        removed.push(idToDelete);
+      }
+    });
+    localStorage.setItem(REMOVED_MOCK_KEY, JSON.stringify(removed));
+  }
+
+  // Filter custom folders
+  const filtered = allCustom.filter(f => !idsToDelete.has(f.id));
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(folders));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
   } catch (error) {
     console.error('Error deleting custom folder:', error);
   }
 }
 
 export function getAllFolders(): FileDirectory[] {
-  return [...MOCK_DIRECTORIES, ...getCustomFolders()];
+  const removedIds = getRemovedMockIds();
+  const visibleMocks = MOCK_DIRECTORIES.filter(m => !removedIds.includes(m.id));
+  return [...visibleMocks, ...getCustomFolders()];
 }
 
 // ========== NAVIGATION HELPERS ==========
@@ -846,16 +886,21 @@ export function sortFolders(
 // ========== VALIDATION ==========
 
 export function isValidDriveLink(url: string): boolean {
-  const patterns = [
-    /^https:\/\/drive\.google\.com\/drive\/folders\/[a-zA-Z0-9_-]+/,
-    /^https:\/\/drive\.google\.com\/drive\/u\/\d+\/folders\/[a-zA-Z0-9_-]+/,
-  ];
-  return patterns.some(pattern => pattern.test(url));
+  return /drive\.google\.com/.test(url) && (
+    /folders\/[a-zA-Z0-9_-]+/.test(url) ||
+    /[?&]id=[a-zA-Z0-9_-]+/.test(url)
+  );
 }
 
 export function extractDriveFolderId(url: string): string | null {
-  const match = url.match(/folders\/([a-zA-Z0-9_-]+)/);
-  return match ? match[1] : null;
+  if (!url) return null;
+  const folderMatch = url.match(/folders\/([a-zA-Z0-9_-]+)/);
+  if (folderMatch) return folderMatch[1];
+
+  const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idMatch) return idMatch[1];
+
+  return null;
 }
 
 export interface DriveSubfolder {
@@ -884,8 +929,7 @@ export interface DriveFile {
 export async function fetchDriveSubfolders(folderId: string): Promise<DriveSubfolder[]> {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY;
   if (!apiKey) {
-    console.warn('NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY is not set — subfolder detection unavailable.');
-    return [];
+    throw new Error('API_KEY_MISSING');
   }
 
   try {
@@ -893,13 +937,15 @@ export async function fetchDriveSubfolders(folderId: string): Promise<DriveSubfo
       `'${folderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
     );
     const fields = encodeURIComponent('files(id,name,mimeType)');
-    const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=${fields}&key=${apiKey}&pageSize=50`;
+    const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=${fields}&key=${apiKey}&pageSize=100`;
 
     const res = await fetch(url);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      console.error('Drive API error:', err);
-      return [];
+      if (res.status === 403 || res.status === 404) {
+        throw new Error('ACCESS_DENIED');
+      }
+      throw new Error(err?.error?.message || 'FAILED_TO_FETCH');
     }
 
     const data = await res.json();
@@ -911,7 +957,7 @@ export async function fetchDriveSubfolders(folderId: string): Promise<DriveSubfo
     }));
   } catch (err) {
     console.error('Failed to fetch Drive subfolders:', err);
-    return [];
+    throw err;
   }
 }
 
@@ -921,20 +967,24 @@ export async function fetchDriveSubfolders(folderId: string): Promise<DriveSubfo
  */
 export async function fetchDriveFiles(folderId: string): Promise<DriveFile[]> {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY;
-  if (!apiKey) return [];
+  if (!apiKey) {
+    throw new Error('API_KEY_MISSING');
+  }
 
   try {
     const query = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
     const fields = encodeURIComponent(
       'files(id,name,mimeType,iconLink,thumbnailLink,size,modifiedTime,webViewLink)'
     );
-    const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=${fields}&key=${apiKey}&pageSize=100&orderBy=folder,name`;
+    const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=${fields}&key=${apiKey}&pageSize=1000&orderBy=folder,name`;
 
     const res = await fetch(url);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      console.error('Drive API (files) error:', err);
-      return [];
+      if (res.status === 403 || res.status === 404) {
+        throw new Error('ACCESS_DENIED');
+      }
+      throw new Error(err?.error?.message || 'FAILED_TO_FETCH');
     }
 
     const data = await res.json();
@@ -957,7 +1007,7 @@ export async function fetchDriveFiles(folderId: string): Promise<DriveFile[]> {
     });
   } catch (err) {
     console.error('Failed to fetch Drive files:', err);
-    return [];
+    throw err;
   }
 }
 
