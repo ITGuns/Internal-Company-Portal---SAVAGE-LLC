@@ -88,6 +88,7 @@ model Task {
   description String?
   status      String    @default("todo")
   priority    String    @default("Med")
+  startDate   DateTime?
   dueDate     DateTime?
   notes       Json?
   role        String?

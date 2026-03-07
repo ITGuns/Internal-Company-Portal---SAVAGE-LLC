@@ -194,6 +194,38 @@ export class PayrollController {
             }
         })
 
+        // Preview Payslip Calculation
+        router.get('/preview-calculation', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const userId = req.query.userId as string
+                const startDate = req.query.startDate as string
+                const endDate = req.query.endDate as string
+
+                if (!userId || !startDate || !endDate) {
+                    return res.status(400).json({ error: 'userId, startDate, and endDate are required' })
+                }
+
+                // Check permissions (self or admin/manager)
+                const authReq = req as AuthRequest
+                const requesterId = authReq.user?.userId
+                const { prisma } = await import('../database/prisma.service')
+                const roles = await prisma.userRole.findMany({ where: { userId: requesterId } })
+                const isPrivileged = roles.some(r =>
+                    ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
+                )
+
+                if (requesterId !== userId && !isPrivileged) {
+                    return res.status(403).json({ error: 'Forbidden' })
+                }
+
+                const preview = await this.service.previewPayslip(userId, new Date(startDate), new Date(endDate))
+                res.status(200).json(preview)
+            } catch (e: any) {
+                console.error('Preview error:', e)
+                res.status(500).json({ error: e.message || 'Failed to preview calculation' })
+            }
+        })
+
         // ==========================================
         // Payroll Processing Endpoints
         // ==========================================
@@ -368,6 +400,17 @@ export class PayrollController {
             } catch (e) {
                 console.error('Error fetching report stats:', e)
                 res.status(500).json({ error: 'Failed to fetch report stats' })
+            }
+        })
+
+        // Get ALL payslips across all employees - Payslip Archive (Admin / Ops Manager only)
+        router.get('/payslips/all', authenticateToken, requireRole(['admin', 'operations_manager']), async (req: Request, res: Response) => {
+            try {
+                const payslips = await this.service.getAllPayslips()
+                res.json(payslips)
+            } catch (e) {
+                console.error('Error fetching all payslips:', e)
+                res.status(500).json({ error: 'Failed to fetch payslip archive' })
             }
         })
 

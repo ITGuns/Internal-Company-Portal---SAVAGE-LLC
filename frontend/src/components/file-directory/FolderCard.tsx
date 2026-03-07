@@ -32,16 +32,17 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
         className="flex items-center gap-4 p-4 border-b border-[var(--border)] hover:bg-[var(--card-surface)] transition-colors group cursor-pointer relative"
         onClick={onClick}
       >
-        {childCount > 0 && (
-          <div className="absolute top-2 right-2 min-w-[24px] h-6 px-2 flex items-center justify-center bg-[var(--card-bg)] border border-[var(--border)] rounded-full text-xs font-semibold text-[var(--muted)]">
-            {childCount}
-          </div>
-        )}
-
-        <Folder
-          className="w-6 h-6 flex-shrink-0"
-          style={{ color }}
-        />
+        <div className="relative">
+          <Folder
+            className="w-6 h-6 flex-shrink-0"
+            style={{ color }}
+          />
+          {childCount > 0 && (
+            <div className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center bg-blue-500 rounded-full text-[10px] font-bold text-white border border-white dark:border-[var(--card-bg)] shadow-sm">
+              {childCount}
+            </div>
+          )}
+        </div>
 
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-[var(--foreground)] truncate">
@@ -105,7 +106,7 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
         onClick={onClick}
       >
         {childCount > 0 && (
-          <div className="absolute top-3 right-3 min-w-[28px] h-7 px-2.5 flex items-center justify-center bg-[var(--card-surface)] border border-[var(--border)] rounded-full text-xs font-semibold text-[var(--muted)] shadow-sm z-20">
+          <div className="absolute top-3 left-3 min-w-[28px] h-7 px-2.5 flex items-center justify-center bg-[var(--card-surface)] border border-[var(--border)] rounded-full text-xs font-semibold text-[var(--muted)] shadow-sm z-20">
             {childCount}
           </div>
         )}

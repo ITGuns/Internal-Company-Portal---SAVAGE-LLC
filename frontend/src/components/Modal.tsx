@@ -133,7 +133,7 @@ export default function Modal({
 
   return (
     <div
-      className="fixed left-64 top-0 right-0 bottom-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn"
+      className="fixed left-64 top-0 right-0 bottom-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn modal-print-wrapper"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"

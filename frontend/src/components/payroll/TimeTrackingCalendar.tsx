@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Cake, CheckCircle2, Calendar, Loader2, DollarSign, Globe } from "lucide-react";
+import { ChevronLeft, ChevronRight, Cake, CheckCircle2, Calendar, Loader2 } from "lucide-react";
 import type { Employee, LeaveRecord, CompletedTask } from "@/lib/payroll-calendar/types";
 import { fetchTimeEntries } from "@/lib/time-entries";
-import { useExchangeRate } from "@/contexts/ExchangeRateContext";
 
 import DayDetailsModal, { type DayTimeEntry } from "./DayDetailsModal";
 
@@ -37,15 +36,8 @@ export default function TimeTrackingCalendar({
   onAddTimeEntry,
 }: TimeTrackingCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [filters, setFilters] = useState({
-    workDay: true,
-    truancy: true,
-    vacation: true,
-  });
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
   const [showDayDetails, setShowDayDetails] = useState(false);
-  const [currency, setCurrency] = useState<'USD' | 'PHP'>('USD');
-  const { usdToPhp: exchangeRate } = useExchangeRate();
   const [isFetching, setIsFetching] = useState(false);
   const [timeEntries, setTimeEntries] = useState<any[]>([]);
 
@@ -85,7 +77,7 @@ export default function TimeTrackingCalendar({
     if (!employee) return { totalHours: 0, monthlySalary: 0 };
 
     const hours = timeEntries.reduce((sum, entry) => sum + (entry.durationMin || 0) / 60, 0);
-    const salary = employee.salary / 12; // Monthly salary
+    const salary = employee.salary; // Monthly salary
 
     return { totalHours: hours, monthlySalary: salary };
   }, [employee, timeEntries, month, year]);
@@ -100,10 +92,6 @@ export default function TimeTrackingCalendar({
     setCurrentDate(new Date(year, month + 1, 1));
   };
 
-  // Toggle filter
-  const toggleFilter = (filterName: keyof typeof filters) => {
-    setFilters((prev) => ({ ...prev, [filterName]: !prev[filterName] }));
-  };
 
   // Check if date is within a leave period
   const getLeaveForDate = (dateStr: string): LeaveRecord | null => {
@@ -189,13 +177,13 @@ export default function TimeTrackingCalendar({
         borderClass = "border-2 border-blue-500 dark:border-blue-400 shadow-md";
       }
 
-      if (timeEntry?.type === "work" && filters.workDay) {
+      if (timeEntry?.type === "work") {
         bgClass = "bg-gradient-to-br from-amber-100 to-orange-100 dark:bg-gradient-to-br dark:from-amber-900/20 dark:to-orange-900/20 shadow-sm";
-      } else if (leaveRecord?.type === "vacation" && filters.vacation) {
+      } else if (leaveRecord?.type === "vacation") {
         bgClass = "bg-gradient-to-br from-purple-100 to-pink-100 dark:bg-gradient-to-br dark:from-purple-900/20 dark:to-pink-900/20 text-purple-600 dark:text-purple-400 shadow-sm";
         // Striped pattern for vacation
         borderClass += " relative overflow-hidden";
-      } else if (leaveRecord?.type === "sick" && filters.truancy) {
+      } else if (leaveRecord?.type === "sick") {
         bgClass = "bg-gradient-to-br from-red-100 to-pink-100 dark:bg-gradient-to-br dark:from-red-950/30 dark:to-pink-950/30 shadow-sm";
       }
 
@@ -258,7 +246,7 @@ export default function TimeTrackingCalendar({
           )}
 
           {/* Vacation striped pattern */}
-          {leaveRecord?.type === "vacation" && filters.vacation && (
+          {leaveRecord?.type === "vacation" && (
             <div className="absolute inset-0 opacity-20 pointer-events-none rounded-xl overflow-hidden">
               <svg width="100%" height="100%">
                 <defs>
@@ -319,59 +307,14 @@ export default function TimeTrackingCalendar({
       <div className="mb-3">
         {/* Hours and Salary Display */}
         <div className="text-center mb-3 flex flex-col items-center">
-          <div className="flex items-center gap-2 mb-2">
-            <button
-              onClick={() => setCurrency(prev => prev === 'USD' ? 'PHP' : 'USD')}
-              className="px-2 py-1 text-[10px] bg-[var(--card-surface)] border border-[var(--border)] rounded flex items-center gap-1 hover:bg-[var(--card-bg)] transition-colors"
-            >
-              {currency === 'USD' ? <DollarSign className="w-2.5 h-2.5" /> : <Globe className="w-2.5 h-2.5" />}
-              Convert to {currency === 'USD' ? 'PHP' : 'USD'}
-            </button>
-          </div>
           <div className="text-3xl font-bold text-[var(--foreground)]">
-            {totalHours.toFixed(2)} hrs / {currency === 'USD' ? '$' : '₱'}
-            {currency === 'USD'
-              ? monthlySalary.toLocaleString()
-              : (monthlySalary * exchangeRate).toLocaleString()}
+            {totalHours.toFixed(2)} hrs / ₱{monthlySalary.toLocaleString()}
           </div>
-          <div className="text-xs text-[var(--muted)] mt-1">
-            ({currency === 'USD'
-              ? `₱${(monthlySalary * exchangeRate).toLocaleString()}`
-              : `$${(monthlySalary / exchangeRate).toLocaleString()}`} equivalent)
+          <div className="text-xs text-[var(--muted)] mt-1 font-medium">
+            (Monthly Earnings Estimate)
           </div>
         </div>
 
-        {/* Filter Pills */}
-        <div className="flex items-center justify-center gap-2 mb-3">
-          <button
-            onClick={() => toggleFilter("workDay")}
-            className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg hover:scale-105 ${filters.workDay
-              ? "bg-gradient-to-r from-amber-400 to-orange-500 text-white"
-              : "bg-gray-200 dark:bg-gray-700 text-[var(--muted)] hover:bg-gray-300 dark:hover:bg-gray-600"
-              }`}
-          >
-            {filters.workDay && totalHours > 0 && `${totalHours.toFixed(0)} hrs`}
-            {!filters.workDay && "Work day"}
-          </button>
-          <button
-            onClick={() => toggleFilter("truancy")}
-            className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg hover:scale-105 ${filters.truancy
-              ? "bg-gradient-to-r from-gray-700 to-gray-900 text-white"
-              : "bg-gray-200 dark:bg-gray-700 text-[var(--muted)] hover:bg-gray-300 dark:hover:bg-gray-600"
-              }`}
-          >
-            Truancy
-          </button>
-          <button
-            onClick={() => toggleFilter("vacation")}
-            className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg hover:scale-105 ${filters.vacation
-              ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white"
-              : "bg-gray-200 dark:bg-gray-700 text-[var(--muted)] hover:bg-gray-300 dark:hover:bg-gray-600"
-              }`}
-          >
-            Vacation
-          </button>
-        </div>
       </div>
 
       {/* Calendar Navigation */}

@@ -143,6 +143,25 @@ export default function AddEmployeeModal({
 
           <div>
             <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
+              Department <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={department}
+              onChange={(e) => {
+                setDepartment(e.target.value);
+                setRole(""); // Reset role when department changes
+              }}
+              className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+              required
+            >
+              {DEPARTMENTS.map((dept) => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
               Role / Position <span className="text-red-500">*</span>
             </label>
             {availableRoles.length > 0 ? (
@@ -169,47 +188,26 @@ export default function AddEmployeeModal({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
-                Department <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={department}
-                onChange={(e) => {
-                  setDepartment(e.target.value);
-                  setRole(""); // Reset role when department changes
-                }}
-                className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
-                required
-              >
-                {DEPARTMENTS.map((dept) => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
-                Status <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as "active" | "vacation" | "leave" | "pending")}
-                className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
-                required
-              >
-                <option value="pending">Pending Approval</option>
-                <option value="active">Active</option>
-                <option value="vacation">On Vacation</option>
-                <option value="leave">On Leave</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
+              Status <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as "active" | "vacation" | "leave" | "pending")}
+              className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+              required
+            >
+              <option value="pending">Pending Approval</option>
+              <option value="active">Active</option>
+              <option value="vacation">On Vacation</option>
+              <option value="leave">On Leave</option>
+            </select>
           </div>
 
           <div>
             <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
-              Annual Salary <span className="text-red-500">*</span>
+              Monthly Salary <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-semibold">
@@ -220,9 +218,9 @@ export default function AddEmployeeModal({
                 value={salary}
                 onChange={(e) => setSalary(e.target.value)}
                 className="w-full p-3 pl-8 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
-                placeholder="75000"
+                placeholder="50000"
                 min="0"
-                step="1000"
+                step="any"
                 required
               />
             </div>

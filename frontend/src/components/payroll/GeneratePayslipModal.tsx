@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { PhilippinePeso, Save, Plus, X } from "lucide-react";
+import { PhilippinePeso, Save, Plus, X, Loader2 } from "lucide-react";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import type { Deduction, Employee } from "@/lib/payroll-calendar/types";
@@ -49,17 +49,38 @@ export default function GeneratePayslipModal({
 
   const [payPeriodStart, setPayPeriodStart] = useState(firstDay.toISOString().split("T")[0]);
   const [payPeriodEnd, setPayPeriodEnd] = useState(lastDay.toISOString().split("T")[0]);
-  const [hoursWorked, setHoursWorked] = useState("168");
+  const [hoursWorked, setHoursWorked] = useState(0);
+  const [grossPay, setGrossPay] = useState(0);
+  const [isCalculating, setIsCalculating] = useState(false);
+
+  // Use state for CUSTOM deductions ONLY (as per user request to remove hardcoded ones)
+  const [customDeductions, setCustomDeductions] = useState<Omit<Deduction, "id">[]>([]);
 
   const employee = employees.find((e) => e.id.toString() === employeeId);
-  const monthlySalary = employee ? employee.salary / 12 : 0;
 
-  const deductions: Omit<Deduction, "id">[] = [
-    { type: "tax", name: "Income Tax", amount: Math.round((monthlySalary * 15) / 100), percentage: 15 },
-    { type: "insurance", name: "Health Insurance", amount: 250 },
-  ];
+  // Fetch preview calculation whenever employee or dates change
+  useEffect(() => {
+    const fetchPreview = async () => {
+      if (!employeeId || !payPeriodStart || !payPeriodEnd) return;
 
-  const [customDeductions, setCustomDeductions] = useState<Omit<Deduction, "id">[]>([]);
+      setIsCalculating(true);
+      try {
+        const { apiFetch } = await import("@/lib/api");
+        const res = await apiFetch(`/payroll/preview-calculation?userId=${employeeId}&startDate=${payPeriodStart}&endDate=${payPeriodEnd}`);
+        if (res.ok) {
+          const data = await res.json();
+          setHoursWorked(data.totalHours || 0);
+          setGrossPay(data.grossPay || 0);
+        }
+      } catch (err) {
+        console.error("Failed to fetch calculation preview", err);
+      } finally {
+        setIsCalculating(false);
+      }
+    };
+
+    fetchPreview();
+  }, [employeeId, payPeriodStart, payPeriodEnd]);
 
   const addDeduction = () => {
     setCustomDeductions([
@@ -84,9 +105,9 @@ export default function GeneratePayslipModal({
     );
   };
 
-  const allDeductions = [...deductions, ...customDeductions];
+  const allDeductions = customDeductions;
   const finalTotalDeductions = allDeductions.reduce((sum, d) => sum + d.amount, 0);
-  const finalNetPay = monthlySalary - finalTotalDeductions;
+  const finalNetPay = grossPay - finalTotalDeductions;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,8 +118,8 @@ export default function GeneratePayslipModal({
       employeeId,
       payPeriodStart,
       payPeriodEnd,
-      hoursWorked: parseFloat(hoursWorked) || 0,
-      grossPay: monthlySalary,
+      hoursWorked: hoursWorked,
+      grossPay: grossPay,
       deductions: allDeductions.map((d, i) => ({ ...d, id: `ded${i}` })),
       netPay: finalNetPay,
     });
@@ -180,25 +201,32 @@ export default function GeneratePayslipModal({
               <span>Hours Worked <span className="text-red-500 dark:text-red-400">*</span></span>
               <span className="text-[10px] text-blue-500 font-normal">Calculated from Daily Logs & Timers</span>
             </label>
-            <input
-              type="number"
-              value={hoursWorked}
-              readOnly
-              className="w-full p-2 rounded border border-[var(--border)] bg-[var(--card-surface)] text-[var(--muted)] cursor-not-allowed focus:outline-none"
-              min="0"
-              step="0.5"
-              required
-            />
+            <div className="relative">
+              <input
+                type="number"
+                value={hoursWorked}
+                readOnly
+                className={`w-full p-2 rounded border border-[var(--border)] bg-[var(--card-surface)] text-[var(--muted)] cursor-not-allowed focus:outline-none ${isCalculating ? 'animate-pulse' : ''}`}
+                min="0"
+                step="0.5"
+                required
+              />
+              {isCalculating && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Gross Pay */}
           <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-[var(--foreground)]">
-                Gross Pay (Monthly)
+                Gross Pay (Calculated)
               </span>
               <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                ₱{monthlySalary.toLocaleString()}
+                ₱{grossPay.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
           </div>
@@ -248,11 +276,11 @@ export default function GeneratePayslipModal({
 
                   <input
                     type="number"
-                    value={deduction.amount}
+                    value={deduction.amount === 0 ? "" : deduction.amount}
                     onChange={(e) =>
-                      updateDeduction(index, "amount", Number(e.target.value))
+                      updateDeduction(index, "amount", e.target.value === "" ? 0 : Number(e.target.value))
                     }
-                    placeholder="Amount"
+                    placeholder="0"
                     className="w-24 p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 placeholder:text-[var(--muted)]"
                     min="0"
                     required
@@ -273,7 +301,7 @@ export default function GeneratePayslipModal({
             <div className="mt-2 p-2 rounded bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
               <span className="text-sm font-medium">Total Deductions</span>
               <span className="text-sm font-bold text-red-600 dark:text-red-400">
-                -₱{finalTotalDeductions.toLocaleString()}
+                -₱{finalTotalDeductions.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
           </div>
@@ -285,7 +313,7 @@ export default function GeneratePayslipModal({
                 Net Pay
               </span>
               <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                ₱{finalNetPay.toLocaleString()}
+                ₱{finalNetPay.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
           </div>

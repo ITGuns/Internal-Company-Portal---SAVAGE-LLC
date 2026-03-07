@@ -39,6 +39,7 @@ export interface Task {
   assignee?: TaskUser;
 
   dueDate?: string; // ISO Date string (was 'when')
+  startDate?: string; // ISO Date string — when the task begins
   role?: string;
   notes?: TaskNote[];
 
@@ -61,6 +62,7 @@ export interface CreateTaskPayload {
   departmentId: string;
   assigneeId?: number | string;
   dueDate?: string;
+  startDate?: string;
   role?: string;
   notes?: TaskNote[];
   estimatedTime?: number;
@@ -74,6 +76,7 @@ export interface UpdateTaskPayload {
   departmentId?: string;
   assigneeId?: number | string;
   dueDate?: string;
+  startDate?: string;
   role?: string;
   notes?: TaskNote[];
 
@@ -115,6 +118,7 @@ function processTaskFromApi(task: any): Task {
       ? task.status
       : 'todo') as TaskStatus,
     dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : undefined,
+    startDate: task.startDate ? new Date(task.startDate).toISOString().split('T')[0] : undefined,
     notes: Array.isArray(task.notes) ? task.notes : [],
     priority: task.priority || 'Med',
   };
@@ -160,7 +164,11 @@ export async function deleteTask(taskId: string): Promise<void> {
     method: 'DELETE',
   });
   if (!res.ok) {
-    throw new Error('Failed to delete task');
+    if (res.status === 403) {
+      throw new Error('You do not have permission to delete tasks. Only managers and admins can do this.');
+    }
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to delete task');
   }
 }
 

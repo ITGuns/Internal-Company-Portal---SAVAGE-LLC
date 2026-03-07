@@ -13,9 +13,13 @@ async function main() {
 
     // Define new departments
     const newDepartments = [
-        'Project Managers',
         'Website Developers',
-        'Payroll / Finance'
+        'Operations Manager',
+        'Payroll / Finance',
+        'Digital Marketing Lead / Marketing VA',
+        'Analytics / Data VA',
+        'Automation / Tech VA',
+        'Project Managers'
     ]
 
     // Define old departments to remove (if they exist and have no critical data)

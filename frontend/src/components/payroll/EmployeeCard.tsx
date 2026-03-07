@@ -3,10 +3,9 @@
  */
 
 import React, { useState } from "react";
-import { TrendingUp, Trash2, Check, Plane, Coffee, DollarSign, Globe } from "lucide-react";
+import { TrendingUp, Trash2, Check, Plane, Coffee } from "lucide-react";
 import Button from "@/components/Button";
 import type { Employee } from "@/lib/payroll-calendar/types";
-import { useExchangeRate } from "@/contexts/ExchangeRateContext";
 
 interface EmployeeCardProps {
   employee: Employee;
@@ -21,35 +20,6 @@ export default function EmployeeCard({
   onEdit,
   onDelete,
 }: EmployeeCardProps) {
-  const [currency, setCurrency] = useState<'USD' | 'PHP'>('PHP');
-  const [period, setPeriod] = useState<'Annual' | 'Monthly'>('Annual');
-  const { usdToPhp: exchangeRate } = useExchangeRate();
-
-  const getDisplaySalary = () => {
-    let amount = employee.salary; // Assumed Annual USD based on existing code
-
-    if (period === 'Monthly') {
-      amount = amount / 12;
-    }
-
-    if (currency === 'PHP') {
-      amount = amount * exchangeRate;
-    }
-
-    return amount;
-  };
-
-  const getSecondaryDisplay = () => {
-    let amount = employee.salary;
-    if (period === 'Monthly') amount = amount / 12;
-
-    // If USD, show PHP reflection. If PHP, show USD.
-    if (currency === 'USD') {
-      return `₱${(amount * exchangeRate).toLocaleString()}`;
-    } else {
-      return `$${(amount / exchangeRate).toLocaleString()}`;
-    }
-  };
   return (
     <div className="p-4 rounded border border-[var(--border)] bg-[var(--card-bg)] hover:shadow-sm transition">
       <div className="flex items-start gap-3">
@@ -111,37 +81,18 @@ export default function EmployeeCard({
               </div>
             </div>
 
-            {/* Salary Calculation Section */}
+            {/* Salary Display Section - Optimized for Monthly PHP */}
             <div className="pt-2 border-t border-[var(--border)] mt-2">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-[var(--muted)]">Salary Details</span>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setCurrency(prev => prev === 'USD' ? 'PHP' : 'USD')}
-                    className="p-1 text-[10px] bg-[var(--card-surface)] border border-[var(--border)] rounded flex items-center gap-1 hover:bg-[var(--card-bg)]"
-                    title="Toggle Currency"
-                  >
-                    {currency === 'USD' ? <DollarSign className="w-2.5 h-2.5" /> : <Globe className="w-2.5 h-2.5" />}
-                    {currency}
-                  </button>
-                  <button
-                    onClick={() => setPeriod(prev => prev === 'Annual' ? 'Monthly' : 'Annual')}
-                    className="p-1 text-[10px] bg-[var(--card-surface)] border border-[var(--border)] rounded hover:bg-[var(--card-bg)]"
-                    title="Toggle Period"
-                  >
-                    {period}
-                  </button>
-                </div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-[var(--muted)]">Monthly Salary</span>
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded">PHP</span>
               </div>
 
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-[var(--foreground)]">
-                  {currency === 'USD' ? '$' : '₱'}
-                  {getDisplaySalary().toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              <div className="flex items-center">
+                <span className="text-lg font-bold text-[var(--foreground)]">
+                  ₱{employee.salary.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </span>
-                <span className="text-[10px] text-[var(--muted)]">
-                  ≈ {getSecondaryDisplay()}
-                </span>
+                <span className="text-[10px] text-[var(--muted)] ml-1.5 font-medium italic">/ month</span>
               </div>
             </div>
           </div>

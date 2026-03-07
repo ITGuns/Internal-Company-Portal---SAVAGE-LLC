@@ -29,7 +29,7 @@ import {
   extractDriveFolderId,
   DEPARTMENTS,
 } from '@/lib/file-directory';
-import type { FileDirectory } from '@/lib/file-directory-types';
+import type { FileDirectory, Department } from '@/lib/file-directory-types';
 
 // Drive live mode state
 interface DriveMode {
@@ -50,7 +50,7 @@ export default function FileDirectoryPage() {
   // UI state
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(getViewPreference());
   const [searchQuery, setSearchQuery] = useState('');
-  const [departmentFilter, setDepartmentFilter] = useState<string>('');
+  const [departmentFilter, setDepartmentFilter] = useState<string>('All Departments');
   const [sortBy, setSortBy] = useState<'name' | 'department' | 'date'>('name');
   const [showAddModal, setShowAddModal] = useState(false);
 
@@ -85,19 +85,19 @@ export default function FileDirectoryPage() {
     const driveFolderId = folder.driveLink ? extractDriveFolderId(folder.driveLink) : null;
     const mockChildren = getChildren(folder.id);
 
-    // Custom folder with a real Drive ID → show inline Drive viewer
-    if (folder.isCustom && driveFolderId) {
+    // Enter Drive Live Mode if folder has a valid Drive ID
+    if (driveFolderId) {
       setDriveMode({ folderId: driveFolderId, folderName: folder.name });
       return;
     }
 
-    // Mock folder with children → navigate into mock tree
+    // Fallback: Mock folder navigation if no Drive ID but has children in code
     if (mockChildren.length > 0) {
       setCurrentFolderId(folder.id);
       return;
     }
 
-    // Mock leaf folder with a Drive link → open in Drive (original behaviour for mock data)
+    // Final fallback: External link
     if (folder.driveLink) {
       window.open(folder.driveLink, '_blank');
     }
@@ -198,7 +198,7 @@ export default function FileDirectoryPage() {
               className="px-4 py-2 bg-[var(--card-surface)] border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-[var(--foreground)] [color-scheme:light] dark:[color-scheme:dark]"
               aria-label="Filter by department"
             >
-              <option value="">All Departments</option>
+              <option value="All Departments">Global Directory</option>
               {DEPARTMENTS.map((dept) => (
                 <option key={dept} value={dept}>
                   {dept}

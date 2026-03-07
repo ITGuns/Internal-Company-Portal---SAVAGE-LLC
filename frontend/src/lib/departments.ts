@@ -5,12 +5,14 @@
 
 // Top-level departments matching organizational chart (red boxes)
 export const DEPARTMENTS = [
+  'All Departments',
   'Website Developers',
   'Operations Manager',
   'Payroll / Finance',
   'Digital Marketing Lead / Marketing VA',
   'Analytics / Data VA',
-  'Automation / Tech VA'
+  'Automation / Tech VA',
+  'Project Managers'
 ] as const;
 
 export type Department = typeof DEPARTMENTS[number];
@@ -21,21 +23,30 @@ export type Department = typeof DEPARTMENTS[number];
  */
 export const DEPARTMENT_ROLES: Record<string, string[]> = {
   'Website Developers': [
-    'Frontend Developer',
-    'Backend / Technical Developer'
+    'Lead Frontend Developer',
+    'Senior Backend Developer',
+    'Full Stack Developer',
+    'UI/UX Designer',
+    'App Developer',
+    'Web Development Assistant'
   ],
   'Operations Manager': [
     'Operations Manager',
-    'Fulfillment / Logistics VA',
+    'Operations Assistant',
+    'Fulfillment Specialist',
+    'Logistics Coordinator',
     'Inventory VA',
     'Customer Experience (CX) VA'
   ],
   'Payroll / Finance': [
-    'Bookkeeping',
+    'Financial Controller',
+    'Bookkeeper',
+    'Payroll Assistant',
     'Contractor & Salary Payments'
   ],
   'Digital Marketing Lead / Marketing VA': [
     'Digital Marketing Lead',
+    'Marketing Assistant',
     'Marketing VA',
     'Media Buyer / Ads Specialist',
     'Content Creator / Designer',
@@ -43,10 +54,22 @@ export const DEPARTMENT_ROLES: Record<string, string[]> = {
     'Influencer / Social Media VA'
   ],
   'Analytics / Data VA': [
-    'Analytics / Data VA'
+    'Data Analyst',
+    'Analytics Specialist',
+    'Data VA',
+    'Analytics Assistant'
   ],
   'Automation / Tech VA': [
-    'Automation / Tech VA'
-  ]
+    'Automation Specialist',
+    'Tech VA',
+    'Integration Expert',
+    'Automation Assistant'
+  ],
+  'Project Managers': [
+    'Project Manager',
+    'Project Assistant',
+    'Team Lead',
+    'SCRUM Master'
+  ],
 };
 

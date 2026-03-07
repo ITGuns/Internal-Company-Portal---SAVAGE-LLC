@@ -251,6 +251,64 @@ export class PayrollService {
     }
 
     /**
+     * Calculate total hours for an employee in a given period
+     */
+    async calculateEmployeeHours(userId: string, startDate: Date, endDate: Date) {
+        // 1. Try fetching TimeEntries (Clock In/Out)
+        const timeEntries = await this.prisma.timeEntry.findMany({
+            where: {
+                userId,
+                start: { gte: startDate, lte: endDate },
+                duration: { not: null }
+            }
+        })
+
+        let totalMinutes = timeEntries.reduce((sum, entry) => sum + (entry.duration || 0), 0)
+        let totalHours = totalMinutes / 60
+        let source = 'Time Entries'
+
+        // 2. Fallback to Daily Logs
+        if (totalHours === 0) {
+            const logs = await this.prisma.dailyLog.findMany({
+                where: {
+                    authorId: userId,
+                    logType: 'daily',
+                    date: { gte: startDate, lte: endDate }
+                }
+            })
+            totalHours = logs.reduce((sum, log) => sum + (log.hoursLogged || 0), 0)
+            if (totalHours > 0) source = 'Daily Logs'
+        }
+
+        return {
+            totalHours: Math.round(totalHours * 100) / 100,
+            source
+        }
+    }
+
+    /**
+     * Preview a payslip calculation
+     */
+    async previewPayslip(userId: string, startDate: Date, endDate: Date) {
+        const profile = await this.getEmployeeProfile(userId)
+        const { totalHours, source } = await this.calculateEmployeeHours(userId, startDate, endDate)
+
+        // Calculate based on hours
+        // Deriving hourly rate from monthly salary (assuming 160 hours/month)
+        const standardHours = 160
+        const hourlyRate = profile.baseSalary / standardHours
+        const grossPay = totalHours * hourlyRate
+
+        return {
+            totalHours,
+            source,
+            hourlyRate,
+            grossPay: Math.round(grossPay * 100) / 100,
+            monthlySalary: profile.baseSalary
+        }
+    }
+
+    /**
      * Generate Payslip for a User in a Period
      */
     async generatePayslip(periodId: string, userId: string) {
@@ -258,94 +316,21 @@ export class PayrollService {
         if (!period) throw new Error('Period not found')
 
         const profile = await this.getEmployeeProfile(userId)
+        const { totalHours, source } = await this.calculateEmployeeHours(userId, period.startDate, period.endDate)
 
-        // Calculate Gross Pay
-        let grossPay = 0
-        const items = [] // { type, description, amount }
+        // Calculate Gross Pay based on hours worked (Standard 160h month)
+        const hourlyRate = profile.baseSalary / 160
+        const grossPay = Math.round((totalHours * hourlyRate) * 100) / 100
+        const items = []
 
-        if (profile.baseSalary && profile.baseSalary > 0) {
-            // Determine if Salaried or Hourly based on employment type
-            // Assumption: 'Full-Time' = Salaried (Monthly Rate)
-            // 'Part-Time', 'Contractor', 'Intern' = Hourly Rate
-            const isSalaried = profile.employmentType === 'Full-Time';
+        items.push({
+            type: 'earning',
+            description: `Work Hours (${totalHours} hrs @ ₱${hourlyRate.toFixed(2)}/hr) - via ${source}`,
+            amount: grossPay
+        })
 
-            if (!isSalaried) {
-                // Hourly Calculation: Rate * Total Hours
-                // 1. Try fetching TimeEntries (Clock In/Out)
-                const timeEntries = await this.prisma.timeEntry.findMany({
-                    where: {
-                        userId,
-                        start: {
-                            gte: period.startDate,
-                            lte: period.endDate
-                        },
-                        duration: { not: null } // Only completed entries
-                    }
-                })
-
-                let totalMinutes = timeEntries.reduce((sum, entry) => sum + (entry.duration || 0), 0)
-                let totalHours = totalMinutes / 60
-                let source = 'Time Entries'
-
-                // 2. Fallback to Daily Logs if no time entries found (for backwards compatibility or manual loggers)
-                if (totalHours === 0) {
-                    const logs = await this.prisma.dailyLog.findMany({
-                        where: {
-                            authorId: userId,
-                            logType: 'daily',
-                            date: {
-                                gte: period.startDate,
-                                lte: period.endDate
-                            }
-                        }
-                    })
-                    totalHours = logs.reduce((sum, log) => sum + (log.hoursLogged || 0), 0)
-                    if (totalHours > 0) source = 'Daily Logs'
-                }
-
-                // Round to 2 decimal places
-                totalHours = Math.round(totalHours * 100) / 100
-                grossPay = totalHours * profile.baseSalary
-
-                items.push({
-                    type: 'earning',
-                    description: `Hourly Pay (${totalHours} hrs @ ${profile.baseSalary}) - via ${source}`,
-                    amount: grossPay
-                })
-            } else {
-                // Fixed Salary Calculation (Monthly Rate)
-                // If Period is ~15 days (Semi-Monthly), pay Half.
-                // If Period is ~30 days, pay Full.
-                const daysDiff = (period.endDate.getTime() - period.startDate.getTime()) / (1000 * 3600 * 24)
-                let salary = profile.baseSalary
-
-                if (daysDiff < 20) { // Approx half month
-                    salary = salary / 2
-                    items.push({
-                        type: 'earning',
-                        description: 'Base Salary (Semi-Monthly)',
-                        amount: salary
-                    })
-                } else {
-                    items.push({
-                        type: 'earning',
-                        description: 'Base Salary (Monthly)',
-                        amount: salary
-                    })
-                }
-
-                grossPay = salary
-            }
-        }
-
-        // Deductions (Placeholder logic)
-        // e.g. Tax 10%
-        const tax = grossPay * 0.0 // 0% for now
-        if (tax > 0) {
-            items.push({ type: 'tax', description: 'Withholding Tax', amount: -tax })
-        }
-
-        const netPay = grossPay - tax
+        // No hard-coded deductions per user request
+        const netPay = grossPay
 
         // Gather EOD notes/shiftNotes for this period
         const logsWithNotes = await this.prisma.dailyLog.findMany({
@@ -434,10 +419,12 @@ export class PayrollService {
         const period = await this.prisma.payrollPeriod.findUnique({ where: { id: periodId } })
         if (!period) throw new Error('Period not found')
 
-        // Fetch all active employees (users with a 'deployed' status or similar)
+        // Fetch all active employees (users with an 'active', 'vacation', or 'leave' status)
         const employees = await this.prisma.user.findMany({
             where: {
-                status: 'deployed', // Only generate for deployed employees
+                status: {
+                    in: ['active', 'vacation', 'leave'],
+                },
             }
         })
 
@@ -519,6 +506,47 @@ export class PayrollService {
         })
 
         return stats
+    }
+
+    /**
+     * Get ALL payslips across all employees (admin/manager use - Payslip Archive)
+     */
+    async getAllPayslips() {
+        const payslips = await (this.prisma.payslip.findMany({
+            include: {
+                period: true,
+                items: true,
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    }
+                }
+            },
+            orderBy: { generatedAt: 'desc' }
+        }) as any)
+
+        return (payslips as any[]).map((ps: any) => ({
+            id: ps.id,
+            employeeId: ps.userId,
+            employeeName: ps.user?.name ?? 'Unknown',
+            payPeriodStart: ps.period?.startDate?.toISOString().split('T')[0] ?? null,
+            payPeriodEnd: ps.period?.endDate?.toISOString().split('T')[0] ?? null,
+            issueDate: ps.generatedAt?.toISOString().split('T')[0] ?? null,
+            status: (ps.status ?? 'issued').toLowerCase(),
+            hoursWorked: 0,
+            grossPay: ps.grossPay,
+            netPay: ps.netPay,
+            deductions: (ps.items as any[])
+                .filter(i => i.amount < 0)
+                .map(i => ({
+                    id: i.id,
+                    type: 'other' as const,
+                    name: i.description,
+                    amount: Math.abs(i.amount),
+                })),
+        }))
     }
 }
 

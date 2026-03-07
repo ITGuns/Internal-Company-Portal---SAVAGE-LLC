@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Header from "@/components/Header";
 import Button from "@/components/Button";
 import Card from "@/components/Card";
@@ -27,8 +27,8 @@ import {
   CheckCircle2,
   Download,
 } from "lucide-react";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import LoadingSpinner from '@/components/LoadingSpinner';
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -99,6 +99,14 @@ function BoardCard({ task, onClick, onAction }: { task: Task; onClick?: () => vo
               {task.description}
             </div>
           ) : null}
+
+          {/* Dates */}
+          {(task.startDate || task.dueDate) && (
+            <div className="mt-2 text-[10px] flex items-center gap-3 text-[var(--muted)]">
+              {task.startDate && <div>Start: <span className="text-[var(--foreground)]">{task.startDate}</span></div>}
+              {task.dueDate && <div className="text-[var(--status-blocked)]">Due: <span className="text-[var(--foreground)]">{task.dueDate}</span></div>}
+            </div>
+          )}
 
           {/* Progress Bar */}
           <div className="mt-3">
@@ -196,10 +204,23 @@ export default function TaskTrackingPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [groupBy, setGroupBy] = useState<"status" | "priority" | "department" | "assignee" | "none">("status");
 
-  const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [showSortMenu, setShowSortMenu] = useState(false);
-  const [showGroupMenu, setShowGroupMenu] = useState(false);
+  const [showDisplayMenu, setShowDisplayMenu] = useState(false);
   const [showEODModal, setShowEODModal] = useState(false);
+
+  const displayRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (displayRef.current && !displayRef.current.contains(event.target as Node)) {
+        setShowDisplayMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
 
   // Load initial data
   useEffect(() => {
@@ -284,6 +305,7 @@ export default function TaskTrackingPage() {
   const [description, setDescription] = useState("");
   const [assigneeId, setAssigneeId] = useState<number | string>("");
   const [dueDate, setDueDate] = useState("");
+  const [startDate, setStartDate] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("Med");
   const [departmentId, setDepartmentId] = useState("");
   const [role, setRole] = useState("");
@@ -299,6 +321,7 @@ export default function TaskTrackingPage() {
     setDescription("");
     setAssigneeId("");
     setDueDate("");
+    setStartDate("");
     setPriority("Med");
     setDepartmentId("");
     setRole("");
@@ -314,6 +337,7 @@ export default function TaskTrackingPage() {
     setDescription(task.description || "");
     setAssigneeId(task.assigneeId || "");
     setDueDate(task.dueDate || "");
+    setStartDate(task.startDate || "");
     setPriority(task.priority);
     setDepartmentId(task.departmentId || "");
     setRole(task.role || "");
@@ -329,7 +353,8 @@ export default function TaskTrackingPage() {
   }
 
   // Derived Department for role filtering
-  const selectedDepartmentName = departments.find(d => d.id === departmentId)?.name;
+  // Use loose string comparison to handle cases where d.id is a number from the API but departmentId is a string from the select
+  const selectedDepartmentName = departments.find(d => d.id?.toString() === departmentId?.toString())?.name;
   const availableRoles = selectedDepartmentName ? (DEPARTMENT_ROLES[selectedDepartmentName] || []) : [];
 
   async function handleSubmit(e: React.FormEvent) {
@@ -352,6 +377,7 @@ export default function TaskTrackingPage() {
           departmentId,
           assigneeId,
           dueDate,
+          startDate: startDate || undefined,
           role,
           estimatedTime: parseInt(estimatedTime),
         };
@@ -376,6 +402,7 @@ export default function TaskTrackingPage() {
           departmentId,
           assigneeId,
           dueDate,
+          startDate: startDate || undefined,
           role,
           notes: [],
           estimatedTime: parseInt(estimatedTime),
@@ -401,7 +428,7 @@ export default function TaskTrackingPage() {
       closeModal();
     } catch (error) {
       console.error(error);
-      toast.error("Failed to delete task");
+      toast.error(error instanceof Error ? error.message : "Failed to delete task");
     }
   }
 
@@ -417,7 +444,7 @@ export default function TaskTrackingPage() {
       doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 22);
 
       // Table Header
-      const tableColumn = ["Task Name", "Status", "Priority", "Department", "Assignee", "Due Date", "Progress", "ETOC (m)"];
+      const tableColumn = ["Task Name", "Status", "Priority", "Department", "Assignee", "Start Date", "Due Date", "Progress", "ETOC (m)"];
       const tableRows: any[] = [];
 
       sortedTasks.forEach(task => {
@@ -427,6 +454,7 @@ export default function TaskTrackingPage() {
           task.priority,
           task.department?.name || "N/A",
           task.assignee?.name || task.assignee?.email || "Unassigned",
+          task.startDate || "—",
           task.dueDate || "No Date",
           `${task.progress || 0}%`,
           task.estimatedTime || "-"
@@ -435,7 +463,7 @@ export default function TaskTrackingPage() {
       });
 
       // Generate Table
-      (doc as any).autoTable({
+      autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
         startY: 30,
@@ -445,7 +473,11 @@ export default function TaskTrackingPage() {
         margin: { top: 30 },
       });
 
-      doc.save(`Task_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+      // Save the PDF directly using jspdf's built-in save method
+      // This is the most reliable way to ensure the browser uses our filename
+      const filename = `Task_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(filename);
+
       toast.success("PDF Report generated successfully");
     } catch (err) {
       console.error("PDF generation error:", err);
@@ -457,8 +489,8 @@ export default function TaskTrackingPage() {
   const filteredTasks = tasks.filter(t => {
     if (filterStatus.length > 0 && !filterStatus.includes(t.status)) return false;
     if (filterPriority.length > 0 && !filterPriority.includes(t.priority)) return false;
-    if (filterUserId && t.assigneeId !== filterUserId) return false;
-    if (filterDeptId && t.departmentId !== filterDeptId) return false;
+    if (filterUserId && t.assigneeId?.toString() !== filterUserId.toString()) return false;
+    if (filterDeptId && t.departmentId?.toString() !== filterDeptId.toString()) return false;
     if (searchQuery.trim() && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
@@ -525,21 +557,43 @@ export default function TaskTrackingPage() {
 
   // Stats for "Today" and "Overdue" (client-side calculation)
   const todayStr = new Date().toISOString().split('T')[0];
-  const todaysTasks = tasks.filter(t => t.dueDate === todayStr && t.status !== 'completed');
-  const overdueTasks = tasks.filter(t => t.dueDate && t.dueDate < todayStr && t.status !== 'completed');
-  const completedCount = tasks.filter(t => t.status === 'completed').length;
-  const inProgressCount = tasks.filter(t => t.status === 'in_progress').length;
+  const todaysTasks = filteredTasks.filter(t => t.dueDate === todayStr && t.status !== 'completed');
+  const overdueTasks = filteredTasks.filter(t => t.dueDate && t.dueDate < todayStr && t.status !== 'completed');
+  const completedCount = filteredTasks.filter(t => t.status === 'completed').length;
+  const inProgressCount = filteredTasks.filter(t => t.status === 'in_progress').length;
 
   // Calendar Events
-  const events = tasks
+  const events = filteredTasks
     .map((t) => {
-      if (!t.dueDate) return null;
+      // If no start date and no due date, skip
+      if (!t.dueDate && !t.startDate) return null;
+
+      const start = t.startDate || t.dueDate;
+      let end = undefined;
+
+      // FullCalendar end dates are exclusive, so if the event spans multiple days, 
+      // we need to add 1 day to the due date.
+      if (t.startDate && t.dueDate && t.startDate !== t.dueDate) {
+        const endDate = new Date(t.dueDate);
+        endDate.setDate(endDate.getDate() + 1);
+        end = endDate.toISOString().split('T')[0];
+      }
+
+      const colorMap: Record<string, string> = {
+        todo: 'var(--status-pending)',
+        in_progress: 'var(--status-in-progress)',
+        review: 'var(--priority-medium)',
+        completed: 'var(--status-completed)',
+        blocked: 'var(--status-blocked)'
+      };
+
       return {
         id: t.id,
         title: t.title,
-        start: t.dueDate,
+        start,
+        end,
         extendedProps: { task: t },
-        color: t.status === 'completed' ? 'var(--status-completed)' : (t.status === 'in_progress' ? 'var(--status-in-progress)' : 'var(--status-pending)')
+        color: colorMap[t.status as string] || 'var(--status-pending)'
       };
     })
     .filter(Boolean) as any[];
@@ -554,14 +608,14 @@ export default function TaskTrackingPage() {
   }
 
   return (
-    <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
-      <div className="p-6 pt-0">
+    <main className="h-[calc(100vh-112px)] bg-[var(--background)] text-[var(--foreground)] flex flex-col overflow-hidden">
+      <div className="p-6 pt-0 flex flex-col flex-1 min-h-0">
         <Header
           title="Task Tracking"
           subtitle="Track and manage tasks, assignments, and progress."
         />
 
-        <div className="mt-6">
+        <div className="mt-6 flex flex-col flex-1 min-h-0">
           <div className="flex flex-wrap items-center gap-3 mb-4">
             <Button
               onClick={openNewTask}
@@ -588,35 +642,99 @@ export default function TaskTrackingPage() {
               Generate EOD Report
             </Button>
 
-            <div className="relative">
+            <div className="relative" ref={displayRef}>
               <Button
-                variant={filterStatus.length || filterPriority.length || filterUserId || filterDeptId ? "primary" : "secondary"}
-                icon={<Filter className="w-4 h-4" />}
-                onClick={() => setShowFilterMenu(!showFilterMenu)}
+                variant={(filterStatus.length || filterPriority.length || filterUserId || filterDeptId) ? "primary" : "secondary"}
+                icon={<ArrowUpDown className="w-4 h-4" />}
+                onClick={() => setShowDisplayMenu(!showDisplayMenu)}
+                className="min-w-[120px]"
               >
-                Filter {(filterStatus.length + filterPriority.length + (filterUserId ? 1 : 0) + (filterDeptId ? 1 : 0)) > 0 && `(${filterStatus.length + filterPriority.length + (filterUserId ? 1 : 0) + (filterDeptId ? 1 : 0)})`}
+                Organize {(filterStatus.length + filterPriority.length + (filterUserId ? 1 : 0) + (filterDeptId ? 1 : 0)) > 0 && `(${filterStatus.length + filterPriority.length + (filterUserId ? 1 : 0) + (filterDeptId ? 1 : 0)})`}
               </Button>
 
-              {showFilterMenu && (
-                <div className="absolute top-full left-0 mt-2 w-72 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-xl z-30 p-4">
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="font-semibold text-sm">Filters</span>
+              {showDisplayMenu && (
+                <div className="absolute top-full left-0 mt-2 w-80 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-xl z-30 p-4 dropdown-glass glass overflow-hidden flex flex-col max-h-[85vh]">
+                  <div className="flex justify-between items-center mb-4 border-b border-[var(--border)] pb-2">
+                    <span className="font-bold text-sm">Display & Filter</span>
                     <button
-                      className="text-xs text-[var(--accent)] hover:underline"
+                      className="text-[10px] text-[var(--accent)] hover:underline uppercase font-bold"
                       onClick={() => {
                         setFilterStatus([]);
                         setFilterPriority([]);
                         setFilterUserId("");
                         setFilterDeptId("");
+                        setSortBy("dueDate");
+                        setSortOrder("asc");
+                        setGroupBy("status");
                       }}
                     >
-                      Clear all
+                      Reset All
                     </button>
                   </div>
 
-                  <div className="space-y-4 max-h-[400px] overflow-y-auto chat-scroll pr-1">
-                    <div>
-                      <label className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-2">Status</label>
+                  <div className="overflow-y-auto chat-scroll pr-1 flex-1">
+                    {/* Sort By */}
+                    <div className="mb-4">
+                      <label className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-2">Sort By</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { val: "dueDate", label: "Due Date" },
+                          { val: "priority", label: "Priority" },
+                          { val: "status", label: "Status" },
+                          { val: "title", label: "Title" },
+                        ].map(opt => (
+                          <button
+                            key={opt.val}
+                            onClick={() => {
+                              if (sortBy === opt.val) setSortOrder(prev => prev === "asc" ? "desc" : "asc");
+                              else {
+                                setSortBy(opt.val as any);
+                                setSortOrder("asc");
+                              }
+                            }}
+                            className={`px-3 py-2 text-xs rounded border transition-all flex items-center justify-between ${sortBy === opt.val
+                              ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)] font-medium'
+                              : 'bg-[var(--background)] text-[var(--muted)] border-[var(--border)] hover:border-[var(--muted)]'
+                              }`}
+                          >
+                            {opt.label}
+                            {sortBy === opt.val && (sortOrder === "asc" ? <SortAsc className="w-3 h-3" /> : <ChevronDown className="w-3 h-3 rotate-180" />)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Group By */}
+                    <div className="mb-4">
+                      <label className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-2">Group By</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { val: "status", label: "Status" },
+                          { val: "priority", label: "Priority" },
+                          { val: "department", label: "Department" },
+                          { val: "assignee", label: "Assignee" },
+                          { val: "none", label: "No Grouping" },
+                        ].map(opt => (
+                          <button
+                            key={opt.val}
+                            onClick={() => setGroupBy(opt.val as any)}
+                            className={`px-3 py-2 text-xs rounded border transition-all flex items-center justify-between ${groupBy === opt.val
+                              ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)] font-medium'
+                              : 'bg-[var(--background)] text-[var(--muted)] border-[var(--border)] hover:border-[var(--muted)]'
+                              }`}
+                          >
+                            {opt.label}
+                            {groupBy === opt.val && <Check className="w-3 h-3" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-[var(--border)] my-4" />
+
+                    {/* Filters: Status */}
+                    <div className="mb-4">
+                      <label className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-2">Filter by Status</label>
                       <div className="grid grid-cols-2 gap-2">
                         {Object.entries(STATUS_LABELS).map(([val, label]) => (
                           <button
@@ -627,7 +745,7 @@ export default function TaskTrackingPage() {
                             }}
                             className={`px-2 py-1.5 text-xs rounded border transition-colors flex items-center justify-between ${filterStatus.includes(val as TaskStatus)
                               ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
-                              : 'bg-[var(--background)] text-[var(--muted)] border-[var(--border)]'
+                              : 'bg-[var(--background)] text-[var(--muted)] border-[var(--border)] hover:border-[var(--muted)]'
                               }`}
                           >
                             {label}
@@ -637,8 +755,9 @@ export default function TaskTrackingPage() {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-2">Priority</label>
+                    {/* Filters: Priority */}
+                    <div className="mb-4">
+                      <label className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-2">Filter by Priority</label>
                       <div className="grid grid-cols-3 gap-2">
                         {["High", "Med", "Low"].map((p) => (
                           <button
@@ -649,7 +768,7 @@ export default function TaskTrackingPage() {
                             }}
                             className={`px-2 py-1.5 text-xs rounded border transition-colors flex items-center justify-between ${filterPriority.includes(p as TaskPriority)
                               ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
-                              : 'bg-[var(--background)] text-[var(--muted)] border-[var(--border)]'
+                              : 'bg-[var(--background)] text-[var(--muted)] border-[var(--border)] hover:border-[var(--muted)]'
                               }`}
                           >
                             {p}
@@ -659,101 +778,33 @@ export default function TaskTrackingPage() {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-1">Assignee</label>
-                      <select
-                        value={filterUserId}
-                        onChange={(e) => setFilterUserId(e.target.value)}
-                        className="w-full bg-[var(--background)] border border-[var(--border)] rounded p-1.5 text-xs"
-                      >
-                        <option value="">All Members</option>
-                        {users.map(u => <option key={u.id} value={u.id}>{u.name || u.email}</option>)}
-                      </select>
-                    </div>
+                    {/* Dropdown Filters */}
+                    <div className="grid grid-cols-1 gap-3">
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-1">Assignee</label>
+                        <select
+                          value={filterUserId}
+                          onChange={(e) => setFilterUserId(e.target.value)}
+                          className="w-full bg-[var(--background)] border border-[var(--border)] rounded p-1.5 text-xs"
+                        >
+                          <option value="">All Members</option>
+                          {users.map(u => <option key={u.id} value={u.id}>{u.name || u.email}</option>)}
+                        </select>
+                      </div>
 
-                    <div>
-                      <label className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-1">Department</label>
-                      <select
-                        value={filterDeptId}
-                        onChange={(e) => setFilterDeptId(e.target.value)}
-                        className="w-full bg-[var(--background)] border border-[var(--border)] rounded p-1.5 text-xs"
-                      >
-                        <option value="">All Departments</option>
-                        {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                      </select>
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-1">Department</label>
+                        <select
+                          value={filterDeptId}
+                          onChange={(e) => setFilterDeptId(e.target.value)}
+                          className="w-full bg-[var(--background)] border border-[var(--border)] rounded p-1.5 text-xs"
+                        >
+                          <option value="">All Departments</option>
+                          {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        </select>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-
-            <div className="relative">
-              <Button
-                variant="secondary"
-                icon={<ArrowUpDown className="w-4 h-4" />}
-                onClick={() => setShowSortMenu(!showSortMenu)}
-              >
-                Sort
-              </Button>
-              {showSortMenu && (
-                <div className="absolute top-full left-0 mt-2 w-48 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-xl z-30 p-2">
-                  {[
-                    { val: "dueDate", label: "Due Date" },
-                    { val: "priority", label: "Priority" },
-                    { val: "status", label: "Status" },
-                    { val: "title", label: "Title" },
-                  ].map(opt => (
-                    <button
-                      key={opt.val}
-                      onClick={() => {
-                        if (sortBy === opt.val) setSortOrder(prev => prev === "asc" ? "desc" : "asc");
-                        else {
-                          setSortBy(opt.val as any);
-                          setSortOrder("asc");
-                        }
-                        setShowSortMenu(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 text-xs rounded-md transition-colors flex items-center justify-between hover:bg-[var(--card-surface)] ${sortBy === opt.val ? 'text-[var(--accent)] font-semibold' : 'text-[var(--foreground)]'
-                        }`}
-                    >
-                      {opt.label}
-                      {sortBy === opt.val && (sortOrder === "asc" ? <SortAsc className="w-3 h-3" /> : <ChevronDown className="w-3 h-3 rotate-180" />)}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="relative">
-              <Button
-                variant="secondary"
-                icon={<Users className="w-4 h-4" />}
-                onClick={() => setShowGroupMenu(!showGroupMenu)}
-              >
-                Group: {groupBy.charAt(0).toUpperCase() + groupBy.slice(1)}
-              </Button>
-              {showGroupMenu && (
-                <div className="absolute top-full left-0 mt-2 w-48 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-xl z-30 p-2">
-                  {[
-                    { val: "status", label: "By Status" },
-                    { val: "priority", label: "By Priority" },
-                    { val: "department", label: "By Department" },
-                    { val: "assignee", label: "By Assignee" },
-                    { val: "none", label: "No Grouping" },
-                  ].map(opt => (
-                    <button
-                      key={opt.val}
-                      onClick={() => {
-                        setGroupBy(opt.val as any);
-                        setShowGroupMenu(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 text-xs rounded-md transition-colors flex items-center justify-between hover:bg-[var(--card-surface)] ${groupBy === opt.val ? 'text-[var(--accent)] font-semibold' : 'text-[var(--foreground)]'
-                        }`}
-                    >
-                      {opt.label}
-                      {groupBy === opt.val && <Check className="w-3 h-3" />}
-                    </button>
-                  ))}
                 </div>
               )}
             </div>
@@ -793,7 +844,7 @@ export default function TaskTrackingPage() {
           </div>
 
           {view === "grid" && (
-            <div>
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
               {sortedTasks.length === 0 && (
                 <EmptyState
                   icon={CheckSquare}
@@ -805,12 +856,12 @@ export default function TaskTrackingPage() {
               )}
 
               {sortedTasks.length > 0 && (
-                <div className="overflow-x-auto pb-6 chat-scroll">
-                  <div className="flex gap-4 min-w-[300px]" style={{ width: 'max-content' }}>
+                <div className="overflow-x-auto flex-1 chat-scroll pb-2">
+                  <div className="flex gap-4 h-full" style={{ width: 'max-content' }}>
                     {columns.map(col => (
-                      <div className="w-[300px]" key={col.id}>
-                        <Card className="overflow-hidden bg-[var(--card-bg)] h-full">
-                          <div className={`px-4 py-3 flex items-center justify-between border-b ${groupBy === 'priority' && col.id === 'High' ? 'border-red-500/30 bg-red-500/5' : 'border-[var(--border)]'
+                      <div className="w-[300px] h-full flex flex-col" key={col.id}>
+                        <Card className="flex flex-col overflow-hidden bg-[var(--card-bg)] h-full shadow-sm border-[var(--border)]">
+                          <div className={`px-4 py-3 flex items-center justify-between border-b flex-shrink-0 ${groupBy === 'priority' && col.id === 'High' ? 'border-red-500/30 bg-red-500/5' : 'border-[var(--border)]'
                             }`}>
                             <div className="text-sm font-semibold truncate">
                               {col.label}{" "}
@@ -820,7 +871,7 @@ export default function TaskTrackingPage() {
                             </div>
                             <MoreHorizontal className="w-4 h-4 text-[var(--muted)]" />
                           </div>
-                          <div className="p-3 bg-[var(--card-surface)] min-h-[400px]">
+                          <div className="p-3 bg-[var(--card-surface)] flex-1 overflow-y-auto chat-scroll scroll-smooth">
                             {col.items.length === 0 ? (
                               <div className="py-10 text-center opacity-30 text-xs">Empty</div>
                             ) : (
@@ -844,7 +895,7 @@ export default function TaskTrackingPage() {
           )}
 
           {view === "list" && (
-            <div className="pb-6">
+            <div className="flex-1 overflow-y-auto chat-scroll pr-2 pb-6">
               {sortedTasks.length === 0 ? (
                 <EmptyState
                   icon={CheckSquare}
@@ -921,7 +972,10 @@ export default function TaskTrackingPage() {
                           <div className="w-24 truncate text-right font-medium">
                             {t.assignee ? (t.assignee.name || t.assignee.email) : 'Unassigned'}
                           </div>
-                          <div className="w-24 text-right tabular-nums">{t.dueDate || '-'}</div>
+                          <div className="w-32 text-right tabular-nums flex flex-col text-[10px] gap-0.5 justify-center">
+                            <div className="text-[var(--muted)]">Start: <span className="text-[var(--foreground)]">{t.startDate || '-'}</span></div>
+                            <div className="text-[var(--status-blocked)]">Due: <span className="text-[var(--foreground)]">{t.dueDate || '-'}</span></div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -932,7 +986,7 @@ export default function TaskTrackingPage() {
           )}
 
           {view === "calendar" && (
-            <div className="pb-6 space-y-6">
+            <div className="flex-1 overflow-y-auto chat-scroll pr-2 pb-6 space-y-6">
               <div className="rounded border border-[var(--border)] bg-[var(--card-bg)] p-4">
                 <FullCalendar
                   plugins={[dayGridPlugin, interactionPlugin]}
@@ -943,6 +997,32 @@ export default function TaskTrackingPage() {
                     right: "dayGridMonth,dayGridWeek,dayGridDay",
                   }}
                   events={events}
+                  eventContent={(arg) => {
+                    const task = arg.event.extendedProps.task;
+                    const statusDot: Record<string, string> = {
+                      todo: '#6b7280',
+                      in_progress: '#3b82f6',
+                      review: '#f59e0b',
+                      completed: '#10b981',
+                    };
+                    return (
+                      <div className="flex items-center gap-1 px-1.5 py-0.5 w-full overflow-hidden">
+                        <span
+                          style={{
+                            width: 5,
+                            height: 5,
+                            borderRadius: '50%',
+                            background: statusDot[task?.status] || '#6b7280',
+                            flexShrink: 0,
+                            display: 'inline-block',
+                          }}
+                        />
+                        <span className="text-[10px] font-semibold text-white whitespace-nowrap overflow-hidden text-ellipsis leading-tight">
+                          {arg.event.title}
+                        </span>
+                      </div>
+                    );
+                  }}
                   eventClick={(arg) => {
                     if (arg.event.extendedProps.task) {
                       openEdit(arg.event.extendedProps.task);
@@ -1130,6 +1210,36 @@ export default function TaskTrackingPage() {
                 </div>
 
                 <div>
+                  <label className="block text-sm mb-1 font-medium">Role <span className="text-red-500">*</span></label>
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    disabled={!departmentId}
+                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] disabled:opacity-50"
+                    aria-label="Role"
+                    required
+                  >
+                    <option value="">Select role</option>
+                    {availableRoles.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm mb-1 font-medium">Start Date</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                    aria-label="Start Date"
+                  />
+                </div>
+
+                <div>
                   <label className="block text-sm mb-1 font-medium">Due Date <span className="text-red-500">*</span></label>
                   <input
                     type="date"
@@ -1170,22 +1280,7 @@ export default function TaskTrackingPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm mb-1 font-medium">Role <span className="text-red-500">*</span></label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  disabled={!departmentId}
-                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] disabled:opacity-50"
-                  aria-label="Role"
-                  required
-                >
-                  <option value="">Select role</option>
-                  {availableRoles.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-              </div>
+
 
               {editTaskData && (
                 <div>

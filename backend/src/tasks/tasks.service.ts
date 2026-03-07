@@ -11,7 +11,9 @@ export interface CreateTaskDto {
   departmentId: string
   assigneeId?: string
   priority?: string
+  startDate?: Date | string
   dueDate?: Date | string
+  role?: string
   notes?: any
   progress?: number
   timerStatus?: string
@@ -27,7 +29,9 @@ export interface UpdateTaskDto {
   departmentId?: string
   assigneeId?: string
   priority?: string
+  startDate?: Date | string
   dueDate?: Date | string
+  role?: string
   notes?: any
   progress?: number
   timerStatus?: string
@@ -163,7 +167,9 @@ export class TasksService {
         departmentId: data.departmentId,
         assigneeId: data.assigneeId,
         priority: data.priority || 'Med',
+        startDate: data.startDate ? new Date(data.startDate) : undefined,
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+        role: data.role,
         notes: data.notes ?? undefined,
         progress: 0,
         timerStatus: 'stopped',
@@ -197,7 +203,9 @@ export class TasksService {
         departmentId: data.departmentId,
         assigneeId: data.assigneeId,
         priority: data.priority,
+        startDate: data.startDate ? new Date(data.startDate) : undefined,
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+        role: data.role,
         notes: data.notes === undefined ? undefined : data.notes,
         progress: data.progress ?? undefined,
         timerStatus: data.timerStatus ?? undefined,

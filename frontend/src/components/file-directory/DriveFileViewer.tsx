@@ -100,8 +100,14 @@ export default function DriveFileViewer({
         try {
             const result = await fetchDriveFiles(currentEntry.id);
             setFiles(result);
-        } catch {
-            setError('Failed to load folder contents. Make sure it is set to "Anyone with the link".');
+        } catch (err: any) {
+            if (err.message === 'API_KEY_MISSING') {
+                setError('Google Drive API Key is missing. Please contact your administrator.');
+            } else if (err.message === 'ACCESS_DENIED') {
+                setError('Access denied. Please ensure the Drive folder is shared as "Anyone with the link".');
+            } else {
+                setError(err.message || 'Failed to load folder contents.');
+            }
         } finally {
             setLoading(false);
         }
@@ -155,8 +161,8 @@ export default function DriveFileViewer({
                             <button
                                 onClick={() => navigateTo(i)}
                                 className={`text-sm truncate max-w-[140px] transition-colors ${i === stack.length - 1
-                                        ? 'text-[var(--foreground)] font-medium'
-                                        : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                                    ? 'text-[var(--foreground)] font-medium'
+                                    : 'text-[var(--muted)] hover:text-[var(--foreground)]'
                                     }`}
                                 title={entry.name}
                             >

@@ -104,7 +104,7 @@ export class TasksController {
     // Create task
     router.post('/', authenticateToken, requireRole(['admin', 'manager', 'operations_manager']), async (req: Request, res: Response) => {
       try {
-        const { title, description, status, departmentId, assigneeId, priority, dueDate, notes, estimatedTime } = req.body
+        const { title, description, status, departmentId, assigneeId, priority, startDate, dueDate, notes, estimatedTime, role } = req.body
 
         if (!title) {
           return res.status(400).json({ error: 'Title is required' })
@@ -121,7 +121,9 @@ export class TasksController {
           departmentId,
           assigneeId,
           priority,
+          startDate,
           dueDate,
+          role,
           notes,
           estimatedTime
         })
@@ -168,7 +170,7 @@ export class TasksController {
     router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
       try {
         const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
-        const { title, description, status, departmentId, assigneeId, priority, dueDate, notes, progress, timerStatus, timerStart, totalElapsed, estimatedTime } = req.body
+        const { title, description, status, departmentId, assigneeId, priority, startDate, dueDate, notes, progress, timerStatus, timerStart, totalElapsed, estimatedTime, role } = req.body
 
         // Check if task exists
         const existingTask = await this.service.findById(id)
@@ -183,7 +185,9 @@ export class TasksController {
           departmentId,
           assigneeId,
           priority,
+          startDate,
           dueDate,
+          role,
           notes,
           progress,
           timerStatus,

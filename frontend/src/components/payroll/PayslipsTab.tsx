@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, Zap, Sparkles } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 import EmployeeSidebarItem from "./EmployeeSidebarItem";
@@ -23,11 +23,42 @@ export default function PayslipsTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [isBulkGenerating, setIsBulkGenerating] = useState(false);
   const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
   const [payslips, setPayslips] = useState<Payslip[]>([]);
 
   // Local state for the selected employee's payslips
   const [employeePayslips, setEmployeePayslips] = useState<Payslip[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const fetchPayslips = async (employee: Employee) => {
+    try {
+      const res = await apiFetch(`/payroll/my-payslips?userId=${employee.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setEmployeePayslips(data.map((ps: any) => ({
+          id: ps.id,
+          employeeId: ps.userId,
+          employeeName: employee.name,
+          payPeriodStart: ps.period.startDate ? ps.period.startDate.split('T')[0] : 'N/A',
+          payPeriodEnd: ps.period.endDate ? ps.period.endDate.split('T')[0] : 'N/A',
+          issueDate: ps.generatedAt ? ps.generatedAt.split('T')[0] : 'N/A',
+          status: ps.status || "issued",
+          hoursWorked: employee.salary > 0 ? (ps.items.find((i: any) => i.description.includes('Hourly'))?.amount / employee.salary || 0) : 0,
+          grossPay: ps.grossPay,
+          netPay: ps.netPay,
+          deductions: ps.items.filter((i: any) => i.amount < 0).map((i: any) => ({
+            id: i.id,
+            type: 'other',
+            name: i.description,
+            amount: Math.abs(i.amount)
+          }))
+        })));
+      }
+    } catch (err) {
+      console.error("Failed to fetch payslips", err);
+    }
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -69,44 +100,12 @@ export default function PayslipsTab() {
     fetchData();
   }, []);
 
-  // Fetch payslips when selected employee changes
+  // Fetch payslips when selected employee changes or manual refresh
   useEffect(() => {
     if (selectedEmployee) {
-      const fetchPayslips = async () => {
-        try {
-          // Note: Backend might not have /payroll/user-payslips/:id yet, 
-          // but we can use /payroll/my-payslips if it's for self, 
-          // or we might need a manager view.
-          // For now, let's assume we fetch them.
-          const res = await apiFetch(`/payroll/my-payslips?userId=${selectedEmployee.id}`);
-          if (res.ok) {
-            const data = await res.json();
-            setEmployeePayslips(data.map((ps: any) => ({
-              id: ps.id,
-              employeeId: ps.userId,
-              employeeName: selectedEmployee.name,
-              payPeriodStart: ps.period.startDate.split('T')[0],
-              payPeriodEnd: ps.period.endDate.split('T')[0],
-              issueDate: ps.generatedAt.split('T')[0],
-              status: ps.status || "issued",
-              hoursWorked: ps.items.find((i: any) => i.description.includes('Hourly'))?.amount / selectedEmployee.salary || 0,
-              grossPay: ps.grossPay,
-              netPay: ps.netPay,
-              deductions: ps.items.filter((i: any) => i.amount < 0).map((i: any) => ({
-                id: i.id,
-                type: 'other',
-                name: i.description,
-                amount: Math.abs(i.amount)
-              }))
-            })));
-          }
-        } catch (err) {
-          console.error("Failed to fetch payslips", err);
-        }
-      };
-      fetchPayslips();
+      fetchPayslips(selectedEmployee);
     }
-  }, [selectedEmployee]);
+  }, [selectedEmployee, refreshKey]);
 
   // Filter employees based on search
   const filteredEmployees = employees.filter((emp) =>
@@ -147,6 +146,7 @@ export default function PayslipsTab() {
         toast.success(`Payslip generated for ${selectedEmployee.name}`);
         // Refresh payslips list
         fetchData();
+        setRefreshKey(prev => prev + 1);
       } else {
         const errData = await genRes.json().catch(() => ({}));
         throw new Error(errData.error || "Generation failed");
@@ -159,10 +159,8 @@ export default function PayslipsTab() {
 
   // Handle payslip generation for ALL employees
   const handleBulkGenerate = async () => {
-    if (!confirm("This will automatically calculate hours for ALL deployed employees and generate/overwrite their payslips for the current period. Proceed?")) return;
-
     try {
-      setIsLoading(true);
+      setIsBulkGenerating(true);
       // 1. Ensure a period exists
       const ensureRes = await apiFetch('/payroll/periods/ensure', { method: 'POST' });
       if (!ensureRes.ok) throw new Error("Failed to initialize period");
@@ -173,8 +171,11 @@ export default function PayslipsTab() {
       if (bulkRes.ok) {
         const results = await bulkRes.json();
         const successCount = results.filter((r: any) => r.success).length;
-        toast.success(`Generated ${successCount} payslips successfully!`);
-        fetchData(); // Refresh everything
+        toast.success(`Calculated and generated ${successCount} company-wide payslips successfully!`);
+
+        // Refresh data
+        fetchData();
+        setRefreshKey(prev => prev + 1); // Refresh current employee view
       } else {
         throw new Error("Bulk generation failed");
       }
@@ -182,7 +183,7 @@ export default function PayslipsTab() {
       console.error(err);
       toast.error(err.message || "Bulk generation failed");
     } finally {
-      setIsLoading(false);
+      setIsBulkGenerating(false);
     }
   };
 
@@ -221,24 +222,41 @@ export default function PayslipsTab() {
       {/* 3-Column Layout */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[280px_1fr_320px] gap-6 min-h-0">
         {/* Left Column - Employee Sidebar */}
-        <div className="flex flex-col bg-[var(--card-bg)] rounded-lg border border-[var(--border)] overflow-hidden">
+        <div className="flex flex-col bg-[var(--card-bg)] rounded-lg border border-[var(--border)] overflow-hidden shadow-sm">
+          {/* Action Area - Automated Payroll */}
+          <div className="p-4 border-b border-[var(--border)] bg-gray-50/50 dark:bg-black/20">
+            <button
+              onClick={handleBulkGenerate}
+              disabled={isBulkGenerating}
+              className={`w-full group relative overflow-hidden flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-[11px] font-extrabold transition-all shadow-[0_4px_12px_rgba(37,99,235,0.2)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.3)] hover:-translate-y-0.5 active:scale-[0.98] ${isBulkGenerating ? 'opacity-70 cursor-not-allowed' : ''}`}
+              title="Calculates payroll based on work hours/timers for all Deployed employees"
+            >
+              {/* Shine effect overlay */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
+
+              {isBulkGenerating ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Zap className="w-3.5 h-3.5 fill-current" />
+              )}
+
+              <span className="relative z-10">
+                {isBulkGenerating ? 'Calculating Payroll...' : 'Run Automated Payroll'}
+              </span>
+
+              {!isBulkGenerating && (
+                <Sparkles className="w-3 h-3 text-amber-300 animate-pulse relative z-10" />
+              )}
+            </button>
+          </div>
+
           {/* Search Header */}
           <div className="p-4 border-b border-[var(--border)]">
-            <div className="p-3 border-b border-[var(--border)] bg-blue-500/5">
-              <button
-                onClick={handleBulkGenerate}
-                className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
-              >
-                <Loader2 className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
-                Automate & Generate All
-              </button>
-            </div>
-
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
               <input
                 type="text"
-                placeholder="Search employees..."
+                placeholder="Find employee..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 placeholder:text-[var(--muted)]"
@@ -277,7 +295,12 @@ export default function PayslipsTab() {
           <EmployeeProfilePanel
             employee={selectedEmployee}
             onGeneratePayslip={() => setShowGenerateModal(true)}
-            onDownloadPDF={() => handleViewPayslip()}
+            payslips={employeePayslips}
+            onViewPayslip={(ps) => {
+              setSelectedPayslip(ps);
+              setShowDetailsModal(true);
+            }}
+            onDownloadPDF={(ps) => handleDownloadPDF(ps)}
           />
         </div>
       </div>

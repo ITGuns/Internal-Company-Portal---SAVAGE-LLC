@@ -32,13 +32,14 @@ export default function AddFolderModal({
 
   const [driveLink, setDriveLink] = useState('');
   const [folderName, setFolderName] = useState('');
-  const [department, setDepartment] = useState<Department>('Website Developers');
+  const [department, setDepartment] = useState<Department>('All Departments');
   const [customColor, setCustomColor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Subfolder detection state
   const [detectingSubfolders, setDetectingSubfolders] = useState(false);
   const [detectedSubfolders, setDetectedSubfolders] = useState<DriveSubfolder[]>([]);
+  const [detectedFileCount, setDetectedFileCount] = useState(0);
   const [selectedSubfolders, setSelectedSubfolders] = useState<Set<string>>(new Set());
   const [detectionStatus, setDetectionStatus] = useState<'idle' | 'loading' | 'done' | 'error' | 'no-key'>('idle');
   const detectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -71,10 +72,17 @@ export default function AddFolderModal({
       setSelectedSubfolders(new Set());
 
       try {
-        const subs = await fetchDriveSubfolders(folderId);
-        setDetectedSubfolders(subs);
+        const { name, subfolders, fileCount } = await fetchDriveSubfolders(folderId);
+        setDetectedSubfolders(subfolders);
+        setDetectedFileCount(fileCount);
+
+        // Auto-fill folder name if it's currently empty
+        if (name && !folderName) {
+          setFolderName(name);
+        }
+
         // Pre-select all detected subfolders
-        setSelectedSubfolders(new Set(subs.map(s => s.id)));
+        setSelectedSubfolders(new Set(subfolders.map(s => s.id)));
         setDetectionStatus('done');
       } catch (err: any) {
         if (err.message === 'API_KEY_MISSING') setDetectionStatus('no-key');
@@ -169,9 +177,10 @@ export default function AddFolderModal({
   const handleClose = () => {
     setDriveLink('');
     setFolderName('');
-    setDepartment('Website Developers');
+    setDepartment('All Departments');
     setCustomColor(null);
     setDetectedSubfolders([]);
+    setDetectedFileCount(0);
     setSelectedSubfolders(new Set());
     setDetectionStatus('idle');
     onClose();
@@ -199,13 +208,13 @@ export default function AddFolderModal({
             <div className="flex items-center justify-between px-4 py-2.5 bg-[var(--card-surface)] border-b border-[var(--border)]">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <FolderSearch className="w-4 h-4 text-blue-500" />
-                <span>Auto-detected Subfolders</span>
+                <span>Content Detection</span>
                 {detectionStatus === 'loading' && (
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--muted)]" />
                 )}
-                {detectionStatus === 'done' && detectedSubfolders.length > 0 && (
+                {detectionStatus === 'done' && (
                   <span className="text-xs text-[var(--muted)]">
-                    ({detectedSubfolders.length} found)
+                    ({detectedSubfolders.length} folders, {detectedFileCount} files)
                   </span>
                 )}
               </div>
@@ -251,9 +260,17 @@ export default function AddFolderModal({
               )}
 
               {detectionStatus === 'done' && detectedSubfolders.length === 0 && (
-                <div className="flex items-center gap-2 text-sm text-[var(--muted)] py-1">
-                  <Info className="w-4 h-4" />
-                  No subfolders detected in this Drive folder.
+                <div className="flex flex-col gap-2 py-1">
+                  <div className="flex items-center gap-2 text-sm text-[var(--muted)]">
+                    <Info className="w-4 h-4" />
+                    <span>No subfolders found.</span>
+                  </div>
+                  {detectedFileCount > 0 && (
+                    <div className="text-xs text-blue-600 dark:text-blue-400 font-medium ml-6">
+                      Detected {detectedFileCount} file{detectedFileCount > 1 ? 's' : ''} inside this folder.
+                      <p className="font-normal opacity-80 mt-0.5">Files will be accessible once you add the folder.</p>
+                    </div>
+                  )}
                 </div>
               )}
 

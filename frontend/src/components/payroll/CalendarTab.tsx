@@ -14,6 +14,8 @@ import {
   Square,
   Trash2,
   Plus,
+  LogOut,
+  BarChart3,
 } from "lucide-react";
 import StatCard from "./StatCard";
 import EventCard from "./EventCard";
@@ -122,28 +124,51 @@ export default function CalendarTab({
         />
       </div>
 
-      {/* Legend */}
-      <div className="mb-3 text-xs text-[var(--muted)] flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-emerald-500" /> Pay Day
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-red-500" /> Holiday
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-amber-500" /> Deadline
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-indigo-500" /> Meeting
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-emerald-600" /> 🟢 Clock In
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-red-600" /> 🔴 Clock Out
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-sky-600" /> ⏱ Day Total
+      {/* Enhanced Legend Bar */}
+      <div className="mb-6 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-surface)]/50 backdrop-blur-md shadow-sm">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-xs">
+          <div className="flex items-center gap-2 group transition-all cursor-default">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-500/10 group-hover:ring-emerald-500/20 transition-all shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
+            <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Pay Day</span>
+          </div>
+
+          <div className="flex items-center gap-2 group transition-all cursor-default">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500 ring-4 ring-red-500/10 group-hover:ring-red-500/20 transition-all shadow-[0_0_10px_rgba(239,68,68,0.3)]" />
+            <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Holiday</span>
+          </div>
+
+          <div className="flex items-center gap-2 group transition-all cursor-default">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 ring-4 ring-amber-500/10 group-hover:ring-amber-500/20 transition-all shadow-[0_0_10px_rgba(245,158,11,0.3)]" />
+            <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Deadline</span>
+          </div>
+
+          <div className="flex items-center gap-2 group transition-all cursor-default">
+            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 ring-4 ring-indigo-500/10 group-hover:ring-indigo-500/20 transition-all shadow-[0_0_10px_rgba(79,70,229,0.3)]" />
+            <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Meeting</span>
+          </div>
+
+          <div className="h-4 w-px bg-[var(--border)] mx-1 hidden sm:block" />
+
+          <div className="flex items-center gap-2 group transition-all cursor-default">
+            <div className="flex items-center justify-center w-5 h-5 rounded bg-emerald-600/10 text-emerald-600 group-hover:bg-emerald-600/20 transition-colors">
+              <Clock className="w-3 h-3" />
+            </div>
+            <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Clock In</span>
+          </div>
+
+          <div className="flex items-center gap-2 group transition-all cursor-default">
+            <div className="flex items-center justify-center w-5 h-5 rounded bg-red-600/10 text-red-600 group-hover:bg-red-600/20 transition-colors">
+              <LogOut className="w-3 h-3" />
+            </div>
+            <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Clock Out</span>
+          </div>
+
+          <div className="flex items-center gap-2 group transition-all cursor-default">
+            <div className="flex items-center justify-center w-5 h-5 rounded bg-sky-600/10 text-sky-600 group-hover:bg-sky-600/20 transition-colors">
+              <BarChart3 className="w-3 h-3" />
+            </div>
+            <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Day Total</span>
+          </div>
         </div>
       </div>
 
