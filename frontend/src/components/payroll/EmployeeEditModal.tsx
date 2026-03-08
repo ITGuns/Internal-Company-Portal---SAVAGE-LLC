@@ -127,40 +127,89 @@ export default function EmployeeEditModal({
             <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
               Department <span className="text-red-500">*</span>
             </label>
-            <select
-              value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-              className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
-              required
-            >
-              {DEPARTMENTS.map((dept) => (
-                <option key={dept} value={dept}>
-                  {dept}
-                </option>
-              ))}
-            </select>
+            <div className="flex flex-col gap-2">
+              <select
+                value={DEPARTMENTS.includes(department as any) ? department : (department ? "Other" : "")}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "Other") {
+                    setDepartment("");
+                  } else {
+                    setDepartment(val);
+                  }
+                  setRole(""); // Reset role when department changes
+                }}
+                className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+                required={!department || DEPARTMENTS.includes(department as any)}
+              >
+                {DEPARTMENTS.map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
+                ))}
+                <option value="Other">Other (Type manually)</option>
+              </select>
+              {(!DEPARTMENTS.includes(department as any) && department) || (department === "" && !DEPARTMENTS.includes(department as any)) ? (
+                <input
+                  type="text"
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+                  placeholder="Type custom department..."
+                  required
+                />
+              ) : null}
+            </div>
           </div>
 
           <div>
             <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
               Role / Position <span className="text-red-500">*</span>
             </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
-              required
-            >
-              {department && DEPARTMENT_ROLES[department] ? (
-                DEPARTMENT_ROLES[department].map((roleOption) => (
-                  <option key={roleOption} value={roleOption}>
-                    {roleOption}
-                  </option>
-                ))
-              ) : (
-                <option value="">Select a department first</option>
-              )}
-            </select>
+            {department && DEPARTMENT_ROLES[department as keyof typeof DEPARTMENT_ROLES] ? (
+              <div className="flex flex-col gap-2">
+                <select
+                  value={DEPARTMENT_ROLES[department as keyof typeof DEPARTMENT_ROLES]?.includes(role as any) ? role : (role ? "Other" : "")}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "Other") {
+                      setRole("");
+                    } else {
+                      setRole(val);
+                    }
+                  }}
+                  className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+                  required={!role || DEPARTMENT_ROLES[department as keyof typeof DEPARTMENT_ROLES]?.includes(role as any)}
+                >
+                  <option value="">Select a role...</option>
+                  {DEPARTMENT_ROLES[department as keyof typeof DEPARTMENT_ROLES].map((roleOption) => (
+                    <option key={roleOption} value={roleOption}>
+                      {roleOption}
+                    </option>
+                  ))}
+                  <option value="Other">Other (Type manually)</option>
+                </select>
+                {(!DEPARTMENT_ROLES[department as keyof typeof DEPARTMENT_ROLES]?.includes(role as any) && role) || (role === "" && !DEPARTMENT_ROLES[department as keyof typeof DEPARTMENT_ROLES]?.includes(role as any) && document.activeElement !== null) ? (
+                  <input
+                    type="text"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+                    placeholder="Type custom role..."
+                    required
+                  />
+                ) : null}
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+                placeholder="Type custom role..."
+                required
+              />
+            )}
           </div>
 
           <div>
