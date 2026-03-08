@@ -304,14 +304,23 @@ export class PayrollService {
     }
 
     /**
+     * Get midpoint of two dates
+     */
+    private getMidpointDate(start: Date, end: Date): Date {
+        const midTime = start.getTime() + (end.getTime() - start.getTime()) / 2
+        return new Date(midTime)
+    }
+
+    /**
      * Preview a payslip calculation
      */
     async previewPayslip(userId: string, startDate: Date, endDate: Date) {
         const profile = await this.getEmployeeProfile(userId)
         const { totalHours, source } = await this.calculateEmployeeHours(userId, startDate, endDate)
 
-        // Calculate dynamically based on exact number of weekdays in the month
-        const weekdaysInMonth = this.getWeekdaysInMonth(startDate)
+        // Use midpoint to determine the "primary" month for the divisor (e.g. March)
+        const midpointDate = this.getMidpointDate(startDate, endDate)
+        const weekdaysInMonth = this.getWeekdaysInMonth(midpointDate)
         const dailyRate = profile.baseSalary / weekdaysInMonth
         const hourlyRate = dailyRate / 8 // Standard 8 hour workday assumption
         const grossPay = totalHours * hourlyRate
@@ -370,8 +379,9 @@ export class PayrollService {
             const { totalHours: calcHours } = await this.calculateEmployeeHours(userId, period.startDate, period.endDate)
             totalHours = calcHours;
 
-            // Calculate dynamically based on exact number of weekdays in the month
-            const weekdaysInMonth = this.getWeekdaysInMonth(period.startDate)
+            // Use midpoint to determine the "primary" month for the divisor (e.g. March)
+            const midpointDate = this.getMidpointDate(period.startDate, period.endDate)
+            const weekdaysInMonth = this.getWeekdaysInMonth(midpointDate)
             const dailyRate = profile.baseSalary / weekdaysInMonth
             const hourlyRate = dailyRate / 8
             grossPay = totalHours * hourlyRate
