@@ -87,9 +87,8 @@ export default function GeneratePayslipModal({
       if (res.ok) {
         const data = await res.json();
         const hrs = overrideHours ?? data.totalHours ?? 0;
-        const rate = data.grossPay && data.totalHours
-          ? data.grossPay / data.totalHours
-          : 0;
+        const rate = data.hourlyRate ?? 0;
+
         setHourlyRate(rate);
         if (!hoursManual || overrideHours !== undefined) {
           setHoursWorked(hrs);

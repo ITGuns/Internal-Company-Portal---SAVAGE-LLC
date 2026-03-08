@@ -164,7 +164,8 @@ export default function PayslipsTab() {
 
       // 2. Generate the payslip for this employee in that period
       const genRes = await apiFetch(`/payroll/periods/${periodId}/generate/${selectedEmployee.id}`, {
-        method: 'POST'
+        method: 'POST',
+        body: JSON.stringify(payslipData)
       });
 
       if (genRes.ok) {

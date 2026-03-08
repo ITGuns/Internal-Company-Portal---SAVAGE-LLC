@@ -296,7 +296,7 @@ export class PayrollService {
         let weekdays = 0
         for (let d = 1; d <= daysInMonth; d++) {
             const dayOfWeek = new Date(year, month, d).getDay()
-            if (dayOfWeek !== 0) { // Only exclude Sunday
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Exclude Saturday (6) and Sunday (0)
                 weekdays++
             }
         }
@@ -328,28 +328,62 @@ export class PayrollService {
     /**
      * Generate Payslip for a User in a Period
      */
-    async generatePayslip(periodId: string, userId: string) {
+    async generatePayslip(periodId: string, userId: string, overrideData?: {
+        hoursWorked?: number,
+        grossPay?: number,
+        netPay?: number,
+        deductions?: Array<{ name: string, amount: number, type: string }>
+    }) {
         const period = await this.prisma.payrollPeriod.findUnique({ where: { id: periodId } })
         if (!period) throw new Error('Period not found')
 
         const profile = await this.getEmployeeProfile(userId)
-        const { totalHours, source } = await this.calculateEmployeeHours(userId, period.startDate, period.endDate)
 
-        // Calculate dynamically based on exact number of weekdays in the month
-        const weekdaysInMonth = this.getWeekdaysInMonth(period.startDate)
-        const dailyRate = profile.baseSalary / weekdaysInMonth
-        const hourlyRate = dailyRate / 8
-        const grossPay = totalHours * hourlyRate
-        const items = []
+        let totalHours: number;
+        let grossPay: number;
+        let netPay: number;
+        const items = [];
 
-        items.push({
-            type: 'earning',
-            description: `Work Hours (${totalHours} hrs)`,
-            amount: grossPay
-        })
+        if (overrideData && overrideData.hoursWorked !== undefined) {
+            // Manual path
+            totalHours = overrideData.hoursWorked;
+            grossPay = overrideData.grossPay ?? 0;
+            netPay = overrideData.netPay ?? grossPay;
 
-        // No hard-coded deductions per user request
-        const netPay = grossPay
+            items.push({
+                type: 'earning',
+                description: `Work Hours (${totalHours} hrs) - Manual`,
+                amount: grossPay
+            });
+
+            if (overrideData.deductions) {
+                for (const d of overrideData.deductions) {
+                    items.push({
+                        type: 'deduction',
+                        description: d.name || d.type,
+                        amount: -Math.abs(d.amount)
+                    });
+                }
+            }
+        } else {
+            // Automatic path
+            const { totalHours: calcHours } = await this.calculateEmployeeHours(userId, period.startDate, period.endDate)
+            totalHours = calcHours;
+
+            // Calculate dynamically based on exact number of weekdays in the month
+            const weekdaysInMonth = this.getWeekdaysInMonth(period.startDate)
+            const dailyRate = profile.baseSalary / weekdaysInMonth
+            const hourlyRate = dailyRate / 8
+            grossPay = totalHours * hourlyRate
+
+            items.push({
+                type: 'earning',
+                description: `Work Hours (${totalHours} hrs)`,
+                amount: grossPay
+            })
+
+            netPay = grossPay;
+        }
 
         // Gather EOD notes/shiftNotes for this period
         const logsWithNotes = await this.prisma.dailyLog.findMany({
@@ -442,7 +476,7 @@ export class PayrollService {
         const employees = await this.prisma.user.findMany({
             where: {
                 status: {
-                    in: ['active', 'vacation', 'leave'],
+                    in: ['active', 'verified', 'vacation', 'leave'],
                 },
             }
         })

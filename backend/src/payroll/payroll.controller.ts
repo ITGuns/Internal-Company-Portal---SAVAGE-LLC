@@ -222,7 +222,9 @@ export class PayrollController {
                     return res.status(403).json({ error: 'Forbidden' })
                 }
 
-                const preview = await this.service.previewPayslip(userId, new Date(startDate), new Date(endDate))
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                const preview = await this.service.previewPayslip(userId, new Date(startDate), end)
                 res.status(200).json(preview)
             } catch (e: any) {
                 console.error('Preview error:', e)
@@ -320,9 +322,11 @@ export class PayrollController {
         router.post('/periods', authenticateToken, requireRole(['admin', 'operations_manager']), async (req: Request, res: Response) => {
             try {
                 const { startDate, endDate, payDate } = req.body
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
                 const period = await this.service.createPayrollPeriod(
                     new Date(startDate),
-                    new Date(endDate),
+                    end,
                     new Date(payDate)
                 )
                 res.json(period)
@@ -341,7 +345,7 @@ export class PayrollController {
                     const periodId = Array.isArray(req.params.periodId) ? req.params.periodId[0] : req.params.periodId
                     const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId
 
-                    const payslip = await this.service.generatePayslip(periodId, userId)
+                    const payslip = await this.service.generatePayslip(periodId, userId, req.body)
                     res.json(payslip)
                 } catch (e: any) {
                     console.error(e)
