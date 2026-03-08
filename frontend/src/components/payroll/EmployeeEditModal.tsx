@@ -41,16 +41,6 @@ export default function EmployeeEditModal({
     }
   }, [employee]);
 
-  // Update role when department changes
-  useEffect(() => {
-    if (department && DEPARTMENT_ROLES[department]) {
-      const roles = DEPARTMENT_ROLES[department];
-      // If current role is not in the new department's roles, reset to first role
-      if (role && !roles.includes(role)) {
-        setRole(roles[0]);
-      }
-    }
-  }, [department, role]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,7 +119,7 @@ export default function EmployeeEditModal({
             </label>
             <div className="flex flex-col gap-2">
               <select
-                value={DEPARTMENTS.includes(department as any) ? department : (department ? "Other" : "")}
+                value={DEPARTMENTS.includes(department as any) ? department : "Other"}
                 onChange={(e) => {
                   const val = e.target.value;
                   if (val === "Other") {
@@ -140,8 +130,9 @@ export default function EmployeeEditModal({
                   setRole(""); // Reset role when department changes
                 }}
                 className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
-                required={!department || DEPARTMENTS.includes(department as any)}
+                required={DEPARTMENTS.includes(department as any)}
               >
+                <option value="" disabled>Select a department...</option>
                 {DEPARTMENTS.map((dept) => (
                   <option key={dept} value={dept}>
                     {dept}
@@ -149,7 +140,7 @@ export default function EmployeeEditModal({
                 ))}
                 <option value="Other">Other (Type manually)</option>
               </select>
-              {(!DEPARTMENTS.includes(department as any) && department) || (department === "" && !DEPARTMENTS.includes(department as any)) ? (
+              {!DEPARTMENTS.includes(department as any) && (
                 <input
                   type="text"
                   value={department}
@@ -158,7 +149,7 @@ export default function EmployeeEditModal({
                   placeholder="Type custom department..."
                   required
                 />
-              ) : null}
+              )}
             </div>
           </div>
 
@@ -169,7 +160,7 @@ export default function EmployeeEditModal({
             {department && DEPARTMENT_ROLES[department as keyof typeof DEPARTMENT_ROLES] ? (
               <div className="flex flex-col gap-2">
                 <select
-                  value={DEPARTMENT_ROLES[department as keyof typeof DEPARTMENT_ROLES]?.includes(role as any) ? role : (role ? "Other" : "")}
+                  value={DEPARTMENT_ROLES[department as keyof typeof DEPARTMENT_ROLES]?.includes(role as any) ? role : "Other"}
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val === "Other") {
@@ -179,9 +170,9 @@ export default function EmployeeEditModal({
                     }
                   }}
                   className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
-                  required={!role || DEPARTMENT_ROLES[department as keyof typeof DEPARTMENT_ROLES]?.includes(role as any)}
+                  required={DEPARTMENT_ROLES[department as keyof typeof DEPARTMENT_ROLES]?.includes(role as any)}
                 >
-                  <option value="">Select a role...</option>
+                  <option value="" disabled>Select a role...</option>
                   {DEPARTMENT_ROLES[department as keyof typeof DEPARTMENT_ROLES].map((roleOption) => (
                     <option key={roleOption} value={roleOption}>
                       {roleOption}
@@ -189,7 +180,7 @@ export default function EmployeeEditModal({
                   ))}
                   <option value="Other">Other (Type manually)</option>
                 </select>
-                {(!DEPARTMENT_ROLES[department as keyof typeof DEPARTMENT_ROLES]?.includes(role as any) && role) || (role === "" && !DEPARTMENT_ROLES[department as keyof typeof DEPARTMENT_ROLES]?.includes(role as any) && document.activeElement !== null) ? (
+                {!DEPARTMENT_ROLES[department as keyof typeof DEPARTMENT_ROLES]?.includes(role as any) && (
                   <input
                     type="text"
                     value={role}
@@ -198,7 +189,7 @@ export default function EmployeeEditModal({
                     placeholder="Type custom role..."
                     required
                   />
-                ) : null}
+                )}
               </div>
             ) : (
               <input

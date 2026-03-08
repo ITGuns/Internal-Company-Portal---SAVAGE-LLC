@@ -202,7 +202,7 @@ export default function AddEmployeeModal({
             </label>
             <div className="flex flex-col gap-2">
               <select
-                value={DEPARTMENTS.includes(department as any) ? department : (department ? "Other" : "")}
+                value={DEPARTMENTS.includes(department as any) ? department : "Other"}
                 onChange={(e) => {
                   const val = e.target.value;
                   if (val === "Other") {
@@ -213,14 +213,15 @@ export default function AddEmployeeModal({
                   setRole(""); // Reset role when department changes
                 }}
                 className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
-                required={!department || DEPARTMENTS.includes(department as any)}
+                required={DEPARTMENTS.includes(department as any)}
               >
+                <option value="" disabled>Select a department...</option>
                 {DEPARTMENTS.map((dept) => (
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
                 <option value="Other">Other (Type manually)</option>
               </select>
-              {(!DEPARTMENTS.includes(department as any) && department) || (department === "" && !DEPARTMENTS.includes(department as any)) ? (
+              {!DEPARTMENTS.includes(department as any) && (
                 <input
                   type="text"
                   value={department}
@@ -229,7 +230,7 @@ export default function AddEmployeeModal({
                   placeholder="Type custom department..."
                   required
                 />
-              ) : null}
+              )}
             </div>
           </div>
 
@@ -240,7 +241,7 @@ export default function AddEmployeeModal({
             {availableRoles.length > 0 ? (
               <div className="flex flex-col gap-2">
                 <select
-                  value={availableRoles.includes(role) ? role : (role ? "Other" : "")}
+                  value={availableRoles.includes(role) ? role : "Other"}
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val === "Other") {
@@ -250,15 +251,15 @@ export default function AddEmployeeModal({
                     }
                   }}
                   className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
-                  required={!role || availableRoles.includes(role)}
+                  required={availableRoles.includes(role)}
                 >
-                  <option value="">Select a role...</option>
+                  <option value="" disabled>Select a role...</option>
                   {availableRoles.map((r) => (
                     <option key={r} value={r}>{r}</option>
                   ))}
                   <option value="Other">Other (Type manually)</option>
                 </select>
-                {(!availableRoles.includes(role) && role) || (role === "" && !availableRoles.includes(role) && document.activeElement !== null) ? (
+                {!availableRoles.includes(role) && (
                   <input
                     type="text"
                     value={role}
@@ -267,7 +268,7 @@ export default function AddEmployeeModal({
                     placeholder="Type custom role..."
                     required
                   />
-                ) : null}
+                )}
               </div>
             ) : (
               <input
