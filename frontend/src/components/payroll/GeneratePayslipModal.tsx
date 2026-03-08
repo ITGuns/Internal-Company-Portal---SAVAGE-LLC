@@ -280,6 +280,9 @@ export default function GeneratePayslipModal({
             <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3 flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">Gross Pay</p>
+                <p className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70 mt-0.5">
+                  {hoursWorked} hours
+                </p>
               </div>
               <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
                 ₱{fmt(grossPay)}

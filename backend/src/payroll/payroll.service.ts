@@ -296,7 +296,7 @@ export class PayrollService {
         let weekdays = 0
         for (let d = 1; d <= daysInMonth; d++) {
             const dayOfWeek = new Date(year, month, d).getDay()
-            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            if (dayOfWeek !== 0) { // Only exclude Sunday
                 weekdays++
             }
         }

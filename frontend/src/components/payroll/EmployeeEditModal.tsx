@@ -123,11 +123,15 @@ export default function EmployeeEditModal({
                 onChange={(e) => {
                   const val = e.target.value;
                   if (val === "Other") {
-                    setDepartment("");
+                    // Keep existing if it was already custom, or set to empty to allow typing
+                    if (DEPARTMENTS.includes(department as any)) {
+                      setDepartment("");
+                      setRole("");
+                    }
                   } else {
                     setDepartment(val);
+                    setRole("");
                   }
-                  setRole(""); // Reset role when department changes
                 }}
                 className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
                 required={DEPARTMENTS.includes(department as any)}
@@ -164,7 +168,9 @@ export default function EmployeeEditModal({
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val === "Other") {
-                      setRole("");
+                      if (DEPARTMENT_ROLES[department as keyof typeof DEPARTMENT_ROLES]?.includes(role as any)) {
+                        setRole("");
+                      }
                     } else {
                       setRole(val);
                     }

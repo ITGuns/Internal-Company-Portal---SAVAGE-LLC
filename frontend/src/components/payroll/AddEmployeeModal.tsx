@@ -210,7 +210,7 @@ export default function AddEmployeeModal({
                   } else {
                     setDepartment(val);
                   }
-                  setRole(""); // Reset role when department changes
+                  setRole("");
                 }}
                 className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
                 required={DEPARTMENTS.includes(department as any)}

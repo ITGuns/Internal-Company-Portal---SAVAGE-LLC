@@ -26,8 +26,13 @@ export class DailyLogsController {
 
                 if (!found) return res.status(404).json({ error: 'Log not found' })
 
-                // Allow if author or admin
-                if (found.authorId !== user.userId) {
+                // Allow if author, admin, or specific authorized emails
+                const { prisma } = await import('../database/prisma.service')
+                const roles = await prisma.userRole.findMany({ where: { userId: user.userId } })
+                const isPrivileged = roles.some(r => ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase()))
+                const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(user.email?.toLowerCase() || '')
+
+                if (found.authorId !== user.userId && !isPrivileged && !isAuthorizedEmail) {
                     return res.status(403).json({ error: 'Unauthorized' })
                 }
                 next()
