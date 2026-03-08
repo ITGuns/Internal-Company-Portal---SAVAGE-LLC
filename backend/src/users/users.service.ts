@@ -119,7 +119,12 @@ export class UsersService {
         if (data.address !== undefined) updateData.address = data.address
         if (data.city !== undefined) updateData.city = data.city
         if (data.citizenship !== undefined) updateData.citizenship = data.citizenship
-        if (data.status !== undefined) updateData.status = data.status
+        if (data.status !== undefined) {
+            updateData.status = data.status
+            if (data.status !== 'pending') {
+                updateData.isApproved = true
+            }
+        }
 
         // Handle date conversions
         if (data.birthday !== undefined) {

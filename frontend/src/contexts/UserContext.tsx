@@ -17,6 +17,7 @@ export interface User {
   birthday?: string;
   hireDate?: string;
   isApproved?: boolean;
+  status?: string;
 }
 
 interface UserContextType {
@@ -78,7 +79,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
               console.log('[UserContext] Verified user:', data.user.email);
               // Only update if data changed to avoid re-renders
               setUser(prev => {
-                if (prev?.id === data.user.id && prev?.email === data.user.email) return prev;
+                const hasChanged = prev?.id !== data.user.id ||
+                  prev?.email !== data.user.email ||
+                  prev?.isApproved !== data.user.isApproved ||
+                  prev?.status !== data.user.status;
+                if (!hasChanged) return prev;
                 return data.user;
               });
               saveCurrentUser(data.user);

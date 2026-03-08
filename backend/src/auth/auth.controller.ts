@@ -97,8 +97,8 @@ export class AuthController {
                             email,
                             name,
                             password: passwordHash,
-                            status: 'active',
-                            isApproved: false // Requires admin approval
+                            status: 'pending',
+                            isApproved: false // Requires manager approval
                         }
                     })
 

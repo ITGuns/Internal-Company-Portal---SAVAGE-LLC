@@ -90,7 +90,8 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   }
 
   // Handle approval workflow
-  if (user && !user.isApproved && !isExemptRoute) {
+  const isApprovedStatus = user?.isApproved === true || (user?.status && user.status !== 'pending');
+  if (user && !isApprovedStatus && !isExemptRoute) {
     return (
       <div className="relative min-h-screen">
         {/* Blurred Content */}
