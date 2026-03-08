@@ -131,6 +131,15 @@ export class EmployeesController {
 
         } catch (error: any) {
             console.error('[Employees] Error:', error);
+
+            // Handle Prisma unique constraint violated for email
+            if (error.code === 'P2002') {
+                return res.status(400).json({
+                    error: 'Email already in use',
+                    details: 'An employee application with this email address already exists.'
+                });
+            }
+
             res.status(500).json({ error: 'Internal Server Error', details: error.message, stack: error.stack });
         }
     }

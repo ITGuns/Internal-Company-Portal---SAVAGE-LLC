@@ -205,7 +205,8 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
 
     if (!response.ok && response.status !== 401) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Request failed with status ${response.status}`);
+        const message = errorData.details || errorData.error || `Request failed with status ${response.status}`;
+        throw new Error(message);
     }
 
     return response
