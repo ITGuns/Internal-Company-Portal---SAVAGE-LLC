@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import { emailService } from '../email/email.service';
 import { EmployeesService } from './employees.service';
 import { authenticateToken, requireRole } from '../auth/auth.middleware';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 export class EmployeesController {
     private _router = Router();
     private employeesService: EmployeesService;
