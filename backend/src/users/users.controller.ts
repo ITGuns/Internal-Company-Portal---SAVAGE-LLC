@@ -223,8 +223,8 @@ export class UsersController {
             }
         })
 
-        // Delete user (Admin only)
-        router.delete('/:id', authenticateToken, requireRole('admin'), async (req: Request, res: Response) => {
+        // Delete user (Admin or Operations Manager)
+        router.delete('/:id', authenticateToken, requireRole(['admin', 'operations_manager']), async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
 

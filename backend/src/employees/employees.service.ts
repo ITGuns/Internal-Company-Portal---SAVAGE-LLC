@@ -162,11 +162,8 @@ export class EmployeesService {
     async reject(id: string): Promise<User> {
         // We could just delete them or mark as rejected. 
         // For now, let's delete to keep the DB clean, or update status to 'rejected'
-        return this.prisma.user.update({
+        return this.prisma.user.delete({
             where: { id },
-            data: {
-                status: 'rejected',
-            },
         })
     }
 }
