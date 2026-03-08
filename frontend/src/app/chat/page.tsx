@@ -28,32 +28,34 @@ export default function UnifiedChatPage() {
     const [searchQuery, setSearchQuery] = useState('')
     const [attachment, setAttachment] = useState<File | null>(null)
     const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null)
+    const [selectedChannelUsers, setSelectedChannelUsers] = useState<string[]>([])
+    const [searchChannelQuery, setSearchChannelQuery] = useState('')
     const fileInputRef = useRef<HTMLInputElement>(null)
     const scrollRef = useRef<HTMLDivElement>(null)
 
     const handleCreateChannel = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newChannelName.trim()) return;
+        if (!newChannelName.trim()) {
+            alert("Channel name is required");
+            return;
+        }
+
+        if (selectedChannelUsers.length === 0) {
+            alert("Please select at least one member for the channel.");
+            return;
+        }
 
         try {
-            // For now, creating a channel requires at least 2 people per backend rules.
-            // We'll add the first available other user automatically for demo/simplicity, 
-            // or we could show a participant selector. 
-            // Let's just use the current user and the first other user found.
-            const firstOtherUser = users.find(u => u.id !== String(currentUser?.id));
-            if (!firstOtherUser) {
-                alert("You need at least one other user in the system to create a channel.");
-                return;
-            }
-
-            const conv = await createConversation('channel', [firstOtherUser.id], newChannelName.trim());
+            const conv = await createConversation('channel', selectedChannelUsers, newChannelName.trim());
             setConversations(prev => [conv, ...prev]);
             setSelectedId(conv.id);
             setShowCreateChannel(false);
             setNewChannelName('');
+            setSelectedChannelUsers([]);
+            setSearchChannelQuery('');
         } catch (err) {
             console.error("Failed to create channel", err);
-            alert("Failed to create channel. (Make sure you have at least one other member in the team)");
+            alert("Failed to create channel.");
         }
     };
 
@@ -318,17 +320,25 @@ export default function UnifiedChatPage() {
                         </div>
                         <div className="space-y-1">
                             {channels.map(c => (
-                                <button
-                                    key={c.id}
-                                    onClick={() => setSelectedId(c.id)}
-                                    className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-all flex items-center gap-2 ${selectedId === c.id
-                                        ? 'bg-[var(--accent)] text-white shadow-sm'
-                                        : 'text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'
-                                        }`}
-                                >
-                                    <Hash className={`w-4 h-4 ${selectedId === c.id ? 'opacity-100' : 'opacity-40'}`} />
-                                    <span className="truncate">{c.name}</span>
-                                </button>
+                                <div key={c.id} className="relative group">
+                                    <button
+                                        onClick={() => setSelectedId(c.id)}
+                                        className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-all flex items-center gap-2 ${selectedId === c.id
+                                            ? 'bg-[var(--accent)] text-white shadow-sm'
+                                            : 'text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'
+                                            }`}
+                                    >
+                                        <Hash className={`w-4 h-4 ${selectedId === c.id ? 'opacity-100' : 'opacity-40'}`} />
+                                        <span className="truncate flex-1">{c.name}</span>
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteConversation(c.id); }}
+                                        className={`absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1.5 rounded-full bg-red-500 text-white transition-opacity ${selectedId === c.id ? 'bg-white text-red-500 hover:bg-red-50' : ''}`}
+                                        aria-label="Delete channel"
+                                    >
+                                        <Trash2 className="w-3 h-3" />
+                                    </button>
+                                </div>
                             ))}
                         </div>
                     </div>
@@ -636,7 +646,7 @@ export default function UnifiedChatPage() {
                 {/* Create Channel Modal Overlay */}
                 {showCreateChannel && (
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                        <Card className="w-full max-w-sm flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <Card className="w-full max-w-md h-[550px] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
                             <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--card-surface)]">
                                 <h3 className="font-bold text-lg text-[var(--foreground)]">Create Channel</h3>
                                 <button
@@ -647,7 +657,8 @@ export default function UnifiedChatPage() {
                                     <X className="w-6 h-6" />
                                 </button>
                             </div>
-                            <form onSubmit={handleCreateChannel} className="p-6 space-y-4">
+
+                            <div className="p-4 border-b border-[var(--border)] flex flex-col gap-4 bg-[var(--card-surface)]">
                                 <div>
                                     <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
                                         Channel Name
@@ -660,34 +671,91 @@ export default function UnifiedChatPage() {
                                             className="w-full pl-8 pr-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-[var(--accent)] outline-none"
                                             value={newChannelName}
                                             onChange={(e) => {
-                                                // Slack/Discord style channel naming
                                                 const val = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
                                                 setNewChannelName(val);
                                             }}
                                             required
                                         />
                                     </div>
-                                    <p className="mt-2 text-[10px] text-[var(--muted)]">
-                                        Channels are great for topics like #marketing or #project-x.
-                                    </p>
                                 </div>
 
-                                <div className="flex gap-3 justify-end pt-4">
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        onClick={() => setShowCreateChannel(false)}
-                                    >
-                                        Cancel
-                                    </Button>
-                                    <Button
-                                        type="submit"
-                                        variant="primary"
-                                    >
-                                        Create
-                                    </Button>
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">Search Members</label>
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-3 w-4 h-4 text-[var(--muted)]" />
+                                        <input
+                                            placeholder="Search people..."
+                                            className="w-full pl-10 pr-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-[var(--accent)] outline-none"
+                                            value={searchChannelQuery}
+                                            onChange={(e) => setSearchChannelQuery(e.target.value)}
+                                        />
+                                    </div>
                                 </div>
-                            </form>
+                            </div>
+
+                            <div className="px-4 py-2 border-b border-[var(--border)] bg-[var(--background)]/50 text-xs font-semibold text-[var(--muted)] items-center flex justify-between">
+                                <span>Select Members ({selectedChannelUsers.length} selected)</span>
+                                <button
+                                    type="button"
+                                    className={`text-[var(--accent)] hover:underline ${selectedChannelUsers.length === users.filter(u => u.id !== String(currentUser?.id)).length ? 'hidden' : ''}`}
+                                    onClick={() => setSelectedChannelUsers(users.filter(u => u.id !== String(currentUser?.id)).map(u => u.id))}
+                                >
+                                    Select All
+                                </button>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-2 chat-scroll">
+                                {users.filter(u => u.id !== String(currentUser?.id) && u.name?.toLowerCase().includes(searchChannelQuery.toLowerCase())).map(u => {
+                                    const isSelected = selectedChannelUsers.includes(u.id);
+                                    return (
+                                        <button
+                                            key={u.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedChannelUsers(prev =>
+                                                    isSelected ? prev.filter(id => id !== u.id) : [...prev, u.id]
+                                                );
+                                            }}
+                                            className={`w-full text-left p-3 hover:bg-[var(--background)] rounded-xl flex items-center justify-between gap-3 transition-all ${isSelected ? 'bg-[var(--accent)]/10' : ''}`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full overflow-hidden bg-[var(--card-surface)] border border-[var(--border)] flex items-center justify-center">
+                                                    {u.avatar ? <img src={u.avatar} alt="" className="w-full h-full object-cover" /> : (
+                                                        <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 text-sm font-bold">
+                                                            {u.name?.charAt(0).toUpperCase()}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-sm text-[var(--foreground)]">{u.name}</p>
+                                                    <p className="text-xs text-[var(--muted)]">{u.email}</p>
+                                                </div>
+                                            </div>
+                                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${isSelected ? 'bg-[var(--accent)] border-[var(--accent)]' : 'border-[var(--muted)]'}`}>
+                                                {isSelected && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                            </div>
+                                        </button>
+                                    )
+                                })}
+                            </div>
+
+                            <div className="p-4 border-t border-[var(--border)] flex justify-end gap-3 bg-[var(--card-surface)]">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    onClick={() => setShowCreateChannel(false)}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="primary"
+                                    onClick={handleCreateChannel}
+                                    disabled={!newChannelName.trim() || selectedChannelUsers.length === 0}
+                                >
+                                    Create Channel
+                                </Button>
+                            </div>
                         </Card>
                     </div>
                 )}
