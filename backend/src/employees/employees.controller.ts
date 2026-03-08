@@ -88,7 +88,8 @@ export class EmployeesController {
                 role: employeeData.role || employeeData.jobTitle,
                 department: employeeData.department,
                 salary: typeof employeeData.salary === 'string' ? parseFloat(employeeData.salary) : (employeeData.salary || 0),
-                passwordHash
+                passwordHash,
+                avatar: employeeData.avatar
             });
 
             // Hardcoded recipient for approval as requested
@@ -128,9 +129,9 @@ export class EmployeesController {
                 emailStatus
             });
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('[Employees] Error:', error);
-            res.status(500).json({ error: 'Internal Server Error' });
+            res.status(500).json({ error: 'Internal Server Error', details: error.message, stack: error.stack });
         }
     }
 

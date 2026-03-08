@@ -8,6 +8,7 @@ export interface CreateEmployeeDto {
     department: string
     salary: number
     passwordHash?: string
+    avatar?: string
 }
 
 export class EmployeesService {
@@ -97,6 +98,7 @@ export class EmployeesService {
                 password: data.passwordHash,
                 status: 'pending',
                 appliedDate: new Date(),
+                avatar: data.avatar,
                 // Store role/department info
             },
         })

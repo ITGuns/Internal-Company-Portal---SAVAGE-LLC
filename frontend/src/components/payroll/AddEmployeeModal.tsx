@@ -2,8 +2,8 @@
  * Add Employee Modal - form for adding new employees
  */
 
-import React, { useState } from "react";
-import { UserPlus, Save } from "lucide-react";
+import React, { useState, useRef } from "react";
+import { UserPlus, Save, Image as ImageIcon, X } from "lucide-react";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import type { Employee } from "@/lib/payroll-calendar/types";
@@ -36,9 +36,26 @@ export default function AddEmployeeModal({
   const [department, setDepartment] = useState<string>(DEPARTMENTS[0]);
   const [salary, setSalary] = useState("");
   const [status, setStatus] = useState<"active" | "vacation" | "leave" | "pending">("pending");
+  const [avatarBase64, setAvatarBase64] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Get available roles for selected department
   const availableRoles = DEPARTMENT_ROLES[department] || [];
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert("Image must be less than 2MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarBase64(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const resetForm = () => {
     setName("");
@@ -47,6 +64,7 @@ export default function AddEmployeeModal({
     setDepartment(DEPARTMENTS[0]);
     setSalary("");
     setStatus("active");
+    setAvatarBase64("");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -75,7 +93,7 @@ export default function AddEmployeeModal({
       status,
       hoursThisWeek: 0, // Will be calculated from time tracking
       performance: 0, // Will be calculated from completed tasks
-      avatar: getAvatarInitials(name),
+      avatar: avatarBase64 || getAvatarInitials(name),
     };
 
     onAdd(newEmployee);
@@ -113,6 +131,43 @@ export default function AddEmployeeModal({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Profile Picture Upload */}
+          <div className="flex flex-col items-center mb-4">
+            <div
+              className="relative w-20 h-20 rounded-full border-2 border-dashed border-[var(--border)] flex items-center justify-center bg-[var(--background)] cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors overflow-hidden group"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {avatarBase64 ? (
+                <>
+                  <img src={avatarBase64} alt="Preview" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center">
+                    <span className="text-white text-[10px] font-semibold">Change</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center text-[var(--muted)]">
+                  <ImageIcon className="w-6 h-6 mb-1" />
+                  <span className="text-[9px] font-medium uppercase tracking-wider">Upload</span>
+                </div>
+              )}
+            </div>
+            {avatarBase64 && (
+              <button
+                type="button"
+                className="mt-2 text-[10px] text-red-500 hover:text-red-600 flex items-center gap-1 font-medium"
+                onClick={() => setAvatarBase64("")}
+              >
+                <X className="w-3 h-3" /> Remove Photo
+              </button>
+            )}
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*"
+              onChange={handleFileChange}
+            />
+          </div>
           <div>
             <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
               Full Name <span className="text-red-500">*</span>
