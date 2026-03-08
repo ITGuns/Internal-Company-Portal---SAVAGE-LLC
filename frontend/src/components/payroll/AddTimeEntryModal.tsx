@@ -25,7 +25,9 @@ export default function AddTimeEntryModal({
   onError,
 }: AddTimeEntryModalProps) {
   const { user } = useUser();
-  const isAdmin = ["admin", "operations_manager", "operations_assistant"].includes(user?.role?.toLowerCase() || "");
+  const formattedRole = (user?.role?.toLowerCase() || "").trim().replace(/ /g, '_');
+  const allowedEmails = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'];
+  const isAdmin = formattedRole === 'admin' || allowedEmails.includes(user?.email?.toLowerCase() || '');
 
   const [manualDate, setManualDate] = useState<string>(
     new Date().toISOString().slice(0, 10)

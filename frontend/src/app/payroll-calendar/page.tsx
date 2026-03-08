@@ -53,9 +53,11 @@ export default function PayrollCalendarPage() {
     stats,
   } = useCalendarEvents(timeEntries, customEvents);
 
-  // RBAC: Check if user has management access (Admin, Operations Manager, Operations Assistant)
+  // RBAC: Check if user has management access (Admin, Genrou, Daryl)
   const userRole = user?.role?.toLowerCase() || 'member';
-  const hasManagementAccess = ['admin', 'operations_manager', 'operations_assistant'].includes(userRole);
+  const formattedRole = userRole.trim().replace(/ /g, '_');
+  const allowedEmails = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'];
+  const hasManagementAccess = formattedRole === 'admin' || allowedEmails.includes(user?.email?.toLowerCase() || '');
 
   // Event handlers
   const handleAddManualEntry = async (
