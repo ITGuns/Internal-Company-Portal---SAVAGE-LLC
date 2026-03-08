@@ -142,7 +142,7 @@ export default function TimeTrackingCalendar({
   // Tasks — show real tasks from API
   const getTasksForDate = (dateStr: string): any[] => {
     return tasks
-      .filter((t) => t.status === "completed" && (t.dueDate?.startsWith(dateStr) || t.updatedAt?.startsWith(dateStr)))
+      .filter((t) => t.status === "completed" && t.dueDate?.startsWith(dateStr))
       .map(t => ({
         id: t.id,
         title: t.title,
