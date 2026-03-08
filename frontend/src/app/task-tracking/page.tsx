@@ -572,41 +572,51 @@ export default function TaskTrackingPage() {
   const completedCount = filteredTasks.filter(t => t.status === 'completed').length;
   const inProgressCount = filteredTasks.filter(t => t.status === 'in_progress').length;
 
-  // Calendar Events
-  const events = filteredTasks
-    .map((t) => {
-      // If no start date and no due date, skip
-      if (!t.dueDate && !t.startDate) return null;
+  // Calendar Events - Deduplicated by title and date for a cleaner view
+  const events = (() => {
+    const seen = new Set<string>();
+    return filteredTasks
+      .map((t) => {
+        // If no start date and no due date, skip
+        if (!t.dueDate && !t.startDate) return null;
 
-      const start = t.startDate || t.dueDate;
-      let end = undefined;
+        const start = t.startDate || t.dueDate;
 
-      // FullCalendar end dates are exclusive, so if the event spans multiple days, 
-      // we need to add 1 day to the due date.
-      if (t.startDate && t.dueDate && t.startDate !== t.dueDate) {
-        const endDate = new Date(t.dueDate);
-        endDate.setDate(endDate.getDate() + 1);
-        end = endDate.toISOString().split('T')[0];
-      }
+        // UNIQUE CHECK: title + start date
+        const key = `${t.title}-${start}`;
+        if (seen.has(key)) return null;
+        seen.add(key);
 
-      const colorMap: Record<string, string> = {
-        todo: 'var(--status-pending)',
-        in_progress: 'var(--status-in-progress)',
-        review: 'var(--priority-medium)',
-        completed: 'var(--status-completed)',
-        blocked: 'var(--status-blocked)'
-      };
+        let end = undefined;
 
-      return {
-        id: t.id,
-        title: t.title,
-        start,
-        end,
-        extendedProps: { task: t },
-        color: colorMap[t.status as string] || 'var(--status-pending)'
-      };
-    })
-    .filter(Boolean) as any[];
+        // FullCalendar end dates are exclusive, so if the event spans multiple days, 
+        // we need to add 1 day to the due date.
+        if (t.startDate && t.dueDate && t.startDate !== t.dueDate) {
+          const endDate = new Date(t.dueDate);
+          endDate.setDate(endDate.getDate() + 1);
+          end = endDate.toISOString().split('T')[0];
+        }
+
+        const colorMap: Record<string, string> = {
+          todo: 'var(--status-pending)',
+          in_progress: 'var(--status-in-progress)',
+          review: 'var(--priority-medium)',
+          completed: 'var(--status-completed)',
+          blocked: 'var(--status-blocked)'
+        };
+
+        return {
+          id: t.id,
+          title: t.title,
+          start,
+          end,
+          extendedProps: { task: t },
+          color: colorMap[t.status as string] || 'var(--status-pending)'
+        };
+      })
+      .filter(Boolean) as any[];
+  })();
+
 
 
   if (isLoading && tasks.length === 0) {
