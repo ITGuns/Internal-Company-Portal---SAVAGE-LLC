@@ -259,8 +259,8 @@ export default function GeneratePayslipModal({
                   }}
                   placeholder={isCalculating ? "Calculating…" : "Enter or auto-calculate hours"}
                   className={`w-full pl-3 pr-10 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 transition-colors ${hoursManual
-                      ? "border-amber-400 focus:ring-amber-400/30 bg-amber-50 dark:bg-amber-900/10 text-[var(--foreground)]"
-                      : "border-[var(--border)] focus:ring-emerald-500/40 bg-[var(--background)] text-[var(--foreground)]"
+                    ? "border-amber-400 focus:ring-amber-400/30 bg-amber-50 dark:bg-amber-900/10 text-[var(--foreground)]"
+                    : "border-[var(--border)] focus:ring-emerald-500/40 bg-[var(--background)] text-[var(--foreground)]"
                     } ${isCalculating ? "animate-pulse" : ""}`}
                   min="0"
                   step="0.5"
@@ -280,9 +280,6 @@ export default function GeneratePayslipModal({
             <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3 flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">Gross Pay</p>
-                <p className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70 mt-0.5">
-                  {hourlyRate > 0 ? `₱${fmt(hourlyRate)}/hr × ${hoursWorked}h` : "Based on salary and hours"}
-                </p>
               </div>
               <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
                 ₱{fmt(grossPay)}

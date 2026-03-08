@@ -69,8 +69,18 @@ const formatTime = (seconds: number) => {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
+
   if (h > 0) return `${h}h ${m}m`;
-  return `${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+};
+
+const formatMinutes = (minutes: number) => {
+  if (!minutes) return "0h";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h > 0) return `${h}h${m > 0 ? ` ${m}m` : ""}`;
+  return `${m}m`;
 };
 
 function BoardCard({ task, onClick, onAction }: { task: Task; onClick?: () => void; onAction?: (e: React.MouseEvent, taskId: string, action: 'play' | 'pause' | 'complete') => void }) {
@@ -126,7 +136,7 @@ function BoardCard({ task, onClick, onAction }: { task: Task; onClick?: () => vo
           <div className="mt-2 flex items-center justify-between text-[10px]">
             <span className="text-[var(--muted)]">Time (Act/Est)</span>
             <span className={`font-medium ${task.estimatedTime && (task.totalElapsed || 0) / 60 > task.estimatedTime ? 'text-red-500' : 'text-[var(--foreground)]'}`}>
-              {formatTime(task.totalElapsed || 0)} / {task.estimatedTime ? `${task.estimatedTime}m` : '-'}
+              {formatTime(task.totalElapsed || 0)} / {task.estimatedTime ? formatMinutes(task.estimatedTime) : '-'}
             </span>
           </div>
 
@@ -457,7 +467,7 @@ export default function TaskTrackingPage() {
           task.startDate || "—",
           task.dueDate || "No Date",
           `${task.progress || 0}%`,
-          task.estimatedTime || "-"
+          task.estimatedTime ? formatMinutes(task.estimatedTime) : "-"
         ];
         tableRows.push(taskData);
       });

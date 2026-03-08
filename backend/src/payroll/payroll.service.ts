@@ -344,7 +344,7 @@ export class PayrollService {
 
         items.push({
             type: 'earning',
-            description: `Work Hours (${totalHours} hrs @ ₱${hourlyRate.toFixed(2)}/hr) - via ${source}`,
+            description: `Work Hours (${totalHours} hrs)`,
             amount: grossPay
         })
 

@@ -56,8 +56,8 @@ async function main() {
                     role: roleName,
                     progress: 100,
                     timerStatus: 'stopped',
-                    totalElapsed: 480, // 8 hours in minutes
-                    estimatedTime: 480
+                    totalElapsed: 28800, // 8 hours in seconds (480 mins * 60)
+                    estimatedTime: 480 // 8 hours in minutes
                 }
             });
             taskCount++;
