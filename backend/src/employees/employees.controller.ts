@@ -20,12 +20,12 @@ export class EmployeesController {
 
         // Approval Workflow - PROTECTED
         // Managers or Admins can see pending and deployed lists
-        this._router.get('/pending', authenticateToken, requireRole(['admin', 'manager', 'operations_manager']), this.getPending);
+        this._router.get('/pending', authenticateToken, requireRole(['admin', 'manager', 'operations_manager', 'operations manager']), this.getPending);
         this._router.get('/deployed', authenticateToken, this.getDeployed);
 
         // Approve and Reject are strictly for Admins or Operations Managers
-        this._router.post('/approve/:id', authenticateToken, requireRole(['admin', 'operations_manager']), this.approve);
-        this._router.post('/reject/:id', authenticateToken, requireRole(['admin', 'operations_manager']), this.reject);
+        this._router.post('/approve/:id', authenticateToken, requireRole(['admin', 'operations_manager', 'operations manager']), this.approve);
+        this._router.post('/reject/:id', authenticateToken, requireRole(['admin', 'operations_manager', 'operations manager']), this.reject);
     }
 
     private getPending = async (req: Request, res: Response) => {
