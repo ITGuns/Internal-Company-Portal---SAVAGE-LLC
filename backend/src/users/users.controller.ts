@@ -161,7 +161,12 @@ export class UsersController {
                 if (requesterId !== id) {
                     // Check if requester is admin or operations_manager
                     const userRoles = await this.service.getUserRoles(requesterId!)
-                    const isPrivileged = userRoles.some(r => r.role === 'admin' || r.role === 'operations_manager' || r.role === 'Operations Manager')
+                    const isPrivileged = userRoles.some(r =>
+                        r.role === 'admin' ||
+                        r.role === 'operations_manager' ||
+                        r.role === 'Operations Manager' ||
+                        r.role === 'Chief Operations Officer'
+                    )
                     const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com']
                         .includes(authReq.user?.email?.toLowerCase() || '')
 
