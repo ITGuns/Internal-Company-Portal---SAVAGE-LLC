@@ -395,15 +395,9 @@ export default function UnifiedChatPage() {
                                 </div>
                             )}
                         </div>
-                    </div>
 
-                    {/* Connection Status Footer */}
-                    <div className="p-3 border-t border-[var(--border)] bg-[var(--background)] flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-500'}`} />
-                        <span className="text-[10px] text-[var(--muted)] font-medium">
-                            {isConnected ? 'Connected to chat' : 'Reconnecting...'}
-                        </span>
                     </div>
+                    {/* end sidebar */}
                 </div>
 
                 {/* Chat Area */}
