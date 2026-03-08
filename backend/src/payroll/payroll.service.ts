@@ -287,16 +287,33 @@ export class PayrollService {
     }
 
     /**
+     * Calculate number of weekdays in a given month
+     */
+    private getWeekdaysInMonth(date: Date): number {
+        const year = date.getFullYear()
+        const month = date.getMonth()
+        const daysInMonth = new Date(year, month + 1, 0).getDate()
+        let weekdays = 0
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dayOfWeek = new Date(year, month, d).getDay()
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                weekdays++
+            }
+        }
+        return weekdays
+    }
+
+    /**
      * Preview a payslip calculation
      */
     async previewPayslip(userId: string, startDate: Date, endDate: Date) {
         const profile = await this.getEmployeeProfile(userId)
         const { totalHours, source } = await this.calculateEmployeeHours(userId, startDate, endDate)
 
-        // Calculate based on hours
-        // Deriving hourly rate from monthly salary (assuming 160 hours/month)
-        const standardHours = 160
-        const hourlyRate = profile.baseSalary / standardHours
+        // Calculate dynamically based on exact number of weekdays in the month
+        const weekdaysInMonth = this.getWeekdaysInMonth(startDate)
+        const dailyRate = profile.baseSalary / weekdaysInMonth
+        const hourlyRate = dailyRate / 8 // Standard 8 hour workday assumption
         const grossPay = totalHours * hourlyRate
 
         return {
@@ -318,8 +335,10 @@ export class PayrollService {
         const profile = await this.getEmployeeProfile(userId)
         const { totalHours, source } = await this.calculateEmployeeHours(userId, period.startDate, period.endDate)
 
-        // Calculate Gross Pay based on hours worked (Standard 160h month)
-        const hourlyRate = profile.baseSalary / 160
+        // Calculate dynamically based on exact number of weekdays in the month
+        const weekdaysInMonth = this.getWeekdaysInMonth(period.startDate)
+        const dailyRate = profile.baseSalary / weekdaysInMonth
+        const hourlyRate = dailyRate / 8
         const grossPay = Math.round((totalHours * hourlyRate) * 100) / 100
         const items = []
 
