@@ -2,12 +2,15 @@ import React, { useState, useMemo, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Cake, CheckCircle2, Calendar, Loader2 } from "lucide-react";
 import type { Employee, LeaveRecord, CompletedTask } from "@/lib/payroll-calendar/types";
 import { fetchTimeEntries } from "@/lib/time-entries";
+import { apiFetch } from "@/lib/api";
 
 import DayDetailsModal, { type DayTimeEntry } from "./DayDetailsModal";
 
 interface TimeTrackingCalendarProps {
   employee: Employee | null;
   onAddTimeEntry: (date: string) => void;
+  onDeleteTimeEntry?: (id: string) => void;
+  refreshKey?: number;
 }
 
 // ... helper functions omitted for brevity in instruction, but kept in replacement if possible ...
@@ -34,38 +37,47 @@ const MONTH_NAMES = [
 export default function TimeTrackingCalendar({
   employee,
   onAddTimeEntry,
+  onDeleteTimeEntry,
+  refreshKey = 0,
 }: TimeTrackingCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
   const [showDayDetails, setShowDayDetails] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [timeEntries, setTimeEntries] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
   // Fetch real time entries from API
   useEffect(() => {
-    if (!employee) return;
-
-    const fetchEntries = async () => {
+    const fetchData = async () => {
+      if (!employee) return;
       setIsFetching(true);
       try {
         const startOfMonth = new Date(year, month, 1).toISOString();
         const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
 
-        // Pass employee.id so admins/managers see the selected employee's data
-        const res = await fetchTimeEntries(startOfMonth, endOfMonth, String(employee.id));
-        setTimeEntries(res);
+        // 1. Fetch Time Entries
+        const entries = await fetchTimeEntries(startOfMonth, endOfMonth, String(employee.id));
+        setTimeEntries(entries);
+
+        // 2. Fetch Tasks for this employee
+        const tasksRes = await apiFetch(`/tasks/assignee/${employee.id}`);
+        if (tasksRes.ok) {
+          const tasksData = await tasksRes.json();
+          setTasks(tasksData);
+        }
       } catch (err) {
-        console.error("Failed to fetch entries", err);
+        console.error("Failed to fetch calendar data", err);
       } finally {
         setIsFetching(false);
       }
     };
 
-    fetchEntries();
-  }, [employee, month, year]);
+    fetchData();
+  }, [employee, month, year, refreshKey]);
 
   // Leave records — no mock data; real API to be wired later
   const employeeLeaveRecords = useMemo(() => {
@@ -127,9 +139,16 @@ export default function TimeTrackingCalendar({
     };
   };
 
-  // Tasks — no mock data; returns empty until real API is wired
-  const getTasksForDate = (_dateStr: string): CompletedTask[] => {
-    return [];
+  // Tasks — show real tasks from API
+  const getTasksForDate = (dateStr: string): any[] => {
+    return tasks
+      .filter((t) => t.status === "completed" && (t.dueDate?.startsWith(dateStr) || t.updatedAt?.startsWith(dateStr)))
+      .map(t => ({
+        id: t.id,
+        title: t.title,
+        completedDate: t.dueDate || t.updatedAt,
+        category: t.department?.name || employee?.department || "Operations",
+      }));
   };
 
   // Handle day click
@@ -369,6 +388,7 @@ export default function TimeTrackingCalendar({
           timeEntry={getTimeEntry(selectedDayDate)}
           tasks={getTasksForDate(selectedDayDate)}
           employeeName={employee?.name || ""}
+          onDeleteSession={onDeleteTimeEntry}
         />
       )}
     </div>

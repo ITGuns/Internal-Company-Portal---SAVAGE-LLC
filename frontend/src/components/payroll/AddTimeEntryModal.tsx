@@ -15,6 +15,8 @@ interface AddTimeEntryModalProps {
   onSubmit: (startIso: string, endIso?: string, notes?: string, userId?: string) => Promise<boolean>;
   onSuccess?: () => void;
   onError?: () => void;
+  initialUserId?: string;
+  initialDate?: string;
 }
 
 export default function AddTimeEntryModal({
@@ -23,6 +25,8 @@ export default function AddTimeEntryModal({
   onSubmit,
   onSuccess,
   onError,
+  initialUserId,
+  initialDate,
 }: AddTimeEntryModalProps) {
   const { user } = useUser();
   const formattedRole = (user?.role?.toLowerCase() || "").trim().replace(/ /g, '_');
@@ -53,10 +57,12 @@ export default function AddTimeEntryModal({
   }, [isOpen, isAdmin, users.length]);
 
   useEffect(() => {
-    if (isOpen && user && !selectedUserId) {
-      setSelectedUserId(user.id.toString());
+    if (isOpen) {
+      if (initialDate) setManualDate(initialDate);
+      if (initialUserId) setSelectedUserId(initialUserId);
+      else if (user) setSelectedUserId(user.id.toString());
     }
-  }, [isOpen, user, selectedUserId]);
+  }, [isOpen, initialDate, initialUserId, user]);
 
   const validateTimeEntry = () => {
     const errors: Record<string, string> = {};

@@ -11,6 +11,8 @@ import TimeTrackingCalendar from "./TimeTrackingCalendar";
 import EmployeeProfilePanel from "./EmployeeProfilePanel";
 import GeneratePayslipModal from "./GeneratePayslipModal";
 import PayslipDetailsModal from "./PayslipDetailsModal";
+import AddTimeEntryModal from "./AddTimeEntryModal";
+import { createTimeEntry, deleteTimeEntry } from "@/lib/time-entries";
 
 import { generatePayslipPDF } from "@/lib/payroll-calendar/payslip-utils";
 import type { Employee, Payslip } from "@/lib/payroll-calendar/types";
@@ -30,6 +32,8 @@ export default function PayslipsTab() {
   // Local state for the selected employee's payslips
   const [employeePayslips, setEmployeePayslips] = useState<Payslip[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const fetchPayslips = async (employee: Employee) => {
     try {
@@ -120,8 +124,29 @@ export default function PayslipsTab() {
 
   // Handle time entry addition
   const handleAddTimeEntry = (date: string) => {
-    // This could open the AddTimeEntryModal with pre-filled date
-    toast.info(`Reviewing time logs for ${date}`);
+    setSelectedDate(date);
+    setShowAddModal(true);
+  };
+
+  const handleSubmitTimeEntry = async (startIso: string, endIso?: string, notes?: string, userId?: string) => {
+    const success = await createTimeEntry(startIso, endIso, notes, userId || selectedEmployee?.id.toString());
+    if (success) {
+      toast.success("Time entry added successfully");
+      setRefreshKey(prev => prev + 1);
+    } else {
+      toast.error("Failed to add time entry");
+    }
+    return !!success;
+  };
+
+  const handleDeleteTimeEntry = async (id: string) => {
+    const success = await deleteTimeEntry(id);
+    if (success) {
+      toast.success("Time entry deleted");
+      setRefreshKey(prev => prev + 1);
+    } else {
+      toast.error("Failed to delete entry");
+    }
   };
 
   // Handle payslip generation
@@ -287,6 +312,8 @@ export default function PayslipsTab() {
           <TimeTrackingCalendar
             employee={selectedEmployee}
             onAddTimeEntry={handleAddTimeEntry}
+            onDeleteTimeEntry={handleDeleteTimeEntry}
+            refreshKey={refreshKey}
           />
         </div>
 
@@ -319,6 +346,17 @@ export default function PayslipsTab() {
         onClose={() => setShowDetailsModal(false)}
         payslip={selectedPayslip}
         onDownloadPDF={handleDownloadPDF}
+      />
+
+      <AddTimeEntryModal
+        isOpen={showAddModal}
+        onClose={() => {
+          setShowAddModal(false);
+          setSelectedDate(null);
+        }}
+        onSubmit={handleSubmitTimeEntry}
+        initialUserId={selectedEmployee?.id.toString()}
+        initialDate={selectedDate || undefined}
       />
     </div>
   );

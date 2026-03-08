@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { Clock, CheckCircle2 } from "lucide-react";
+import { Clock, CheckCircle2, Trash2 } from "lucide-react";
 import Modal from "@/components/Modal";
 import type { CompletedTask } from "@/lib/payroll-calendar/types";
 
@@ -29,8 +29,9 @@ interface DayDetailsModalProps {
   onClose: () => void;
   date: string;
   timeEntry: DayTimeEntry | null;
-  tasks: CompletedTask[];
+  tasks: any[];
   employeeName: string;
+  onDeleteSession?: (id: string) => void;
 }
 
 // Format an ISO string to a readable time e.g. "09:32 AM"
@@ -58,6 +59,7 @@ export default function DayDetailsModal({
   timeEntry,
   tasks,
   employeeName,
+  onDeleteSession,
 }: DayDetailsModalProps) {
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -113,22 +115,37 @@ export default function DayDetailsModal({
                           Session {i + 1}
                         </p>
                       )}
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-[var(--muted)]">Clock In:</span>
-                        <span className="text-sm font-medium text-[var(--foreground)]">
-                          {fmtTime(session.start)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-[var(--muted)]">Clock Out:</span>
-                        <span className="text-sm font-medium text-[var(--foreground)]">
-                          {session.end ? fmtTime(session.end) : (
-                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold animate-pulse">
-                              Currently clocked in
+                      <div className="flex justify-between items-center group/row">
+                        <div className="flex-1 space-y-1.5">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-[var(--muted)]">Clock In:</span>
+                            <span className="text-sm font-medium text-[var(--foreground)]">
+                              {fmtTime(session.start)}
                             </span>
-                          )}
-                        </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-[var(--muted)]">Clock Out:</span>
+                            <span className="text-sm font-medium text-[var(--foreground)]">
+                              {session.end ? fmtTime(session.end) : (
+                                <span className="text-emerald-600 dark:text-emerald-400 font-semibold animate-pulse">
+                                  Currently clocked in
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+
+                        {onDeleteSession && (
+                          <button
+                            onClick={() => onDeleteSession(session.id)}
+                            className="ml-4 p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover/row:opacity-100"
+                            title="Delete this session"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
+
                       {sessionMinutes != null && (
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-[var(--muted)]">Duration:</span>

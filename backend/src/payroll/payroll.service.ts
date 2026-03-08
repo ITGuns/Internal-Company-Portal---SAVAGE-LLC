@@ -281,7 +281,7 @@ export class PayrollService {
         }
 
         return {
-            totalHours: Math.round(totalHours * 100) / 100,
+            totalHours,
             source
         }
     }
@@ -320,7 +320,7 @@ export class PayrollService {
             totalHours,
             source,
             hourlyRate,
-            grossPay: Math.round(grossPay * 100) / 100,
+            grossPay,
             monthlySalary: profile.baseSalary
         }
     }
@@ -339,7 +339,7 @@ export class PayrollService {
         const weekdaysInMonth = this.getWeekdaysInMonth(period.startDate)
         const dailyRate = profile.baseSalary / weekdaysInMonth
         const hourlyRate = dailyRate / 8
-        const grossPay = Math.round((totalHours * hourlyRate) * 100) / 100
+        const grossPay = totalHours * hourlyRate
         const items = []
 
         items.push({

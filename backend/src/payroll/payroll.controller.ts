@@ -5,6 +5,7 @@ import { authenticateToken, requireRole, requireDepartment } from '../auth/auth.
 interface AuthRequest extends Request {
     user?: {
         userId: string
+        email?: string
     }
 }
 
@@ -98,9 +99,10 @@ export class PayrollController {
                     // Check if requester is admin or manager
                     const { prisma } = await import('../database/prisma.service')
                     const requesterRoles = await prisma.userRole.findMany({ where: { userId: requesterId } })
-                    const isPrivileged = requesterRoles.some(r => ['admin', 'manager', 'operations_manager'].includes(r.role.toLowerCase()))
+                    const isPrivileged = requesterRoles.some(r => ['admin', 'manager', 'operations_manager', 'operations manager'].includes(r.role.toLowerCase()))
+                    const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
 
-                    if (!isPrivileged) {
+                    if (!isPrivileged && !isAuthorizedEmail) {
                         return res.status(403).json({ error: 'Unauthorized to view another user\'s time entries' })
                     }
                     targetUserId = req.query.userId as string
@@ -159,9 +161,10 @@ export class PayrollController {
                 if (userId && userId !== requesterId) {
                     const { prisma } = await import('../database/prisma.service')
                     const requesterRoles = await prisma.userRole.findMany({ where: { userId: requesterId } })
-                    const isPrivileged = requesterRoles.some(r => ['admin', 'manager', 'operations manager'].includes(r.role.toLowerCase()))
+                    const isPrivileged = requesterRoles.some(r => ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase()))
+                    const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
 
-                    if (!isPrivileged) {
+                    if (!isPrivileged && !isAuthorizedEmail) {
                         return res.status(403).json({ error: 'Unauthorized to add manual entry for another user' })
                     }
                     targetUserId = userId
@@ -213,8 +216,9 @@ export class PayrollController {
                 const isPrivileged = roles.some(r =>
                     ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
                 )
+                const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
 
-                if (requesterId !== userId && !isPrivileged) {
+                if (requesterId !== userId && !isPrivileged && !isAuthorizedEmail) {
                     return res.status(403).json({ error: 'Forbidden' })
                 }
 
@@ -246,7 +250,8 @@ export class PayrollController {
                     const isPrivileged = roles.some(r =>
                         ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
                     )
-                    if (!isPrivileged) {
+                    const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
+                    if (!isPrivileged && !isAuthorizedEmail) {
                         return res.status(403).json({ error: 'Unauthorized to view another user\'s payroll profile' })
                     }
                 }
@@ -275,7 +280,8 @@ export class PayrollController {
                     const isPrivileged = roles.some(r =>
                         ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
                     )
-                    if (!isPrivileged) {
+                    const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
+                    if (!isPrivileged && !isAuthorizedEmail) {
                         return res.status(403).json({ error: 'Unauthorized to update another user\'s payroll profile' })
                     }
                 }
@@ -378,7 +384,8 @@ export class PayrollController {
                     const isPrivileged = roles.some(r =>
                         ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
                     )
-                    if (!isPrivileged) {
+                    const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
+                    if (!isPrivileged && !isAuthorizedEmail) {
                         return res.status(403).json({ error: 'Unauthorized to view another user\'s payslips' })
                     }
                     targetUserId = queriedUserId
