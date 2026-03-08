@@ -42,7 +42,7 @@ export class EmployeesService {
         const users = await this.prisma.user.findMany({
             where: {
                 status: {
-                    in: ['active', 'vacation', 'leave'],
+                    in: ['active', 'vacation', 'leave', 'verified'],
                 },
             },
             include: { employeeProfile: true },
@@ -123,7 +123,7 @@ export class EmployeesService {
         const user = await this.prisma.user.update({
             where: { id },
             data: {
-                status: 'active',
+                status: 'verified',
                 isApproved: true,
             },
         })

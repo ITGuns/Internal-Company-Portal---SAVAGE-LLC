@@ -35,7 +35,7 @@ export default function AddEmployeeModal({
   const [role, setRole] = useState("");
   const [department, setDepartment] = useState<string>(DEPARTMENTS[0]);
   const [salary, setSalary] = useState("");
-  const [status, setStatus] = useState<"active" | "vacation" | "leave" | "pending">("pending");
+  const [status, setStatus] = useState<"active" | "vacation" | "leave" | "pending" | "verified">("pending");
   const [avatarBase64, setAvatarBase64] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -288,11 +288,12 @@ export default function AddEmployeeModal({
             </label>
             <select
               value={status}
-              onChange={(e) => setStatus(e.target.value as "active" | "vacation" | "leave" | "pending")}
+              onChange={(e) => setStatus(e.target.value as any)}
               className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
               required
             >
               <option value="pending">Pending Approval</option>
+              <option value="verified">Verified</option>
               <option value="active">Active</option>
               <option value="vacation">On Vacation</option>
               <option value="leave">On Leave</option>

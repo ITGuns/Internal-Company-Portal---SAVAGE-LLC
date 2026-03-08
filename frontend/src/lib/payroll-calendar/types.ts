@@ -14,7 +14,7 @@ export interface Employee {
   hoursThisWeek: number;
   salary: number; // Monthly salary in PHP
   performance: number;
-  status: "active" | "vacation" | "leave" | "pending";
+  status: "active" | "vacation" | "leave" | "pending" | "verified";
   // Extended fields for profile panel
   phone?: string;
   email?: string;

@@ -27,7 +27,7 @@ export default function EmployeeEditModal({
   const [role, setRole] = useState("");
   const [department, setDepartment] = useState("");
   const [salary, setSalary] = useState("");
-  const [status, setStatus] = useState<"active" | "vacation" | "leave" | "pending">("active");
+  const [status, setStatus] = useState<"active" | "vacation" | "leave" | "pending" | "verified">("active");
 
   // Update form when employee changes
   useEffect(() => {
@@ -235,10 +235,11 @@ export default function EmployeeEditModal({
             </label>
             <select
               value={status}
-              onChange={(e) => setStatus(e.target.value as "active" | "vacation" | "leave" | "pending")}
+              onChange={(e) => setStatus(e.target.value as any)}
               className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
               required
             >
+              <option value="verified">Verified</option>
               <option value="active">Active</option>
               <option value="vacation">On Vacation</option>
               <option value="leave">On Leave</option>

@@ -34,7 +34,7 @@ export class UsersService {
         return this.prisma.user.findMany({
             where: {
                 status: {
-                    in: ['active', 'vacation', 'leave'],
+                    in: ['active', 'vacation', 'leave', 'verified'],
                 },
             },
             include: {
@@ -178,7 +178,7 @@ export class UsersService {
         return this.prisma.user.findMany({
             where: {
                 status: {
-                    in: ['active', 'vacation', 'leave'],
+                    in: ['active', 'vacation', 'leave', 'verified'],
                 },
                 OR: [
                     { email: { contains: query, mode: 'insensitive' } },

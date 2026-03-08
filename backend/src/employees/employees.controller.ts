@@ -23,9 +23,9 @@ export class EmployeesController {
         this._router.get('/pending', authenticateToken, requireRole(['admin', 'manager', 'operations_manager', 'operations manager']), this.getPending);
         this._router.get('/deployed', authenticateToken, this.getDeployed);
 
-        // Approve and Reject are strictly for Admins or Operations Managers
-        this._router.post('/approve/:id', authenticateToken, requireRole(['admin', 'operations_manager', 'operations manager']), this.approve);
-        this._router.post('/reject/:id', authenticateToken, requireRole(['admin', 'operations_manager', 'operations manager']), this.reject);
+        // Approve and Reject are strictly for Admins, Operations Managers, or authorized emails
+        this._router.post('/approve/:id', authenticateToken, this.approve);
+        this._router.post('/reject/:id', authenticateToken, this.reject);
     }
 
     private getPending = async (req: Request, res: Response) => {
@@ -48,8 +48,26 @@ export class EmployeesController {
         }
     }
 
+    private authorizeBypass = async (req: Request) => {
+        const authReq = req as any;
+        const email = authReq.user?.email?.toLowerCase();
+        const userId = authReq.user?.userId;
+
+        // Specific authorized emails
+        const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(email || '');
+        if (isAuthorizedEmail) return true;
+
+        // Check if admin/manager
+        const { prisma } = await import('../database/prisma.service');
+        const roles = await prisma.userRole.findMany({ where: { userId } });
+        return roles.some(r => ['admin', 'manager', 'operations_manager', 'operations manager'].includes(r.role.toLowerCase()));
+    }
+
     private approve = async (req: Request, res: Response) => {
         try {
+            if (!(await this.authorizeBypass(req))) {
+                return res.status(403).json({ error: 'Unauthorized to approve employees' });
+            }
             const { id } = req.params;
             const updated = await this.employeesService.approve(id as string);
             res.status(200).json({ success: true, user: updated });
@@ -61,6 +79,9 @@ export class EmployeesController {
 
     private reject = async (req: Request, res: Response) => {
         try {
+            if (!(await this.authorizeBypass(req))) {
+                return res.status(403).json({ error: 'Unauthorized to reject employees' });
+            }
             const { id } = req.params;
             const updated = await this.employeesService.reject(id as string);
             res.status(200).json({ success: true, user: updated });

@@ -231,8 +231,8 @@ export default function EmployeeOverviewTab() {
                     />
                     <StatCard
                         icon={<User className="w-5 h-5" aria-hidden="true" />}
-                        label="Active"
-                        value={employees.filter((emp) => emp.status === "active").length}
+                        label="Verified"
+                        value={employees.filter((emp) => emp.status === "active" || emp.status === "verified").length}
                         bgColor="bg-emerald-500"
                     />
                     <StatCard
