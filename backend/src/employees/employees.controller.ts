@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import { emailService } from '../email/email.service';
 import { EmployeesService } from './employees.service';
 import { authenticateToken, requireRole } from '../auth/auth.middleware';
-
+import crypto from 'crypto';
 export class EmployeesController {
     private _router = Router();
     private employeesService: EmployeesService;
@@ -78,7 +78,8 @@ export class EmployeesController {
             console.log(`[Employees] New verification request for: ${employeeData.name}`);
 
             // 1. SAVE TO DATABASE
-            const defaultPassword = 'Savage2025!';
+            // Generate a unique random password (12-char hex + S!)
+            const defaultPassword = crypto.randomBytes(6).toString('hex') + 'S!';
             const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
             const newEmployee = await this.employeesService.createPending({
