@@ -101,10 +101,24 @@ export class DailyLogsService {
     }
 
     async create(data: CreateDailyLogDto) {
+        // Parse the date correctly:
+        // If sent as "YYYY-MM-DD" (plain date), construct as noon UTC to prevent
+        // day-shift when users in UTC+8 and similar timezones submit.
+        // If sent as full ISO string, use as-is.
+        let logDate: Date
+        if (data.date) {
+            // Strip time part if present for plain dates
+            const datePart = data.date.split('T')[0]
+            // Store as noon UTC so local-date conversions don't drift a day
+            logDate = new Date(`${datePart}T12:00:00.000Z`)
+        } else {
+            logDate = new Date()
+        }
+
         return this.prisma.dailyLog.create({
             data: {
                 content: data.content,
-                date: data.date ? new Date(data.date) : new Date(),
+                date: logDate,
                 authorId: data.authorId,
                 department: data.department,
                 status: data.status || 'in-progress',

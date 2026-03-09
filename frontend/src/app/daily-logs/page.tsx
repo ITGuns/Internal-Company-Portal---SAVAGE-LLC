@@ -49,7 +49,10 @@ export default function DailyLogsPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Form state
-  const [formDate, setFormDate] = useState(new Date().toISOString().slice(0, 10));
+  const [formDate, setFormDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  });
   const [formDepartment, setFormDepartment] = useState('');
   const [formHours, setFormHours] = useState<number>(8);
   const [formStatus, setFormStatus] = useState<LogStatus>('in-progress');
@@ -57,6 +60,21 @@ export default function DailyLogsPage() {
   const [formTaskInput, setFormTaskInput] = useState('');
   const [formShiftNotes, setFormShiftNotes] = useState('');
   const [formLogType, setFormLogType] = useState<string>('daily');
+
+  // Set default department when user loads
+  useEffect(() => {
+    if (currentUser?.department && !formDepartment) {
+      setFormDepartment(currentUser.department);
+    }
+    // Also default filter if same department
+    if (currentUser?.department && departmentFilter === DEPARTMENTS[0]) {
+      // if not admin, default to their department
+      // if admin, keep "All Departments"
+      if (currentUser.role?.toLowerCase() !== 'admin') {
+        setDepartmentFilter(currentUser.department);
+      }
+    }
+  }, [currentUser]);
 
   const loadData = async () => {
     setLoading(true);
@@ -75,18 +93,24 @@ export default function DailyLogsPage() {
   const filteredLogs = logs.filter(log => {
     // Date filter
     if (dateFilter === 'today') {
-      const today = new Date().toISOString().slice(0, 10);
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       if (log.date !== today) return false;
     } else if (dateFilter === 'week') {
       const weekLogs = getThisWeekLogs(logs);
       if (!weekLogs.find(l => l.id === log.id)) return false;
+    } else if (dateFilter === 'month') {
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (log.date < fmt(firstDayOfMonth)) return false;
     }
 
     // Log type filter
     if (logTypeFilter !== 'all' && log.logType !== logTypeFilter) return false;
 
     // Department filter
-    if (log.department !== departmentFilter) return false;
+    if (departmentFilter !== 'All Departments' && log.department !== departmentFilter) return false;
 
     // User filter
     if (userFilter !== 'all' && log.authorId !== userFilter) return false;
@@ -172,8 +196,10 @@ export default function DailyLogsPage() {
   };
 
   const resetForm = () => {
-    setFormDate(new Date().toISOString().slice(0, 10));
-    setFormDepartment('');
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    setFormDate(today);
+    setFormDepartment(currentUser?.department || '');
     setFormHours(8);
     setFormStatus('in-progress');
     setFormTasks([]);

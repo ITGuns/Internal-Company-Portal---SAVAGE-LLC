@@ -69,9 +69,12 @@ export async function fetchDailyLogs(department?: string, status?: string, logTy
       const data = await res.json();
       return data.map((item: any) => {
         const mapped = mapApiLog(item);
-        // Ensure date is YYYY-MM-DD
-        if (mapped.date.includes('T')) {
-          mapped.date = mapped.date.split('T')[0];
+        // Ensure date is YYYY-MM-DD in LOCAL time (not UTC)
+        // Prisma returns full ISO strings like "2026-03-09T16:00:00.000Z"
+        // We must convert to local date string, not just split on T (which is UTC)
+        if (mapped.date) {
+          const d = new Date(mapped.date);
+          mapped.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         }
         return mapped;
       });
@@ -98,7 +101,7 @@ export async function createDailyLog(
     const payload = {
       content: `Daily Log - ${date}`, // Generated content
       department,
-      date: new Date(date).toISOString(), // Send as ISO
+      date, // Send as plain YYYY-MM-DD — backend stores as noon UTC to avoid day-shift
       hoursLogged,
       tasks, // Send JSON
       status,
@@ -221,7 +224,9 @@ export function getLogsByStatus(logs: DailyLog[], status: LogStatus): DailyLog[]
  * Get logs for today
  */
 export function getTodayLogs(logs: DailyLog[]): DailyLog[] {
-  const today = new Date().toISOString().slice(0, 10);
+  // Use local date (not UTC) so users outside UTC see the correct "today"
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   return getLogsByDateRange(logs, today, today);
 }
 
@@ -235,11 +240,10 @@ export function getThisWeekLogs(logs: DailyLog[]): DailyLog[] {
   const endOfWeek = new Date(startOfWeek);
   endOfWeek.setDate(startOfWeek.getDate() + 6);
 
-  return getLogsByDateRange(
-    logs,
-    startOfWeek.toISOString().slice(0, 10),
-    endOfWeek.toISOString().slice(0, 10)
-  );
+  // Use local date strings
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  return getLogsByDateRange(logs, fmt(startOfWeek), fmt(endOfWeek));
 }
 
 /**
