@@ -12,6 +12,10 @@
     "prisma:studio": "dotenv -e .env -- prisma studio",
     "prisma:reset": "dotenv -e .env -- prisma migrate reset",
     "prisma:seed": "dotenv -e .env -- ts-node prisma/seed.ts",
+    "init-chat": "ts-node init_chat.ts",
+    "fix-users": "ts-node fix_users.ts",
+    "check-users": "ts-node check_users.ts",
+    "fix-final": "ts-node fix_final.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

@@ -5,7 +5,9 @@ import { io, Socket } from 'socket.io-client'
 import { APP_CONFIG } from '@/lib/config'
 import { STORAGE_KEYS, SOCKET_EVENTS } from '@/lib/constants'
 
-const SOCKET_URL = APP_CONFIG.wsUrl.replace('ws://', 'http://');
+const SOCKET_URL = APP_CONFIG.wsUrl
+    .replace('ws://', 'http://')
+    .replace('wss://', 'https://');
 
 export interface Notification {
     id: string

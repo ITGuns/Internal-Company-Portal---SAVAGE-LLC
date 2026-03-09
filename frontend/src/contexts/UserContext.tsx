@@ -81,6 +81,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
               setUser(prev => {
                 const hasChanged = prev?.id !== data.user.id ||
                   prev?.email !== data.user.email ||
+                  prev?.name !== data.user.name ||
+                  prev?.avatar !== data.user.avatar ||
                   prev?.role !== data.user.role ||
                   prev?.isApproved !== data.user.isApproved ||
                   prev?.status !== data.user.status;

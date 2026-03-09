@@ -372,11 +372,11 @@ export default function DashboardPage() {
                     placeholder="Type a message..."
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    disabled={!isConnected || !activeConversation}
+                    disabled={!activeConversation}
                   />
                   <button
                     type="submit"
-                    disabled={!newMessage.trim() || sending || !isConnected}
+                    disabled={!newMessage.trim() || sending}
                     aria-label="Send message"
                     className="p-2 rounded bg-[var(--accent)] text-white hover:opacity-90 disabled:opacity-30 transition-all active:scale-95"
                   >
