@@ -22,6 +22,19 @@ export class ChatController {
             }
         })
 
+        // Get total unread message count
+        router.get('/unread-count', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                // @ts-ignore
+                const userId = (req as AuthRequest).user.userId
+                const count = await this.service.getUnreadCount(userId)
+                res.json({ count })
+            } catch (error) {
+                console.error(error)
+                res.status(500).json({ error: 'Failed to count unread messages' })
+            }
+        })
+
         // Create a new conversation
         router.post('/', authenticateToken, async (req: Request, res: Response) => {
             try {

@@ -165,17 +165,30 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const loadHistorical = async () => {
             try {
-                const res = await apiFetch('/notifications')
-                if (!res.ok) return
-                const data: Notification[] = await res.json()
-                const readIds = getReadIds()
-                const shaped = data.map(n => ({ ...n, read: readIds.has(n.id) }))
-                setNotifications(prev => {
-                    // Merge: keep existing socket ones on top, add historical below without duplicates
-                    const existingIds = new Set(prev.map(n => n.id))
-                    const newOnes = shaped.filter(n => !existingIds.has(n.id))
-                    return [...prev, ...newOnes]
-                })
+                // Fetch general notifications AND actual unread chat count in parallel
+                const [notifRes, chatRes] = await Promise.all([
+                    apiFetch('/notifications'),
+                    apiFetch('/chat/unread-count')
+                ]);
+
+                if (notifRes.ok) {
+                    const data: Notification[] = await notifRes.json()
+                    const readIds = getReadIds()
+                    const shaped = data.map(n => ({ ...n, read: readIds.has(n.id) }))
+                    setNotifications(prev => {
+                        // Merge: keep existing socket ones on top, add historical below without duplicates
+                        const existingIds = new Set(prev.map(n => n.id))
+                        const newOnes = shaped.filter(n => !existingIds.has(n.id))
+                        return [...prev, ...newOnes]
+                    })
+                }
+
+                if (chatRes.ok) {
+                    const chatData = await chatRes.json()
+                    if (chatData.count !== undefined && chatData.count > 0) {
+                        setUnreadChatCount(prev => prev === 0 ? chatData.count : prev)
+                    }
+                }
             } catch {
                 // Silently ignore — user still gets live socket notifications
             }

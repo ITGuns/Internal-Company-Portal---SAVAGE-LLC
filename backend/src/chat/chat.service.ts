@@ -291,4 +291,33 @@ export class ChatService {
         // For now, let's keep it simple. If valid participants remain, they keep the history.
         return true
     }
+
+    /**
+     * Get total unread messages count across all conversations
+     */
+    async getUnreadCount(userId: string): Promise<number> {
+        // Query all participant records for this user
+        const participants = await this.prisma.participant.findMany({
+            where: { userId },
+            select: { conversationId: true, lastReadAt: true }
+        });
+
+        if (participants.length === 0) return 0;
+
+        let total = 0;
+        // This could be optimized into a raw SQL query, but loop + find count is fine for now
+        // since active conversations per user is typically small.
+        await Promise.all(participants.map(async (p) => {
+            const count = await this.prisma.message.count({
+                where: {
+                    conversationId: p.conversationId,
+                    createdAt: { gt: p.lastReadAt },
+                    senderId: { not: userId } // Don't count their own messages
+                }
+            });
+            total += count;
+        }));
+
+        return total;
+    }
 }
