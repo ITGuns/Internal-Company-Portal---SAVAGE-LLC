@@ -35,7 +35,7 @@ export class RolesController {
         router.post(
             '/',
             authenticateToken,
-            requireRole('admin'),
+            requireRole('overlord'),
             async (req: Request, res: Response, next: NextFunction) => {
                 try {
                     const { name, departmentId } = req.body
@@ -65,7 +65,7 @@ export class RolesController {
         router.delete(
             '/:id',
             authenticateToken,
-            requireRole('admin'),
+            requireRole('overlord'),
             async (req: Request, res: Response, next: NextFunction) => {
                 try {
                     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id

@@ -63,7 +63,7 @@ export class UsersController {
                 // Check authorization: must be self or admin
                 if (requesterId !== id) {
                     const userRoles = await this.service.getUserRoles(requesterId!)
-                    const isAdmin = userRoles.some(r => r.role === 'admin')
+                    const isAdmin = userRoles.some(r => r.role === 'overlord')
                     if (!isAdmin) {
                         return res.status(403).json({ error: 'Unauthorized to update another user\'s avatar' })
                     }
@@ -115,8 +115,8 @@ export class UsersController {
             }
         })
 
-        // Create user (Admin only)
-        router.post('/', authenticateToken, requireRole('admin'), async (req: Request, res: Response) => {
+        // Create user (Overlord only)
+        router.post('/', authenticateToken, requireRole('overlord'), async (req: Request, res: Response) => {
             try {
                 const { email, name, avatar } = req.body
 
@@ -162,7 +162,7 @@ export class UsersController {
                     // Check if requester is admin or operations_manager
                     const userRoles = await this.service.getUserRoles(requesterId!)
                     const isPrivileged = userRoles.some(r =>
-                        r.role === 'admin' ||
+                        r.role === 'overlord' ||
                         r.role === 'operations_manager' ||
                         r.role === 'Operations Manager' ||
                         r.role === 'Chief Operations Officer'
@@ -231,8 +231,8 @@ export class UsersController {
             }
         })
 
-        // Delete user (Admin or Operations Manager)
-        router.delete('/:id', authenticateToken, requireRole(['admin', 'operations_manager']), async (req: Request, res: Response) => {
+        // Delete user (Overlord or Operations Manager)
+        router.delete('/:id', authenticateToken, requireRole(['overlord', 'operations_manager']), async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
 
@@ -250,7 +250,7 @@ export class UsersController {
         })
 
         // Assign role to user
-        router.post('/:id/roles', authenticateToken, requireRole('admin'), async (req: Request, res: Response) => {
+        router.post('/:id/roles', authenticateToken, requireRole('overlord'), async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
                 const { role, departmentId } = req.body
@@ -267,7 +267,7 @@ export class UsersController {
         })
 
         // Remove role from user
-        router.delete('/:id/roles/:role', authenticateToken, requireRole('admin'), async (req: Request, res: Response) => {
+        router.delete('/:id/roles/:role', authenticateToken, requireRole('overlord'), async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
                 const role = Array.isArray(req.params.role) ? req.params.role[0] : req.params.role

@@ -168,7 +168,7 @@ export class AuthController {
 
                 // Map roles for cleaner frontend usage
                 const roleList = user.roles.map(r => r.role)
-                const primaryRole = roleList.includes('admin') ? 'admin' : roleList[0] || 'member'
+                const primaryRole = roleList.includes('overlord') ? 'overlord' : roleList[0] || 'member'
 
                 res.json({
                     success: true,
@@ -229,7 +229,7 @@ export class AuthController {
 
                 // Map roles for cleaner frontend usage
                 const roleList = user.roles.map(r => r.role)
-                const primaryRole = roleList.includes('admin') ? 'admin' : roleList[0] || 'member'
+                const primaryRole = roleList.includes('overlord') ? 'overlord' : roleList[0] || 'member'
 
                 res.json({
                     user: {
@@ -284,8 +284,8 @@ export class AuthController {
                     user = await prisma.user.create({
                         data: {
                             email,
-                            name: 'Admin User',
-                            avatar: `https://ui-avatars.com/api/?name=Admin+User&background=random`,
+                            name: 'Overlord',
+                            avatar: `https://ui-avatars.com/api/?name=Overlord&background=random`,
                             status: 'active',
                             isApproved: true
                         },
@@ -293,14 +293,14 @@ export class AuthController {
                     })
                 }
 
-                // Ensure the user has the 'admin' role in UserRole table for RBAC to work
-                const existingRole = user.roles.find(r => r.role === 'admin' && r.departmentId === null);
+                // Ensure the user has the 'overlord' role in UserRole table for RBAC to work
+                const existingRole = user.roles.find(r => r.role === 'overlord' && r.departmentId === null);
 
                 if (!existingRole) {
                     await prisma.userRole.create({
                         data: {
                             userId: user.id,
-                            role: 'admin',
+                            role: 'overlord',
                             departmentId: null
                         }
                     })
@@ -318,7 +318,7 @@ export class AuthController {
                 })
 
                 const roleList = user!.roles.map(r => r.role)
-                const primaryRole = roleList.includes('admin') ? 'admin' : roleList[0] || 'member'
+                const primaryRole = roleList.includes('overlord') ? 'overlord' : roleList[0] || 'member'
 
                 res.json({
                     success: true,

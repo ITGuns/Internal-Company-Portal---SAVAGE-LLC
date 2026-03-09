@@ -166,11 +166,11 @@ async function main() {
         false
     )
 
-    // 7. Admin Account (Savage Admin)
+    // 7. Admin Account (Overlord)
     await createUser(
         'admin@savage.com',
-        'Savage Admin',
-        'Administrator',
+        'Overlord',
+        'Overlord',
         operations.id,
         'active',
         true

@@ -148,9 +148,9 @@ export function requireDepartment(allowedDepartments: string | string[]) {
                 }
             })
 
-            // Also check if user is a global 'admin'
+            // Also check if user is a global 'overlord'
             const isGlobalAdmin = await prisma.userRole.findFirst({
-                where: { userId: authReq.user!.userId, role: 'admin', departmentId: null }
+                where: { userId: authReq.user!.userId, role: 'overlord', departmentId: null }
             });
 
             // Hardcoded bypass for operations leads as requested

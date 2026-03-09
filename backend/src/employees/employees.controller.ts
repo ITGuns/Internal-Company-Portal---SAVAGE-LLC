@@ -20,7 +20,7 @@ export class EmployeesController {
 
         // Approval Workflow - PROTECTED
         // Managers or Admins can see pending and deployed lists
-        this._router.get('/pending', authenticateToken, requireRole(['admin', 'manager', 'operations_manager', 'operations manager']), this.getPending);
+        this._router.get('/pending', authenticateToken, requireRole(['overlord', 'manager', 'operations_manager', 'operations manager']), this.getPending);
         this._router.get('/deployed', authenticateToken, this.getDeployed);
 
         // Approve and Reject are strictly for Admins, Operations Managers, or authorized emails
@@ -60,7 +60,7 @@ export class EmployeesController {
         // Check if admin/manager
         const { prisma } = await import('../database/prisma.service');
         const roles = await prisma.userRole.findMany({ where: { userId } });
-        return roles.some(r => ['admin', 'manager', 'operations_manager', 'operations manager'].includes(r.role.toLowerCase()));
+        return roles.some(r => ['overlord', 'manager', 'operations_manager', 'operations manager'].includes(r.role.toLowerCase()));
     }
 
     private approve = async (req: Request, res: Response) => {

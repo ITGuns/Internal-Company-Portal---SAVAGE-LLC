@@ -99,7 +99,7 @@ export class PayrollController {
                     // Check if requester is admin or manager
                     const { prisma } = await import('../database/prisma.service')
                     const requesterRoles = await prisma.userRole.findMany({ where: { userId: requesterId } })
-                    const isPrivileged = requesterRoles.some(r => ['admin', 'manager', 'operations_manager', 'operations manager'].includes(r.role.toLowerCase()))
+                    const isPrivileged = requesterRoles.some(r => ['overlord', 'manager', 'operations_manager', 'operations manager'].includes(r.role.toLowerCase()))
                     const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
 
                     if (!isPrivileged && !isAuthorizedEmail) {
@@ -161,7 +161,7 @@ export class PayrollController {
                 if (userId && userId !== requesterId) {
                     const { prisma } = await import('../database/prisma.service')
                     const requesterRoles = await prisma.userRole.findMany({ where: { userId: requesterId } })
-                    const isPrivileged = requesterRoles.some(r => ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase()))
+                    const isPrivileged = requesterRoles.some(r => ['overlord', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase()))
                     const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
 
                     if (!isPrivileged && !isAuthorizedEmail) {
@@ -214,7 +214,7 @@ export class PayrollController {
                 const { prisma } = await import('../database/prisma.service')
                 const roles = await prisma.userRole.findMany({ where: { userId: requesterId } })
                 const isPrivileged = roles.some(r =>
-                    ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
+                    ['overlord', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
                 )
                 const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
 
@@ -250,7 +250,7 @@ export class PayrollController {
                     const { prisma } = await import('../database/prisma.service')
                     const roles = await prisma.userRole.findMany({ where: { userId: requesterId } })
                     const isPrivileged = roles.some(r =>
-                        ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
+                        ['overlord', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
                     )
                     const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
                     if (!isPrivileged && !isAuthorizedEmail) {
@@ -280,7 +280,7 @@ export class PayrollController {
                     const { prisma } = await import('../database/prisma.service')
                     const roles = await prisma.userRole.findMany({ where: { userId: requesterId } })
                     const isPrivileged = roles.some(r =>
-                        ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
+                        ['overlord', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
                     )
                     const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
                     if (!isPrivileged && !isAuthorizedEmail) {
@@ -319,7 +319,7 @@ export class PayrollController {
         })
 
         // Create Payroll Period (Admin / Ops Manager only)
-        router.post('/periods', authenticateToken, requireRole(['admin', 'operations_manager']), async (req: Request, res: Response) => {
+        router.post('/periods', authenticateToken, requireRole(['overlord', 'operations_manager']), async (req: Request, res: Response) => {
             try {
                 const { startDate, endDate, payDate } = req.body
                 const end = new Date(endDate);
@@ -339,7 +339,7 @@ export class PayrollController {
         router.post(
             '/periods/:periodId/generate/:userId',
             authenticateToken,
-            requireRole(['admin', 'operations_manager']), // Restricted
+            requireRole(['overlord', 'operations_manager']), // Restricted
             async (req: Request, res: Response) => {
                 try {
                     const periodId = Array.isArray(req.params.periodId) ? req.params.periodId[0] : req.params.periodId
@@ -358,7 +358,7 @@ export class PayrollController {
         router.post(
             '/periods/:periodId/generate-all',
             authenticateToken,
-            requireRole(['admin', 'operations_manager']),
+            requireRole(['overlord', 'operations_manager']),
             async (req: Request, res: Response) => {
                 try {
                     const periodId = Array.isArray(req.params.periodId) ? req.params.periodId[0] : req.params.periodId
@@ -386,7 +386,7 @@ export class PayrollController {
                     const { prisma } = await import('../database/prisma.service')
                     const roles = await prisma.userRole.findMany({ where: { userId: requesterId } })
                     const isPrivileged = roles.some(r =>
-                        ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
+                        ['overlord', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
                     )
                     const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
                     if (!isPrivileged && !isAuthorizedEmail) {
@@ -404,7 +404,7 @@ export class PayrollController {
         })
 
         // Get Payroll Reports (Admin / Ops Manager only)
-        router.get('/reports', authenticateToken, requireRole(['admin', 'operations_manager']), async (req: Request, res: Response) => {
+        router.get('/reports', authenticateToken, requireRole(['overlord', 'operations_manager']), async (req: Request, res: Response) => {
             try {
                 const stats = await this.service.getReportStats()
                 res.json(stats)
@@ -415,7 +415,7 @@ export class PayrollController {
         })
 
         // Get ALL payslips across all employees - Payslip Archive (Admin / Ops Manager only)
-        router.get('/payslips/all', authenticateToken, requireRole(['admin', 'operations_manager']), async (req: Request, res: Response) => {
+        router.get('/payslips/all', authenticateToken, requireRole(['overlord', 'operations_manager']), async (req: Request, res: Response) => {
             try {
                 const payslips = await this.service.getAllPayslips()
                 res.json(payslips)
