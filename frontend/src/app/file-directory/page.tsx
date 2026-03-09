@@ -8,6 +8,7 @@ import FolderCard from '@/components/file-directory/FolderCard';
 import AddFolderModal from '@/components/file-directory/AddFolderModal';
 import DriveFileViewer from '@/components/file-directory/DriveFileViewer';
 import { useToast } from '@/components/ToastProvider';
+import { useUser } from '@/contexts/UserContext';
 import {
   Folder,
   Plus,
@@ -39,6 +40,7 @@ interface DriveMode {
 
 export default function FileDirectoryPage() {
   const toast = useToast();
+  const { user } = useUser();
 
   // Standard navigation state (mock/custom folder tree)
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -50,12 +52,28 @@ export default function FileDirectoryPage() {
   // UI state
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(getViewPreference());
   const [searchQuery, setSearchQuery] = useState('');
+  // Default to the logged-in user's department so they see their folders
+  // + all "All Departments" folders automatically.
+  // Falls back to 'All Departments' (global view) if department is unknown.
   const [departmentFilter, setDepartmentFilter] = useState<string>('All Departments');
   const [sortBy, setSortBy] = useState<'name' | 'department' | 'date'>('name');
   const [showAddModal, setShowAddModal] = useState(false);
 
   // Data
   const [folders, setFolders] = useState<FileDirectory[]>([]);
+
+  // When user loads, set the department filter based on their role:
+  // - Admins see everything (All Departments / global view)
+  // - Regular employees default to their own department
+  //   (they still see "All Departments" folders thanks to filterFolders logic)
+  useEffect(() => {
+    if (!user) return;
+    if (user.role === 'admin') {
+      setDepartmentFilter('All Departments'); // admins see all folders
+    } else if (user.department) {
+      setDepartmentFilter(user.department);
+    }
+  }, [user?.role, user?.department]);
 
   // Load folders when navigation changes
   useEffect(() => {
@@ -265,11 +283,11 @@ export default function FileDirectoryPage() {
                 No folders found
               </h3>
               <p className="text-sm text-[var(--muted)] mb-6">
-                {searchQuery || departmentFilter
+                {searchQuery || (departmentFilter && departmentFilter !== 'All Departments')
                   ? 'Try adjusting your filters or search query'
                   : 'Get started by adding your first Drive folder'}
               </p>
-              {!searchQuery && !departmentFilter && (
+              {!searchQuery && (!departmentFilter || departmentFilter === 'All Departments') && (
                 <Button
                   variant="primary"
                   icon={<Plus className="w-4 h-4" />}

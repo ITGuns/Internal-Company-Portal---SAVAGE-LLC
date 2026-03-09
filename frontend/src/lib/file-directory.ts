@@ -139,7 +139,17 @@ export function filterFolders(
   return folders.filter(f => {
     const matchesSearch = !searchQuery ||
       f.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesDept = !departmentFilter || f.department === departmentFilter;
+
+    // "All Departments" folders are always visible to every employee,
+    // regardless of which department filter is active.
+    // When departmentFilter is empty / 'All Departments' (Global view),
+    // show everything.
+    const matchesDept =
+      !departmentFilter ||
+      departmentFilter === 'All Departments' ||
+      f.department === 'All Departments' ||
+      f.department === departmentFilter;
+
     return matchesSearch && matchesDept;
   });
 }
