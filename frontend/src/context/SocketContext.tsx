@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, Rea
 import { io, Socket } from 'socket.io-client'
 import { APP_CONFIG } from '@/lib/config'
 import { STORAGE_KEYS, SOCKET_EVENTS } from '@/lib/constants'
+import { apiFetch } from '@/lib/api'
 
 const SOCKET_URL = APP_CONFIG.wsUrl
     .replace('ws://', 'http://')
@@ -23,7 +24,8 @@ interface SocketContextType {
     socket: Socket | null
     isConnected: boolean
     notifications: Notification[]
-    unreadCount: number
+    unreadCount: number        // total: notifications + chat
+    unreadChatCount: number    // chat messages only — for sidebar badge
     connect: (userId: string) => void
     disconnect: () => void
     markAsRead: (id: string) => void
@@ -117,21 +119,69 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         }
     }, [])
 
+    // Persist/retrieve read state via localStorage
+    const getReadIds = (): Set<string> => {
+        try {
+            const raw = typeof window !== 'undefined' ? localStorage.getItem('notification_read_ids') : null
+            return new Set(raw ? JSON.parse(raw) : [])
+        } catch { return new Set() }
+    }
+    const saveReadIds = (ids: Set<string>) => {
+        try {
+            if (typeof window !== 'undefined')
+                localStorage.setItem('notification_read_ids', JSON.stringify(Array.from(ids)))
+        } catch { }
+    }
+
     const markAsRead = (id: string) => {
         setNotifications(prev =>
             prev.map(n => n.id === id ? { ...n, read: true } : n)
         )
+        // Persist read state
+        const ids = getReadIds()
+        ids.add(id)
+        saveReadIds(ids)
     }
 
     const markAllAsRead = () => {
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+        setNotifications(prev => {
+            const updated = prev.map(n => ({ ...n, read: true }))
+            const ids = getReadIds()
+            updated.forEach(n => ids.add(n.id))
+            saveReadIds(ids)
+            return updated
+        })
     }
 
     const clearNotifications = () => {
         setNotifications([])
+        if (typeof window !== 'undefined') localStorage.removeItem('notification_read_ids')
     }
 
     const clearChatBadge = () => setUnreadChatCount(0)
+
+
+    // Fetch historical notifications from REST API on mount
+    useEffect(() => {
+        const loadHistorical = async () => {
+            try {
+                const res = await apiFetch('/notifications')
+                if (!res.ok) return
+                const data: Notification[] = await res.json()
+                const readIds = getReadIds()
+                const shaped = data.map(n => ({ ...n, read: readIds.has(n.id) }))
+                setNotifications(prev => {
+                    // Merge: keep existing socket ones on top, add historical below without duplicates
+                    const existingIds = new Set(prev.map(n => n.id))
+                    const newOnes = shaped.filter(n => !existingIds.has(n.id))
+                    return [...prev, ...newOnes]
+                })
+            } catch {
+                // Silently ignore — user still gets live socket notifications
+            }
+        }
+        loadHistorical()
+    }, [])
 
     // Auto-connect and monitor user changes
     useEffect(() => {
@@ -169,6 +219,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             isConnected,
             notifications,
             unreadCount,
+            unreadChatCount,
             connect,
             disconnect,
             markAsRead,

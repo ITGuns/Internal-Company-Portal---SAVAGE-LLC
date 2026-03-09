@@ -2,8 +2,9 @@
 
 import React from 'react'
 import { Notification } from '@/context/SocketContext'
-import { Bell, X, Check, CheckCheck } from 'lucide-react'
+import { Bell, X, Check, CheckCheck, MessageSquare, Megaphone, ClipboardList, Info, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
 import Button from './Button'
+import Link from 'next/link'
 
 interface NotificationSidebarProps {
     isOpen: boolean
@@ -12,6 +13,41 @@ interface NotificationSidebarProps {
     onMarkAsRead: (id: string) => void
     onMarkAllAsRead: () => void
     onClear: () => void
+}
+
+function typeIcon(n: Notification) {
+    if (n.id.startsWith('msg-')) return <MessageSquare className="w-4 h-4 text-blue-400" />
+    if (n.id.startsWith('ann-')) return <Megaphone className="w-4 h-4 text-purple-400" />
+    if (n.id.startsWith('task-')) return <ClipboardList className="w-4 h-4 text-orange-400" />
+    switch (n.type) {
+        case 'success': return <CheckCircle className="w-4 h-4 text-green-400" />
+        case 'warning': return <AlertTriangle className="w-4 h-4 text-yellow-400" />
+        case 'error': return <XCircle className="w-4 h-4 text-red-400" />
+        default: return <Info className="w-4 h-4 text-blue-400" />
+    }
+}
+
+function typeBg(n: Notification) {
+    if (n.id.startsWith('msg-')) return 'bg-blue-500/10 border-blue-500/20'
+    if (n.id.startsWith('ann-')) return 'bg-purple-500/10 border-purple-500/20'
+    if (n.id.startsWith('task-')) return 'bg-orange-500/10 border-orange-500/20'
+    switch (n.type) {
+        case 'success': return 'bg-green-500/10 border-green-500/20'
+        case 'warning': return 'bg-yellow-500/10 border-yellow-500/20'
+        case 'error': return 'bg-red-500/10 border-red-500/20'
+        default: return 'bg-blue-500/10 border-blue-500/20'
+    }
+}
+
+function relativeTime(dateStr: string) {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    const hours = Math.floor(diff / 3600000)
+    const days = Math.floor(diff / 86400000)
+    if (mins < 1) return 'just now'
+    if (mins < 60) return `${mins}m ago`
+    if (hours < 24) return `${hours}h ago`
+    return `${days}d ago`
 }
 
 export default function NotificationSidebar({
@@ -28,7 +64,7 @@ export default function NotificationSidebar({
 
     return (
         <>
-            {/* Backdrop with blur */}
+            {/* Backdrop */}
             <div
                 className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-300"
                 onClick={onClose}
@@ -36,22 +72,22 @@ export default function NotificationSidebar({
             />
 
             {/* Sidebar */}
-            <div 
-                className="fixed top-0 right-0 h-full w-[420px] bg-[var(--card-bg)] border-l border-[var(--border)] shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
-                style={{ zIndex: 10000, isolation: 'isolate' }}
+            <div
+                className="fixed top-0 right-0 h-full w-[420px] bg-[var(--card-bg)] border-l border-[var(--border)] shadow-2xl flex flex-col"
+                style={{ zIndex: 10000, isolation: 'isolate', animation: 'slideInRight 0.25s cubic-bezier(0.16,1,0.3,1)' }}
             >
                 {/* Header */}
-                <div className="p-6 border-b border-[var(--border)] bg-[var(--card-surface)]">
-                    <div className="flex items-center justify-between mb-4">
+                <div className="p-5 border-b border-[var(--border)] bg-[var(--card-surface)]">
+                    <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-[var(--background)] flex items-center justify-center">
-                                <Bell className="w-5 h-5 text-[var(--accent)]" />
+                            <div className="w-9 h-9 rounded-full bg-[var(--accent)]/10 flex items-center justify-center">
+                                <Bell className="w-4 h-4 text-[var(--accent)]" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-semibold">Notifications</h2>
-                                {unreadCount > 0 && (
-                                    <p className="text-xs text-[var(--muted)]">{unreadCount} unread</p>
-                                )}
+                                <h2 className="text-base font-semibold">Notifications</h2>
+                                <p className="text-xs text-[var(--muted)]">
+                                    {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up!'}
+                                </p>
                             </div>
                         </div>
                         <button
@@ -97,90 +133,78 @@ export default function NotificationSidebar({
                             </div>
                             <p className="text-sm font-medium text-[var(--foreground)] mb-1">No notifications yet</p>
                             <p className="text-xs text-[var(--muted)] max-w-[280px]">
-                                We&apos;ll let you know when something important happens.
+                                We'll let you know when something important happens.
                             </p>
                         </div>
                     ) : (
-                        <div className="divide-y divide-[var(--border)]">
-                            {notifications.map((notification) => (
-                                <div
-                                    key={notification.id}
-                                    className={`p-4 hover:bg-[var(--card-surface)] transition group ${
-                                        !notification.read ? 'bg-[rgba(var(--accent-rgb),0.05)]' : ''
-                                    }`}
-                                >
-                                    <div className="flex items-start gap-3">
-                                        {/* Unread indicator */}
-                                        <div
-                                            className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${
-                                                !notification.read ? 'bg-blue-500' : 'bg-transparent'
-                                            }`}
-                                        />
-
-                                        <div className="flex-1 space-y-1.5">
-                                            <div className="flex items-start justify-between gap-2">
-                                                <p
-                                                    className={`text-sm leading-snug ${
-                                                        !notification.read
-                                                            ? 'font-semibold text-[var(--foreground)]'
-                                                            : 'font-medium text-[var(--muted-foreground)]'
-                                                    }`}
-                                                >
-                                                    {notification.title}
-                                                </p>
-                                                <span className="text-[10px] text-[var(--muted)] whitespace-nowrap">
-                                                    {new Date(notification.createdAt).toLocaleTimeString([], {
-                                                        hour: '2-digit',
-                                                        minute: '2-digit'
-                                                    })}
-                                                </span>
+                        <div className="p-3 space-y-2">
+                            {notifications.map((notification) => {
+                                const content = (
+                                    <div
+                                        key={notification.id}
+                                        className={`group relative rounded-xl border p-3.5 transition-all cursor-pointer ${typeBg(notification)} ${!notification.read ? 'opacity-100' : 'opacity-60'}`}
+                                        onClick={() => !notification.read && onMarkAsRead(notification.id)}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            {/* Type icon */}
+                                            <div className="w-8 h-8 rounded-lg bg-[var(--background)]/80 flex items-center justify-center shrink-0 mt-0.5">
+                                                {typeIcon(notification)}
                                             </div>
 
-                                            <p className="text-xs text-[var(--muted)] leading-relaxed">
-                                                {notification.message}
-                                            </p>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-start justify-between gap-2 mb-1">
+                                                    <p className={`text-sm leading-snug truncate ${!notification.read ? 'font-semibold text-[var(--foreground)]' : 'font-medium text-[var(--muted-foreground)]'}`}>
+                                                        {notification.title}
+                                                    </p>
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                        {!notification.read && (
+                                                            <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                                                        )}
+                                                        <span className="text-[10px] text-[var(--muted)] whitespace-nowrap">
+                                                            {relativeTime(notification.createdAt)}
+                                                        </span>
+                                                    </div>
+                                                </div>
 
-                                            <div className="flex items-center gap-2 pt-1">
-                                                {notification.link && (
-                                                    <a
-                                                        href={notification.link}
-                                                        className="text-xs text-blue-500 hover:underline font-medium"
-                                                        onClick={onClose}
-                                                    >
-                                                        View Details →
-                                                    </a>
-                                                )}
+                                                <p className="text-xs text-[var(--muted)] leading-relaxed line-clamp-2">
+                                                    {notification.message}
+                                                </p>
                                             </div>
                                         </div>
 
+                                        {/* Mark as read hover action */}
                                         {!notification.read && (
                                             <button
-                                                onClick={() => onMarkAsRead(notification.id)}
-                                                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] transition"
+                                                onClick={(e) => { e.stopPropagation(); onMarkAsRead(notification.id) }}
+                                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-[var(--background)] text-[var(--muted)] hover:text-[var(--foreground)] transition"
                                                 title="Mark as read"
                                             >
-                                                <Check className="w-4 h-4" />
+                                                <Check className="w-3 h-3" />
                                             </button>
                                         )}
                                     </div>
-                                </div>
-                            ))}
+                                )
+
+                                // Wrap in link if it has one
+                                return notification.link ? (
+                                    <Link key={notification.id} href={notification.link} onClick={onClose}>
+                                        {content}
+                                    </Link>
+                                ) : (
+                                    <div key={notification.id}>{content}</div>
+                                )
+                            })}
                         </div>
                     )}
                 </div>
-
-                {/* Footer */}
-                {notifications.length > 0 && (
-                    <div className="p-4 border-t border-[var(--border)] bg-[var(--card-surface)]">
-                        <button
-                            onClick={onClose}
-                            className="w-full text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition py-2"
-                        >
-                            View All Notifications
-                        </button>
-                    </div>
-                )}
             </div>
+
+            <style jsx global>{`
+                @keyframes slideInRight {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            `}</style>
         </>
     )
 }

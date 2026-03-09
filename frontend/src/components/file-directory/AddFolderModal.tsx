@@ -6,13 +6,13 @@ import Button from '@/components/Button';
 import FormField from '@/components/forms/FormField';
 import { useToast } from '@/components/ToastProvider';
 import {
-  saveCustomFolder,
   isValidDriveLink,
   extractDriveFolderId,
   fetchDriveSubfolders,
   DEPARTMENTS,
   PRESET_FOLDER_COLORS,
 } from '@/lib/file-directory';
+import { apiFetch } from '@/lib/api';
 import type { DriveSubfolder } from '@/lib/file-directory';
 import type { FileDirectory, Department } from '@/lib/file-directory-types';
 import { FolderSearch, Loader2, CheckCircle2, FolderOpen, AlertCircle, Info } from 'lucide-react';
@@ -136,26 +136,38 @@ export default function AddFolderModal({
         return;
       }
 
-      // Save parent folder
-      const newFolder = saveCustomFolder({
-        name: folderName.trim(),
-        type: 'folder',
-        department,
-        driveLink: driveLink.trim(),
-        parentId: null,
-        customColor: customColor || undefined,
+      // Save parent folder to backend
+      const createRes = await apiFetch('/file-directory', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: folderName.trim(),
+          type: 'folder',
+          department,
+          driveLink: driveLink.trim(),
+          parentId: null,
+          customColor: customColor || undefined,
+        }),
       });
+
+      if (!createRes.ok) {
+        throw new Error('Failed to save folder');
+      }
+
+      const newFolder: FileDirectory = await createRes.json();
 
       // Save selected subfolders as children of the parent
       const subFoldersToSave = detectedSubfolders.filter(s => selectedSubfolders.has(s.id));
       for (const sub of subFoldersToSave) {
-        saveCustomFolder({
-          name: sub.name,
-          type: 'folder',
-          department,
-          driveLink: sub.driveLink,
-          parentId: newFolder.id,
-          customColor: customColor || undefined,
+        await apiFetch('/file-directory', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: sub.name,
+            type: 'folder',
+            department,
+            driveLink: sub.driveLink,
+            parentId: newFolder.id,
+            customColor: customColor || undefined,
+          }),
         });
       }
 

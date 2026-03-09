@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Header from '@/components/Header';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
@@ -9,6 +9,7 @@ import AddFolderModal from '@/components/file-directory/AddFolderModal';
 import DriveFileViewer from '@/components/file-directory/DriveFileViewer';
 import { useToast } from '@/components/ToastProvider';
 import { useUser } from '@/contexts/UserContext';
+import { apiFetch } from '@/lib/api';
 import {
   Folder,
   Plus,
@@ -17,20 +18,17 @@ import {
   List,
   ChevronRight,
   Home,
+  Loader2,
 } from 'lucide-react';
 import {
-  getRootFolders,
-  getChildren,
-  getBreadcrumbs,
   filterFolders,
   sortFolders,
   getViewPreference,
   saveViewPreference,
-  deleteCustomFolder,
   extractDriveFolderId,
   DEPARTMENTS,
 } from '@/lib/file-directory';
-import type { FileDirectory, Department } from '@/lib/file-directory-types';
+import type { FileDirectory } from '@/lib/file-directory-types';
 
 // Drive live mode state
 interface DriveMode {
@@ -38,13 +36,63 @@ interface DriveMode {
   folderName: string;
 }
 
+// ── API helpers ──────────────────────────────────────────────────────────────
+
+async function apiFolders(): Promise<FileDirectory[]> {
+  const res = await apiFetch('/file-directory');
+  if (!res.ok) throw new Error('Failed to fetch folders');
+  return res.json();
+}
+
+async function apiChildren(parentId: string): Promise<FileDirectory[]> {
+  const res = await apiFetch(`/file-directory/${parentId}/children`);
+  if (!res.ok) throw new Error('Failed to fetch children');
+  return res.json();
+}
+
+async function apiCreateFolder(data: {
+  name: string;
+  department: string;
+  driveLink?: string;
+  parentId?: string | null;
+  customColor?: string;
+}): Promise<FileDirectory> {
+  const res = await apiFetch('/file-directory', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to create folder');
+  return res.json();
+}
+
+async function apiDeleteFolder(id: string): Promise<void> {
+  const res = await apiFetch(`/file-directory/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to delete folder');
+}
+
+// ── Build breadcrumbs from folder list ──────────────────────────────────────
+
+function buildBreadcrumbs(allFolders: FileDirectory[], folderId: string | null): FileDirectory[] {
+  if (!folderId) return [];
+  const path: FileDirectory[] = [];
+  let current = allFolders.find(f => f.id === folderId);
+  while (current) {
+    path.unshift(current);
+    current = current.parentId ? allFolders.find(f => f.id === current!.parentId) : undefined;
+  }
+  return path;
+}
+
+// ── Page component ───────────────────────────────────────────────────────────
+
 export default function FileDirectoryPage() {
   const toast = useToast();
   const { user } = useUser();
 
-  // Standard navigation state (mock/custom folder tree)
+  // Navigation state
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<FileDirectory[]>([]);
+  const [allLoadedFolders, setAllLoadedFolders] = useState<FileDirectory[]>([]);
 
   // Drive Live Mode — when browsing a real Drive folder inline
   const [driveMode, setDriveMode] = useState<DriveMode | null>(null);
@@ -52,45 +100,54 @@ export default function FileDirectoryPage() {
   // UI state
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(getViewPreference());
   const [searchQuery, setSearchQuery] = useState('');
-  // Default to the logged-in user's department so they see their folders
-  // + all "All Departments" folders automatically.
-  // Falls back to 'All Departments' (global view) if department is unknown.
   const [departmentFilter, setDepartmentFilter] = useState<string>('All Departments');
   const [sortBy, setSortBy] = useState<'name' | 'department' | 'date'>('name');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Data
+  // Derived: visible folders after filters
   const [folders, setFolders] = useState<FileDirectory[]>([]);
 
-  // When user loads, set the department filter based on their role:
-  // - Admins see everything (All Departments / global view)
-  // - Regular employees default to their own department
-  //   (they still see "All Departments" folders thanks to filterFolders logic)
+  // Set department filter based on role once user loads
   useEffect(() => {
     if (!user) return;
     if (user.role === 'admin') {
-      setDepartmentFilter('All Departments'); // admins see all folders
+      setDepartmentFilter('All Departments'); // admins see everything
     } else if (user.department) {
       setDepartmentFilter(user.department);
     }
   }, [user?.role, user?.department]);
 
-  // Load folders when navigation changes
-  useEffect(() => {
-    const loadFolders = () => {
-      const newFolders = currentFolderId
-        ? getChildren(currentFolderId)
-        : getRootFolders();
+  // Load folders from backend
+  const loadFolders = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = currentFolderId
+        ? await apiChildren(currentFolderId)
+        : await apiFolders();
 
-      const filtered = filterFolders(newFolders, searchQuery, departmentFilter);
+      setAllLoadedFolders(prev => {
+        // Merge for breadcrumb building
+        const map = new Map(prev.map(f => [f.id, f]));
+        data.forEach(f => map.set(f.id, f));
+        return Array.from(map.values());
+      });
+
+      const filtered = filterFolders(data, searchQuery, departmentFilter);
       const sorted = sortFolders(filtered, sortBy);
-
       setFolders(sorted);
-      setBreadcrumbs(getBreadcrumbs(currentFolderId));
-    };
-
-    loadFolders();
+      setBreadcrumbs(buildBreadcrumbs(allLoadedFolders, currentFolderId));
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to load folders');
+    } finally {
+      setLoading(false);
+    }
   }, [currentFolderId, searchQuery, departmentFilter, sortBy]);
+
+  useEffect(() => {
+    loadFolders();
+  }, [loadFolders]);
 
   // Handle view mode change
   const handleViewChange = (mode: 'grid' | 'list') => {
@@ -98,27 +155,17 @@ export default function FileDirectoryPage() {
     saveViewPreference(mode);
   };
 
-  // Navigate into folder — enter Drive Live Mode for custom folders w/ real Drive links
+  // Navigate into folder
   const handleFolderClick = (folder: FileDirectory) => {
     const driveFolderId = folder.driveLink ? extractDriveFolderId(folder.driveLink) : null;
-    const mockChildren = getChildren(folder.id);
 
-    // Enter Drive Live Mode if folder has a valid Drive ID
     if (driveFolderId) {
       setDriveMode({ folderId: driveFolderId, folderName: folder.name });
       return;
     }
 
-    // Fallback: Mock folder navigation if no Drive ID but has children in code
-    if (mockChildren.length > 0) {
-      setCurrentFolderId(folder.id);
-      return;
-    }
-
-    // Final fallback: External link
-    if (folder.driveLink) {
-      window.open(folder.driveLink, '_blank');
-    }
+    // Navigate as sub-folder tree
+    setCurrentFolderId(folder.id);
   };
 
   // Navigate via breadcrumbs
@@ -128,24 +175,20 @@ export default function FileDirectoryPage() {
   };
 
   // Handle folder deletion
-  const handleDeleteFolder = (folderId: string) => {
-    if (confirm('Are you sure you want to remove this folder from the directory?')) {
-      deleteCustomFolder(folderId);
+  const handleDeleteFolder = async (folderId: string) => {
+    if (!confirm('Are you sure you want to remove this folder from the directory?')) return;
+    try {
+      await apiDeleteFolder(folderId);
       setFolders(prev => prev.filter(f => f.id !== folderId));
       toast.success('Folder removed');
+    } catch {
+      toast.error('Failed to remove folder');
     }
   };
 
   // Handle successful folder addition
   const handleFolderAdded = (newFolder: FileDirectory) => {
-    const newFolders = currentFolderId
-      ? getChildren(currentFolderId)
-      : getRootFolders();
-
-    const filtered = filterFolders(newFolders, searchQuery, departmentFilter);
-    const sorted = sortFolders(filtered, sortBy);
-    setFolders(sorted);
-
+    loadFolders(); // refresh from server
     toast.success(`"${newFolder.name}" added to directory`);
   };
 
@@ -217,7 +260,7 @@ export default function FileDirectoryPage() {
               aria-label="Filter by department"
             >
               <option value="All Departments">Global Directory</option>
-              {DEPARTMENTS.map((dept) => (
+              {DEPARTMENTS.filter(d => d !== 'All Departments').map((dept) => (
                 <option key={dept} value={dept}>
                   {dept}
                 </option>
@@ -274,59 +317,63 @@ export default function FileDirectoryPage() {
             rootFolderName={driveMode.folderName}
             onExit={() => setDriveMode(null)}
           />
-        ) : (
-          /* ── Mock / Custom Folder Tree ── */
-          folders.length === 0 ? (
-            <div className="text-center py-20">
-              <Folder className="w-16 h-16 mx-auto text-[var(--muted)] mb-4 opacity-50" />
-              <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
-                No folders found
-              </h3>
-              <p className="text-sm text-[var(--muted)] mb-6">
-                {searchQuery || (departmentFilter && departmentFilter !== 'All Departments')
-                  ? 'Try adjusting your filters or search query'
-                  : 'Get started by adding your first Drive folder'}
-              </p>
-              {!searchQuery && (!departmentFilter || departmentFilter === 'All Departments') && (
-                <Button
-                  variant="primary"
-                  icon={<Plus className="w-4 h-4" />}
-                  onClick={() => setShowAddModal(true)}
-                >
-                  Add Your First Folder
-                </Button>
-              )}
-            </div>
-          ) : viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {folders.map((folder, index) => (
-                <div
-                  key={folder.id}
-                  className="folder-card"
-                  style={{ '--animation-delay': `${index * 50}ms` } as React.CSSProperties}
-                >
-                  <FolderCard
-                    folder={folder}
-                    onClick={() => handleFolderClick(folder)}
-                    onDelete={() => handleDeleteFolder(folder.id)}
-                    viewMode="grid"
-                  />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <Card padding="none">
-              {folders.map((folder) => (
+        ) : loading ? (
+          /* Loading state */
+          <div className="flex items-center justify-center py-20 gap-3 text-[var(--muted)]">
+            <Loader2 className="w-6 h-6 animate-spin" />
+            <span className="text-sm">Loading folders...</span>
+          </div>
+        ) : folders.length === 0 ? (
+          /* Empty state */
+          <div className="text-center py-20">
+            <Folder className="w-16 h-16 mx-auto text-[var(--muted)] mb-4 opacity-50" />
+            <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
+              No folders found
+            </h3>
+            <p className="text-sm text-[var(--muted)] mb-6">
+              {searchQuery || (departmentFilter && departmentFilter !== 'All Departments')
+                ? 'Try adjusting your filters or search query'
+                : 'Get started by adding your first Drive folder'}
+            </p>
+            {!searchQuery && (!departmentFilter || departmentFilter === 'All Departments') && (
+              <Button
+                variant="primary"
+                icon={<Plus className="w-4 h-4" />}
+                onClick={() => setShowAddModal(true)}
+              >
+                Add Your First Folder
+              </Button>
+            )}
+          </div>
+        ) : viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {folders.map((folder, index) => (
+              <div
+                key={folder.id}
+                className="folder-card"
+                style={{ '--animation-delay': `${index * 50}ms` } as React.CSSProperties}
+              >
                 <FolderCard
-                  key={folder.id}
                   folder={folder}
                   onClick={() => handleFolderClick(folder)}
                   onDelete={() => handleDeleteFolder(folder.id)}
-                  viewMode="list"
+                  viewMode="grid"
                 />
-              ))}
-            </Card>
-          )
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Card padding="none">
+            {folders.map((folder) => (
+              <FolderCard
+                key={folder.id}
+                folder={folder}
+                onClick={() => handleFolderClick(folder)}
+                onDelete={() => handleDeleteFolder(folder.id)}
+                viewMode="list"
+              />
+            ))}
+          </Card>
         )}
       </div>
 

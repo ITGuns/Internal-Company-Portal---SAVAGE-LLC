@@ -16,6 +16,8 @@ import { PayrollController } from './payroll/payroll.controller'
 import { ChatController } from './chat/chat.controller'
 import { UploadsController } from './uploads/uploads.controller'
 import { EmployeesController } from './employees/employees.controller'
+import { FileDirectoryController } from './file-directory/file-directory.controller'
+import { NotificationsController } from './notifications/notifications.controller'
 import { config, validateConfig } from './config/env.config'
 import path from 'path'
 import { PrismaService } from './database/prisma.service'
@@ -114,6 +116,12 @@ async function bootstrap() {
 
   const employeesController = new EmployeesController()
   app.use('/api/employees', employeesController.router())
+
+  const fileDirectoryController = new FileDirectoryController()
+  app.use('/api/file-directory', fileDirectoryController.router())
+
+  const notificationsController = new NotificationsController()
+  app.use('/api/notifications', notificationsController.router())
 
 
   // Expose app for Vercel

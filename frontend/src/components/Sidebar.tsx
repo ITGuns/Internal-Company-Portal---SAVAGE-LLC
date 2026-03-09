@@ -91,7 +91,7 @@ export default function Sidebar() {
   const isDashboard = pathname === '/' || pathname === '/dashboard'
   const asideRef = useRef<HTMLElement | null>(null)
   const { user } = useUser()
-  const { unreadCount } = useSocket()
+  const { unreadChatCount } = useSocket()
 
   useEffect(() => {
     const el = asideRef.current
@@ -145,7 +145,7 @@ export default function Sidebar() {
 
           <div className="text-xs text-muted uppercase px-2 mb-2">Collaboration</div>
           <nav className="space-y-1 mb-4">
-            <NavItem href="/chat" icon={MessageSquare} label="Messages & Chat" badge={unreadCount} />
+            <NavItem href="/chat" icon={MessageSquare} label="Messages & Chat" badge={unreadChatCount} />
             <NavItem href="/file-directory" icon={Folder} label="File Directory" />
             {user?.role?.toLowerCase() === 'admin' && (
               <NavItem href="/whiteboard" icon={Grid} label="Whiteboard" />
