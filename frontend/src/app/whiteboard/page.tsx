@@ -1,6 +1,6 @@
 /**
- * Overlord Whiteboard - A drawing area for quick brainstorming
- * Role: Overlord Only (Enforced via Sidebar and Client-side check)
+ * Admin Whiteboard - A drawing area for quick brainstorming
+ * Role: Admin Only (Enforced via Sidebar and Client-side check)
  */
 
 "use client"
@@ -27,7 +27,7 @@ export default function WhiteboardPage() {
 
   // Auth Check
   useEffect(() => {
-    if (user && user.role?.toLowerCase() !== 'overlord') {
+    if (user && user.role?.toLowerCase() !== 'admin') {
       router.push('/dashboard')
     }
   }, [user, router])
@@ -129,7 +129,7 @@ export default function WhiteboardPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-112px)] bg-[var(--background)] overflow-hidden">
-      <Header title="Overlord Whiteboard" subtitle="Overlord Brainstorming Mode • Changes are local" />
+      <Header title="Admin Whiteboard" subtitle="Admin Brainstorming Mode • Changes are local" />
 
       {/* Toolbar */}
       <div className="p-4 border-b border-[var(--border)] bg-[var(--card-surface)] flex flex-wrap items-center justify-between gap-4">
@@ -206,7 +206,7 @@ export default function WhiteboardPage() {
 
         {/* Floating Hint */}
         <div className="absolute bottom-8 right-8 bg-black/50 backdrop-blur-md text-white text-[10px] px-3 py-1.5 rounded-full pointer-events-none">
-          Overlord Brainstorming Mode • Changes are local
+          Admin Brainstorming Mode • Changes are local
         </div>
       </div>
     </div>

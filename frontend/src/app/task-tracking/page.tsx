@@ -286,11 +286,22 @@ export default function TaskTrackingPage() {
         totalElapsed: (task.totalElapsed || 0) + additionalSecs
       };
     } else if (action === 'complete') {
+      let finalElapsed = (task.totalElapsed || 0);
+      if (task.timerStatus === 'playing' && task.timerStart) {
+        finalElapsed += Math.floor((new Date().getTime() - new Date(task.timerStart).getTime()) / 1000);
+      }
+
+      // If still 0, fallback to estimated time so it doesn't look empty
+      if (finalElapsed === 0 && task.estimatedTime) {
+        finalElapsed = task.estimatedTime * 60;
+      }
+
       updates = {
         status: 'completed',
         progress: 100,
         timerStatus: 'stopped',
-        timerStart: undefined
+        timerStart: undefined, // Will be set to null in backend
+        totalElapsed: finalElapsed
       };
     }
 

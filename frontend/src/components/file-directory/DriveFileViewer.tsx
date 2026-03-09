@@ -102,7 +102,7 @@ export default function DriveFileViewer({
             setFiles(result);
         } catch (err: any) {
             if (err.message === 'API_KEY_MISSING') {
-                setError('Google Drive API Key is missing. Please contact your administrator.');
+                setError('Google Drive API Key is missing. Please contact your admin.');
             } else if (err.message === 'ACCESS_DENIED') {
                 setError('Access denied. Please ensure the Drive folder is shared as "Anyone with the link".');
             } else {

@@ -147,7 +147,7 @@ export default function Sidebar() {
           <nav className="space-y-1 mb-4">
             <NavItem href="/chat" icon={MessageSquare} label="Messages & Chat" badge={unreadCount} />
             <NavItem href="/file-directory" icon={Folder} label="File Directory" />
-            {user?.role?.toLowerCase() === 'overlord' && (
+            {user?.role?.toLowerCase() === 'admin' && (
               <NavItem href="/whiteboard" icon={Grid} label="Whiteboard" />
             )}
           </nav>

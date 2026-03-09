@@ -57,7 +57,7 @@ export default function PayrollCalendarPage() {
   const userRole = user?.role?.toLowerCase() || 'member';
   const formattedRole = userRole.trim().replace(/ /g, '_');
   const allowedEmails = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'];
-  const hasManagementAccess = formattedRole === 'admin' || allowedEmails.includes(user?.email?.toLowerCase() || '');
+  const hasManagementAccess = ['admin', 'manager', 'operations_manager', 'administrator'].includes(formattedRole) || allowedEmails.includes(user?.email?.toLowerCase() || '');
 
   // Event handlers
   const handleAddManualEntry = async (
