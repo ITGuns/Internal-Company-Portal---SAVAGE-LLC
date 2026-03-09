@@ -166,12 +166,21 @@ export default function UnifiedChatPage() {
             }
         }
 
+        const handleNewConversation = (conv: Conversation) => {
+            setConversations(prev => {
+                if (prev.some(c => c.id === conv.id)) return prev;
+                return [conv, ...prev];
+            });
+        }
+
         socket.on('chat:message', handleNewMessage)
         socket.on('chat:message_deleted', handleMessageDeleted)
+        socket.on('chat:conversation_created', handleNewConversation)
 
         return () => {
             socket.off('chat:message', handleNewMessage)
             socket.off('chat:message_deleted', handleMessageDeleted)
+            socket.off('chat:conversation_created', handleNewConversation)
         }
     }, [socket, selectedId])
 

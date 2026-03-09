@@ -40,12 +40,15 @@ export class ChatController {
 
                 // Notify participants
                 conversation.participants.forEach((p: any) => {
+                    // Send notification
                     notificationService.notifyUser(p.userId, {
                         type: 'info',
                         title: 'New Conversation',
                         message: `You were added to a ${type} conversation`,
                         link: `/chat/${conversation.id}`
                     });
+                    // Emit full conversation object to participant room for UI update
+                    notificationService.emitToRoom(`user:${p.userId}`, 'chat:conversation_created', conversation);
                 });
 
                 res.status(201).json(conversation)

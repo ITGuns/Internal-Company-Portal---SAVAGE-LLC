@@ -840,6 +840,43 @@ html[data-theme="dark"] .priority-dot.high {
   font-weight: 600;
 }
 
+/* Fix Fullcalendar popover UI */
+.fc .fc-popover {
+  z-index: 40 !important;
+  background-color: var(--card-bg) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-md) !important;
+  overflow: hidden;
+}
+
+.fc .fc-popover-header {
+  background-color: var(--card-surface) !important;
+  color: var(--foreground) !important;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.fc .fc-popover-title {
+  color: var(--foreground) !important;
+}
+
+.fc .fc-popover-close {
+  color: var(--muted) !important;
+  opacity: 0.8;
+}
+
+.fc .fc-popover-close:hover {
+  color: var(--foreground) !important;
+  opacity: 1;
+}
+
+.fc .fc-popover-body {
+  padding: 8px !important;
+  background-color: var(--card-bg) !important;
+}
+
 /* Event pill improvements */
 .fc .fc-event {
   border: none !important;
