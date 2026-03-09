@@ -27,6 +27,7 @@ interface SocketContextType {
     markAsRead: (id: string) => void
     markAllAsRead: () => void
     clearNotifications: () => void
+    clearChatBadge: () => void
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined)
@@ -37,7 +38,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const [isConnected, setIsConnected] = useState(false)
     const [notifications, setNotifications] = useState<Notification[]>([])
 
-    const unreadCount = notifications.filter(n => !n.read).length
+    const [unreadChatCount, setUnreadChatCount] = useState(0)
+
+    const unreadCount = notifications.filter(n => !n.read).length + unreadChatCount
 
     const connect = useCallback((userId: string) => {
         if (socketRef.current?.connected) return
@@ -91,6 +94,15 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             setNotifications(prev => [newNotification, ...prev])
         })
 
+        // Listen for chat messages globally to show badges
+        newSocket.on('chat:message', (msg: any) => {
+            if (String(msg.senderId) !== String(userId)) {
+                // Only increment if we are not on the chat page OR message is for a different conversation
+                // For simplicity, we increment globally and the chat page will clear it when viewed
+                setUnreadChatCount(prev => prev + 1)
+            }
+        })
+
         setSocket(newSocket)
     }, [])
 
@@ -116,6 +128,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const clearNotifications = () => {
         setNotifications([])
     }
+
+    const clearChatBadge = () => setUnreadChatCount(0)
 
     // Auto-connect and monitor user changes
     useEffect(() => {
@@ -157,7 +171,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             disconnect,
             markAsRead,
             markAllAsRead,
-            clearNotifications
+            clearNotifications,
+            clearChatBadge: () => setUnreadChatCount(0)
         }}>
             {children}
         </SocketContext.Provider>

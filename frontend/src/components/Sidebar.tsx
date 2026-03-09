@@ -11,6 +11,7 @@ import { useUser } from '@/contexts/UserContext'
 
 // Sidebar departments: use the top-level DEPARTMENTS list
 const SIDEBAR_DEPARTMENTS = DEPARTMENTS;
+import { useSocket } from '@/context/SocketContext'
 import {
   Home,
   Grid,
@@ -90,6 +91,7 @@ export default function Sidebar() {
   const isDashboard = pathname === '/' || pathname === '/dashboard'
   const asideRef = useRef<HTMLElement | null>(null)
   const { user } = useUser()
+  const { unreadCount } = useSocket()
 
   useEffect(() => {
     const el = asideRef.current
@@ -143,7 +145,7 @@ export default function Sidebar() {
 
           <div className="text-xs text-muted uppercase px-2 mb-2">Collaboration</div>
           <nav className="space-y-1 mb-4">
-            <NavItem href="/chat" icon={MessageSquare} label="Messages & Chat" />
+            <NavItem href="/chat" icon={MessageSquare} label="Messages & Chat" badge={unreadCount} />
             <NavItem href="/file-directory" icon={Folder} label="File Directory" />
             {user?.role?.toLowerCase() === 'admin' && (
               <NavItem href="/whiteboard" icon={Grid} label="Whiteboard" />

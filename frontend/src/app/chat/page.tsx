@@ -13,14 +13,17 @@ import { useUser } from '@/contexts/UserContext'
 import LoadingSpinner from '@/components/LoadingSpinner'
 
 export default function UnifiedChatPage() {
-    const { socket, isConnected } = useSocket()
+    const { socket, isConnected, clearChatBadge } = useSocket()
     const { user: currentUser } = useUser()
     const [conversations, setConversations] = useState<Conversation[]>([])
     const [selectedId, setSelectedId] = useState<string | null>(null)
+    const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
     const [messages, setMessages] = useState<Message[]>([])
     const [newMessage, setNewMessage] = useState('')
     const [loading, setLoading] = useState(true)
     const [sending, setSending] = useState(false)
+
+    // ... (rest of the previous state declarations if any)
     const [showNewChat, setShowNewChat] = useState(false)
     const [showCreateChannel, setShowCreateChannel] = useState(false)
     const [newChannelName, setNewChannelName] = useState('')
@@ -32,6 +35,11 @@ export default function UnifiedChatPage() {
     const [searchChannelQuery, setSearchChannelQuery] = useState('')
     const fileInputRef = useRef<HTMLInputElement>(null)
     const scrollRef = useRef<HTMLDivElement>(null)
+
+    // Clear global badge when on this page
+    useEffect(() => {
+        clearChatBadge();
+    }, [clearChatBadge, messages]);
 
     const handleCreateChannel = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -61,6 +69,7 @@ export default function UnifiedChatPage() {
 
     // Load initial data
     useEffect(() => {
+        let mounted = true;
         async function load() {
             try {
                 setLoading(true)
@@ -81,22 +90,23 @@ export default function UnifiedChatPage() {
                     fetchUsers()
                 ])
 
+                if (!mounted) return;
                 setConversations(convData)
                 setUsers(userData)
 
                 if (convData.length > 0 && !selectedId) {
-                    // Default to the first conversation (usually a channel)
                     const defaultConv = convData.find(c => c.type !== 'direct') || convData[0]
                     setSelectedId(defaultConv.id)
                 }
             } catch (err: any) {
                 console.error("Initial load failed", err)
             } finally {
-                setLoading(false)
+                if (mounted) setLoading(false)
             }
         }
         load()
-    }, [currentUser, selectedId])
+        return () => { mounted = false; }
+    }, [currentUser])
 
     // Fetch messages when conversation changes
     useEffect(() => {
@@ -108,6 +118,10 @@ export default function UnifiedChatPage() {
                 const data = await fetchMessages(selectedId)
                 setMessages(data)
 
+                // Clear unread count for this conversation
+                setUnreadCounts(prev => ({ ...prev, [selectedId]: 0 }))
+                clearChatBadge();
+
                 // Join room for real-time updates
                 if (socket) {
                     socket.emit('join:conversation', selectedId)
@@ -117,34 +131,18 @@ export default function UnifiedChatPage() {
             }
         }
         loadMessages()
-    }, [selectedId, socket])
+    }, [selectedId, socket, clearChatBadge])
 
     // Listen for real-time events
     useEffect(() => {
         if (!socket) return
 
         const handleNewMessage = (msg: Message) => {
-            // Update sidebar sorting/last activity
-            setConversations(prev => {
-                const existing = prev.find(c => c.id === msg.conversationId)
-                if (existing) {
-                    return prev.map(c =>
-                        c.id === msg.conversationId ? { ...c, updatedAt: msg.createdAt } : c
-                    ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-                } else {
-                    // If it's a new conversation we don't have yet, might need to re-fetch or wait
-                    // For now let's just keep as is, it'll show up on refresh
-                    return prev
-                }
-            })
-
             // Add message to current view if it belongs here
             if (msg.conversationId === selectedId) {
                 setMessages(prev => {
-                    // Prevent duplicates by ID (e.g. from multiple socket events)
                     if (prev.some(m => m.id === msg.id)) return prev
 
-                    // Handle race condition: check if this is a real message replacing our optimistic one
                     const isFromMe = String(msg.senderId) === String(currentUser?.id);
                     if (isFromMe) {
                         const tempIndex = prev.findIndex(m => m.id.startsWith('temp-') && m.content === msg.content);
@@ -154,10 +152,27 @@ export default function UnifiedChatPage() {
                             return next;
                         }
                     }
-
                     return [...prev, msg]
                 })
+                clearChatBadge();
+            } else {
+                // Increment unread count for other conversations
+                setUnreadCounts(prev => ({
+                    ...prev,
+                    [msg.conversationId]: (prev[msg.conversationId] || 0) + 1
+                }))
             }
+
+            // Update sidebar sorting/last activity
+            setConversations(prev => {
+                const existing = prev.find(c => c.id === msg.conversationId)
+                if (existing) {
+                    return prev.map(c =>
+                        c.id === msg.conversationId ? { ...c, updatedAt: msg.createdAt } : c
+                    ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+                }
+                return prev
+            })
         }
 
         const handleMessageDeleted = ({ messageId, conversationId }: { messageId: string, conversationId: string }) => {
@@ -182,7 +197,7 @@ export default function UnifiedChatPage() {
             socket.off('chat:message_deleted', handleMessageDeleted)
             socket.off('chat:conversation_created', handleNewConversation)
         }
-    }, [socket, selectedId])
+    }, [socket, selectedId, currentUser, clearChatBadge])
 
     // Scroll to bottom
     useEffect(() => {
@@ -339,6 +354,11 @@ export default function UnifiedChatPage() {
                                     >
                                         <Hash className={`w-4 h-4 ${selectedId === c.id ? 'opacity-100' : 'opacity-40'}`} />
                                         <span className="truncate flex-1">{c.name}</span>
+                                        {unreadCounts[c.id] > 0 && selectedId !== c.id && (
+                                            <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse shadow-sm">
+                                                {unreadCounts[c.id]}
+                                            </span>
+                                        )}
                                     </button>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleDeleteConversation(c.id); }}
@@ -390,18 +410,21 @@ export default function UnifiedChatPage() {
                                             )}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className={`font-medium truncate ${isActive ? 'text-white' : 'text-[var(--foreground)]'}`}>
-                                                {other?.name || 'Unknown'}
-                                            </p>
-                                            <p className={`text-[10px] truncate opacity-70`}>
-                                                {new Date(c.updatedAt).toLocaleDateString()}
-                                            </p>
+                                            <div>
+                                                <div className="font-medium line-clamp-1">{other?.name || 'Unknown User'}</div>
+                                                <div className={`text-[10px] truncate ${isActive ? 'text-white/70' : 'text-[var(--muted)]'}`}>
+                                                    {new Date(c.updatedAt).toLocaleDateString()}
+                                                </div>
+                                            </div>
                                         </div>
-
+                                        {unreadCounts[c.id] > 0 && selectedId !== c.id && (
+                                            <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse shadow-sm">
+                                                {unreadCounts[c.id]}
+                                            </span>
+                                        )}
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleDeleteConversation(c.id); }}
-                                            className={`absolute right-2 opacity-0 group-hover:opacity-100 p-1.5 rounded-full bg-red-500 text-white transition-opacity ${isActive ? 'bg-white text-red-500' : ''}`}
-                                            aria-label="Delete conversation"
+                                            className={`absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1.5 rounded-full transition-all ${isActive ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-red-500 text-white shadow-sm'}`}
                                         >
                                             <Trash2 className="w-3 h-3" />
                                         </button>

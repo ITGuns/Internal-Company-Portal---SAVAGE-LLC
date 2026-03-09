@@ -14,11 +14,17 @@ import { useUser } from '@/contexts/UserContext'
 import LoadingSpinner from '@/components/LoadingSpinner'
 
 export default function CompanyChatPage() {
-  const { socket, isConnected } = useSocket()
+  const { socket, isConnected, clearChatBadge } = useSocket()
   const { user: currentUser } = useUser()
+
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
+
+  // Clear global badge when on this page
+  useEffect(() => {
+    clearChatBadge();
+  }, [clearChatBadge, messages]);
   const [newMessage, setNewMessage] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -31,43 +37,41 @@ export default function CompanyChatPage() {
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [users, setUsers] = useState<SystemUser[]>([])
 
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
+
   // Load initial data
   useEffect(() => {
-    async function load() {
+    let mounted = true
+    async function load(isRetry = false) {
+      if (!mounted) return
       try {
-        setLoading(true)
+        if (!isRetry) setLoading(true)
         setError(null)
         const [data, userData] = await Promise.all([
           fetchConversations(),
           fetchUsers()
         ])
+        if (!mounted) return
         setConversations(data)
         setUsers(userData)
-        if (data.length > 0 && !selectedId) {
+        if (data.length > 0 && !selectedId && !isRetry) {
           setSelectedId(data[0].id)
         }
-      } catch (err: any) {
-        console.warn("Retrying fetch in 2s...", err)
-        // If it fails (maybe token not ready), try once more after 2s
-        setTimeout(async () => {
-          try {
-            const [data, userData] = await Promise.all([
-              fetchConversations(),
-              fetchUsers()
-            ])
-            setConversations(data)
-            setUsers(userData)
-            setError(null)
-          } catch (e) {
-            setError("Failed to load channels.")
-          }
-        }, 2000)
-      } finally {
         setLoading(false)
+      } catch (err: any) {
+        console.error("Chat load failed", err)
+        if (!isRetry && mounted) {
+          // Retry once
+          setTimeout(() => load(true), 2000)
+        } else if (mounted) {
+          setError("Failed to connect to chat server.")
+          setLoading(false)
+        }
       }
     }
     load()
-  }, [currentUser, selectedId])
+    return () => { mounted = false }
+  }, [currentUser])
 
   // Fetch messages when conversation changes
   useEffect(() => {
@@ -77,10 +81,11 @@ export default function CompanyChatPage() {
       if (!selectedId) return
       try {
         const data = await fetchMessages(selectedId)
-        // lib/chat.ts already reverses messages to ASC order
         setMessages(data)
 
-        // Join room for real-time updates
+        // Clear unread count for this conversation when selected
+        setUnreadCounts(prev => ({ ...prev, [selectedId]: 0 }))
+
         if (socket) {
           socket.emit('join:conversation', selectedId)
         }
@@ -91,40 +96,53 @@ export default function CompanyChatPage() {
     loadMessages()
   }, [selectedId, socket])
 
-  // Listen for new messages
+  // Listen for real-time events
   useEffect(() => {
     if (!socket) return
 
     const handleNewMessage = (msg: Message) => {
-      // Only add if not already present (optimistic update fallback)
-      setMessages(prev => {
-        // Prevent duplicates by ID
-        if (prev.some(m => m.id === msg.id)) return prev;
+      // Add message to current view if it belongs here
+      if (msg.conversationId === selectedId) {
+        setMessages(prev => {
+          if (prev.some(m => m.id === msg.id)) return prev;
 
-        // Handle race condition: check if this is a real message replacing our optimistic one
-        const isFromMe = String(msg.senderId) === String(currentUser?.id);
-        if (isFromMe) {
-          const tempIndex = prev.findIndex(m => m.id.startsWith('temp-') && m.content === msg.content);
-          if (tempIndex !== -1) {
-            const next = [...prev];
-            next[tempIndex] = msg;
-            return next;
+          const isFromMe = String(msg.senderId) === String(currentUser?.id);
+          if (isFromMe) {
+            const tempIndex = prev.findIndex(m => m.id.startsWith('temp-') && m.content === msg.content);
+            if (tempIndex !== -1) {
+              const next = [...prev];
+              next[tempIndex] = msg;
+              return next;
+            }
           }
-        }
-
-        if (msg.conversationId === selectedId) {
           return [...prev, msg]
+        })
+      } else {
+        // Increment unread count if not selected
+        setUnreadCounts(prev => ({
+          ...prev,
+          [msg.conversationId]: (prev[msg.conversationId] || 0) + 1
+        }))
+      }
+
+      // Update sidebar sorting/activity
+      setConversations(prev => {
+        const existing = prev.find(c => c.id === msg.conversationId)
+        if (existing) {
+          return prev.map(c =>
+            c.id === msg.conversationId ? { ...c, updatedAt: msg.createdAt } : c
+          ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
         }
         return prev
       })
-
-      // Update last message in conversations list
-      setConversations(prev => prev.map(c =>
-        c.id === msg.conversationId ? { ...c, updatedAt: msg.createdAt } : c
-      ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()))
     }
 
-    socket.on('chat:message', handleNewMessage)
+    const handleNewConversation = (conv: Conversation) => {
+      setConversations(prev => {
+        if (prev.some(c => c.id === conv.id)) return prev;
+        return [conv, ...prev];
+      });
+    }
 
     const handleUserLeft = ({ userId, conversationId }: { userId: string, conversationId: string }) => {
       if (userId === String(currentUser?.id)) {
@@ -132,10 +150,14 @@ export default function CompanyChatPage() {
         if (selectedId === conversationId) setSelectedId(null)
       }
     }
+
+    socket.on('chat:message', handleNewMessage)
+    socket.on('chat:conversation_created', handleNewConversation)
     socket.on('chat:user_left', handleUserLeft)
 
     return () => {
       socket.off('chat:message', handleNewMessage)
+      socket.off('chat:conversation_created', handleNewConversation)
       socket.off('chat:user_left', handleUserLeft)
     }
   }, [socket, selectedId, currentUser])
@@ -279,7 +301,12 @@ export default function CompanyChatPage() {
                     }`}
                 >
                   <Hash className="w-4 h-4 opacity-70" />
-                  <span className="truncate">{c.name || 'Group Chat'}</span>
+                  <span className="truncate flex-1">{c.name || 'Group Chat'}</span>
+                  {unreadCounts[c.id] > 0 && selectedId !== c.id && (
+                    <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse shadow-sm">
+                      {unreadCounts[c.id]}
+                    </span>
+                  )}
                 </button>
                 <div
                   onClick={(e) => {
