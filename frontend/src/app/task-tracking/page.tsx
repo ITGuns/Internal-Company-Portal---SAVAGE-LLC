@@ -1048,6 +1048,7 @@ export default function TaskTrackingPage() {
                       openEdit(arg.event.extendedProps.task);
                     }
                   }}
+                  dayMaxEvents={3}
                   height={600}
                 />
               </div>
