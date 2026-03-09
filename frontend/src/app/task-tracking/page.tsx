@@ -1231,19 +1231,42 @@ export default function TaskTrackingPage() {
 
                 <div>
                   <label className="block text-sm mb-1 font-medium">Role <span className="text-red-500">*</span></label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    disabled={!departmentId}
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] disabled:opacity-50"
-                    aria-label="Role"
-                    required
-                  >
-                    <option value="">Select role</option>
-                    {availableRoles.map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
+                  {role === 'Other' ? (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={role}
+                        onChange={(e) => setRole(e.target.value)}
+                        placeholder="Enter role manually..."
+                        className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                        autoFocus
+                        required
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setRole('')}
+                        className="px-3"
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  ) : (
+                    <select
+                      value={role}
+                      onChange={(e) => setRole(e.target.value)}
+                      disabled={!departmentId}
+                      className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] disabled:opacity-50"
+                      aria-label="Role"
+                      required
+                    >
+                      <option value="">Select role</option>
+                      {availableRoles.map((r) => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                      <option value="Other">Other (Manual Entry)...</option>
+                    </select>
+                  )}
                 </div>
               </div>
 
