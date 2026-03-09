@@ -45,32 +45,11 @@ export default function EditProfileModal({
     phone: "",
     address: "",
     city: "",
-    citizenship: "",
     avatar: "",
-    department: "",
-    role: "",
   });
-  const [departments, setDepartments] = useState<any[]>([]);
-  const [roles, setRoles] = useState<any[]>([]);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    async function loadOptions() {
-      try {
-        const [deptRes, roleRes] = await Promise.all([
-          fetch('/api/departments').then(r => r.json()),
-          fetch('/api/roles').then(r => r.json())
-        ]);
-        setDepartments(Array.isArray(deptRes) ? deptRes : []);
-        setRoles(Array.isArray(roleRes) ? roleRes : []);
-      } catch (e) {
-        console.error('Failed to load profile options', e);
-      }
-    }
-    loadOptions();
-  }, []);
 
   useEffect(() => {
     if (isOpen && user) {
@@ -81,10 +60,7 @@ export default function EditProfileModal({
         phone: user.phone || "",
         address: user.address || "",
         city: user.city || "",
-        citizenship: user.citizenship || "",
         avatar: user.avatar || "",
-        department: (user as any).department || "",
-        role: (user as any).role || "",
       });
       setAvatarPreview(user.avatar || "");
       setErrors({});
@@ -128,18 +104,6 @@ export default function EditProfileModal({
       newErrors.city = "City is required";
     }
 
-    if (!formData.citizenship.trim()) {
-      newErrors.citizenship = "Citizenship is required";
-    }
-
-    if (!formData.department) {
-      newErrors.department = "Department is required";
-    }
-
-    if (!formData.role) {
-      newErrors.role = "Role is required";
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -171,9 +135,6 @@ export default function EditProfileModal({
         birthday: formData.birthday,
         address: formData.address,
         city: formData.city,
-        citizenship: formData.citizenship,
-        department: formData.department,
-        position: formData.role, // Mapping role to position for compatibility
       };
 
       // Call API to update profile
@@ -468,78 +429,6 @@ export default function EditProfileModal({
           {errors.city && (
             <p className="mt-1 text-sm text-red-500">{errors.city}</p>
           )}
-        </div>
-
-        {/* Citizenship Field */}
-        <div>
-          <label
-            htmlFor="citizenship"
-            className="block text-sm font-medium text-[var(--foreground)] mb-2"
-          >
-            <div className="flex items-center gap-2">
-              <Flag className="w-4 h-4" />
-              Citizenship <span className="text-red-500">*</span>
-            </div>
-          </label>
-          <input
-            id="citizenship"
-            type="text"
-            value={formData.citizenship}
-            onChange={(e) => handleChange("citizenship", e.target.value)}
-            className={`w-full px-3 py-2 rounded-md border ${errors.citizenship
-              ? "border-red-500 focus:ring-red-500"
-              : "border-[var(--border)] focus:ring-[var(--accent)]"
-              } bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2`}
-            placeholder="Country"
-            required
-          />
-          {errors.citizenship && (
-            <p className="mt-1 text-sm text-red-500">{errors.citizenship}</p>
-          )}
-        </div>
-
-        {/* Department & Role Fields */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="department" className="block text-sm font-medium text-[var(--foreground)] mb-2">
-              Department <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="department"
-              value={formData.department}
-              onChange={(e) => handleChange("department", e.target.value)}
-              className={`w-full px-3 py-2 rounded-md border ${errors.department ? "border-red-500" : "border-[var(--border)]"} bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]`}
-              required
-            >
-              <option value="">Select Department</option>
-              {departments.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-            {errors.department && (
-              <p className="mt-1 text-sm text-red-500">{errors.department}</p>
-            )}
-          </div>
-          <div>
-            <label htmlFor="role" className="block text-sm font-medium text-[var(--foreground)] mb-2">
-              Primary Role <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="role"
-              value={formData.role}
-              onChange={(e) => handleChange("role", e.target.value)}
-              className={`w-full px-3 py-2 rounded-md border ${errors.role ? "border-red-500" : "border-[var(--border)]"} bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]`}
-              required
-            >
-              <option value="">Select Role</option>
-              {roles.map(r => (
-                <option key={r.id} value={r.name}>{r.name}</option>
-              ))}
-            </select>
-            {errors.role && (
-              <p className="mt-1 text-sm text-red-500">{errors.role}</p>
-            )}
-          </div>
         </div>
 
         {/* Action Buttons */}

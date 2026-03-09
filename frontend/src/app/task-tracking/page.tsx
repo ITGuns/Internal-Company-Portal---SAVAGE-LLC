@@ -421,9 +421,9 @@ export default function TaskTrackingPage() {
         toast.success("Task created");
       }
       closeModal();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Failed to save task");
+      toast.error(error.message || "Failed to save task");
     }
   }
 

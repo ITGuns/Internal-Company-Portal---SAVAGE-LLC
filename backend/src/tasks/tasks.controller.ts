@@ -102,7 +102,7 @@ export class TasksController {
     })
 
     // Create task
-    router.post('/', authenticateToken, requireRole(['admin', 'manager', 'operations_manager']), async (req: Request, res: Response) => {
+    router.post('/', authenticateToken, async (req: Request, res: Response) => {
       try {
         const { title, description, status, departmentId, assigneeId, priority, startDate, dueDate, notes, estimatedTime, role } = req.body
 

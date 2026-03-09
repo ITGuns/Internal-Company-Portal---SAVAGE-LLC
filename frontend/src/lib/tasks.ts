@@ -134,7 +134,9 @@ export async function createTask(task: CreateTaskPayload): Promise<Task> {
     body: JSON.stringify(task),
   });
   if (!res.ok) {
-    throw new Error('Failed to create task');
+    const errorText = await res.text();
+    console.error('Failed to create task, backend says:', errorText);
+    throw new Error(errorText || 'Failed to create task');
   }
   const result = await res.json();
   return processTaskFromApi(result);
