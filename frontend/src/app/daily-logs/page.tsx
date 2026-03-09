@@ -375,6 +375,12 @@ export default function DailyLogsPage() {
 
             {/* Log Entries */}
             <div className="space-y-4 max-h-[calc(100vh-20rem)] overflow-y-auto pr-2 chat-scroll">
+              <div className="text-xs text-neutral-500 mb-2 p-2 bg-neutral-100 dark:bg-neutral-800 rounded">
+                DEBUG INFO: Total Logs from API={logs.length}. Filtered={filteredLogs.length}.
+                Today string={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`}.
+                {logs.length > 0 && ` Last DB Log Date=${logs[0].date}, type=${typeof logs[0].date}, status=${logs[0].status}, dept=${logs[0].department}, `}
+                active filters: dept="{departmentFilter}", date="{dateFilter}"
+              </div>
               {filteredLogs.length === 0 ? (
                 <EmptyState
                   icon={FileText}

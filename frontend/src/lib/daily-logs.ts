@@ -67,20 +67,26 @@ export async function fetchDailyLogs(department?: string, status?: string, logTy
     const res = await apiFetch(`/daily-logs?${query.toString()}`);
     if (res.status === 200) {
       const data = await res.json();
+      if (!Array.isArray(data)) {
+        throw new Error(`Expected array but got ${typeof data}: ${JSON.stringify(data).slice(0, 100)}`);
+      }
       return data.map((item: any) => {
         const mapped = mapApiLog(item);
-        // Ensure date is YYYY-MM-DD in LOCAL time (not UTC)
-        // Prisma returns full ISO strings like "2026-03-09T16:00:00.000Z"
-        // We must convert to local date string, not just split on T (which is UTC)
         if (mapped.date) {
           const d = new Date(mapped.date);
           mapped.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         }
         return mapped;
       });
+    } else {
+      throw new Error(`Invalid status: ${res.status}`);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to fetch daily logs:', error);
+    if (typeof window !== 'undefined') {
+      // Just hack in a global way to notify for now, or we can throw
+      alert(`Fetch logs failed: ${error.message || error}`);
+    }
   }
   return [];
 }
