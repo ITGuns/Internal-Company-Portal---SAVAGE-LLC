@@ -1,20 +1,26 @@
 
 "use client"
 
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useCallback } from 'react'
 import Header from '@/components/Header'
-import Card from '@/components/Card'
 import Button from '@/components/Button'
-import { Send, Hash, Users, MessageSquare, Paperclip, Plus, X, Trash2, Search } from 'lucide-react'
-import { fetchConversations, fetchMessages, sendMessage, createConversation, deleteMessage, deleteConversation, type Message, type Conversation } from '@/lib/chat'
+import { MessageSquare, Paperclip, Trash2, Pencil, Check, X, Search } from 'lucide-react'
+import Image from 'next/image'
+import { fetchConversations, fetchMessages, sendMessage, createConversation, deleteMessage, deleteConversation, editMessage, searchMessages, fetchOnlineUsers, markAsRead, type Message, type Conversation, type SearchResult } from '@/lib/chat'
 import { fetchUsers, type User as SystemUser } from '@/lib/users'
 import { useSocket } from '@/context/SocketContext'
 import { useUser } from '@/contexts/UserContext'
-import LoadingSpinner from '@/components/LoadingSpinner'
+import { PageSkeleton } from '@/components/ui/Skeleton'
+import ChatSidebar from '@/components/chat/ChatSidebar'
+import MessageInput from '@/components/chat/MessageInput'
+import NewChatModal from '@/components/chat/NewChatModal'
+import CreateChannelModal from '@/components/chat/CreateChannelModal'
+import { useToast } from '@/components/ToastProvider'
 
 export default function UnifiedChatPage() {
     const { socket, isConnected, clearChatBadge } = useSocket()
     const { user: currentUser } = useUser()
+    const toast = useToast()
     const [conversations, setConversations] = useState<Conversation[]>([])
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
@@ -33,16 +39,70 @@ export default function UnifiedChatPage() {
     const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null)
     const [selectedChannelUsers, setSelectedChannelUsers] = useState<string[]>([])
     const [searchChannelQuery, setSearchChannelQuery] = useState('')
-    const fileInputRef = useRef<HTMLInputElement>(null)
     const scrollRef = useRef<HTMLDivElement>(null)
+
+    // Phase 5.1 — Chat enhancements
+    const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set())
+    const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map()) // conversationId:userId → userName
+    const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+    const [editContent, setEditContent] = useState('')
+    const [searchOpen, setSearchOpen] = useState(false)
+    const [searchTerm, setSearchTerm] = useState('')
+    const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+    const [searching, setSearching] = useState(false)
+    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
     // Clear global badge when on this page
     useEffect(() => {
         clearChatBadge();
     }, [clearChatBadge, messages]);
 
-    const handleCreateChannel = async (e: React.FormEvent) => {
-        e.preventDefault();
+    // Fetch initial online users
+    useEffect(() => {
+        fetchOnlineUsers()
+            .then(ids => setOnlineUserIds(new Set(ids)))
+            .catch(() => {/* ignore */})
+    }, [])
+
+    // Presence & typing socket listeners
+    useEffect(() => {
+        if (!socket) return
+
+        const handlePresenceOnline = ({ userId }: { userId: string }) => {
+            setOnlineUserIds(prev => new Set(prev).add(userId))
+        }
+        const handlePresenceOffline = ({ userId }: { userId: string }) => {
+            setOnlineUserIds(prev => {
+                const next = new Set(prev)
+                next.delete(userId)
+                return next
+            })
+        }
+        const handleTypingStart = ({ conversationId, userId, userName }: { conversationId: string; userId: string; userName: string }) => {
+            setTypingUsers(prev => new Map(prev).set(`${conversationId}:${userId}`, userName))
+        }
+        const handleTypingStop = ({ conversationId, userId }: { conversationId: string; userId: string }) => {
+            setTypingUsers(prev => {
+                const next = new Map(prev)
+                next.delete(`${conversationId}:${userId}`)
+                return next
+            })
+        }
+
+        socket.on('presence:online', handlePresenceOnline)
+        socket.on('presence:offline', handlePresenceOffline)
+        socket.on('typing:start', handleTypingStart)
+        socket.on('typing:stop', handleTypingStop)
+
+        return () => {
+            socket.off('presence:online', handlePresenceOnline)
+            socket.off('presence:offline', handlePresenceOffline)
+            socket.off('typing:start', handleTypingStart)
+            socket.off('typing:stop', handleTypingStop)
+        }
+    }, [socket])
+
+    const handleCreateChannel = async () => {
         if (!newChannelName.trim()) {
             alert("Channel name is required");
             return;
@@ -63,7 +123,7 @@ export default function UnifiedChatPage() {
             setSearchChannelQuery('');
         } catch (err) {
             console.error("Failed to create channel", err);
-            alert("Failed to create channel.");
+            toast.error("Failed to create channel")
         }
     };
 
@@ -74,14 +134,12 @@ export default function UnifiedChatPage() {
             try {
                 setLoading(true)
                 const [convData, userData] = await Promise.all([
-                    fetchConversations().catch(err => {
-                        console.warn("Retrying fetch in 2s...", err)
+                    fetchConversations().catch(() => {
                         return new Promise<Conversation[]>((resolve) => {
                             setTimeout(async () => {
                                 try {
                                     resolve(await fetchConversations())
                                 } catch {
-                                    console.error("Failed to load conversations after retry")
                                     resolve([])
                                 }
                             }, 2000)
@@ -94,12 +152,22 @@ export default function UnifiedChatPage() {
                 setConversations(convData)
                 setUsers(userData)
 
+                // Initialize unread counts from server data
+                const initialUnreads: Record<string, number> = {}
+                for (const c of convData) {
+                    if (c.unreadCount && c.unreadCount > 0) {
+                        initialUnreads[c.id] = c.unreadCount
+                    }
+                }
+                setUnreadCounts(initialUnreads)
+
                 if (convData.length > 0 && !selectedId) {
                     const defaultConv = convData.find(c => c.type !== 'direct') || convData[0]
                     setSelectedId(defaultConv.id)
                 }
-            } catch (err: any) {
+            } catch (err) {
                 console.error("Initial load failed", err)
+                toast.error("Failed to load conversations")
             } finally {
                 if (mounted) setLoading(false)
             }
@@ -122,12 +190,16 @@ export default function UnifiedChatPage() {
                 setUnreadCounts(prev => ({ ...prev, [selectedId]: 0 }))
                 clearChatBadge();
 
+                // Mark as read on the server
+                markAsRead(selectedId).catch(() => {/* ignore */})
+
                 // Join room for real-time updates
                 if (socket) {
                     socket.emit('join:conversation', selectedId)
                 }
             } catch (err) {
                 console.error("Failed to load messages", err)
+                toast.error("Failed to load messages")
             }
         }
         loadMessages()
@@ -188,14 +260,38 @@ export default function UnifiedChatPage() {
             });
         }
 
+        const handleUserLeft = ({ userId, conversationId }: { userId: string; conversationId: string }) => {
+            if (String(userId) === String(currentUser?.id)) {
+                setConversations(prev => prev.filter(c => c.id !== conversationId))
+                if (selectedId === conversationId) setSelectedId(null)
+            }
+        }
+
+        const handleMessageEdited = ({ messageId, content, editedAt }: { messageId: string; conversationId: string; content: string; editedAt: string }) => {
+            setMessages(prev => prev.map(m => m.id === messageId ? { ...m, content, editedAt } : m))
+        }
+
+        const handleChatRead = ({ conversationId, userId }: { conversationId: string; userId: string }) => {
+            // If *we* marked it read (from another tab), zero out our local count
+            if (String(userId) === String(currentUser?.id)) {
+                setUnreadCounts(prev => ({ ...prev, [conversationId]: 0 }))
+            }
+        }
+
         socket.on('chat:message', handleNewMessage)
         socket.on('chat:message_deleted', handleMessageDeleted)
         socket.on('chat:conversation_created', handleNewConversation)
+        socket.on('chat:user_left', handleUserLeft)
+        socket.on('chat:message_edited', handleMessageEdited)
+        socket.on('chat:read', handleChatRead)
 
         return () => {
             socket.off('chat:message', handleNewMessage)
             socket.off('chat:message_deleted', handleMessageDeleted)
             socket.off('chat:conversation_created', handleNewConversation)
+            socket.off('chat:user_left', handleUserLeft)
+            socket.off('chat:message_edited', handleMessageEdited)
+            socket.off('chat:read', handleChatRead)
         }
     }, [socket, selectedId, currentUser, clearChatBadge])
 
@@ -221,7 +317,6 @@ export default function UnifiedChatPage() {
     const clearAttachment = () => {
         setAttachment(null)
         setAttachmentPreview(null)
-        if (fileInputRef.current) fileInputRef.current.value = ''
     }
 
     const handleSend = async (e?: React.FormEvent) => {
@@ -257,11 +352,11 @@ export default function UnifiedChatPage() {
             const result = await sendMessage(selectedId, content, curAttachment || undefined)
             // Replace temp with real
             setMessages(prev => prev.map(m => m.id === tempId ? result : m))
-        } catch (err: any) {
+        } catch (err) {
             console.error("Send failed", err)
             setMessages(prev => prev.filter(m => m.id !== tempId))
             setNewMessage(content)
-            alert("Failed to send message")
+            toast.error("Failed to send message")
         } finally {
             setSending(false)
         }
@@ -277,6 +372,7 @@ export default function UnifiedChatPage() {
             setShowNewChat(false)
         } catch (err) {
             console.error("Failed to start chat", err)
+            toast.error("Failed to start conversation")
         }
     }
 
@@ -285,7 +381,7 @@ export default function UnifiedChatPage() {
         try {
             await deleteMessage(messageId)
             setMessages(prev => prev.filter(m => m.id !== messageId))
-        } catch (err) { console.error(err) }
+        } catch (err) { console.error(err); toast.error("Failed to delete message") }
     }
 
     const handleDeleteConversation = async (conversationId: string) => {
@@ -294,8 +390,69 @@ export default function UnifiedChatPage() {
             await deleteConversation(conversationId)
             setConversations(prev => prev.filter(c => c.id !== conversationId))
             if (selectedId === conversationId) setSelectedId(null)
-        } catch (err) { console.error(err) }
+        } catch (err) { console.error(err); toast.error("Failed to delete conversation") }
     }
+
+    // Emit typing events with debounce
+    const handleTypingEmit = useCallback(() => {
+        if (!socket || !selectedId || !currentUser) return
+        socket.emit('typing:start', { conversationId: selectedId, userId: String(currentUser.id), userName: currentUser.name })
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+        typingTimeoutRef.current = setTimeout(() => {
+            socket.emit('typing:stop', { conversationId: selectedId, userId: String(currentUser.id) })
+        }, 2000)
+    }, [socket, selectedId, currentUser])
+
+    const handleMessageChange = useCallback((value: string) => {
+        setNewMessage(value)
+        if (value.trim()) handleTypingEmit()
+    }, [handleTypingEmit])
+
+    // Message editing
+    const handleStartEdit = (msg: Message) => {
+        setEditingMessageId(msg.id)
+        setEditContent(msg.content)
+    }
+
+    const handleCancelEdit = () => {
+        setEditingMessageId(null)
+        setEditContent('')
+    }
+
+    const handleSaveEdit = async () => {
+        if (!editingMessageId || !editContent.trim()) return
+        try {
+            const updated = await editMessage(editingMessageId, editContent.trim())
+            setMessages(prev => prev.map(m => m.id === editingMessageId ? { ...m, content: updated.content, editedAt: updated.editedAt } : m))
+            setEditingMessageId(null)
+            setEditContent('')
+        } catch (err) {
+            console.error(err)
+            toast.error("Failed to edit message")
+        }
+    }
+
+    // Message search
+    const handleSearch = useCallback(async () => {
+        if (!searchTerm.trim()) { setSearchResults([]); return }
+        setSearching(true)
+        try {
+            const results = await searchMessages(searchTerm.trim())
+            setSearchResults(results)
+        } catch (err) {
+            console.error(err)
+            toast.error("Search failed")
+        } finally {
+            setSearching(false)
+        }
+    }, [searchTerm, toast])
+
+    // Get typing users for the current conversation
+    const currentTypingNames = selectedId
+        ? Array.from(typingUsers.entries())
+            .filter(([key]) => key.startsWith(`${selectedId}:`))
+            .map(([, name]) => name)
+        : []
 
     const getOtherParticipant = (conv: Conversation) => {
         return conv.participants.find(p => p.userId !== (currentUser?.id ? String(currentUser.id) : undefined))?.user
@@ -312,7 +469,7 @@ export default function UnifiedChatPage() {
         return (
             <div className="flex flex-col h-[calc(100vh-112px)]">
                 <Header title="Company Chat" />
-                <LoadingSpinner message="Loading messages..." />
+                <PageSkeleton />
             </div>
         )
     }
@@ -324,123 +481,75 @@ export default function UnifiedChatPage() {
                 subtitle={isDirect ? `Direct Message with ${otherUser?.name}` : `# ${selectedConv?.name || "Select a channel"}`}
             />
 
-            <div className="flex flex-1 overflow-hidden relative">
-                {/* Sidebar */}
-                <div className="w-72 border-r border-[var(--border)] bg-[var(--card-surface)] flex flex-col h-full overflow-hidden">
-
-                    {/* Channels Section */}
-                    <div className="p-4 border-b border-[var(--border)]">
-                        <div className="flex items-center justify-between mb-2">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] flex items-center gap-2">
-                                <Hash className="w-3.5 h-3.5" /> Channels
-                            </h3>
-                            <button
-                                onClick={() => setShowCreateChannel(true)}
-                                className="p-1 hover:bg-[var(--background)] rounded-md text-[var(--muted)] hover:text-[var(--accent)] transition-colors"
-                                title="Create Channel"
-                            >
-                                <Plus className="w-4 h-4" />
-                            </button>
-                        </div>
-                        <div className="space-y-1">
-                            {channels.map(c => (
-                                <div key={c.id} className="relative group">
-                                    <button
-                                        onClick={() => setSelectedId(c.id)}
-                                        className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-all flex items-center gap-2 ${selectedId === c.id
-                                            ? 'bg-[var(--accent)] text-white shadow-sm'
-                                            : 'text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'
-                                            }`}
-                                    >
-                                        <Hash className={`w-4 h-4 ${selectedId === c.id ? 'opacity-100' : 'opacity-40'}`} />
-                                        <span className="truncate flex-1">{c.name}</span>
-                                        {unreadCounts[c.id] > 0 && selectedId !== c.id && (
-                                            <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse shadow-sm">
-                                                {unreadCounts[c.id]}
-                                            </span>
-                                        )}
-                                    </button>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); handleDeleteConversation(c.id); }}
-                                        className={`absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1.5 rounded-full bg-red-500 text-white transition-opacity ${selectedId === c.id ? 'bg-white text-red-500 hover:bg-red-50' : ''}`}
-                                        aria-label="Delete channel"
-                                    >
-                                        <Trash2 className="w-3 h-3" />
-                                    </button>
-                                </div>
+            {/* Search Panel Toggle + Panel */}
+            <div className="flex items-center justify-end px-4 py-1 border-b border-[var(--border)] bg-[var(--card-surface)]">
+                <button
+                    onClick={() => setSearchOpen(prev => !prev)}
+                    className={`p-1.5 rounded-lg transition-colors text-sm flex items-center gap-1.5 ${searchOpen ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--background)]'}`}
+                    aria-label="Search messages"
+                >
+                    <Search className="w-4 h-4" />
+                    <span className="text-xs">Search</span>
+                </button>
+            </div>
+            {searchOpen && (
+                <div className="border-b border-[var(--border)] bg-[var(--card-surface)] p-3 animate-in slide-in-from-top-2">
+                    <div className="flex gap-2 items-center max-w-lg mx-auto">
+                        <input
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                            placeholder="Search messages..."
+                            className="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                            autoFocus
+                        />
+                        <button onClick={handleSearch} disabled={searching} className="px-3 py-2 bg-[var(--accent)] text-white rounded-lg text-sm disabled:opacity-50">
+                            {searching ? '...' : 'Search'}
+                        </button>
+                        <button onClick={() => { setSearchOpen(false); setSearchTerm(''); setSearchResults([]) }} className="p-2 text-[var(--muted)] hover:text-[var(--foreground)]" aria-label="Close search">
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                    {searchResults.length > 0 && (
+                        <div className="max-w-lg mx-auto mt-2 max-h-60 overflow-y-auto space-y-1">
+                            {searchResults.map(r => (
+                                <button
+                                    key={r.id}
+                                    onClick={() => { setSelectedId(r.conversation.id); setSearchOpen(false); setSearchTerm(''); setSearchResults([]) }}
+                                    className="w-full text-left flex items-start gap-2 p-2 rounded-lg hover:bg-[var(--background)] transition-colors"
+                                >
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold text-[var(--foreground)]">{r.sender.name}</span>
+                                            <span className="text-[10px] text-[var(--muted)]">in {r.conversation.name || 'DM'}</span>
+                                        </div>
+                                        <p className="text-sm text-[var(--muted)] truncate">{r.content}</p>
+                                    </div>
+                                    <span className="text-[10px] text-[var(--muted)] flex-shrink-0">{new Date(r.createdAt).toLocaleDateString()}</span>
+                                </button>
                             ))}
                         </div>
-                    </div>
-
-                    {/* Direct Messages Section */}
-                    <div className="flex-1 flex flex-col overflow-hidden">
-                        <div className="p-4 flex items-center justify-between">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] flex items-center gap-2">
-                                <Users className="w-3.5 h-3.5" /> Direct Messages
-                            </h3>
-                            <button
-                                onClick={() => setShowNewChat(true)}
-                                className="p-1 hover:bg-[var(--background)] rounded-md text-[var(--muted)] hover:text-[var(--accent)] transition-colors"
-                                title="New Message"
-                            >
-                                <Plus className="w-4 h-4" />
-                            </button>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-1 chat-scroll">
-                            {directMessages.map(c => {
-                                const other = getOtherParticipant(c)
-                                const isActive = selectedId === c.id
-                                return (
-                                    <button
-                                        key={c.id}
-                                        onClick={() => setSelectedId(c.id)}
-                                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all flex items-center gap-3 group relative ${isActive
-                                            ? 'bg-[var(--accent)] text-white shadow-md'
-                                            : 'text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'
-                                            }`}
-                                    >
-                                        <div className="w-8 h-8 rounded-full bg-[var(--background)] border border-[var(--border)] overflow-hidden flex-shrink-0">
-                                            {other?.avatar ? (
-                                                <img src={other.avatar} alt="" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center bg-[var(--accent)] text-white text-[10px] font-bold">
-                                                    {other?.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div>
-                                                <div className="font-medium line-clamp-1">{other?.name || 'Unknown User'}</div>
-                                                <div className={`text-[10px] truncate ${isActive ? 'text-white/70' : 'text-[var(--muted)]'}`}>
-                                                    {new Date(c.updatedAt).toLocaleDateString()}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        {unreadCounts[c.id] > 0 && selectedId !== c.id && (
-                                            <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse shadow-sm">
-                                                {unreadCounts[c.id]}
-                                            </span>
-                                        )}
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleDeleteConversation(c.id); }}
-                                            className={`absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1.5 rounded-full transition-all ${isActive ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-red-500 text-white shadow-sm'}`}
-                                        >
-                                            <Trash2 className="w-3 h-3" />
-                                        </button>
-                                    </button>
-                                )
-                            })}
-                            {directMessages.length === 0 && (
-                                <div className="px-3 py-4 text-center text-xs text-[var(--muted)] italic">
-                                    No private chats yet
-                                </div>
-                            )}
-                        </div>
-
-                    </div>
-                    {/* end sidebar */}
+                    )}
+                    {searchResults.length === 0 && searchTerm && !searching && (
+                        <p className="text-center text-xs text-[var(--muted)] mt-2">No results found</p>
+                    )}
                 </div>
+            )}
+
+            <div className="flex flex-1 overflow-hidden relative">
+                <ChatSidebar
+                    channels={channels}
+                    directMessages={directMessages}
+                    selectedId={selectedId}
+                    unreadCounts={unreadCounts}
+                    isConnected={isConnected}
+                    onSelectConversation={setSelectedId}
+                    onDeleteConversation={handleDeleteConversation}
+                    onCreateChannel={() => setShowCreateChannel(true)}
+                    onNewChat={() => setShowNewChat(true)}
+                    getOtherParticipant={getOtherParticipant}
+                    onlineUserIds={onlineUserIds}
+                />
 
                 {/* Chat Area */}
                 <div className="flex-1 flex flex-col bg-[var(--background)] h-full overflow-hidden">
@@ -478,7 +587,7 @@ export default function UnifiedChatPage() {
                                             <div className="flex items-center max-w-[85%] md:max-w-[70%]">
                                                 {!isMe && showHeader && (
                                                     <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 mr-2 border border-[var(--border)] self-end mb-1">
-                                                        <img src={msg.sender.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.sender.name)}`} alt="" />
+                                                        <Image src={msg.sender.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.sender.name)}`} alt={msg.sender.name} width={32} height={32} className="w-full h-full object-cover" />
                                                     </div>
                                                 )}
                                                 {!isMe && !showHeader && <div className="w-10 flex-shrink-0" />}
@@ -487,7 +596,27 @@ export default function UnifiedChatPage() {
                                                     ? 'bg-[var(--accent)] text-white rounded-tr-none'
                                                     : 'bg-[var(--card-surface)] text-[var(--foreground)] border border-[var(--border)] rounded-tl-none'
                                                     }`}>
-                                                    {msg.content}
+                                                    {editingMessageId === msg.id ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <input
+                                                                value={editContent}
+                                                                onChange={e => setEditContent(e.target.value)}
+                                                                onKeyDown={e => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') handleCancelEdit() }}
+                                                                className="flex-1 bg-transparent border-b border-white/40 focus:outline-none text-sm py-0.5"
+                                                                autoFocus
+                                                                aria-label="Edit message"
+                                                            />
+                                                            <button onClick={handleSaveEdit} className="p-1 hover:bg-white/20 rounded" aria-label="Save edit"><Check className="w-3.5 h-3.5" /></button>
+                                                            <button onClick={handleCancelEdit} className="p-1 hover:bg-white/20 rounded" aria-label="Cancel edit"><X className="w-3.5 h-3.5" /></button>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            {msg.content}
+                                                            {msg.editedAt && (
+                                                                <span className={`text-[10px] ml-1.5 ${isMe ? 'text-white/60' : 'text-[var(--muted)]'}`}>(edited)</span>
+                                                            )}
+                                                        </>
+                                                    )}
                                                     {msg.attachment && (
                                                         <div className="mt-2 rounded-lg overflow-hidden border border-[var(--border)] bg-black/10">
                                                             {msg.attachment.startsWith('data:image/') || msg.attachment.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
@@ -511,15 +640,24 @@ export default function UnifiedChatPage() {
                                                         </div>
                                                     )}
 
-                                                    {/* Message Actions (Delete) */}
-                                                    {isMe && (
-                                                        <button
-                                                            onClick={() => handleDeleteMessage(msg.id)}
-                                                            className="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1.5 text-red-500 hover:bg-red-50 rounded-full transition-all"
-                                                            aria-label="Delete message"
-                                                        >
-                                                            <Trash2 className="w-3 h-3" />
-                                                        </button>
+                                                    {/* Message Actions (Edit + Delete) */}
+                                                    {isMe && !editingMessageId && (
+                                                        <div className="absolute -left-16 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-all">
+                                                            <button
+                                                                onClick={() => handleStartEdit(msg)}
+                                                                className="p-1.5 text-[var(--muted)] hover:text-[var(--accent)] hover:bg-[var(--background)] rounded-full transition-all"
+                                                                aria-label="Edit message"
+                                                            >
+                                                                <Pencil className="w-3 h-3" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteMessage(msg.id)}
+                                                                className="p-1.5 text-red-500 hover:bg-red-50 rounded-full transition-all"
+                                                                aria-label="Delete message"
+                                                            >
+                                                                <Trash2 className="w-3 h-3" />
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
@@ -545,252 +683,52 @@ export default function UnifiedChatPage() {
                                 )}
                             </div>
 
-                            {/* Message Input */}
-                            <div className="p-4 bg-[var(--card-surface)] border-t border-[var(--border)] shadow-lg">
-                                {attachmentPreview && (
-                                    <div className="mb-4 flex items-center gap-3 p-2 bg-[var(--background)] rounded-xl border border-[var(--border)] animate-in slide-in-from-bottom-2">
-                                        <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-[var(--border)]">
-                                            {attachment?.type.startsWith('image/') ? (
-                                                <img src={attachmentPreview} alt="Preview" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center bg-[var(--accent)] text-white">
-                                                    <Paperclip className="w-6 h-6" />
-                                                </div>
-                                            )}
-                                            <button
-                                                onClick={clearAttachment}
-                                                className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
-                                            >
-                                                <X className="w-3 h-3" />
-                                            </button>
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-bold truncate">{attachment?.name}</p>
-                                            <p className="text-[10px] text-[var(--muted)]">{(attachment!.size / 1024).toFixed(1)} KB</p>
-                                        </div>
-                                    </div>
-                                )}
-                                <form onSubmit={handleSend} className="flex gap-3 items-center">
-                                    <input
-                                        type="file"
-                                        ref={fileInputRef}
-                                        className="hidden"
-                                        onChange={handleFileSelect}
-                                        accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="p-2 text-[var(--muted)] hover:text-[var(--accent)] transition-colors rounded-full hover:bg-[var(--background)]"
-                                        aria-label="Attach file"
-                                    >
-                                        <Paperclip className="w-5 h-5" />
-                                    </button>
-                                    <div className="relative flex-1">
-                                        <input
-                                            value={newMessage}
-                                            onChange={(e) => setNewMessage(e.target.value)}
-                                            placeholder={`Message ${isDirect ? otherUser?.name : '#' + selectedConv?.name}...`}
-                                            className="w-full bg-[var(--background)] border border-[var(--border)] rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-all"
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && !e.shiftKey) {
-                                                    e.preventDefault();
-                                                    handleSend();
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                    <button
-                                        type="submit"
-                                        disabled={(!newMessage.trim() && !attachment) || sending}
-                                        className="p-3 bg-[var(--accent)] text-white rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
-                                        aria-label="Send message"
-                                    >
-                                        <Send className="w-5 h-5" />
-                                    </button>
-                                </form>
-                            </div>
+                            {/* Typing Indicator */}
+                            {currentTypingNames.length > 0 && (
+                                <div className="px-6 py-1.5 text-xs text-[var(--muted)] animate-pulse">
+                                    {currentTypingNames.length === 1
+                                        ? `${currentTypingNames[0]} is typing...`
+                                        : `${currentTypingNames.join(', ')} are typing...`}
+                                </div>
+                            )}
+
+                            <MessageInput
+                                newMessage={newMessage}
+                                onMessageChange={handleMessageChange}
+                                onSend={handleSend}
+                                sending={sending}
+                                attachment={attachment}
+                                attachmentPreview={attachmentPreview}
+                                onFileSelect={handleFileSelect}
+                                onClearAttachment={clearAttachment}
+                                placeholder={`Message ${isDirect ? otherUser?.name : '#' + selectedConv?.name}...`}
+                            />
                         </>
                     )}
                 </div>
 
-                {/* New Chat Modal Overhead */}
-                {showNewChat && (
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                        <Card className="w-full max-w-md h-[450px] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
-                            <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--card-surface)]">
-                                <h3 className="font-bold text-lg">Send a Message</h3>
-                                <button
-                                    onClick={() => setShowNewChat(false)}
-                                    className="p-1 hover:bg-[var(--background)] rounded-full transition-colors"
-                                    aria-label="Close"
-                                >
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
-                            <div className="p-4 bg-[var(--card-surface)]">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-3 w-4 h-4 text-[var(--muted)]" />
-                                    <input
-                                        autoFocus
-                                        placeholder="Search people by name or email..."
-                                        className="w-full pl-10 pr-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-[var(--accent)] outline-none"
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-2 chat-scroll">
-                                {users
-                                    .filter(u => u.id !== (currentUser?.id ? String(currentUser.id) : undefined) &&
-                                        (u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                            u.email?.toLowerCase().includes(searchQuery.toLowerCase())))
-                                    .map(u => (
-                                        <button
-                                            key={u.id}
-                                            onClick={() => startPrivateChat(u)}
-                                            className="w-full text-left p-3 hover:bg-[var(--background)] rounded-xl flex items-center gap-4 transition-all hover:translate-x-1"
-                                        >
-                                            <div className="w-12 h-12 rounded-full overflow-hidden bg-[var(--card-surface)] border border-[var(--border)] flex items-center justify-center flex-shrink-0">
-                                                {u.avatar ? (
-                                                    <img src={u.avatar} alt="" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 text-sm font-bold">
-                                                        {u.name?.charAt(0).toUpperCase()}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-bold text-sm text-[var(--foreground)]">{u.name}</p>
-                                                <p className="text-xs text-[var(--muted)] truncate">{u.email}</p>
-                                            </div>
-                                        </button>
-                                    ))}
-                                {users.length === 0 && !loading && (
-                                    <div className="text-center py-10 text-[var(--muted)]">
-                                        No team members found.
-                                    </div>
-                                )}
-                            </div>
-                        </Card>
-                    </div>
-                )}
-                {/* Create Channel Modal Overlay */}
-                {showCreateChannel && (
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                        <Card className="w-full max-w-md h-[550px] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
-                            <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--card-surface)]">
-                                <h3 className="font-bold text-lg text-[var(--foreground)]">Create Channel</h3>
-                                <button
-                                    onClick={() => setShowCreateChannel(false)}
-                                    className="p-1 hover:bg-[var(--background)] rounded-full transition-colors"
-                                    aria-label="Close"
-                                >
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
-
-                            <div className="p-4 border-b border-[var(--border)] flex flex-col gap-4 bg-[var(--card-surface)]">
-                                <div>
-                                    <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
-                                        Channel Name
-                                    </label>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold">#</span>
-                                        <input
-                                            autoFocus
-                                            placeholder="e.g. general-discussions"
-                                            className="w-full pl-8 pr-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-[var(--accent)] outline-none"
-                                            value={newChannelName}
-                                            onChange={(e) => {
-                                                const val = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-                                                setNewChannelName(val);
-                                            }}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">Search Members</label>
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-3 w-4 h-4 text-[var(--muted)]" />
-                                        <input
-                                            placeholder="Search people..."
-                                            className="w-full pl-10 pr-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-[var(--accent)] outline-none"
-                                            value={searchChannelQuery}
-                                            onChange={(e) => setSearchChannelQuery(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="px-4 py-2 border-b border-[var(--border)] bg-[var(--background)]/50 text-xs font-semibold text-[var(--muted)] items-center flex justify-between">
-                                <span>Select Members ({selectedChannelUsers.length} selected)</span>
-                                <button
-                                    type="button"
-                                    className={`text-[var(--accent)] hover:underline ${selectedChannelUsers.length === users.filter(u => u.id !== String(currentUser?.id)).length ? 'hidden' : ''}`}
-                                    onClick={() => setSelectedChannelUsers(users.filter(u => u.id !== String(currentUser?.id)).map(u => u.id))}
-                                >
-                                    Select All
-                                </button>
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto p-2 chat-scroll">
-                                {users.filter(u => u.id !== String(currentUser?.id) && u.name?.toLowerCase().includes(searchChannelQuery.toLowerCase())).map(u => {
-                                    const isSelected = selectedChannelUsers.includes(u.id);
-                                    return (
-                                        <button
-                                            key={u.id}
-                                            type="button"
-                                            onClick={() => {
-                                                setSelectedChannelUsers(prev =>
-                                                    isSelected ? prev.filter(id => id !== u.id) : [...prev, u.id]
-                                                );
-                                            }}
-                                            className={`w-full text-left p-3 hover:bg-[var(--background)] rounded-xl flex items-center justify-between gap-3 transition-all ${isSelected ? 'bg-[var(--accent)]/10' : ''}`}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full overflow-hidden bg-[var(--card-surface)] border border-[var(--border)] flex items-center justify-center">
-                                                    {u.avatar ? <img src={u.avatar} alt="" className="w-full h-full object-cover" /> : (
-                                                        <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 text-sm font-bold">
-                                                            {u.name?.charAt(0).toUpperCase()}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div>
-                                                    <p className="font-bold text-sm text-[var(--foreground)]">{u.name}</p>
-                                                    <p className="text-xs text-[var(--muted)]">{u.email}</p>
-                                                </div>
-                                            </div>
-                                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${isSelected ? 'bg-[var(--accent)] border-[var(--accent)]' : 'border-[var(--muted)]'}`}>
-                                                {isSelected && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-                                            </div>
-                                        </button>
-                                    )
-                                })}
-                            </div>
-
-                            <div className="p-4 border-t border-[var(--border)] flex justify-end gap-3 bg-[var(--card-surface)]">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    onClick={() => setShowCreateChannel(false)}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="primary"
-                                    onClick={handleCreateChannel}
-                                    disabled={!newChannelName.trim() || selectedChannelUsers.length === 0}
-                                >
-                                    Create Channel
-                                </Button>
-                            </div>
-                        </Card>
-                    </div>
-                )}
+                <NewChatModal
+                    isOpen={showNewChat}
+                    onClose={() => setShowNewChat(false)}
+                    searchQuery={searchQuery}
+                    onSearchQueryChange={setSearchQuery}
+                    users={users}
+                    currentUserId={currentUser?.id ? String(currentUser.id) : undefined}
+                    onStartChat={startPrivateChat}
+                />
+                <CreateChannelModal
+                    isOpen={showCreateChannel}
+                    onClose={() => setShowCreateChannel(false)}
+                    channelName={newChannelName}
+                    onChannelNameChange={setNewChannelName}
+                    selectedUsers={selectedChannelUsers}
+                    onSelectedUsersChange={setSelectedChannelUsers}
+                    searchQuery={searchChannelQuery}
+                    onSearchQueryChange={setSearchChannelQuery}
+                    users={users}
+                    currentUserId={currentUser?.id ? String(currentUser.id) : undefined}
+                    onCreateChannel={handleCreateChannel}
+                />
             </div>
         </div>
     )

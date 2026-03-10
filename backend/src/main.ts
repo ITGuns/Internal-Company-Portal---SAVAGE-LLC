@@ -139,9 +139,9 @@ async function bootstrap() {
 }
 
 // For Vercel, we export the app instance directly
-let cachedApp: any;
+let cachedApp: express.Express | undefined;
 
-export default async (req: any, res: any) => {
+export default async (req: Request, res: Response) => {
   if (!cachedApp) {
     try {
       cachedApp = await bootstrap();

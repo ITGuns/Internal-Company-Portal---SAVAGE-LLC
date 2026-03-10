@@ -10,6 +10,7 @@ import {
   DailyDigestEmailData,
   DepartmentUpdateEmailData,
   PayslipGeneratedEmailData,
+  PasswordResetEmailData,
   EmailTemplateType,
   EmailTemplateData,
 } from './email.types';
@@ -371,6 +372,32 @@ export const payslipGeneratedEmailTemplate = (data: PayslipGeneratedEmailData): 
   return emailWrapper(content);
 };
 
+// Password Reset Email Template
+export const passwordResetEmailTemplate = (data: PasswordResetEmailData): string => {
+  const content = `
+    <div class="container">
+      <div class="header">
+        <h1>🔑 Password Reset Request</h1>
+      </div>
+      <div class="content">
+        <p>Hi <strong>${data.userName}</strong>,</p>
+        <p>We received a request to reset your password for the SAVAGE LLC Internal Portal.</p>
+        <p>Click the button below to set a new password. This link will expire in <strong>${data.expiresInMinutes} minutes</strong>.</p>
+        <center>
+          <a href="${data.resetUrl}" class="button" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">Reset Password</a>
+        </center>
+        <p style="font-size: 13px; color: #666;">If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.</p>
+        <p>Best regards,<br><strong>SAVAGE LLC Team</strong></p>
+      </div>
+      <div class="footer">
+        <p>This is an automated message from SAVAGE LLC Internal Portal</p>
+        <p>&copy; 2026 SAVAGE LLC. All rights reserved.</p>
+      </div>
+    </div>
+  `;
+  return emailWrapper(content);
+};
+
 // Template selector function
 export const getEmailTemplate = (
   type: EmailTemplateType,
@@ -389,6 +416,8 @@ export const getEmailTemplate = (
       return departmentUpdateEmailTemplate(data as DepartmentUpdateEmailData);
     case 'payslip_generated':
       return payslipGeneratedEmailTemplate(data as PayslipGeneratedEmailData);
+    case 'password_reset':
+      return passwordResetEmailTemplate(data as PasswordResetEmailData);
     default:
       throw new Error(`Unknown email template type: ${type}`);
   }

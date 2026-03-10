@@ -1,5 +1,6 @@
 
 import { apiFetch } from './api';
+import type { PaginatedResponse } from './types/pagination';
 
 export interface User {
     id: string;
@@ -12,6 +13,11 @@ export interface User {
 
 export const fetchUsers = async (): Promise<User[]> => {
     const res = await apiFetch('/users');
+    return res.json();
+};
+
+export const fetchUsersPaginated = async (page: number, limit: number): Promise<PaginatedResponse<User>> => {
+    const res = await apiFetch(`/users?page=${page}&limit=${limit}`);
     return res.json();
 };
 

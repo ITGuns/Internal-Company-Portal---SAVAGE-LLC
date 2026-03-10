@@ -5,7 +5,7 @@ import Header from "@/components/Header";
 import Card from "@/components/Card";
 import Button from "@/components/Button";
 import EmptyState from "@/components/ui/EmptyState";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import { PageSkeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ToastProvider";
 import { apiFetch } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
@@ -16,6 +16,7 @@ import {
     generatePayslipPDF,
 } from "@/lib/payroll-calendar/payslip-utils";
 import type { Payslip } from "@/lib/payroll-calendar/types";
+import type { ApiPayslip, ApiPayslipItem } from "@/lib/types/api";
 import {
     FileText,
     Download,
@@ -30,7 +31,7 @@ import {
 } from "lucide-react";
 
 // ─── helper: map raw API response to Payslip shape ──────────────────────────
-function mapApiPayslip(raw: any): Payslip {
+function mapApiPayslip(raw: ApiPayslip): Payslip {
     return {
         id: raw.id,
         employeeId: raw.userId,
@@ -44,8 +45,8 @@ function mapApiPayslip(raw: any): Payslip {
         netPay: raw.netPay ?? 0,
         deductions:
             raw.items
-                ?.filter((i: any) => i.amount < 0)
-                .map((i: any) => ({
+                ?.filter((i: ApiPayslipItem) => i.amount < 0)
+                .map((i: ApiPayslipItem) => ({
                     id: i.id,
                     type: "other" as const,
                     name: i.description,
@@ -285,7 +286,7 @@ export default function MyPayslipsPage() {
             <main className="ml-64 pt-28 px-8 pb-10">
                 {loading ? (
                     <div className="flex items-center justify-center py-32">
-                        <LoadingSpinner />
+                        <PageSkeleton />
                     </div>
                 ) : (
                     <div className="max-w-4xl mx-auto space-y-8">

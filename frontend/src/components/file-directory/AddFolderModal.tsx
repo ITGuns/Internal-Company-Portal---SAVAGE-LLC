@@ -84,9 +84,9 @@ export default function AddFolderModal({
         // Pre-select all detected subfolders
         setSelectedSubfolders(new Set(subfolders.map(s => s.id)));
         setDetectionStatus('done');
-      } catch (err: any) {
-        if (err.message === 'API_KEY_MISSING') setDetectionStatus('no-key');
-        else if (err.message === 'ACCESS_DENIED') setDetectionStatus('error');
+      } catch (err) {
+        if (err instanceof Error && err.message === 'API_KEY_MISSING') setDetectionStatus('no-key');
+        else if (err instanceof Error && err.message === 'ACCESS_DENIED') setDetectionStatus('error');
         else setDetectionStatus('error');
       } finally {
         setDetectingSubfolders(false);

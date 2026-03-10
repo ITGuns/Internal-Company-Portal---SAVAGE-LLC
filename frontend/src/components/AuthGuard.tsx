@@ -19,7 +19,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   const { user, isLoading, logout } = useUser();
 
   // Routes that don't require authentication
-  const exemptRoutes = ['/login', '/dev-login', '/signup', '/forgot-password'];
+  const exemptRoutes = ['/login', '/signup', '/forgot-password'];
   const isExemptRoute = exemptRoutes.includes(pathname);
 
   useEffect(() => {
@@ -35,7 +35,6 @@ export default function AuthGuard({ children }: AuthGuardProps) {
 
     // Redirect to login if not authenticated
     if (!user) {
-      console.log('[AuthGuard] No user found, redirecting to /login');
       router.push('/login');
     }
   }, [user, isLoading, pathname, isExemptRoute, router]);

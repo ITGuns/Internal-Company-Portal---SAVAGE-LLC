@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, ReactNode } from "react";
 import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface ModalProps {
   /** Whether the modal is open */
@@ -141,7 +142,7 @@ export default function Modal({
     >
       {/* Backdrop - only covers content area, not sidebar */}
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fadeIn"
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fadeIn"
         onClick={closeOnBackdrop ? onClose : undefined}
         aria-hidden="true"
       />
@@ -150,7 +151,11 @@ export default function Modal({
       <div
         ref={modalRef}
         tabIndex={-1}
-        className={`relative bg-[var(--card-surface)] rounded-lg shadow-xl w-full ${sizeClasses[size]} animate-slideUp ${className}`}
+        className={cn(
+          'relative bg-[var(--card-surface)] rounded-xl shadow-2xl ring-1 ring-[var(--border)] w-full animate-slideUp',
+          sizeClasses[size],
+          className,
+        )}
       >
         {/* Header */}
         <div className="flex items-start justify-between p-6 border-b border-[var(--border)]">
@@ -172,7 +177,7 @@ export default function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 -mt-2 -mr-2 rounded-md hover:bg-[var(--card-bg)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+            className="p-2 -mt-2 -mr-2 rounded-lg hover:bg-[var(--card-bg)] transition-all duration-150 text-[var(--muted)] hover:text-[var(--foreground)] active:scale-90"
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />

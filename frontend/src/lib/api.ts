@@ -47,31 +47,6 @@ export const setCurrentUser = (user: Record<string, unknown>) => {
 }
 
 /**
- * Dev login function - manually login as a test user
- * Uses admin@savage.com by default for testing
- */
-export const devLogin = async () => {
-    try {
-        // Use a generic admin account for dev testing
-        const res = await fetch(`${AUTH_URL}/dev-login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: 'admin@savage.com' })
-        })
-        const data = await res.json()
-        if (data.success && data.tokens) {
-            setAuthToken(data.tokens.accessToken)
-            if (data.tokens.refreshToken) setRefreshToken(data.tokens.refreshToken)
-            setCurrentUser(data.user);
-            return data.tokens.accessToken
-        }
-    } catch (err) {
-        console.error('Dev login failed', err)
-    }
-    return null
-}
-
-/**
  * Attempt to refresh the access token using the stored refresh token.
  * Returns the new access token on success, null on failure.
  */
@@ -142,15 +117,44 @@ export const logout = () => {
     }
 }
 
+/**
+ * Request a password reset email
+ */
+export const requestPasswordReset = async (email: string): Promise<{ success: boolean; message: string }> => {
+    const res = await fetch(`${AUTH_URL}/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data.error || 'Failed to send reset email');
+    }
+    return data;
+}
+
+/**
+ * Reset password using token from email
+ */
+export const resetPassword = async (token: string, email: string, password: string): Promise<{ success: boolean; message: string }> => {
+    const res = await fetch(`${AUTH_URL}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data.error || 'Failed to reset password');
+    }
+    return data;
+}
+
 interface APIOptions extends RequestInit {
     _isRetry?: boolean;
 }
 
 export const apiFetch = async (endpoint: string, options: APIOptions = {}): Promise<Response> => {
-    let token = getAuthToken()
-    if (!token && process.env.NODE_ENV !== 'production') {
-        token = await devLogin()
-    }
+    const token = getAuthToken()
 
     const headers = {
         'Content-Type': 'application/json',
@@ -164,31 +168,12 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
         headers,
     })
 
-    // If 403 in dev, the role may have been added recently. Re-login and retry once.
-    if (response.status === 403 && process.env.NODE_ENV !== 'production' && !options._isRetry) {
-        console.warn('403 Forbidden - Attempting dev re-login');
-        if (typeof window !== 'undefined') {
-            localStorage.removeItem('accessToken');
-        }
-        return apiFetch(endpoint, { ...options, _isRetry: true });
-    }
-
     // If 401, try refreshing the token once before giving up
     if (response.status === 401 && !options._isRetry) {
-        console.warn('401 Unauthorized — attempting token refresh');
-
         // Try refresh token first
         const newToken = await tryRefreshToken()
         if (newToken) {
             return apiFetch(endpoint, { ...options, _isRetry: true })
-        }
-
-        // In dev, fall back to dev-login
-        if (process.env.NODE_ENV !== 'production') {
-            const devToken = await devLogin()
-            if (devToken) {
-                return apiFetch(endpoint, { ...options, _isRetry: true })
-            }
         }
 
         // Nothing worked — clear tokens silently.
@@ -200,7 +185,6 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
             localStorage.removeItem('refreshToken')
             localStorage.removeItem(STORAGE_KEYS.USER)
         }
-        console.warn('Auth failed — tokens cleared. UserContext will handle re-login.')
     }
 
     if (!response.ok && response.status !== 401) {

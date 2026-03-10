@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import BrandLogo from '../assets/icons/BrandLogo'
 import IconButton from './IconButton'
@@ -21,6 +22,24 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
   const { user } = useUser()
 
   const isDashboard = pathname === '/' || pathname === '/dashboard'
+
+  // Auto-resolve page title from route when not explicitly provided
+  const routeTitles: Record<string, { title: string; subtitle?: string }> = {
+    '/task-tracking': { title: 'Task Tracking', subtitle: 'Manage and track your tasks' },
+    '/payroll-calendar': { title: 'Payroll Calendar', subtitle: 'Schedules and time entries' },
+    '/announcements': { title: 'Announcements', subtitle: 'Company news and updates' },
+    '/daily-logs': { title: 'Daily Logs', subtitle: 'Daily work activity reports' },
+    '/chat': { title: 'Messages & Chat', subtitle: 'Team communication' },
+    '/file-directory': { title: 'File Directory', subtitle: 'Shared documents and files' },
+    '/whiteboard': { title: 'Whiteboard', subtitle: 'Collaborative workspace' },
+    '/profile': { title: 'Profile', subtitle: 'Your account settings' },
+    '/employees': { title: 'Employees', subtitle: 'Team directory' },
+    '/departments': { title: 'Departments', subtitle: 'Organization structure' },
+  }
+  // Match exact route or find prefix match for sub-routes
+  const autoTitle = routeTitles[pathname] ?? Object.entries(routeTitles).find(([key]) => pathname.startsWith(key + '/'))?.[1]
+  const resolvedTitle = title ?? autoTitle?.title
+  const resolvedSubtitle = subtitle ?? autoTitle?.subtitle
   const headerRef = useRef<HTMLElement | null>(null)
   const [outlineLeft, setOutlineLeft] = useState<number | null>(null)
   const [outlineWidth, setOutlineWidth] = useState<number | null>(null)
@@ -107,16 +126,16 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
   return (
     <header ref={headerRef} className="fixed top-0 left-64 right-0 z-35 flex items-center justify-between h-28 pl-7 pr-6 bg-[var(--background)]">
       <div className="flex items-center gap-4">
-        {/* left area: allow explicit title, else show dashboard greeting or brand */}
-        {title ? (
-          <div className="text-left">
-            <h2 className="text-xl font-semibold">{title}</h2>
-            {subtitle ? <div className="text-sm text-[var(--muted)] mt-1">{subtitle}</div> : null}
-          </div>
-        ) : isDashboard ? (
+        {/* left area: allow explicit title, auto-resolve from route, else show dashboard greeting */}
+        {isDashboard ? (
           <div className="text-left">
             <h2 className="text-xl font-semibold">Welcome back, {user?.name || 'Guest'}</h2>
             <div className="text-sm text-[var(--muted)]">Here's what's happening today</div>
+          </div>
+        ) : resolvedTitle ? (
+          <div className="text-left">
+            <h2 className="text-xl font-semibold">{resolvedTitle}</h2>
+            {resolvedSubtitle ? <div className="text-sm text-[var(--muted)] mt-1">{resolvedSubtitle}</div> : null}
           </div>
         ) : (
           <>
@@ -128,6 +147,18 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
 
       <div className="flex items-center gap-3">
         {/* Search and Add Task intentionally removed for a cleaner header */}
+
+        {/* Command palette trigger */}
+        <button
+          onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}
+          className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--muted)] bg-[var(--card-bg)] border border-[var(--border)] rounded-lg hover:border-[var(--muted)] hover:text-[var(--foreground)] transition-all duration-150"
+          aria-label="Open command palette"
+        >
+          <Search className="w-4 h-4" />
+          <span>Search</span>
+          <kbd className="ml-1 text-xs font-mono opacity-70">Ctrl+K</kbd>
+        </button>
+
         {user && <TimeClock />}
 
         <ThemeToggle />
@@ -150,9 +181,11 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
         >
           <div className="w-8 h-8 rounded-full overflow-hidden bg-[var(--card-surface)] border-2 border-[var(--border)]">
             {user?.avatar ? (
-              <img
+              <Image
                 src={user.avatar}
                 alt={user.name || "User"}
+                width={32}
+                height={32}
                 className="w-full h-full object-cover"
               />
             ) : (

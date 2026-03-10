@@ -10,10 +10,12 @@ export class TasksController {
   router(): Router {
     const router = express.Router()
 
-    // Get all tasks
+    // Get all tasks (with optional pagination)
     router.get('/', authenticateToken, async (req: Request, res: Response) => {
       try {
-        const tasks = await this.service.findAll()
+        const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined
+        const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined
+        const tasks = await this.service.findAll(page, limit)
         res.json(tasks)
       } catch (error) {
         res.status(500).json({ error: 'Failed to fetch tasks' })
@@ -155,9 +157,10 @@ export class TasksController {
           })
         }
 
+        notificationService.broadcastDataChange('tasks')
         res.status(201).json(task)
-      } catch (error: any) {
-        if (error.code === 'P2003') {
+      } catch (error) {
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
           return res.status(400).json({
             error: 'Invalid department or assignee ID'
           })
@@ -223,9 +226,10 @@ export class TasksController {
           })
         }
 
+        notificationService.broadcastDataChange('tasks')
         res.json(task)
-      } catch (error: any) {
-        if (error.code === 'P2003') {
+      } catch (error) {
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
           return res.status(400).json({
             error: 'Invalid department or assignee ID'
           })
@@ -246,6 +250,7 @@ export class TasksController {
         }
 
         await this.service.delete(id)
+        notificationService.broadcastDataChange('tasks')
         res.json({ message: 'Task deleted successfully' })
       } catch (error) {
         res.status(500).json({ error: 'Failed to delete task' })

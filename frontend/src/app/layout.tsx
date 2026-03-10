@@ -7,6 +7,7 @@ import { ToastProvider } from "../components/ToastProvider";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { UserProvider } from "../contexts/UserContext";
 import { ExchangeRateProvider } from "../contexts/ExchangeRateContext";
+import { QueryProvider } from "../context/QueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,6 +42,7 @@ export default function RootLayout({
         />
 
         <ErrorBoundary>
+          <QueryProvider>
           <UserProvider>
             <ExchangeRateProvider>
               <SocketProvider>
@@ -50,6 +52,7 @@ export default function RootLayout({
               </SocketProvider>
             </ExchangeRateProvider>
           </UserProvider>
+          </QueryProvider>
         </ErrorBoundary>
       </body>
     </html>

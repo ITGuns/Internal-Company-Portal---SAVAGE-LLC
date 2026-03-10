@@ -1,11 +1,13 @@
 import express, { Request, Response, NextFunction, Router } from 'express'
 import { DailyLogsService } from './daily-logs.service'
 import { authenticateToken, requireRole } from '../auth/auth.middleware'
+import { notificationService } from '../notifications/socket.service'
+import { isAdminEmail } from '../config/env.config'
 
 interface AuthRequest extends Request {
     user?: {
         userId: string
-        [key: string]: any
+        [key: string]: unknown
     }
 }
 
@@ -30,7 +32,7 @@ export class DailyLogsController {
                 const { prisma } = await import('../database/prisma.service')
                 const roles = await prisma.userRole.findMany({ where: { userId: user.userId } })
                 const isPrivileged = roles.some(r => ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase()))
-                const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(user.email?.toLowerCase() || '')
+                const isAuthorizedEmail = isAdminEmail(String(user.email || ''))
 
                 if (found.authorId !== user.userId && !isPrivileged && !isAuthorizedEmail) {
                     return res.status(403).json({ error: 'Unauthorized' })
@@ -41,14 +43,16 @@ export class DailyLogsController {
             }
         }
 
-        // Get all logs (with optional filtering)
+        // Get all logs (with optional filtering and pagination)
         router.get('/', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const department = req.query.department as string | undefined
                 const status = req.query.status as string | undefined
                 const logType = req.query.logType as string | undefined
+                const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined
+                const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined
 
-                const items = await this.service.findAll(department, status, logType)
+                const items = await this.service.findAll(department, status, logType, page, limit)
                 res.json(items)
             } catch (error) {
                 console.error('Error fetching logs:', error)
@@ -101,6 +105,7 @@ export class DailyLogsController {
                 })
 
                 res.status(201).json(item)
+                notificationService.broadcastDataChange('daily-logs')
             } catch (error) {
                 console.error('Error creating log:', error)
                 res.status(500).json({ error: 'Failed to create log' })
@@ -124,6 +129,7 @@ export class DailyLogsController {
                 })
 
                 res.json(item)
+                notificationService.broadcastDataChange('daily-logs')
             } catch (error) {
                 console.error('Error updating log:', error)
                 res.status(500).json({ error: 'Failed to update log' })
@@ -135,6 +141,7 @@ export class DailyLogsController {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
                 await this.service.delete(id)
+                notificationService.broadcastDataChange('daily-logs')
                 res.json({ message: 'Log deleted' })
             } catch (error) {
                 console.error('Error deleting log:', error)
@@ -153,6 +160,7 @@ export class DailyLogsController {
                 }
 
                 const result = await this.service.toggleLike(id, user.userId)
+                notificationService.broadcastDataChange('daily-logs')
                 res.json(result)
             } catch (error) {
                 console.error('Error toggling like:', error)

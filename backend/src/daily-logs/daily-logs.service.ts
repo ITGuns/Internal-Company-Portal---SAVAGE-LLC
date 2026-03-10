@@ -1,4 +1,4 @@
-import { PrismaClient, DailyLog } from '@prisma/client'
+import { PrismaClient, DailyLog, Prisma } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
 
 export interface CreateDailyLogDto {
@@ -8,7 +8,7 @@ export interface CreateDailyLogDto {
     department: string
     status?: string
     hoursLogged?: number
-    tasks?: any[] // Array of {id, text, completed}
+    tasks?: Prisma.JsonArray // Array of {id, text, completed}
     shiftNotes?: string
     logType?: string
 }
@@ -18,7 +18,7 @@ export interface UpdateDailyLogDto {
     department?: string
     status?: string
     hoursLogged?: number
-    tasks?: any[]
+    tasks?: Prisma.JsonArray
     shiftNotes?: string
     logType?: string
 }
@@ -30,8 +30,8 @@ export class DailyLogsService {
         this.prisma = prisma
     }
 
-    async findAll(department?: string, status?: string, logType?: string) {
-        const where: any = {}
+    async findAll(department?: string, status?: string, logType?: string, page?: number, limit?: number) {
+        const where: Prisma.DailyLogWhereInput = {}
 
         if (department) {
             where.department = department
@@ -45,21 +45,39 @@ export class DailyLogsService {
             where.logType = logType
         }
 
-        return this.prisma.dailyLog.findMany({
-            where,
-            include: {
-                author: {
-                    select: { id: true, name: true, avatar: true, email: true }
-                },
-                likes: {
-                    include: {
-                        user: {
-                            select: { id: true, name: true, avatar: true }
-                        }
+        const include = {
+            author: {
+                select: { id: true, name: true, avatar: true, email: true }
+            },
+            likes: {
+                include: {
+                    user: {
+                        select: { id: true, name: true, avatar: true }
                     }
                 }
-            },
-            orderBy: { date: 'desc' }
+            }
+        }
+
+        const orderBy = { date: 'desc' as const }
+
+        if (page !== undefined && limit !== undefined) {
+            const [data, total] = await Promise.all([
+                this.prisma.dailyLog.findMany({
+                    where,
+                    include,
+                    orderBy,
+                    skip: (page - 1) * limit,
+                    take: limit,
+                }),
+                this.prisma.dailyLog.count({ where }),
+            ])
+            return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
+        }
+
+        return this.prisma.dailyLog.findMany({
+            where,
+            include,
+            orderBy,
         })
     }
 

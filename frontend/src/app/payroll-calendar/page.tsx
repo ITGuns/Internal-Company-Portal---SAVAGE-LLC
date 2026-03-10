@@ -1,22 +1,25 @@
 "use client";
 
 import React, { useState } from "react";
+import dynamic from "next/dynamic";
 import Header from "@/components/Header";
 import Button from "@/components/Button";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import { PageSkeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ToastProvider";
 import { Calendar as CalendarIcon, Users, FileText, BarChart3, Plus } from "lucide-react";
 import { type PayrollEventType } from "@/lib/payroll-events";
 import type { PayrollTab, CalendarEvent } from "@/lib/payroll-calendar/types";
 import { usePayrollData } from "@/lib/payroll-calendar/usePayrollData";
 import { useCalendarEvents } from "@/lib/payroll-calendar/useCalendarEvents";
-import CalendarTab from "@/components/payroll/CalendarTab";
 import EmployeeOverviewTab from "../../components/payroll/EmployeeOverviewTab";
 import PayslipsTab from "@/components/payroll/PayslipsTab";
 import ReportsTab from "@/components/payroll/ReportsTab";
-import AddTimeEntryModal from "@/components/payroll/AddTimeEntryModal";
-import AddEventModal from "@/components/payroll/AddEventModal";
 import { useUser } from "@/contexts/UserContext";
+
+// Lazy-loaded heavy components (CalendarTab has FullCalendar, modals are only shown on interaction)
+const CalendarTab = dynamic(() => import("@/components/payroll/CalendarTab"), { ssr: false });
+const AddTimeEntryModal = dynamic(() => import("@/components/payroll/AddTimeEntryModal"), { ssr: false });
+const AddEventModal = dynamic(() => import("@/components/payroll/AddEventModal"), { ssr: false });
 
 export default function PayrollCalendarPage() {
   const { user } = useUser();
@@ -53,11 +56,10 @@ export default function PayrollCalendarPage() {
     stats,
   } = useCalendarEvents(timeEntries, customEvents);
 
-  // RBAC: Check if user has management access (Admin, Genrou, Daryl)
+  // RBAC: Check if user has management access
   const userRole = user?.role?.toLowerCase() || 'member';
   const formattedRole = userRole.trim().replace(/ /g, '_');
-  const allowedEmails = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'];
-  const hasManagementAccess = ['admin', 'manager', 'operations_manager', 'administrator'].includes(formattedRole) || allowedEmails.includes(user?.email?.toLowerCase() || '');
+  const hasManagementAccess = ['admin', 'manager', 'operations_manager', 'administrator'].includes(formattedRole);
 
   // Event handlers
   const handleAddManualEntry = async (
@@ -185,7 +187,7 @@ export default function PayrollCalendarPage() {
             title="Payroll Calendar"
             subtitle="Track pay periods, deadlines, and holidays"
           />
-          <LoadingSpinner message="Loading payroll calendar..." />
+          <PageSkeleton />
         </div>
       </main>
     );

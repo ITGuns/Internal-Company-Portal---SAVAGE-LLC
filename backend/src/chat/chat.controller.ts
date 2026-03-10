@@ -35,6 +35,25 @@ export class ChatController {
             }
         })
 
+        // Search messages across user's conversations
+        router.get('/search', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                // @ts-ignore
+                const userId = (req as AuthRequest).user.userId
+                const query = typeof req.query.q === 'string' ? req.query.q.trim() : ''
+
+                if (!query) {
+                    return res.json([])
+                }
+
+                const results = await this.service.searchMessages(userId, query)
+                res.json(results)
+            } catch (error) {
+                console.error(error)
+                res.status(500).json({ error: 'Failed to search messages' })
+            }
+        })
+
         // Create a new conversation
         router.post('/', authenticateToken, async (req: Request, res: Response) => {
             try {
@@ -52,7 +71,7 @@ export class ChatController {
                 const conversation = await this.service.createConversation(type || 'direct', allParticipants, name)
 
                 // Notify participants
-                conversation.participants.forEach((p: any) => {
+                conversation.participants.forEach((p: { userId: string }) => {
                     // Send notification
                     notificationService.notifyUser(p.userId, {
                         type: 'info',
@@ -120,7 +139,7 @@ export class ChatController {
                 // Also notify offline/online users via user room (for push notifications/badges)
                 const conversation = await this.service.getConversationById(conversationId);
                 if (conversation) {
-                    conversation.participants.forEach((p: any) => {
+                    conversation.participants.forEach((p: { userId: string }) => {
                         if (p.userId !== userId) {
                             notificationService.notifyUser(p.userId, {
                                 type: 'info',
@@ -134,9 +153,9 @@ export class ChatController {
                 }
 
                 res.status(201).json(message)
-            } catch (error: any) {
+            } catch (error) {
                 const fs = require('fs');
-                const logMsg = `\n[${new Date().toISOString()}] ERROR SENDING MESSAGE:\n${error.stack || error}\n`;
+                const logMsg = `\n[${new Date().toISOString()}] ERROR SENDING MESSAGE:\n${error instanceof Error ? error.stack : error}\n`;
                 fs.appendFileSync('chat_error.log', logMsg);
                 console.error(error)
                 res.status(500).json({ error: 'Failed to send message' })
@@ -155,7 +174,17 @@ export class ChatController {
                     return res.status(403).json({ error: 'Access denied' })
                 }
 
-                await this.service.markAsRead(conversationId, userId)
+                const readAt = await this.service.markAsRead(conversationId, userId)
+
+                // Broadcast read receipt to conversation participants
+                if (readAt) {
+                    notificationService.emitToRoom(`conversation:${conversationId}`, 'chat:read', {
+                        conversationId,
+                        userId,
+                        readAt: readAt.toISOString(),
+                    })
+                }
+
                 res.sendStatus(200)
             } catch (error) {
                 res.status(500).json({ error: 'Failed to mark as read' })
@@ -187,6 +216,38 @@ export class ChatController {
             }
         })
 
+        // Edit message (sender only)
+        router.patch('/messages/:id', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                // @ts-ignore
+                const userId = (req as AuthRequest).user.userId
+                const messageId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+                const { content } = req.body
+
+                if (!content || typeof content !== 'string' || !content.trim()) {
+                    return res.status(400).json({ error: 'Message content is required' })
+                }
+
+                const updatedMessage = await this.service.editMessage(messageId, userId, content.trim())
+
+                if (!updatedMessage) {
+                    return res.status(403).json({ error: 'Not found or not authorized' })
+                }
+
+                notificationService.emitToRoom(`conversation:${updatedMessage.conversationId}`, 'chat:message_edited', {
+                    messageId: updatedMessage.id,
+                    conversationId: updatedMessage.conversationId,
+                    content: updatedMessage.content,
+                    editedAt: updatedMessage.editedAt,
+                })
+
+                res.json(updatedMessage)
+            } catch (error) {
+                console.error(error)
+                res.status(500).json({ error: 'Failed to edit message' })
+            }
+        })
+
         // Leave/Delete conversation
         router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
             try {
@@ -212,6 +273,17 @@ export class ChatController {
             } catch (error) {
                 console.error(error)
                 res.status(500).json({ error: 'Failed to delete conversation' })
+            }
+        })
+
+        // Get online users
+        router.get('/online', authenticateToken, async (_req: Request, res: Response) => {
+            try {
+                const onlineUserIds = notificationService.getOnlineUserIds()
+                res.json({ onlineUserIds })
+            } catch (error) {
+                console.error(error)
+                res.status(500).json({ error: 'Failed to get online users' })
             }
         })
 

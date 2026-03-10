@@ -5,6 +5,8 @@ import { io, Socket } from 'socket.io-client'
 import { APP_CONFIG } from '@/lib/config'
 import { STORAGE_KEYS, SOCKET_EVENTS } from '@/lib/constants'
 import { apiFetch } from '@/lib/api'
+import { getQueryClient } from '@/lib/queryClient'
+import type { SocketNotificationPayload } from '@/lib/types/api'
 
 const SOCKET_URL = APP_CONFIG.wsUrl
     .replace('ws://', 'http://')
@@ -53,8 +55,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             socketRef.current.disconnect()
         }
 
-        console.log('🔌 Connecting to socket...', SOCKET_URL)
-
         const newSocket = io(SOCKET_URL, {
             withCredentials: true,
             transports: ['polling', 'websocket'],
@@ -68,19 +68,16 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         socketRef.current = newSocket;
 
         newSocket.on('connect', () => {
-            console.log('✅ Socket connected via', newSocket.io.engine.transport.name, 'ID:', newSocket.id)
             setIsConnected(true)
             newSocket.emit('authenticate', userId)
         })
 
-        newSocket.on('reconnect', (attempt) => {
-            console.log('🔄 Socket reconnected after', attempt, 'attempts')
+        newSocket.on('reconnect', () => {
             setIsConnected(true)
             newSocket.emit('authenticate', userId)
         })
 
-        newSocket.on('disconnect', (reason) => {
-            console.log('❌ Socket disconnected:', reason)
+        newSocket.on('disconnect', () => {
             setIsConnected(false)
         })
 
@@ -88,10 +85,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             console.error('⚠️ Socket connection error:', err.message)
         })
 
-        newSocket.on('notification', (payload: any) => {
-            console.log('🔔 New notification received:', payload)
+        newSocket.on('notification', (payload: SocketNotificationPayload) => {
             const newNotification: Notification = {
                 ...payload,
+                id: payload.id || crypto.randomUUID(),
                 read: false,
                 createdAt: payload.createdAt || new Date().toISOString()
             }
@@ -99,12 +96,18 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         })
 
         // Listen for chat messages globally to show badges
-        newSocket.on('chat:message', (msg: any) => {
+        newSocket.on('chat:message', (msg: { senderId: string }) => {
             if (String(msg.senderId) !== String(userId)) {
                 // Only increment if we are not on the chat page OR message is for a different conversation
                 // For simplicity, we increment globally and the chat page will clear it when viewed
                 setUnreadChatCount(prev => prev + 1)
             }
+        })
+
+        // Listen for data-change events and invalidate the matching React Query cache
+        newSocket.on('data:changed', (payload: { resource: string }) => {
+            const queryClient = getQueryClient()
+            queryClient.invalidateQueries({ queryKey: [payload.resource] })
         })
 
         setSocket(newSocket)
@@ -206,7 +209,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
                     const uid = user.id || user.userId || user.uuid
 
                     if (uid && (!socketRef.current || !socketRef.current.connected)) {
-                        console.log('🔄 Auto-connecting socket for user:', uid)
                         connect(uid)
                     }
                 } catch (e) {

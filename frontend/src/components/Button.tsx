@@ -1,4 +1,5 @@
 import React from 'react';
+import { cn } from '@/lib/utils';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'success' | 'danger' | 'ghost' | 'outline';
 export type ButtonSize = 'sm' | 'md' | 'lg';
@@ -12,18 +13,23 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   loading?: boolean;
 }
 
-/**
- * Button Component
- * 
- * Reusable button component with multiple variants, sizes, and states.
- * 
- * @example
- * ```tsx
- * <Button variant="primary" size="md" icon={<Plus />}>
- *   Add Item
- * </Button>
- * ```
- */
+const baseStyles = 'inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-offset-2 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100';
+
+const sizeStyles: Record<ButtonSize, string> = {
+  sm: 'px-3 py-1.5 text-sm',
+  md: 'px-4 py-2 text-sm',
+  lg: 'px-6 py-3 text-base',
+};
+
+const variantStyles: Record<ButtonVariant, string> = {
+  primary: 'bg-[var(--accent)] text-white hover:brightness-110 hover:shadow-md hover:shadow-[var(--accent)]/25 focus:ring-[var(--accent)]',
+  secondary: 'bg-[var(--card-surface)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--card-bg)] hover:border-[var(--muted)] focus:ring-[var(--foreground)]',
+  success: 'bg-emerald-600 text-white hover:bg-emerald-500 hover:shadow-md hover:shadow-emerald-500/25 focus:ring-emerald-500',
+  danger: 'bg-red-600 text-white hover:bg-red-500 hover:shadow-md hover:shadow-red-500/25 focus:ring-red-500',
+  ghost: 'bg-transparent text-[var(--foreground)] hover:bg-[var(--card-surface)] focus:ring-[var(--foreground)]',
+  outline: 'bg-transparent text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--card-surface)] hover:border-[var(--muted)] focus:ring-[var(--foreground)]',
+};
+
 export default function Button({
   variant = 'primary',
   size = 'md',
@@ -32,35 +38,17 @@ export default function Button({
   fullWidth = false,
   loading = false,
   disabled,
-  className = '',
+  className,
   children,
   ...props
 }: ButtonProps) {
-  // Base styles
-  const baseStyles = 'inline-flex items-center justify-center gap-2 font-medium rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
-  
-  // Size styles
-  const sizeStyles = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-sm',
-    lg: 'px-6 py-3 text-base',
-  };
-  
-  // Variant styles
-  const variantStyles = {
-    primary: 'bg-[var(--accent)] text-white hover:opacity-90 focus:ring-[var(--accent)]',
-    secondary: 'bg-[var(--card-surface)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--card-bg)] focus:ring-[var(--foreground)]',
-    success: 'bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-500',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
-    ghost: 'bg-transparent text-[var(--foreground)] hover:bg-[var(--card-surface)] focus:ring-[var(--foreground)]',
-    outline: 'bg-transparent text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--card-surface)] focus:ring-[var(--foreground)]',
-  };
-  
-  // Width styles
-  const widthStyles = fullWidth ? 'w-full' : '';
-  
-  // Combine all styles
-  const combinedClassName = `${baseStyles} ${sizeStyles[size]} ${variantStyles[variant]} ${widthStyles} ${className}`.trim();
+  const combinedClassName = cn(
+    baseStyles,
+    sizeStyles[size],
+    variantStyles[variant],
+    fullWidth && 'w-full',
+    className,
+  );
   
   return (
     <button

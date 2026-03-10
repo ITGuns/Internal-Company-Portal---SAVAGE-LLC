@@ -87,6 +87,12 @@ export interface PayslipGeneratedEmailData {
     viewUrl: string;
 }
 
+export interface PasswordResetEmailData {
+    userName: string;
+    resetUrl: string;
+    expiresInMinutes: number;
+}
+
 export type EmailTemplateType =
     | 'welcome'
     | 'task_assigned'
@@ -102,4 +108,5 @@ export type EmailTemplateData =
     | TaskStatusChangedEmailData
     | DailyDigestEmailData
     | DepartmentUpdateEmailData
-    | PayslipGeneratedEmailData;
+    | PayslipGeneratedEmailData
+    | PasswordResetEmailData;

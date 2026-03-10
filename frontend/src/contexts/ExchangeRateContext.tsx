@@ -23,8 +23,8 @@ export function ExchangeRateProvider({ children }: { children: React.ReactNode }
             const rate = await getUSDToPHPRate();
             setUsdToPhp(rate);
             setError(null);
-        } catch (err: any) {
-            setError(err.message || "Failed to load exchange rate");
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to load exchange rate");
         } finally {
             setIsLoading(false);
         }

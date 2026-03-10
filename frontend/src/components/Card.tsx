@@ -1,4 +1,5 @@
 import React from 'react';
+import { cn } from '@/lib/utils';
 
 // Card variants
 type CardVariant = 'default' | 'elevated' | 'outlined' | 'interactive';
@@ -17,10 +18,10 @@ interface CardSubComponentProps {
 }
 
 const variantClasses: Record<CardVariant, string> = {
-  default: 'rounded border border-[var(--border)] bg-[var(--card-bg)]',
-  elevated: 'rounded shadow border border-[var(--border)] bg-[var(--card-bg)]',
-  outlined: 'rounded-lg border border-[var(--border)] bg-[var(--card-bg)]',
-  interactive: 'rounded-lg border border-[var(--border)] bg-[var(--card-bg)] hover:shadow-sm transition cursor-pointer'
+  default: 'rounded-lg border border-[var(--border)] bg-[var(--card-bg)] transition-shadow duration-200',
+  elevated: 'rounded-lg shadow-sm border border-[var(--border)] bg-[var(--card-bg)] transition-all duration-200 hover:shadow-md',
+  outlined: 'rounded-lg border border-[var(--border)] bg-[var(--card-bg)] transition-all duration-200',
+  interactive: 'rounded-lg border border-[var(--border)] bg-[var(--card-bg)] transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:border-[var(--muted)] cursor-pointer'
 };
 
 const paddingClasses = {
@@ -33,13 +34,11 @@ const paddingClasses = {
 export function Card({ 
   children, 
   variant = 'default', 
-  className = '', 
+  className, 
   padding = 'none',
   onClick 
 }: CardProps) {
-  const baseClasses = variantClasses[variant];
-  const paddingClass = paddingClasses[padding];
-  const combinedClasses = [baseClasses, paddingClass, className].filter(Boolean).join(' ');
+  const combinedClasses = cn(variantClasses[variant], paddingClasses[padding], className);
 
   if (onClick) {
     return (
@@ -68,36 +67,36 @@ export function Card({
 }
 
 // Card.Header - For card headers with title and actions
-function CardHeader({ children, className = '' }: CardSubComponentProps) {
+function CardHeader({ children, className }: CardSubComponentProps) {
   return (
-    <div className={`px-6 py-5 flex items-center justify-between bg-[var(--card-bg)] border-b border-[var(--border)] ${className}`}>
+    <div className={cn('px-6 py-5 flex items-center justify-between bg-[var(--card-bg)] border-b border-[var(--border)]', className)}>
       {children}
     </div>
   );
 }
 
 // Card.Content - For main card content area
-function CardContent({ children, className = '' }: CardSubComponentProps) {
+function CardContent({ children, className }: CardSubComponentProps) {
   return (
-    <div className={`p-4 bg-[var(--card-surface)] ${className}`}>
+    <div className={cn('p-4 bg-[var(--card-surface)]', className)}>
       {children}
     </div>
   );
 }
 
 // Card.Footer - For card footers with actions or additional info
-function CardFooter({ children, className = '' }: CardSubComponentProps) {
+function CardFooter({ children, className }: CardSubComponentProps) {
   return (
-    <div className={`px-6 py-4 border-t border-[var(--border)] ${className}`}>
+    <div className={cn('px-6 py-4 border-t border-[var(--border)]', className)}>
       {children}
     </div>
   );
 }
 
 // Card.Body - Alternative to Content for cards without the surface background
-function CardBody({ children, className = '' }: CardSubComponentProps) {
+function CardBody({ children, className }: CardSubComponentProps) {
   return (
-    <div className={`p-6 ${className}`}>
+    <div className={cn('p-6', className)}>
       {children}
     </div>
   );

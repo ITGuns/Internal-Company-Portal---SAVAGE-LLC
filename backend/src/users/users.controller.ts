@@ -4,6 +4,7 @@ import { authenticateToken, requireRole, AuthRequest } from '../auth/auth.middle
 import { emailService } from '../email/email.service'
 import { PayrollService } from '../payroll/payroll.service'
 import { DepartmentsService } from '../departments/departments.service'
+import { isAdminEmail } from '../config/env.config'
 
 export class UsersController {
     private service = new UsersService()
@@ -13,10 +14,12 @@ export class UsersController {
     router(): Router {
         const router = express.Router()
 
-        // Get all users
+        // Get all users (with optional pagination)
         router.get('/', authenticateToken, async (req: Request, res: Response) => {
             try {
-                const users = await this.service.findAll()
+                const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined
+                const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined
+                const users = await this.service.findAll(page, limit)
                 res.json(users)
             } catch (error) {
                 res.status(500).json({ error: 'Failed to fetch users' })
@@ -167,8 +170,7 @@ export class UsersController {
                         r.role === 'Operations Manager' ||
                         r.role === 'Chief Operations Officer'
                     )
-                    const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com']
-                        .includes(authReq.user?.email?.toLowerCase() || '')
+                    const isAuthorizedEmail = isAdminEmail(authReq.user?.email)
 
                     if (!isPrivileged && !isAuthorizedEmail) {
                         return res.status(403).json({ error: 'Unauthorized to update another user' })

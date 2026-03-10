@@ -1,4 +1,4 @@
-import { PrismaClient, Announcement } from '@prisma/client'
+import { PrismaClient, Announcement, Prisma } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
 import { notificationService } from '../notifications/socket.service'
 
@@ -32,8 +32,8 @@ export class AnnouncementsService {
         this.prisma = prisma
     }
 
-    async findAll(category?: string, important?: boolean) {
-        const where: any = {}
+    async findAll(category?: string, important?: boolean, page?: number, limit?: number) {
+        const where: Prisma.AnnouncementWhereInput = {}
 
         if (category) {
             where.category = category
@@ -43,39 +43,57 @@ export class AnnouncementsService {
             where.isImportant = important
         }
 
-        return this.prisma.announcement.findMany({
-            where,
-            include: {
-                author: {
-                    select: { id: true, name: true, avatar: true, email: true }
-                },
-                likes: {
-                    include: {
-                        user: {
-                            select: { id: true, name: true, avatar: true }
-                        }
-                    }
-                },
-                comments: {
-                    include: {
-                        author: {
-                            select: { id: true, name: true, avatar: true }
-                        }
-                    },
-                    orderBy: { createdAt: 'asc' }
-                },
-                rsvps: {
-                    include: {
-                        user: {
-                            select: { id: true, name: true, avatar: true }
-                        }
+        const include = {
+            author: {
+                select: { id: true, name: true, avatar: true, email: true }
+            },
+            likes: {
+                include: {
+                    user: {
+                        select: { id: true, name: true, avatar: true }
                     }
                 }
             },
-            orderBy: [
-                { isImportant: 'desc' },
-                { createdAt: 'desc' }
-            ]
+            comments: {
+                include: {
+                    author: {
+                        select: { id: true, name: true, avatar: true }
+                    }
+                },
+                orderBy: { createdAt: 'asc' as const }
+            },
+            rsvps: {
+                include: {
+                    user: {
+                        select: { id: true, name: true, avatar: true }
+                    }
+                }
+            }
+        }
+
+        const orderBy = [
+            { isImportant: 'desc' as const },
+            { createdAt: 'desc' as const }
+        ]
+
+        if (page !== undefined && limit !== undefined) {
+            const [data, total] = await Promise.all([
+                this.prisma.announcement.findMany({
+                    where,
+                    include,
+                    orderBy,
+                    skip: (page - 1) * limit,
+                    take: limit,
+                }),
+                this.prisma.announcement.count({ where }),
+            ])
+            return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
+        }
+
+        return this.prisma.announcement.findMany({
+            where,
+            include,
+            orderBy,
         })
     }
 
@@ -143,11 +161,13 @@ export class AnnouncementsService {
             link: '/announcements'
         })
 
+        notificationService.broadcastDataChange('announcements')
+
         return announcement
     }
 
     async update(id: string, data: UpdateAnnouncementDto) {
-        return this.prisma.announcement.update({
+        const result = await this.prisma.announcement.update({
             where: { id },
             data: {
                 ...(data.title && { title: data.title }),
@@ -168,12 +188,17 @@ export class AnnouncementsService {
                 rsvps: true
             }
         })
+
+        notificationService.broadcastDataChange('announcements')
+        return result
     }
 
     async delete(id: string) {
-        return this.prisma.announcement.delete({
+        const result = await this.prisma.announcement.delete({
             where: { id }
         })
+        notificationService.broadcastDataChange('announcements')
+        return result
     }
 
     // Like functionality
@@ -192,6 +217,7 @@ export class AnnouncementsService {
             await this.prisma.announcementLike.delete({
                 where: { id: existing.id }
             })
+            notificationService.broadcastDataChange('announcements')
             return { liked: false }
         } else {
             // Like
@@ -201,6 +227,7 @@ export class AnnouncementsService {
                     userId
                 }
             })
+            notificationService.broadcastDataChange('announcements')
             return { liked: true }
         }
     }
@@ -235,6 +262,7 @@ export class AnnouncementsService {
             })
         }
 
+        notificationService.broadcastDataChange('announcements')
         return comment
     }
 
@@ -251,9 +279,11 @@ export class AnnouncementsService {
             throw new Error('Unauthorized to delete this comment')
         }
 
-        return this.prisma.announcementComment.delete({
+        const result = await this.prisma.announcementComment.delete({
             where: { id: commentId }
         })
+        notificationService.broadcastDataChange('announcements')
+        return result
     }
 
     // RSVP functionality
@@ -273,13 +303,15 @@ export class AnnouncementsService {
                 await this.prisma.announcementRSVP.delete({
                     where: { id: existing.id }
                 })
-                return { rsvp: null }
+                notificationService.broadcastDataChange('announcements')
+            return { rsvp: null }
             } else {
                 // Update RSVP status
                 const updated = await this.prisma.announcementRSVP.update({
                     where: { id: existing.id },
                     data: { status }
                 })
+                notificationService.broadcastDataChange('announcements')
                 return { rsvp: updated.status }
             }
         } else {
@@ -291,6 +323,7 @@ export class AnnouncementsService {
                     status
                 }
             })
+            notificationService.broadcastDataChange('announcements')
             return { rsvp: rsvp.status }
         }
     }

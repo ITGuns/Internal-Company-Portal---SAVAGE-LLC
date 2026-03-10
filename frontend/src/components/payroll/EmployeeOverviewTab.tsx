@@ -3,16 +3,21 @@
  */
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
+import dynamic from "next/dynamic";
 import { Users, User, Clock, Award, CheckCircle, XCircle, UserCheck, UserPlus, Edit2, Loader2, Plus } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 import Button from "@/components/Button";
 import EmployeeCard from "./EmployeeCard";
 import StatCard from "./StatCard";
-import EmployeeDetailsModal from "./EmployeeDetailsModal";
-import EmployeeEditModal from "./EmployeeEditModal";
-import AddEmployeeModal from "./AddEmployeeModal";
 import type { Employee } from "@/lib/payroll-calendar/types";
+import type { ApiEmployee } from "@/lib/types/api";
+
+// Lazy-loaded modals (only rendered when opened)
+const EmployeeDetailsModal = dynamic(() => import("./EmployeeDetailsModal"), { ssr: false });
+const EmployeeEditModal = dynamic(() => import("./EmployeeEditModal"), { ssr: false });
+const AddEmployeeModal = dynamic(() => import("./AddEmployeeModal"), { ssr: false });
 
 type EmployeeView = "deployed" | "pending";
 
@@ -42,7 +47,7 @@ export default function EmployeeOverviewTab() {
                 throw new Error("Invalid data format from server");
             }
 
-            const normalize = (emp: any): Employee => ({
+            const normalize = (emp: ApiEmployee): Employee => ({
                 ...emp,
                 hoursThisWeek: emp.hoursThisWeek || 0,
                 performance: emp.performance || 0,
@@ -50,15 +55,15 @@ export default function EmployeeOverviewTab() {
                 department: emp.department || (emp.employeeProfile?.department?.name) || "Operations",
                 role: emp.role || (emp.employeeProfile?.jobTitle) || "Member",
                 avatar: emp.avatar || (emp.name?.[0] || "U"),
-                status: emp.status || "active",
+                status: (emp.status || "active") as Employee['status'],
                 email: emp.email || "no-email@company.com"
             });
 
             setEmployees(deployedData.map(normalize));
             setPendingEmployees(pendingData.map(normalize));
-        } catch (err: any) {
+        } catch (err) {
             console.error("Failed to fetch employees", err);
-            toast.error(err.message === "Failed to fetch" ? "Connection failed" : "Failed to load employees");
+            toast.error(err instanceof Error && err.message === "Failed to fetch" ? "Connection failed" : "Failed to load employees");
         } finally {
             setIsLoading(false);
         }
@@ -137,9 +142,9 @@ export default function EmployeeOverviewTab() {
             } else {
                 throw new Error(data.message || "Failed to submit application");
             }
-        } catch (err: any) {
+        } catch (err) {
             console.error("Submission failed", err);
-            toast.error(err.message || "Failed to submit application");
+            toast.error(err instanceof Error ? err.message : "Failed to submit application");
         }
     };
 
@@ -311,7 +316,7 @@ export default function EmployeeOverviewTab() {
                                         <div className="flex items-center gap-3">
                                             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-white font-bold text-lg overflow-hidden border border-[var(--border)] flex-shrink-0">
                                                 {employee.avatar && (employee.avatar.startsWith('http') || employee.avatar.startsWith('/')) ? (
-                                                    <img src={employee.avatar} alt={employee.name} className="w-full h-full object-cover" />
+                                                    <Image src={employee.avatar} alt={employee.name} width={48} height={48} className="w-full h-full object-cover" />
                                                 ) : (
                                                     <span>{employee.avatar}</span>
                                                 )}

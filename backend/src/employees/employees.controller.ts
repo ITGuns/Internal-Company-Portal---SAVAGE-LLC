@@ -4,6 +4,7 @@ import { emailService } from '../email/email.service';
 import { EmployeesService } from './employees.service';
 import { authenticateToken, requireRole } from '../auth/auth.middleware';
 import * as crypto from 'crypto';
+import { isAdminEmail, config } from '../config/env.config';
 export class EmployeesController {
     private _router = Router();
     private employeesService: EmployeesService;
@@ -53,8 +54,8 @@ export class EmployeesController {
         const email = authReq.user?.email?.toLowerCase();
         const userId = authReq.user?.userId;
 
-        // Specific authorized emails
-        const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(email || '');
+        // Admin email bypass (configured via ADMIN_EMAILS env var)
+        const isAuthorizedEmail = isAdminEmail(email);
         if (isAuthorizedEmail) return true;
 
         // Check if admin/manager
@@ -113,8 +114,8 @@ export class EmployeesController {
                 avatar: employeeData.avatar
             });
 
-            // Hardcoded recipient for approval as requested
-            const opsManagerEmail = 'genroujoshcatacutan25@gmail.com';
+            // Ops manager email from env config
+            const opsManagerEmail = config.opsManagerEmail;
 
             // 2. SEND WELCOME EMAIL TO NEW HIRE
             const welcomeResult = await emailService.sendWelcomeEmail(
@@ -150,18 +151,18 @@ export class EmployeesController {
                 emailStatus
             });
 
-        } catch (error: any) {
+        } catch (error) {
             console.error('[Employees] Error:', error);
 
             // Handle Prisma unique constraint violated for email
-            if (error.code === 'P2002') {
+            if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2002') {
                 return res.status(400).json({
                     error: 'Email already in use',
                     details: 'An employee application with this email address already exists.'
                 });
             }
 
-            res.status(500).json({ error: 'Internal Server Error', details: error.message, stack: error.stack });
+            res.status(500).json({ error: 'Internal Server Error', details: error instanceof Error ? error.message : String(error) });
         }
     }
 

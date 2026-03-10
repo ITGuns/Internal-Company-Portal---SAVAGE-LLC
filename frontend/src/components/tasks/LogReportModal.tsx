@@ -125,7 +125,7 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
                         <ClipboardCheck className="w-5 h-5 text-blue-500" />
                         <h3 className="font-bold text-lg">Generate {modalTitle}</h3>
                     </div>
-                    <button onClick={onClose} className="p-1 hover:bg-[var(--background)] rounded-full transition-colors">
+                    <button onClick={onClose} className="p-1 hover:bg-[var(--background)] rounded-full transition-colors" aria-label="Close modal">
                         <X className="w-6 h-6" />
                     </button>
                 </div>
@@ -198,10 +198,11 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
 
                     <div className="flex items-center gap-4 pt-2">
                         <div className="flex-1">
-                            <label className="block text-xs font-semibold text-[var(--muted)] mb-1 uppercase tracking-wider">
+                            <label htmlFor="hours-logged" className="block text-xs font-semibold text-[var(--muted)] mb-1 uppercase tracking-wider">
                                 {logType === 'daily' ? 'Overridden Hours' : 'Total Hours for Period'} <span className="text-red-500">*</span>
                             </label>
                             <input
+                                id="hours-logged"
                                 type="number"
                                 step="0.1"
                                 value={hoursLogged}

@@ -3,19 +3,23 @@
  */
 
 import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { Search, Loader2, Zap, Sparkles } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 import EmployeeSidebarItem from "./EmployeeSidebarItem";
 import TimeTrackingCalendar from "./TimeTrackingCalendar";
 import EmployeeProfilePanel from "./EmployeeProfilePanel";
-import GeneratePayslipModal from "./GeneratePayslipModal";
-import PayslipDetailsModal from "./PayslipDetailsModal";
-import AddTimeEntryModal from "./AddTimeEntryModal";
 import { createTimeEntry, deleteTimeEntry } from "@/lib/time-entries";
+
+// Lazy-loaded modals (only rendered when opened)
+const GeneratePayslipModal = dynamic(() => import("./GeneratePayslipModal"), { ssr: false });
+const PayslipDetailsModal = dynamic(() => import("./PayslipDetailsModal"), { ssr: false });
+const AddTimeEntryModal = dynamic(() => import("./AddTimeEntryModal"), { ssr: false });
 
 import { generatePayslipPDF } from "@/lib/payroll-calendar/payslip-utils";
 import type { Employee, Payslip } from "@/lib/payroll-calendar/types";
+import type { ApiPayslip, ApiPayslipItem, ApiEmployee } from "@/lib/types/api";
 
 export default function PayslipsTab() {
   const toast = useToast();
@@ -40,7 +44,7 @@ export default function PayslipsTab() {
       const res = await apiFetch(`/payroll/my-payslips?userId=${employee.id}`);
       if (res.ok) {
         const data = await res.json();
-        setEmployeePayslips(data.map((ps: any) => ({
+        setEmployeePayslips(data.map((ps: ApiPayslip) => ({
           id: ps.id,
           employeeId: ps.userId,
           employeeName: employee.name,
@@ -48,10 +52,10 @@ export default function PayslipsTab() {
           payPeriodEnd: ps.period.endDate ? ps.period.endDate.split('T')[0] : 'N/A',
           issueDate: ps.generatedAt ? ps.generatedAt.split('T')[0] : 'N/A',
           status: ps.status || "issued",
-          hoursWorked: employee.salary > 0 ? (ps.items.find((i: any) => i.description.includes('Hourly'))?.amount / employee.salary || 0) : 0,
+          hoursWorked: employee.salary > 0 ? ((ps.items.find((i: ApiPayslipItem) => i.description.includes('Hourly'))?.amount ?? 0) / employee.salary || 0) : 0,
           grossPay: ps.grossPay,
           netPay: ps.netPay,
-          deductions: ps.items.filter((i: any) => i.amount < 0).map((i: any) => ({
+          deductions: ps.items.filter((i: ApiPayslipItem) => i.amount < 0).map((i: ApiPayslipItem) => ({
             id: i.id,
             type: 'other',
             name: i.description,
@@ -76,7 +80,7 @@ export default function PayslipsTab() {
         throw new Error(error);
       }
 
-      const normalizedEmployees = empData.map((emp: any) => ({
+      const normalizedEmployees = empData.map((emp: ApiEmployee) => ({
         ...emp,
         hoursThisWeek: emp.hoursThisWeek || 0,
         performance: emp.performance || 0,
@@ -84,7 +88,7 @@ export default function PayslipsTab() {
         department: emp.department || (emp.employeeProfile?.department?.name) || "Operations",
         role: emp.role || (emp.employeeProfile?.jobTitle) || "Member",
         avatar: emp.avatar || (emp.name?.[0] || "U"),
-        status: emp.status || "active",
+        status: (emp.status || "active") as Employee['status'],
         email: emp.email || "no-email@company.com"
       }));
 
@@ -92,9 +96,10 @@ export default function PayslipsTab() {
       if (normalizedEmployees.length > 0 && !selectedEmployee) {
         setSelectedEmployee(normalizedEmployees[0]);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to fetch data", err);
-      toast.error(err.message === "Failed to fetch" ? "Connection failed" : (err.message || "Failed to load employees"));
+      const message = err instanceof Error ? err.message : "Failed to load employees";
+      toast.error(message === "Failed to fetch" ? "Connection failed" : message);
     } finally {
       setIsLoading(false);
     }
@@ -150,7 +155,7 @@ export default function PayslipsTab() {
   };
 
   // Handle payslip generation
-  const handleGeneratePayslip = async (payslipData: any) => {
+  const handleGeneratePayslip = async (payslipData: Record<string, unknown>) => {
     if (!selectedEmployee) return;
 
     try {
@@ -177,9 +182,9 @@ export default function PayslipsTab() {
         const errData = await genRes.json().catch(() => ({}));
         throw new Error(errData.error || "Generation failed");
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to generate", err);
-      toast.error(err.message || "Failed to generate payslip");
+      toast.error(err instanceof Error ? err.message : "Failed to generate payslip");
     }
   };
 
@@ -196,7 +201,7 @@ export default function PayslipsTab() {
       const bulkRes = await apiFetch(`/payroll/periods/${periodId}/generate-all`, { method: 'POST' });
       if (bulkRes.ok) {
         const results = await bulkRes.json();
-        const successCount = results.filter((r: any) => r.success).length;
+        const successCount = results.filter((r: { success: boolean }) => r.success).length;
         toast.success(`Calculated and generated ${successCount} company-wide payslips successfully!`);
 
         // Refresh data
@@ -205,9 +210,9 @@ export default function PayslipsTab() {
       } else {
         throw new Error("Bulk generation failed");
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err.message || "Bulk generation failed");
+      toast.error(err instanceof Error ? err.message : "Bulk generation failed");
     } finally {
       setIsBulkGenerating(false);
     }

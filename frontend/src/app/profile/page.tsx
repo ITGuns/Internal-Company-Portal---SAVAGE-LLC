@@ -3,10 +3,21 @@
 import React, { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import { apiFetch } from "@/lib/api";
+import Image from 'next/image';
 import { User, Mail, Shield } from "lucide-react";
+import { useToast } from "@/components/ToastProvider";
+
+interface ProfileUser {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  roles?: string[];
+}
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<ProfileUser | null>(null);
+  const toast = useToast();
 
   async function loadData() {
     try {
@@ -15,7 +26,10 @@ export default function ProfilePage() {
         const data = await res.json();
         setUser(data.user);
       }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to load profile");
+    }
   }
 
   useEffect(() => {
@@ -46,7 +60,7 @@ export default function ProfilePage() {
           <div className="p-6 rounded-lg border bg-[var(--card-surface)] flex flex-col md:flex-row gap-6 items-center md:items-start">
             <div className="w-32 h-32 rounded-full overflow-hidden bg-[var(--card-bg)] border-2 border-[var(--border)] shrink-0">
               {user.avatar ? (
-                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                <Image src={user.avatar} alt={user.name} width={128} height={128} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-[var(--muted)]">
                   {user.name?.charAt(0) || '?'}
@@ -83,7 +97,7 @@ export default function ProfilePage() {
                 <div>
                   <label className="text-xs text-[var(--muted)] uppercase font-semibold">Primary Role / Department</label>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {user.roles.map((r: any, idx: number) => (
+                    {user.roles.map((r: string, idx: number) => (
                       <div key={idx} className="px-3 py-1 rounded-full bg-[var(--accent)] text-white text-sm font-medium flex items-center gap-2">
                         <Shield className="w-3 h-3" />
                         {r}

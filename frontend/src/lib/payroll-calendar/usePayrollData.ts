@@ -60,8 +60,8 @@ export function usePayrollData() {
         return { success: true };
       }
       return { success: false };
-    } catch (err: any) {
-      return { success: false, error: err?.message };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : undefined };
     }
   };
 
@@ -75,8 +75,8 @@ export function usePayrollData() {
         return { success: true };
       }
       return { success: false };
-    } catch (err: any) {
-      return { success: false, error: err?.message };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : undefined };
     }
   };
 

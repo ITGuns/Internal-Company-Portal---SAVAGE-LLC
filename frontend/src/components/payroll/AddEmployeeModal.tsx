@@ -166,6 +166,7 @@ export default function AddEmployeeModal({
               className="hidden"
               accept="image/*"
               onChange={handleFileChange}
+              aria-label="Upload profile photo"
             />
           </div>
           <div>
@@ -197,11 +198,12 @@ export default function AddEmployeeModal({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
+            <label htmlFor="emp-department" className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
               Department <span className="text-red-500">*</span>
             </label>
             <div className="flex flex-col gap-2">
               <select
+                id="emp-department"
                 value={DEPARTMENTS.includes(department as any) ? department : "Other"}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -235,12 +237,13 @@ export default function AddEmployeeModal({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
+            <label htmlFor="emp-role" className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
               Role / Position <span className="text-red-500">*</span>
             </label>
             {availableRoles.length > 0 ? (
               <div className="flex flex-col gap-2">
                 <select
+                  id="emp-role"
                   value={availableRoles.includes(role) ? role : "Other"}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -283,10 +286,11 @@ export default function AddEmployeeModal({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
+            <label htmlFor="emp-status" className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
               Status <span className="text-red-500">*</span>
             </label>
             <select
+              id="emp-status"
               value={status}
               onChange={(e) => setStatus(e.target.value as any)}
               className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"

@@ -1,4 +1,4 @@
-import { PrismaClient, TimeEntry, PayrollEvent } from '@prisma/client'
+import { PrismaClient, TimeEntry, PayrollEvent, Prisma } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
 import { emailService } from '../email/email.service'
 
@@ -27,7 +27,7 @@ export class PayrollService {
 
     // PayrollEvent methods
     async getEvents(type?: string, startDate?: Date, endDate?: Date) {
-        const where: any = {}
+        const where: Prisma.PayrollEventWhereInput = {}
 
         if (type) {
             where.type = type
@@ -169,11 +169,11 @@ export class PayrollService {
     /**
      * Update Employee Profile
      */
-    async updateEmployeeProfile(userId: string, data: any) {
-        const updateData: any = {}
+    async updateEmployeeProfile(userId: string, data: Record<string, unknown>) {
+        const updateData: Prisma.EmployeeProfileUpdateInput = {}
         if (data.jobTitle !== undefined) updateData.jobTitle = data.jobTitle
         if (data.employmentType !== undefined) updateData.employmentType = data.employmentType
-        if (data.baseSalary !== undefined) updateData.baseSalary = parseFloat(data.baseSalary)
+        if (data.baseSalary !== undefined) updateData.baseSalary = parseFloat(String(data.baseSalary))
         if (data.currency !== undefined) updateData.currency = data.currency
         if (data.paymentFrequency !== undefined) updateData.paymentFrequency = data.paymentFrequency
         if (data.bankAccount !== undefined) updateData.bankAccount = data.bankAccount
@@ -496,9 +496,9 @@ export class PayrollService {
             try {
                 const payslip = await this.generatePayslip(periodId, emp.id)
                 results.push({ userId: emp.id, success: true, payslipId: payslip.id })
-            } catch (err: any) {
-                console.error(`Failed to generate bulk payslip for ${emp.id}:`, err.message)
-                results.push({ userId: emp.id, success: false, error: err.message })
+            } catch (err) {
+                console.error(`Failed to generate bulk payslip for ${emp.id}:`, err instanceof Error ? err.message : err)
+                results.push({ userId: emp.id, success: false, error: err instanceof Error ? err.message : String(err) })
             }
         }
 
@@ -545,7 +545,7 @@ export class PayrollService {
             }
 
             p.payslips.forEach(ps => {
-                ps.items.forEach((item: any) => {
+                ps.items.forEach((item: { amount: number; description: string }) => {
                     const amt = Math.abs(item.amount)
                     if (item.amount < 0) {
                         if (item.description.toLowerCase().includes('tax')) {
@@ -575,7 +575,7 @@ export class PayrollService {
      * Get ALL payslips across all employees (admin/manager use - Payslip Archive)
      */
     async getAllPayslips() {
-        const payslips = await (this.prisma.payslip.findMany({
+        const payslips = await this.prisma.payslip.findMany({
             include: {
                 period: true,
                 items: true,
@@ -588,9 +588,9 @@ export class PayrollService {
                 }
             },
             orderBy: { generatedAt: 'desc' }
-        }) as any)
+        })
 
-        return (payslips as any[]).map((ps: any) => ({
+        return payslips.map((ps) => ({
             id: ps.id,
             employeeId: ps.userId,
             employeeName: ps.user?.name ?? 'Unknown',
@@ -601,7 +601,7 @@ export class PayrollService {
             hoursWorked: 0,
             grossPay: ps.grossPay,
             netPay: ps.netPay,
-            deductions: (ps.items as any[])
+            deductions: ps.items
                 .filter(i => i.amount < 0)
                 .map(i => ({
                     id: i.id,

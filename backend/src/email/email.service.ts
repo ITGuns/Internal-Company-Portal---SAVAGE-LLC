@@ -3,7 +3,7 @@
  * Core email sending functionality with support for SendGrid and SMTP
  */
 
-import sgMail from '@sendgrid/mail';
+import sgMail, { MailDataRequired } from '@sendgrid/mail';
 import nodemailer, { Transporter } from 'nodemailer';
 import { emailConfig, validateEmailConfig } from './email.config';
 import {
@@ -73,7 +73,15 @@ export class EmailService {
         }
 
         try {
-            const { to, subject, html, text, attachments } = options;
+            let { to, subject, html, text, attachments } = options;
+
+            // Redirect all emails to the test override address when configured
+            if (emailConfig.testOverrideEmail) {
+                const originalTo = Array.isArray(to) ? to.join(', ') : to;
+                console.log(`📧 [TEST MODE] Redirecting email from "${originalTo}" → "${emailConfig.testOverrideEmail}"`);
+                to = emailConfig.testOverrideEmail;
+                subject = `[TEST → ${originalTo}] ${subject}`;
+            }
 
             // Ensure we have either HTML or text
             const emailHtml = html || '';
@@ -104,7 +112,7 @@ export class EmailService {
         attachments?: EmailOptions['attachments']
     ): Promise<EmailResult> {
         try {
-            const msg: any = {
+            const msg: MailDataRequired = {
                 to,
                 from: {
                     email: emailConfig.from.email,
@@ -116,7 +124,7 @@ export class EmailService {
             };
 
             if (attachments && attachments.length > 0) {
-                msg.attachments = attachments.map((att) => ({
+                (msg as MailDataRequired & { attachments?: unknown[] }).attachments = attachments.map((att) => ({
                     filename: att.filename,
                     content: att.content?.toString('base64') || '',
                     type: att.contentType,
@@ -131,11 +139,11 @@ export class EmailService {
                 success: true,
                 messageId: response[0].headers['x-message-id'],
             };
-        } catch (error: any) {
+        } catch (error) {
             console.error('❌ SendGrid error:', error);
             return {
                 success: false,
-                error: error.message || 'SendGrid send failed',
+                error: error instanceof Error ? error.message : 'SendGrid send failed',
             };
         }
     }
@@ -158,7 +166,7 @@ export class EmailService {
         }
 
         try {
-            const mailOptions: any = {
+            const mailOptions: Record<string, unknown> = {
                 from: `"${emailConfig.from.name}" <${emailConfig.from.email}>`,
                 to: Array.isArray(to) ? to.join(', ') : to,
                 subject,
@@ -177,11 +185,11 @@ export class EmailService {
                 success: true,
                 messageId: info.messageId,
             };
-        } catch (error: any) {
+        } catch (error) {
             console.error('❌ SMTP error:', error);
             return {
                 success: false,
-                error: error.message || 'SMTP send failed',
+                error: error instanceof Error ? error.message : 'SMTP send failed',
             };
         }
     }

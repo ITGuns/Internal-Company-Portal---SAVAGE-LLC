@@ -11,7 +11,7 @@ export function initializePassport(): void {
     setupDiscordStrategy()
 
     // Serialize user (not used with JWT, but required by Passport)
-    passport.serializeUser((user: any, done) => {
+    passport.serializeUser((user: { id: string }, done) => {
         done(null, user.id)
     })
 

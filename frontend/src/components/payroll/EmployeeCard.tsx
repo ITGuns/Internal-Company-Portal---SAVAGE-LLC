@@ -3,6 +3,7 @@
  */
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { TrendingUp, Trash2, Check, Plane, Coffee } from "lucide-react";
 import Button from "@/components/Button";
 import type { Employee } from "@/lib/payroll-calendar/types";
@@ -26,7 +27,7 @@ export default function EmployeeCard({
         {/* Avatar */}
         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 overflow-hidden border border-[var(--border)]">
           {employee.avatar && (employee.avatar.startsWith('http') || employee.avatar.startsWith('/')) ? (
-            <img src={employee.avatar} alt={employee.name} className="w-full h-full object-cover" />
+            <Image src={employee.avatar} alt={employee.name} width={48} height={48} className="w-full h-full object-cover" />
           ) : (
             <span>{employee.avatar}</span>
           )}

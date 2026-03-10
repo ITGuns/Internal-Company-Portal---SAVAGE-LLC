@@ -1,5 +1,6 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
+import { config } from '../config/env.config';
 
 export interface NotificationPayload {
     type: 'info' | 'success' | 'warning' | 'error';
@@ -16,14 +17,10 @@ class NotificationService {
     private userSockets: Map<string, Set<string>> = new Map();
 
     initialize(httpServer: HttpServer) {
-        console.log('🔌 Initializing Socket.io with permissive CORS...');
+        console.log('🔌 Initializing Socket.io...');
         this.io = new SocketIOServer(httpServer, {
             cors: {
-                origin: (origin, callback) => {
-                    // Log the origin attempting to connect
-                    console.log(`📡 Socket connection attempt from origin: ${origin || 'unknown'}`);
-                    callback(null, true); // Allow all
-                },
+                origin: config.corsOrigin,
                 methods: ['GET', 'POST'],
                 credentials: true,
                 allowedHeaders: ['Authorization', 'Content-Type']
@@ -45,6 +42,22 @@ class NotificationService {
                 console.log(`💬 Socket ${socket.id} joined conversation room: ${conversationId}`);
             });
 
+            // Typing indicator relay — broadcast to other participants in the room
+            socket.on('typing:start', (data: { conversationId: string; userId: string; userName: string }) => {
+                socket.to(`conversation:${data.conversationId}`).emit('typing:start', {
+                    conversationId: data.conversationId,
+                    userId: data.userId,
+                    userName: data.userName,
+                });
+            });
+
+            socket.on('typing:stop', (data: { conversationId: string; userId: string }) => {
+                socket.to(`conversation:${data.conversationId}`).emit('typing:stop', {
+                    conversationId: data.conversationId,
+                    userId: data.userId,
+                });
+            });
+
             socket.on('disconnect', () => {
                 console.log(`❌ Client disconnected: ${socket.id}`);
                 this.removeSocket(socket.id);
@@ -55,6 +68,7 @@ class NotificationService {
     }
 
     private registerUserSocket(userId: string, socketId: string) {
+        const isNewUser = !this.userSockets.has(userId) || this.userSockets.get(userId)!.size === 0;
         if (!this.userSockets.has(userId)) {
             this.userSockets.set(userId, new Set());
         }
@@ -62,6 +76,11 @@ class NotificationService {
 
         // Join a room specifically for this user
         this.io?.sockets.sockets.get(socketId)?.join(`user:${userId}`);
+
+        // Broadcast online status if this is their first socket
+        if (isNewUser) {
+            this.io?.emit('presence:online', { userId });
+        }
     }
 
     private removeSocket(socketId: string) {
@@ -71,9 +90,18 @@ class NotificationService {
                 sockets.delete(socketId);
                 if (sockets.size === 0) {
                     this.userSockets.delete(userId);
+                    // Broadcast offline status
+                    this.io?.emit('presence:offline', { userId });
                 }
             }
         });
+    }
+
+    /**
+     * Get all currently online user IDs
+     */
+    getOnlineUserIds(): string[] {
+        return Array.from(this.userSockets.keys());
     }
 
     /**
@@ -115,9 +143,19 @@ class NotificationService {
     /**
      * Emit an event to a specific room (e.g. conversation room)
      */
-    emitToRoom(room: string, event: string, payload: any) {
+    emitToRoom(room: string, event: string, payload: unknown) {
         if (!this.io) return;
         this.io.to(room).emit(event, payload);
+    }
+
+    /**
+     * Broadcast a data-change event so connected clients can refetch.
+     * This is separate from user-visible notifications — it's a silent cache-bust signal.
+     * @param resource - The resource type that changed (e.g. 'announcements', 'tasks', 'daily-logs')
+     */
+    broadcastDataChange(resource: string) {
+        if (!this.io) return;
+        this.io.emit('data:changed', { resource, timestamp: Date.now() });
     }
 
     /**

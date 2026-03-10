@@ -1,4 +1,4 @@
-import { PrismaClient, User } from '@prisma/client'
+import { PrismaClient, User, Prisma } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
 
 export interface CreateUserDto {
@@ -28,27 +28,45 @@ export class UsersService {
     }
 
     /**
-     * Get all users
+     * Get all users (with optional pagination)
      */
-    async findAll(): Promise<User[]> {
+    async findAll(page?: number, limit?: number) {
+        const where = {
+            status: {
+                in: ['active', 'vacation', 'leave', 'verified'] as string[],
+            },
+        }
+
+        const include = {
+            roles: {
+                include: {
+                    department: true,
+                },
+            },
+            tasks: true,
+            employeeProfile: true,
+        }
+
+        const orderBy = { createdAt: 'desc' as const }
+
+        if (page !== undefined && limit !== undefined) {
+            const [data, total] = await Promise.all([
+                this.prisma.user.findMany({
+                    where,
+                    include,
+                    orderBy,
+                    skip: (page - 1) * limit,
+                    take: limit,
+                }),
+                this.prisma.user.count({ where }),
+            ])
+            return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
+        }
+
         return this.prisma.user.findMany({
-            where: {
-                status: {
-                    in: ['active', 'vacation', 'leave', 'verified'],
-                },
-            },
-            include: {
-                roles: {
-                    include: {
-                        department: true,
-                    },
-                },
-                tasks: true,
-                employeeProfile: true,
-            },
-            orderBy: {
-                createdAt: 'desc',
-            },
+            where,
+            include,
+            orderBy,
         })
     }
 
@@ -110,7 +128,7 @@ export class UsersService {
      */
     async update(id: string, data: UpdateUserDto): Promise<User> {
         // Prepare update data
-        const updateData: any = {}
+        const updateData: Prisma.UserUpdateInput = {}
 
         if (data.name !== undefined) updateData.name = data.name
         if (data.email !== undefined) updateData.email = data.email

@@ -3,6 +3,7 @@
  */
 
 import React from "react";
+import Image from "next/image";
 import { CheckCircle2, Calendar, Clock } from "lucide-react";
 import Modal from "@/components/Modal";
 import type { Employee } from "@/lib/payroll-calendar/types";
@@ -149,7 +150,7 @@ export default function EmployeeDetailsModal({
         <div className="flex items-center gap-3 mb-6">
           <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg flex items-center justify-center text-white font-semibold text-xl overflow-hidden border border-[var(--border)]">
             {employee.avatar && (employee.avatar.startsWith('http') || employee.avatar.startsWith('/')) ? (
-              <img src={employee.avatar} alt={employee.name} className="w-full h-full object-cover" />
+              <Image src={employee.avatar} alt={employee.name} width={64} height={64} className="w-full h-full object-cover" />
             ) : (
               <span>{employee.avatar}</span>
             )}

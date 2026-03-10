@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import Header from '@/components/Header';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import FolderCard from '@/components/file-directory/FolderCard';
-import AddFolderModal from '@/components/file-directory/AddFolderModal';
 import DriveFileViewer from '@/components/file-directory/DriveFileViewer';
+
+// Lazy-loaded modal (only rendered when opened)
+const AddFolderModal = dynamic(() => import('@/components/file-directory/AddFolderModal'), { ssr: false });
 import { useToast } from '@/components/ToastProvider';
 import { useUser } from '@/contexts/UserContext';
 import { apiFetch } from '@/lib/api';

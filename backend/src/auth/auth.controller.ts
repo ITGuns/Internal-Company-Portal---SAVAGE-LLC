@@ -1,5 +1,6 @@
 import express, { Request, Response, Router } from 'express'
 import passport from 'passport'
+import crypto from 'crypto'
 import { JwtService, JwtPayload } from './jwt.service'
 import { User } from '@prisma/client'
 import { authenticateToken, AuthRequest } from './auth.middleware'
@@ -78,6 +79,23 @@ export class AuthController {
                 return res.status(400).json({ error: 'Name, email and password required' })
             }
 
+            // Validate email format
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+            if (!emailRegex.test(email)) {
+                return res.status(400).json({ error: 'Invalid email format' })
+            }
+
+            // Validate password strength
+            if (password.length < 8) {
+                return res.status(400).json({ error: 'Password must be at least 8 characters' })
+            }
+            if (!/[A-Z]/.test(password)) {
+                return res.status(400).json({ error: 'Password must contain at least one uppercase letter' })
+            }
+            if (!/\d/.test(password)) {
+                return res.status(400).json({ error: 'Password must contain at least one number' })
+            }
+
             try {
                 const { prisma } = await import('../database/prisma.service');
                 const bcrypt = await import('bcrypt');
@@ -140,6 +158,12 @@ export class AuthController {
 
             if (!email || !password) {
                 return res.status(400).json({ error: 'Email and password required' })
+            }
+
+            // Validate email format
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+            if (!emailRegex.test(email)) {
+                return res.status(400).json({ error: 'Invalid email format' })
             }
 
             try {
@@ -258,81 +282,119 @@ export class AuthController {
             })
         })
 
+        // Forgot Password — generate reset token and email it
+        router.post('/forgot-password', async (req: Request, res: Response) => {
+            const { email } = req.body
 
-        // ⚠️ SECURITY WARNING: DEV LOGIN ENABLED FOR TESTING ONLY
-        // This bypasses authentication and MUST be disabled in production
-        // Checks NODE_ENV to prevent accidental exposure
-        router.post('/dev-login', async (req: Request, res: Response) => {
-            if (process.env.NODE_ENV === 'production') {
-                return res.status(404).json({ error: 'Not available in production' })
+            if (!email) {
+                return res.status(400).json({ error: 'Email is required' })
+            }
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+            if (!emailRegex.test(email)) {
+                return res.status(400).json({ error: 'Invalid email format' })
             }
 
             try {
-                // Import dynamically to avoid circular dependencies issues if any
-                const { prisma } = await import('../database/prisma.service');
+                const { prisma } = await import('../database/prisma.service')
 
-                const email = req.body.email || 'admin@savage.com' // Default to Admin
+                const user = await prisma.user.findUnique({ where: { email } })
 
-                // Try to find user, or create if missing (Dev convenience)
-                let user = await prisma.user.findUnique({
-                    where: { email },
-                    include: { roles: true }
+                // Always return success even if user not found (prevents email enumeration)
+                if (!user) {
+                    return res.json({ success: true, message: 'If an account with that email exists, a reset link has been sent.' })
+                }
+
+                // Generate secure random token
+                const resetToken = crypto.randomBytes(32).toString('hex')
+                const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex')
+                const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour
+
+                await prisma.user.update({
+                    where: { id: user.id },
+                    data: {
+                        passwordResetToken: hashedToken,
+                        passwordResetExpiry: expiresAt,
+                    },
+                })
+
+                // Send email with unhashed token (user receives this)
+                const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+                const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`
+
+                const { EmailService } = await import('../email/email.service')
+                const emailService = EmailService.getInstance()
+                await emailService.sendTemplateEmail(
+                    email,
+                    'Password Reset — SAVAGE LLC Portal',
+                    'password_reset',
+                    {
+                        userName: user.name || 'User',
+                        resetUrl,
+                        expiresInMinutes: 60,
+                    }
+                )
+
+                res.json({ success: true, message: 'If an account with that email exists, a reset link has been sent.' })
+            } catch (error) {
+                console.error('Forgot password error:', error)
+                res.status(500).json({ error: 'Failed to process password reset request' })
+            }
+        })
+
+        // Reset Password — verify token and update password
+        router.post('/reset-password', async (req: Request, res: Response) => {
+            const { token, email, password } = req.body
+
+            if (!token || !email || !password) {
+                return res.status(400).json({ error: 'Token, email, and new password are required' })
+            }
+
+            // Validate password strength
+            if (password.length < 8) {
+                return res.status(400).json({ error: 'Password must be at least 8 characters' })
+            }
+            if (!/[A-Z]/.test(password)) {
+                return res.status(400).json({ error: 'Password must contain at least one uppercase letter' })
+            }
+            if (!/\d/.test(password)) {
+                return res.status(400).json({ error: 'Password must contain at least one number' })
+            }
+
+            try {
+                const { prisma } = await import('../database/prisma.service')
+                const bcrypt = await import('bcrypt')
+
+                // Hash the token from the URL to compare with stored hash
+                const hashedToken = crypto.createHash('sha256').update(token).digest('hex')
+
+                const user = await prisma.user.findFirst({
+                    where: {
+                        email,
+                        passwordResetToken: hashedToken,
+                        passwordResetExpiry: { gt: new Date() },
+                    },
                 })
 
                 if (!user) {
-                    console.log(`[Dev Login] Creating new dev user: ${email}`)
-                    user = await prisma.user.create({
-                        data: {
-                            email,
-                            name: 'Admin',
-                            avatar: `https://ui-avatars.com/api/?name=Admin&background=random`,
-                            status: 'active',
-                            isApproved: true
-                        },
-                        include: { roles: true }
-                    })
+                    return res.status(400).json({ error: 'Invalid or expired reset token' })
                 }
 
-                // Ensure the user has the 'admin' role in UserRole table for RBAC to work
-                const existingRole = user.roles.find(r => r.role === 'admin' && r.departmentId === null);
+                const passwordHash = await bcrypt.hash(password, 10)
 
-                if (!existingRole) {
-                    await prisma.userRole.create({
-                        data: {
-                            userId: user.id,
-                            role: 'admin',
-                            departmentId: null
-                        }
-                    })
-                    // Refresh user data with roles
-                    user = await prisma.user.findUnique({
-                        where: { id: user.id },
-                        include: { roles: true }
-                    }) as any
-                }
-
-                const tokens = JwtService.generateTokenPair({
-                    userId: user!.id,
-                    email: user!.email,
-                    name: user!.name || undefined,
-                })
-
-                const roleList = user!.roles.map(r => r.role)
-                const primaryRole = roleList.includes('admin') ? 'admin' : roleList[0] || 'member'
-
-                res.json({
-                    success: true,
-                    user: {
-                        ...user,
-                        password: '',
-                        role: primaryRole,
-                        roles: roleList
+                await prisma.user.update({
+                    where: { id: user.id },
+                    data: {
+                        password: passwordHash,
+                        passwordResetToken: null,
+                        passwordResetExpiry: null,
                     },
-                    tokens
                 })
+
+                res.json({ success: true, message: 'Password has been reset successfully' })
             } catch (error) {
-                console.error('Dev login failed:', error)
-                res.status(500).json({ error: 'Dev login failed' })
+                console.error('Reset password error:', error)
+                res.status(500).json({ error: 'Failed to reset password' })
             }
         })
 

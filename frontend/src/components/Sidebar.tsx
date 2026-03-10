@@ -3,11 +3,13 @@
 import React, { useEffect, useRef, useState } from 'react'
 // cSpell:ignore Tatom
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import UserAvatar from '../assets/icons/UserAvatar'
 import { DEPARTMENT_ROLES, DEPARTMENTS } from '@/lib/departments'
 import { useUser } from '@/contexts/UserContext'
+import { cn } from '@/lib/utils'
 
 // Sidebar departments: use the top-level DEPARTMENTS list
 const SIDEBAR_DEPARTMENTS = DEPARTMENTS;
@@ -25,25 +27,33 @@ import {
 
 function NavItem({ icon: Icon, label, badge, href }: { icon: React.ComponentType<React.SVGProps<SVGSVGElement>>; label: string; badge?: number; href: string }) {
   const pathname = usePathname() || '/'
-  const isActive = href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href)
-
-  const base = "nav-animated w-full text-left flex items-center gap-3 px-3 py-2 rounded-md group transform transition-colors transition-transform duration-150 ease-out border border-transparent hover:bg-gray-50 dark:hover:bg-white/5 hover:border-[var(--border)] active:translate-y-[1px] active:scale-[0.995] active:bg-gray-100 dark:active:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400"
-
-  const activeStyle: React.CSSProperties | undefined = isActive
-    ? { backgroundColor: 'var(--card-surface)', boxShadow: 'inset 0 0 0 1px var(--nav-hover-shadow)' }
-    : undefined
+  // Exact match or sub-route match (require '/' after prefix to avoid partial collisions)
+  const isActive = href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/')
 
   return (
     <Link
       href={href}
       aria-label={label}
       aria-current={isActive ? 'page' : undefined}
-      className={base}
-      style={activeStyle}
+      className={cn(
+        'nav-animated relative w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg group',
+        'transition-all duration-150 ease-out border border-transparent',
+        'hover:bg-gray-50 dark:hover:bg-white/5 hover:border-[var(--border)]',
+        'active:translate-y-[1px] active:scale-[0.995] active:bg-gray-100 dark:active:bg-white/10',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400',
+        isActive && 'bg-[var(--card-surface)] border-[var(--border)] shadow-sm font-medium',
+      )}
     >
-      <Icon className="w-5 h-5 opacity-90 text-muted transition-colors duration-150 group-hover:text-indigo-600 dark:group-hover:text-red-400" />
+      {/* Active indicator bar */}
+      {isActive && (
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-indigo-600 dark:bg-red-400" />
+      )}
+      <Icon className={cn(
+        'w-5 h-5 transition-colors duration-150',
+        isActive ? 'text-indigo-600 dark:text-red-400' : 'opacity-90 text-muted group-hover:text-indigo-600 dark:group-hover:text-red-400',
+      )} />
       <span className="flex-1">{label}</span>
-      {badge ? <span className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded-full">{badge}</span> : null}
+      {badge ? <span className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded-full animate-pulse">{badge}</span> : null}
     </Link>
   )
 }
@@ -160,9 +170,11 @@ export default function Sidebar() {
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="w-10 h-10 rounded-full overflow-hidden bg-[var(--card-surface)] border-2 border-[var(--border)] flex-shrink-0">
                   {user?.avatar ? (
-                    <img
+                    <Image
                       src={user.avatar}
                       alt={user.name || "User"}
+                      width={40}
+                      height={40}
                       className="w-full h-full object-cover"
                     />
                   ) : (

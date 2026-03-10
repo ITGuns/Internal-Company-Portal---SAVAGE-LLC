@@ -8,6 +8,7 @@ import { config } from '../config/env.config';
 export interface EmailConfig {
     enabled: boolean;
     provider: 'sendgrid' | 'smtp';
+    testOverrideEmail: string | null;
     from: {
         email: string;
         name: string;
@@ -29,6 +30,7 @@ export interface EmailConfig {
 export const emailConfig: EmailConfig = {
     enabled: process.env.EMAIL_ENABLED === 'true',
     provider: (process.env.EMAIL_PROVIDER as 'sendgrid' | 'smtp') || 'sendgrid',
+    testOverrideEmail: process.env.TEST_EMAIL_OVERRIDE || null,
     from: {
         email: process.env.EMAIL_FROM_ADDRESS || 'noreply@savage-llc.com',
         name: process.env.EMAIL_FROM_NAME || 'SAVAGE LLC Internal Portal',

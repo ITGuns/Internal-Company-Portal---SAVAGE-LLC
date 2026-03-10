@@ -142,6 +142,8 @@ export default function WhiteboardPage() {
             onClick={() => setTool('pencil')}
             className={`p-2 rounded-lg transition-all ${tool === 'pencil' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)] hover:bg-[var(--card-surface)]'}`}
             title="Pencil"
+            aria-label="Pencil tool"
+            aria-pressed={tool === 'pencil'}
           >
             <Pencil className="w-4 h-4" />
           </button>
@@ -149,6 +151,8 @@ export default function WhiteboardPage() {
             onClick={() => setTool('eraser')}
             className={`p-2 rounded-lg transition-all ${tool === 'eraser' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)] hover:bg-[var(--card-surface)]'}`}
             title="Eraser"
+            aria-label="Eraser tool"
+            aria-pressed={tool === 'eraser'}
           >
             <Eraser className="w-4 h-4" />
           </button>
@@ -160,6 +164,8 @@ export default function WhiteboardPage() {
                 onClick={() => { setColor(c); if (tool === 'eraser') setTool('pencil'); }}
                 className={`w-6 h-6 rounded-full border border-black/10 transition-transform hover:scale-110 ${color === c ? 'ring-2 ring-[var(--accent)] ring-offset-2 dark:ring-offset-black' : ''}`}
                 style={{ backgroundColor: c }}
+                aria-label={`Select color ${c}`}
+                aria-pressed={color === c}
               />
             ))}
           </div>
@@ -175,6 +181,7 @@ export default function WhiteboardPage() {
               value={brushSize}
               onChange={(e) => setBrushSize(parseInt(e.target.value))}
               className="w-24 accent-[var(--accent)]"
+              aria-label="Brush size"
             />
           </div>
           <div className="flex items-center gap-2">

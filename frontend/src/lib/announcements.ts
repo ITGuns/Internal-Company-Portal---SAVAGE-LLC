@@ -4,6 +4,8 @@
  */
 
 import { apiFetch } from './api';
+import type { ApiAnnouncement, ApiAnnouncementLike, ApiAnnouncementComment, ApiAnnouncementRsvp } from './types/api';
+import type { PaginatedResponse } from './types/pagination';
 
 export type AnnouncementCategory = 'company-news' | 'shoutouts' | 'events' | 'birthdays';
 
@@ -11,6 +13,7 @@ export interface EventDetails {
   date: string;
   location: string;
   going: string[]; // Array of user IDs who marked "going"
+  goingNames: string[]; // Array of user names who marked "going"
 }
 
 export interface Comment {
@@ -36,7 +39,7 @@ export interface Announcement {
 }
 
 // Helper to map API data to Frontend interface
-const mapApiAnnouncement = (data: any): Announcement => {
+const mapApiAnnouncement = (data: ApiAnnouncement): Announcement => {
   return {
     id: data.id,
     category: data.category as AnnouncementCategory,
@@ -44,8 +47,8 @@ const mapApiAnnouncement = (data: any): Announcement => {
     timestamp: data.createdAt,
     title: data.title,
     body: data.content,
-    likes: data.likes?.map((l: any) => l.userId) || [],
-    comments: data.comments?.map((c: any) => ({
+    likes: data.likes?.map((l: ApiAnnouncementLike) => l.userId) || [],
+    comments: data.comments?.map((c: ApiAnnouncementComment) => ({
       id: c.id,
       author: c.author?.name || 'Unknown',
       text: c.text,
@@ -54,7 +57,8 @@ const mapApiAnnouncement = (data: any): Announcement => {
     eventDetails: data.category === 'events' ? {
       date: data.eventDate || '',
       location: data.eventLocation || '',
-      going: data.rsvps?.filter((r: any) => r.status === 'going').map((r: any) => r.userId) || []
+      going: data.rsvps?.filter((r: ApiAnnouncementRsvp) => r.status === 'going').map((r: ApiAnnouncementRsvp) => r.userId) || [],
+      goingNames: data.rsvps?.filter((r: ApiAnnouncementRsvp) => r.status === 'going').map((r: ApiAnnouncementRsvp) => r.user?.name || 'Unknown') || []
     } : undefined,
     birthdayDate: data.birthdayDate,
     isImportant: data.isImportant,
@@ -79,6 +83,25 @@ export async function fetchAnnouncements(): Promise<Announcement[]> {
 }
 
 /**
+ * Fetch announcements with pagination
+ */
+export async function fetchAnnouncementsPaginated(page: number, limit: number): Promise<PaginatedResponse<Announcement>> {
+  try {
+    const res = await apiFetch(`/announcements?page=${page}&limit=${limit}`);
+    if (res.status === 200) {
+      const json = await res.json();
+      return {
+        ...json,
+        data: json.data.map(mapApiAnnouncement),
+      };
+    }
+  } catch (error) {
+    console.error('Failed to fetch announcements:', error);
+  }
+  return { data: [], total: 0, page, limit, totalPages: 0 };
+}
+
+/**
  * Add a new announcement
  */
 export async function addAnnouncement(
@@ -91,7 +114,7 @@ export async function addAnnouncement(
   birthdayDate?: string
 ): Promise<Announcement | null> {
   try {
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       category,
       title,
       content: body, // Map body to content
@@ -127,7 +150,7 @@ export async function addAnnouncement(
  */
 export async function updateAnnouncement(id: string, updates: Partial<Omit<Announcement, 'id'>>): Promise<Announcement | null> {
   try {
-    const payload: any = {};
+    const payload: Record<string, unknown> = {};
     if (updates.category) payload.category = updates.category;
     if (updates.title) payload.title = updates.title;
     if (updates.body) payload.content = updates.body;

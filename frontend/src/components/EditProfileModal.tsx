@@ -238,6 +238,7 @@ export default function EditProfileModal({
             accept="image/*"
             onChange={handleFileChange}
             className="hidden"
+            aria-label="Upload profile picture"
           />
           <div className="mt-3 flex gap-2">
             <Button

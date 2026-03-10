@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Mail, Lock } from 'lucide-react';
 import LoginInput from '@/components/LoginInput';
 import { useUser } from '@/contexts/UserContext';
-import { devLogin, setCurrentUser, loginWithEmail } from '@/lib/api';
+import { loginWithEmail } from '@/lib/api';
 import styles from './login.module.css';
 
 export default function LoginPage() {
@@ -17,7 +17,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [bypass, setBypass] = useState(false);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -50,60 +49,10 @@ export default function LoginPage() {
     }
   };
 
-  // Handle dev login
-  const handleDevLogin = async () => {
-    setError('');
-    setLoading(true);
-
-    try {
-      const token = await devLogin(); // uses APP_CONFIG.apiUrl, stores tokens automatically
-
-      if (token) {
-        // Refresh user context (devLogin already stores the token in localStorage)
-        await refreshUser();
-        router.push('/dashboard');
-      } else {
-        setError('Dev login failed. Please try again.');
-      }
-    } catch (err) {
-      console.error('Dev login error:', err);
-      setError('Connection error. Make sure backend is running on port 4000.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle frontend bypass
-  const handleBypass = () => {
-    if (!bypass) return;
-
-    // Set mock user data with full admin access
-    const mockUser = {
-      id: 'bypass-user',
-      email: 'bypass@savage.com',
-      name: 'Bypass User',
-      avatar: 'https://ui-avatars.com/api/?name=Bypass+User&background=random',
-      role: 'admin',
-      department: 'Engineering',
-      isApproved: true,
-    };
-
-    const mockToken = 'bypass-token-' + Date.now();
-
-    localStorage.setItem('accessToken', mockToken);
-    localStorage.setItem('currentUser', JSON.stringify(mockUser));
-
-    // Refresh user context and redirect
-    refreshUser();
-    router.push('/dashboard');
-  };
-
   // Don't render login form if already logged in
   if (user) {
     return null;
   }
-
-  const isDev = process.env.NODE_ENV !== 'production';
 
   return (
     <div className={styles.loginContainer}>
@@ -187,51 +136,6 @@ export default function LoginPage() {
             </a>
           </p>
         </div>
-
-        {/* Dev Options - Only in Development */}
-        {isDev && (
-          <>
-            <div className={styles.divider}>
-              <div className={styles.dividerLine}></div>
-              <span className={styles.dividerText}>OR</span>
-              <div className={styles.dividerLine}></div>
-            </div>
-
-            <div className={styles.devSection}>
-              <button
-                type="button"
-                onClick={handleDevLogin}
-                className={`${styles.secondaryButton} ${styles.devButton}`}
-                disabled={loading}
-              >
-                Dev Login (Admin)
-              </button>
-
-              <div className={styles.bypassOption}>
-                <input
-                  type="checkbox"
-                  id="bypass"
-                  checked={bypass}
-                  onChange={(e) => setBypass(e.target.checked)}
-                  className={styles.bypassCheckbox}
-                />
-                <label htmlFor="bypass" className={styles.bypassLabel}>
-                  Frontend Bypass (skip backend)
-                </label>
-              </div>
-
-              {bypass && (
-                <button
-                  type="button"
-                  onClick={handleBypass}
-                  className={`${styles.secondaryButton} mt-4`}
-                >
-                  Enter with Bypass
-                </button>
-              )}
-            </div>
-          </>
-        )}
       </div>
     </div>
   );

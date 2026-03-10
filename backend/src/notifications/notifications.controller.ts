@@ -59,7 +59,15 @@ export class NotificationsController {
                 ])
 
                 // Shape everything into a unified Notification format
-                const notifications: any[] = []
+                const notifications: Array<{
+                    id: string;
+                    type: string;
+                    title: string;
+                    message: string;
+                    link: string;
+                    createdAt: string;
+                    read: boolean;
+                }> = []
 
                 for (const a of announcements) {
                     notifications.push({

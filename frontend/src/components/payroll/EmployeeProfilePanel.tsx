@@ -3,6 +3,7 @@
  */
 
 import React from "react";
+import Image from "next/image";
 import {
   FileText,
   Download,
@@ -64,7 +65,7 @@ export default function EmployeeProfilePanel({
         <div className="relative -mt-12 flex justify-center">
           <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl border-4 border-white dark:border-gray-900 overflow-hidden shadow-lg">
             {employee.avatar && (employee.avatar.startsWith('http') || employee.avatar.startsWith('/')) ? (
-              <img src={employee.avatar} alt={employee.name} className="w-full h-full object-cover" />
+              <Image src={employee.avatar} alt={employee.name} width={96} height={96} className="w-full h-full object-cover" />
             ) : (
               <span>{employee.avatar?.[0] || '?'}</span>
             )}

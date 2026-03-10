@@ -89,10 +89,10 @@ export class ChatService {
     }
 
     /**
-     * Get all conversations for a user
+     * Get all conversations for a user (with unread counts)
      */
     async getUserConversations(userId: string) {
-        return this.prisma.conversation.findMany({
+        const conversations = await this.prisma.conversation.findMany({
             where: {
                 participants: {
                     some: {
@@ -124,6 +124,26 @@ export class ChatService {
                 updatedAt: 'desc',
             },
         })
+
+        // Compute unread count per conversation
+        const result = await Promise.all(
+            conversations.map(async (conv) => {
+                const myParticipant = conv.participants.find(p => p.userId === userId)
+                const lastReadAt = myParticipant?.lastReadAt || new Date(0)
+
+                const unreadCount = await this.prisma.message.count({
+                    where: {
+                        conversationId: conv.id,
+                        createdAt: { gt: lastReadAt },
+                        senderId: { not: userId },
+                    },
+                })
+
+                return { ...conv, unreadCount }
+            })
+        )
+
+        return result
     }
 
     /**
@@ -209,10 +229,9 @@ export class ChatService {
     }
 
     /**
-     * Mark conversation as read for a user
+     * Mark conversation as read for a user. Returns the updated lastReadAt timestamp.
      */
-    async markAsRead(conversationId: string, userId: string) {
-        // Find the participant entry
+    async markAsRead(conversationId: string, userId: string): Promise<Date | null> {
         const participant = await this.prisma.participant.findUnique({
             where: {
                 conversationId_userId: {
@@ -222,12 +241,15 @@ export class ChatService {
             },
         })
 
-        if (participant) {
-            await this.prisma.participant.update({
-                where: { id: participant.id },
-                data: { lastReadAt: new Date() },
-            })
-        }
+        if (!participant) return null
+
+        const now = new Date()
+        await this.prisma.participant.update({
+            where: { id: participant.id },
+            data: { lastReadAt: now },
+        })
+
+        return now
     }
 
     /**
@@ -261,6 +283,42 @@ export class ChatService {
 
         return this.prisma.message.delete({
             where: { id: messageId }
+        })
+    }
+
+    /**
+     * Edit a message (sender only)
+     */
+    async editMessage(messageId: string, userId: string, content: string): Promise<Message | null> {
+        const message = await this.prisma.message.findUnique({
+            where: { id: messageId },
+        })
+
+        if (!message || message.senderId !== userId) return null
+
+        return this.prisma.message.update({
+            where: { id: messageId },
+            data: { content, editedAt: new Date() },
+        })
+    }
+
+    /**
+     * Search messages across user's conversations
+     */
+    async searchMessages(userId: string, query: string, limit = 20) {
+        return this.prisma.message.findMany({
+            where: {
+                content: { contains: query, mode: 'insensitive' },
+                conversation: {
+                    participants: { some: { userId } },
+                },
+            },
+            include: {
+                sender: { select: { id: true, name: true, avatar: true, email: true } },
+                conversation: { select: { id: true, name: true, type: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
         })
     }
 

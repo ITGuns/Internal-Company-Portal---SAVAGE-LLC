@@ -36,6 +36,12 @@ interface EnvConfig {
     // CORS
     corsOrigin: string
 
+    // Admin bypass emails (comma-separated in env)
+    adminEmails: string[]
+
+    // Ops manager email for approval notifications
+    opsManagerEmail: string
+
     // Google Drive (optional)
     googleServiceAccountPath?: string
     driveBaseFolderId?: string
@@ -49,8 +55,8 @@ interface EnvConfig {
 }
 
 function getEnvVar(key: string, defaultValue?: string): string {
-    const value = process.env[key] || defaultValue
-    if (!value) {
+    const value = process.env[key] ?? defaultValue
+    if (value === undefined) {
         throw new Error(`Missing required environment variable: ${key}`)
     }
     return value
@@ -90,6 +96,15 @@ export const config: EnvConfig = {
     // CORS
     corsOrigin: getEnvVar('CORS_ORIGIN', 'http://localhost:3000'),
 
+    // Admin bypass emails
+    adminEmails: (getOptionalEnvVar('ADMIN_EMAILS') || '')
+        .split(',')
+        .map(e => e.trim().toLowerCase())
+        .filter(Boolean),
+
+    // Ops manager email for approval notifications
+    opsManagerEmail: getEnvVar('OPS_MANAGER_EMAIL', ''),
+
     // Google Drive (optional)
     googleServiceAccountPath: getOptionalEnvVar('GOOGLE_SERVICE_ACCOUNT_JSON_PATH'),
     driveBaseFolderId: getOptionalEnvVar('DRIVE_BASE_FOLDER_ID'),
@@ -100,6 +115,14 @@ export const config: EnvConfig = {
 
     // Logging
     logLevel: getEnvVar('LOG_LEVEL', 'info'),
+}
+
+/**
+ * Check if an email is in the admin bypass list (from ADMIN_EMAILS env var).
+ */
+export function isAdminEmail(email: string | undefined | null): boolean {
+    if (!email) return false
+    return config.adminEmails.includes(email.toLowerCase())
 }
 
 // Validate critical configuration on startup

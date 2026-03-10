@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client'
+import { Pool } from 'pg'
+import { PrismaPg } from '@prisma/adapter-pg'
 import 'dotenv/config'
 import * as bcrypt from 'bcrypt'
 
@@ -13,7 +15,9 @@ if (!connectionString || connectionString.length < 10) {
 const maskedUrl = connectionString.replace(/:([^@]+)@/, ':****@')
 console.log(`📡 Connecting to: ${maskedUrl}`)
 
-const prisma = new PrismaClient()
+const pool = new Pool({ connectionString })
+const adapter = new PrismaPg(pool)
+const prisma = new PrismaClient({ adapter })
 
 async function main() {
     console.log('🌱 Starting refined database seed...')

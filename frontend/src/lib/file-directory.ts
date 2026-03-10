@@ -6,6 +6,7 @@
  */
 
 import type { FileDirectory } from './file-directory-types';
+import type { GoogleDriveFile } from './types/api';
 
 // ========== MOCK DATA (Based on Company File Directory Spreadsheet) ==========
 
@@ -255,8 +256,8 @@ export async function fetchDriveSubfolders(folderId: string): Promise<{ name: st
     const files = childrenData.files || [];
 
     const subfolders = files
-      .filter((f: any) => f.mimeType === 'application/vnd.google-apps.folder')
-      .map((f: any) => ({
+      .filter((f: GoogleDriveFile) => f.mimeType === 'application/vnd.google-apps.folder')
+      .map((f: GoogleDriveFile) => ({
         id: f.id,
         name: f.name,
         mimeType: f.mimeType,
@@ -298,7 +299,7 @@ export async function fetchDriveFiles(folderId: string): Promise<DriveFile[]> {
     }
 
     const data = await res.json();
-    return (data.files || []).map((f: any) => {
+    return (data.files || []).map((f: GoogleDriveFile) => {
       const isFolder = f.mimeType === 'application/vnd.google-apps.folder';
       return {
         id: f.id,

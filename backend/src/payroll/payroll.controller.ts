@@ -1,6 +1,8 @@
 import express, { Request, Response, Router } from 'express'
 import { PayrollService } from './payroll.service'
 import { authenticateToken, requireRole, requireDepartment } from '../auth/auth.middleware'
+import { notificationService } from '../notifications/socket.service'
+import { isAdminEmail } from '../config/env.config'
 
 interface AuthRequest extends Request {
     user?: {
@@ -100,7 +102,7 @@ export class PayrollController {
                     const { prisma } = await import('../database/prisma.service')
                     const requesterRoles = await prisma.userRole.findMany({ where: { userId: requesterId } })
                     const isPrivileged = requesterRoles.some(r => ['admin', 'manager', 'operations_manager', 'operations manager'].includes(r.role.toLowerCase()))
-                    const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
+                    const isAuthorizedEmail = isAdminEmail(authReq.user?.email)
 
                     if (!isPrivileged && !isAuthorizedEmail) {
                         return res.status(403).json({ error: 'Unauthorized to view another user\'s time entries' })
@@ -127,9 +129,10 @@ export class PayrollController {
 
                 const entry = await this.service.clockIn(user.userId)
                 res.json(entry)
-            } catch (e: any) {
+                notificationService.broadcastDataChange('time-entries')
+            } catch (e) {
                 console.error('Clock in error:', e)
-                res.status(400).json({ error: e.message || 'Clock in failed' })
+                res.status(400).json({ error: e instanceof Error ? e.message : 'Clock in failed' })
             }
         })
 
@@ -140,9 +143,10 @@ export class PayrollController {
 
                 const entry = await this.service.clockOut(user.userId)
                 res.json(entry)
-            } catch (e: any) {
+                notificationService.broadcastDataChange('time-entries')
+            } catch (e) {
                 console.error('Clock out error:', e)
-                res.status(400).json({ error: e.message || 'Clock out failed' })
+                res.status(400).json({ error: e instanceof Error ? e.message : 'Clock out failed' })
             }
         })
 
@@ -162,7 +166,7 @@ export class PayrollController {
                     const { prisma } = await import('../database/prisma.service')
                     const requesterRoles = await prisma.userRole.findMany({ where: { userId: requesterId } })
                     const isPrivileged = requesterRoles.some(r => ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase()))
-                    const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
+                    const isAuthorizedEmail = isAdminEmail(authReq.user?.email)
 
                     if (!isPrivileged && !isAuthorizedEmail) {
                         return res.status(403).json({ error: 'Unauthorized to add manual entry for another user' })
@@ -177,6 +181,7 @@ export class PayrollController {
                     notes
                 )
                 res.json(entry)
+                notificationService.broadcastDataChange('time-entries')
             } catch (e) {
                 console.error('Error adding entry:', e)
                 res.status(500).json({ error: 'Failed' })
@@ -191,6 +196,7 @@ export class PayrollController {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
                 await this.service.deleteTimeEntry(id, user.userId)
                 res.json({ success: true })
+                notificationService.broadcastDataChange('time-entries')
             } catch (e) {
                 console.error('Error deleting entry:', e)
                 res.status(500).json({ error: 'Failed' })
@@ -216,7 +222,7 @@ export class PayrollController {
                 const isPrivileged = roles.some(r =>
                     ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
                 )
-                const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
+                const isAuthorizedEmail = isAdminEmail(authReq.user?.email)
 
                 if (requesterId !== userId && !isPrivileged && !isAuthorizedEmail) {
                     return res.status(403).json({ error: 'Forbidden' })
@@ -226,9 +232,9 @@ export class PayrollController {
                 end.setHours(23, 59, 59, 999);
                 const preview = await this.service.previewPayslip(userId, new Date(startDate), end)
                 res.status(200).json(preview)
-            } catch (e: any) {
+            } catch (e) {
                 console.error('Preview error:', e)
-                res.status(500).json({ error: e.message || 'Failed to preview calculation' })
+                res.status(500).json({ error: e instanceof Error ? e.message : 'Failed to preview calculation' })
             }
         })
 
@@ -252,7 +258,7 @@ export class PayrollController {
                     const isPrivileged = roles.some(r =>
                         ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
                     )
-                    const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
+                    const isAuthorizedEmail = isAdminEmail(authReq.user?.email)
                     if (!isPrivileged && !isAuthorizedEmail) {
                         return res.status(403).json({ error: 'Unauthorized to view another user\'s payroll profile' })
                     }
@@ -282,7 +288,7 @@ export class PayrollController {
                     const isPrivileged = roles.some(r =>
                         ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
                     )
-                    const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
+                    const isAuthorizedEmail = isAdminEmail(authReq.user?.email)
                     if (!isPrivileged && !isAuthorizedEmail) {
                         return res.status(403).json({ error: 'Unauthorized to update another user\'s payroll profile' })
                     }
@@ -347,9 +353,9 @@ export class PayrollController {
 
                     const payslip = await this.service.generatePayslip(periodId, userId, req.body)
                     res.json(payslip)
-                } catch (e: any) {
+                } catch (e) {
                     console.error(e)
-                    res.status(500).json({ error: e.message || 'Failed to generate payslip' })
+                    res.status(500).json({ error: e instanceof Error ? e.message : 'Failed to generate payslip' })
                 }
             }
         )
@@ -364,9 +370,9 @@ export class PayrollController {
                     const periodId = Array.isArray(req.params.periodId) ? req.params.periodId[0] : req.params.periodId
                     const results = await this.service.bulkGeneratePayslips(periodId)
                     res.json(results)
-                } catch (e: any) {
+                } catch (e) {
                     console.error(e)
-                    res.status(500).json({ error: e.message || 'Bulk generation failed' })
+                    res.status(500).json({ error: e instanceof Error ? e.message : 'Bulk generation failed' })
                 }
             }
         )
@@ -388,7 +394,7 @@ export class PayrollController {
                     const isPrivileged = roles.some(r =>
                         ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
                     )
-                    const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(authReq.user?.email?.toLowerCase() || '')
+                    const isAuthorizedEmail = isAdminEmail(authReq.user?.email)
                     if (!isPrivileged && !isAuthorizedEmail) {
                         return res.status(403).json({ error: 'Unauthorized to view another user\'s payslips' })
                     }

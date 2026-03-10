@@ -1,18 +1,22 @@
 "use client";
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import Header from '@/components/Header'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import LoadingSpinner from '@/components/LoadingSpinner'
+import { DashboardSkeleton } from '@/components/ui/Skeleton'
 import { Clock, CheckCircle2, AlertCircle, TrendingUp, ExternalLink, Send, Megaphone, Star, Trophy } from 'lucide-react'
-import { fetchTasks, calculateWeeklyStats } from '@/lib/tasks'
-import { fetchTimeEntries, getTotalMinutesForDate, type TimeEntry } from '@/lib/time-entries'
-import { fetchAnnouncements, getTimeAgo, type Announcement } from '@/lib/announcements'
+import { calculateWeeklyStats } from '@/lib/tasks'
+import { getTotalMinutesForDate } from '@/lib/time-entries'
+import { getTimeAgo, type Announcement } from '@/lib/announcements'
 import { useRouter } from 'next/navigation'
 import { useSocket } from '@/context/SocketContext'
 import { fetchConversations, fetchMessages, sendMessage, type Message, type Conversation } from '@/lib/chat'
 import TimeClock from '@/components/TimeClock'
+import { useTasks } from '@/hooks/useTasksQuery'
+import { useAnnouncements } from '@/hooks/useAnnouncementsQuery'
+import { useTimeEntries } from '@/hooks/useTimeEntriesQuery'
+import { useToast } from '@/components/ToastProvider'
 
 function QuickLink({ title, subtitle, icon: Icon, onClick, href }: { title: string; subtitle?: string; icon: React.ComponentType<{ className?: string }>; onClick?: () => void; href?: string }) {
   const handleClick = () => {
@@ -40,15 +44,27 @@ function QuickLink({ title, subtitle, icon: Icon, onClick, href }: { title: stri
 import { useUser } from '@/contexts/UserContext'
 
 export default function DashboardPage() {
-  const [todayMinutes, setTodayMinutes] = useState(0);
-  const [weekTasks, setWeekTasks] = useState({ total: 0, completed: 0, inProgress: 0, overdue: 0 });
-  const [recentAnnouncements, setRecentAnnouncements] = useState<Announcement[]>([]);
-  const [recentShoutouts, setRecentShoutouts] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: allTasks = [], isLoading: tasksLoading } = useTasks();
+  const { data: allAnnouncements = [], isLoading: announcementsLoading } = useAnnouncements();
+  const { data: timeEntries = [], isLoading: timeLoading } = useTimeEntries();
+
+  const today = new Date().toISOString().slice(0, 10);
+  const todayMinutes = useMemo(() => getTotalMinutesForDate(timeEntries, today), [timeEntries, today]);
+  const weekTasks = useMemo(() => calculateWeeklyStats(allTasks), [allTasks]);
+  const recentAnnouncements = useMemo(() => {
+    const sorted = [...allAnnouncements].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return sorted.slice(0, 3);
+  }, [allAnnouncements]);
+  const recentShoutouts = useMemo(() => {
+    const sorted = [...allAnnouncements].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return sorted.filter(a => a.category === 'shoutouts').slice(0, 3);
+  }, [allAnnouncements]);
+  const loading = tasksLoading || announcementsLoading || timeLoading;
 
   const { user, isLoading: userLoading } = useUser();
 
   // Chat State
+  const toast = useToast();
   const { socket, isConnected } = useSocket();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -57,42 +73,6 @@ export default function DashboardPage() {
   const [onlineCount, setOnlineCount] = useState(0);
   const chatScrollRef = React.useRef<HTMLDivElement>(null);
   const router = useRouter();
-
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const today = new Date().toISOString().slice(0, 10);
-
-        // Fetch Tasks (Separate from others so failure doesn't block)
-        try {
-          const tasks = await fetchTasks();
-          setWeekTasks(calculateWeeklyStats(tasks));
-        } catch (e) { console.error('Tasks load failed', e); }
-
-        // Fetch Time Entries
-        try {
-          const entries = await fetchTimeEntries();
-          const minutes = getTotalMinutesForDate(entries, today);
-          setTodayMinutes(minutes);
-        } catch (e) { console.error('Time logs load failed', e); }
-
-        // Fetch Announcements & Shoutouts
-        try {
-          const announcements = await fetchAnnouncements();
-          const sortedAnnouncements = [...announcements].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-          setRecentAnnouncements(sortedAnnouncements.slice(0, 3));
-          setRecentShoutouts(sortedAnnouncements.filter(a => a.category === 'shoutouts').slice(0, 3));
-        } catch (e) { console.error('Announcements load failed', e); }
-
-      } catch (error) {
-        console.error('Failed to load dashboard data:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadData();
-  }, []);
 
   // Chat Initialization
   useEffect(() => {
@@ -195,7 +175,8 @@ export default function DashboardPage() {
     } catch (err) {
       console.error('Failed to send msg', err);
       setMessages(prev => prev.filter(m => m.id !== tempId));
-      setNewMessage(content); // Put back for retry
+      setNewMessage(content);
+      toast.error('Failed to send message');
     } finally {
       setSending(false);
     }
@@ -212,7 +193,7 @@ export default function DashboardPage() {
     return (
       <main className="main-content-height bg-[var(--background)] text-[var(--foreground)] p-6">
         <Header />
-        <LoadingSpinner message="Loading dashboard..." />
+        <DashboardSkeleton />
       </main>
     );
   }
@@ -224,7 +205,7 @@ export default function DashboardPage() {
         <div className="flex flex-col items-center justify-center h-[60vh] text-center">
           <h2 className="text-2xl font-bold mb-4">Please Log In</h2>
           <p className="text-[var(--muted)] mb-6">You need to be logged in to view the dashboard.</p>
-          <Button onClick={() => window.location.href = '/dev-login'}>Go to Login</Button>
+          <Button onClick={() => window.location.href = '/login'}>Go to Login</Button>
         </div>
       </main>
     );

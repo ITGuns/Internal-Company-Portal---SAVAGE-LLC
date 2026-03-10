@@ -3,7 +3,9 @@
  */
 
 import { apiFetch } from './api';
+import type { PaginatedResponse } from './types/pagination';
 import { Department } from './departments';
+import type { ApiTask } from './types/api';
 
 export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'completed';
 export type TaskPriority = 'Low' | 'Med' | 'High';
@@ -110,9 +112,38 @@ export async function fetchTasks(departmentId?: string, assigneeId?: number | st
   return tasks.map(processTaskFromApi);
 }
 
-function processTaskFromApi(task: any): Task {
+/**
+ * Fetch tasks with pagination
+ */
+export async function fetchTasksPaginated(page: number, limit: number): Promise<PaginatedResponse<Task>> {
+  const res = await apiFetch(`/tasks?page=${page}&limit=${limit}`);
+  if (!res.ok) {
+    throw new Error('Failed to fetch tasks');
+  }
+  const json = await res.json();
   return {
-    ...task,
+    ...json,
+    data: json.data.map(processTaskFromApi),
+  };
+}
+
+function processTaskFromApi(task: ApiTask): Task {
+  return {
+    id: task.id,
+    title: task.title,
+    description: task.description,
+    departmentId: task.departmentId,
+    department: task.department,
+    assigneeId: task.assigneeId,
+    assignee: task.assignee,
+    role: task.role,
+    progress: task.progress,
+    timerStatus: task.timerStatus as Task['timerStatus'],
+    timerStart: task.timerStart,
+    totalElapsed: task.totalElapsed,
+    estimatedTime: task.estimatedTime,
+    createdAt: task.createdAt as string | undefined,
+    updatedAt: task.updatedAt as string | undefined,
     // Ensure status matches our enum (handle potential drift)
     status: (['todo', 'in_progress', 'review', 'completed'].includes(task.status)
       ? task.status
@@ -120,7 +151,7 @@ function processTaskFromApi(task: any): Task {
     dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : undefined,
     startDate: task.startDate ? new Date(task.startDate).toISOString().split('T')[0] : undefined,
     notes: Array.isArray(task.notes) ? task.notes : [],
-    priority: task.priority || 'Med',
+    priority: (task.priority || 'Med') as TaskPriority,
   };
 }
 

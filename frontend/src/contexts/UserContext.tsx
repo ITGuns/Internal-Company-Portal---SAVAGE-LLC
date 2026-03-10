@@ -55,7 +55,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       if (storedUser) {
         // Safety check: if we just had an auth error, don't try again immediately to avoid loops
         if (typeof window !== 'undefined' && sessionStorage.getItem('auth_error')) {
-          console.warn('[UserContext] Detected previous auth error loop. Clearing session.');
+          // Auth error loop detected — clear session
           logout();
           sessionStorage.removeItem('auth_error'); // Clear flag so they can try logging in again manually
           setIsLoading(false);
@@ -76,7 +76,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
           if (res.ok) {
             const data = await res.json();
             if (data.user) {
-              console.log('[UserContext] Verified user:', data.user.email);
               // Only update if data changed to avoid re-renders
               setUser(prev => {
                 const hasChanged = prev?.id !== data.user.id ||
@@ -106,7 +105,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
                   if (refreshData.accessToken) {
                     setAuthToken(refreshData.accessToken);
                     if (refreshData.refreshToken) setRefreshToken(refreshData.refreshToken);
-                    console.log('[UserContext] Token refreshed successfully');
+                    // Token refreshed — next poll will re-verify
                     // Don't logout — next poll will re-verify cleanly
                     return;
                   }
@@ -116,7 +115,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
               }
             }
             // Refresh also failed — log the user out
-            console.warn('[UserContext] Session expired, could not refresh -> Logging out');
             if (typeof window !== 'undefined') sessionStorage.setItem('auth_error', 'true');
             logout();
           }

@@ -1,0 +1,70 @@
+[     280ms] [ERROR] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+%s%s https://react.dev/link/hydration-mismatch 
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/login" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html
+                          lang="en"
+-                         data-theme="light"
+                        >
+                          ...
+                            <LayoutWrapper>
+                              <AuthGuard>
+                                <div
+                                  style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh", ...}}
++                                 className="jsx-1e9d286cda3fb0d4"
+-                                 className="jsx-8bf52cf3367706a6"
+                                >
+                                  <div
+                                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"16px"}}
++                                   className="jsx-1e9d286cda3fb0d4"
+-                                   className="jsx-8bf52cf3367706a6"
+                                  >
+                                    <div
+                                      style={{width:"48px",height:"48px",border:"3px solid ...",borderRightColor:"transparent", ...}}
++                                     className="jsx-1e9d286cda3fb0d4"
+-                                     className="jsx-8bf52cf3367706a6"
+                                    >
+                                    <p
+                                      style={{fontSize:"14px",color:"var(--fore...",opacity:0.7}}
++                                     className="jsx-1e9d286cda3fb0d4"
+-                                     className="jsx-8bf52cf3367706a6"
+                                    >
++                                     Loading...
+                                  ...
+                            ...
+                  ...
+ @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[     309ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/notifications:0
+[   25625ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/backend-auth/login:0
+[   25626ms] [ERROR] Email login error: Error: Login failed
+    at loginWithEmail (http://localhost:3000/_next/static/chunks/src_582496fa._.js:415:15)
+    at async handleEmailLogin (http://localhost:3000/_next/static/chunks/_acb6123f._.js:358:13) @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[   25626ms] [ERROR] Login error: Error: Login failed
+    at loginWithEmail (http://localhost:3000/_next/static/chunks/src_582496fa._.js:415:15)
+    at async handleEmailLogin (http://localhost:3000/_next/static/chunks/_acb6123f._.js:358:13) @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127

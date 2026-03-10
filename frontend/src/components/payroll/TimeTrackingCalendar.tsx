@@ -1,10 +1,22 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Cake, CheckCircle2, Calendar, Loader2 } from "lucide-react";
 import type { Employee, LeaveRecord, CompletedTask } from "@/lib/payroll-calendar/types";
-import { fetchTimeEntries } from "@/lib/time-entries";
+import { fetchTimeEntries, type TimeEntry } from "@/lib/time-entries";
 import { apiFetch } from "@/lib/api";
+import { useToast } from "@/components/ToastProvider";
+import type { DayTask } from "@/lib/types/api";
 
 import DayDetailsModal, { type DayTimeEntry } from "./DayDetailsModal";
+
+/** Shape of a task as returned by GET /tasks/assignee/:id */
+interface RawApiTask {
+  id: string;
+  title: string;
+  status: string;
+  dueDate?: string;
+  updatedAt?: string;
+  department?: { name: string };
+}
 
 interface TimeTrackingCalendarProps {
   employee: Employee | null;
@@ -40,12 +52,13 @@ export default function TimeTrackingCalendar({
   onDeleteTimeEntry,
   refreshKey = 0,
 }: TimeTrackingCalendarProps) {
+  const toast = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
   const [showDayDetails, setShowDayDetails] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
-  const [timeEntries, setTimeEntries] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [tasks, setTasks] = useState<RawApiTask[]>([]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -71,6 +84,7 @@ export default function TimeTrackingCalendar({
         }
       } catch (err) {
         console.error("Failed to fetch calendar data", err);
+        toast.error("Failed to load calendar data");
       } finally {
         setIsFetching(false);
       }
@@ -140,7 +154,7 @@ export default function TimeTrackingCalendar({
   };
 
   // Tasks — show real tasks from API
-  const getTasksForDate = (dateStr: string): any[] => {
+  const getTasksForDate = (dateStr: string): DayTask[] => {
     return tasks
       .filter((t) => t.status === "completed" && t.dueDate?.startsWith(dateStr))
       .map(t => ({
@@ -341,6 +355,7 @@ export default function TimeTrackingCalendar({
         <button
           onClick={handlePrevMonth}
           className="p-2.5 rounded-xl bg-gradient-to-br from-blue-50 to-sky-50 dark:from-blue-900/20 dark:to-sky-900/20 hover:from-blue-100 hover:to-sky-100 dark:hover:from-blue-800/30 dark:hover:to-sky-800/30 transition-all shadow-sm hover:shadow-md"
+          aria-label="Previous month"
         >
           <ChevronLeft className="w-5 h-5 text-blue-600 dark:text-blue-400" />
         </button>
@@ -350,6 +365,7 @@ export default function TimeTrackingCalendar({
         <button
           onClick={handleNextMonth}
           className="p-2.5 rounded-xl bg-gradient-to-br from-blue-50 to-sky-50 dark:from-blue-900/20 dark:to-sky-900/20 hover:from-blue-100 hover:to-sky-100 dark:hover:from-blue-800/30 dark:hover:to-sky-800/30 transition-all shadow-sm hover:shadow-md"
+          aria-label="Next month"
         >
           <ChevronRight className="w-5 h-5 text-blue-600 dark:text-blue-400" />
         </button>

@@ -100,13 +100,13 @@ export default function DriveFileViewer({
         try {
             const result = await fetchDriveFiles(currentEntry.id);
             setFiles(result);
-        } catch (err: any) {
-            if (err.message === 'API_KEY_MISSING') {
+        } catch (err) {
+            if (err instanceof Error && err.message === 'API_KEY_MISSING') {
                 setError('Google Drive API Key is missing. Please contact your admin.');
-            } else if (err.message === 'ACCESS_DENIED') {
+            } else if (err instanceof Error && err.message === 'ACCESS_DENIED') {
                 setError('Access denied. Please ensure the Drive folder is shared as "Anyone with the link".');
             } else {
-                setError(err.message || 'Failed to load folder contents.');
+                setError(err instanceof Error ? err.message : 'Failed to load folder contents.');
             }
         } finally {
             setLoading(false);
@@ -199,6 +199,8 @@ export default function DriveFileViewer({
                             onClick={() => setViewMode('grid')}
                             className={`px-2.5 py-1.5 text-xs transition-colors ${viewMode === 'grid' ? 'bg-[var(--card-bg)] font-semibold' : 'hover:bg-[var(--card-bg)]'}`}
                             title="Grid view"
+                            aria-label="Grid view"
+                            aria-pressed={viewMode === 'grid'}
                         >
                             ▦
                         </button>
@@ -206,6 +208,8 @@ export default function DriveFileViewer({
                             onClick={() => setViewMode('list')}
                             className={`px-2.5 py-1.5 text-xs border-l border-[var(--border)] transition-colors ${viewMode === 'list' ? 'bg-[var(--card-bg)] font-semibold' : 'hover:bg-[var(--card-bg)]'}`}
                             title="List view"
+                            aria-label="List view"
+                            aria-pressed={viewMode === 'list'}
                         >
                             ☰
                         </button>

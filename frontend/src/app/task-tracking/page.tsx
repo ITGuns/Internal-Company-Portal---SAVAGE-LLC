@@ -1,22 +1,19 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import Header from "@/components/Header";
 import Button from "@/components/Button";
 import Card from "@/components/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ToastProvider";
-import { DEPARTMENT_ROLES } from '@/lib/departments';
 import {
-  Filter,
   SortAsc,
-  Users,
   List,
   Grid,
   Calendar as CalendarIcon,
   Plus,
   MoreHorizontal,
-  Trash2,
   Check,
   ChevronDown,
   ArrowUpDown,
@@ -27,29 +24,27 @@ import {
   CheckCircle2,
   Download,
 } from "lucide-react";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
-import LoadingSpinner from '@/components/LoadingSpinner';
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import interactionPlugin from "@fullcalendar/interaction";
+import { TaskBoardSkeleton } from '@/components/ui/Skeleton';
 import {
-  fetchTasks,
   createTask,
   updateTask,
   deleteTask,
-  fetchDepartments,
-  fetchUsers,
   getTaskViewPreference,
   saveTaskViewPreference,
   type Task,
   type TaskPriority,
   type TaskStatus,
-  type TaskDepartment,
-  type TaskUser
 } from "@/lib/tasks";
-import LogReportModal from "@/components/tasks/LogReportModal";
+import { useTasks, useUsers, useDepartments } from "@/hooks/useTasksQuery";
+import { useQueryClient } from "@tanstack/react-query";
 import { ClipboardCheck } from "lucide-react";
+
+// Lazy-loaded heavy components
+const LogReportModal = dynamic(() => import("@/components/tasks/LogReportModal"), { ssr: false });
+
+import BoardCard from "@/components/tasks/BoardCard";
+import TaskModal from "@/components/tasks/TaskModal";
+import TaskCalendarView from "@/components/tasks/TaskCalendarView";
 
 // Map backend status to nice labels
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -83,123 +78,17 @@ const formatMinutes = (minutes: number) => {
   return `${m}m`;
 };
 
-function BoardCard({ task, onClick, onAction }: { task: Task; onClick?: () => void; onAction?: (e: React.MouseEvent, taskId: string, action: 'play' | 'pause' | 'complete') => void }) {
-  const assigneeName = task.assignee?.name || task.assignee?.email || "Unassigned";
-  const deptName = task.department?.name || "";
-  const progress = task.progress || 0;
-
-  return (
-    <Card
-      padding="sm"
-      className="mb-3 cursor-pointer hover:shadow-md transition-shadow group"
-      onClick={onClick}
-      data-task-id={task.id}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1">
-          <div className="font-medium text-sm text-[var(--foreground)] flex items-center gap-2">
-            <span
-              className={`priority-dot ${task.priority.toLowerCase()}`}
-              style={{ backgroundColor: PRIORITY_COLORS[task.priority] }}
-            />
-            {task.title}
-          </div>
-          {task.description ? (
-            <div className="text-xs text-[var(--muted)] mt-1 line-clamp-2">
-              {task.description}
-            </div>
-          ) : null}
-
-          {/* Dates */}
-          {(task.startDate || task.dueDate) && (
-            <div className="mt-2 text-[10px] flex items-center gap-3 text-[var(--muted)]">
-              {task.startDate && <div>Start: <span className="text-[var(--foreground)]">{task.startDate}</span></div>}
-              {task.dueDate && <div className="text-[var(--status-blocked)]">Due: <span className="text-[var(--foreground)]">{task.dueDate}</span></div>}
-            </div>
-          )}
-
-          {/* Progress Bar */}
-          <div className="mt-3">
-            <div className="flex justify-between text-[10px] mb-1">
-              <span className="text-[var(--muted)]">Progress</span>
-              <span className="font-medium text-[var(--foreground)]">{progress}%</span>
-            </div>
-            <div className="w-full bg-[var(--border)] h-1 rounded-full overflow-hidden">
-              <div
-                className="bg-[var(--accent)] h-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Time Tracking Comparison */}
-          <div className="mt-2 flex items-center justify-between text-[10px]">
-            <span className="text-[var(--muted)]">Time (Act/Est)</span>
-            <span className={`font-medium ${task.estimatedTime && (task.totalElapsed || 0) / 60 > task.estimatedTime ? 'text-red-500' : 'text-[var(--foreground)]'}`}>
-              {formatTime(task.totalElapsed || 0)} / {task.estimatedTime ? formatMinutes(task.estimatedTime) : '-'}
-            </span>
-          </div>
-
-          <div className="mt-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full bg-[var(--card-bg)] flex items-center justify-center text-[var(--muted)] border border-[var(--border)] overflow-hidden">
-                {task.assignee?.avatar ? (
-                  <img src={task.assignee.avatar} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-[10px]">{assigneeName.charAt(0).toUpperCase()}</span>
-                )}
-              </div>
-              <div className="text-[10px] text-[var(--muted)] truncate max-w-[60px]">{assigneeName}</div>
-            </div>
-
-            {/* Timer Controls */}
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              {task.status !== 'completed' && (
-                <>
-                  {task.timerStatus === 'playing' ? (
-                    <button
-                      onClick={(e) => onAction?.(e, task.id, 'pause')}
-                      className="p-1 hover:bg-[var(--card-bg)] rounded text-[var(--accent)]"
-                      title="Pause Task"
-                    >
-                      <Pause className="w-3.5 h-3.5 fill-current" />
-                    </button>
-                  ) : (
-                    <button
-                      onClick={(e) => onAction?.(e, task.id, 'play')}
-                      className="p-1 hover:bg-[var(--card-bg)] rounded text-emerald-500"
-                      title="Start Task"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-current" />
-                    </button>
-                  )}
-                  <button
-                    onClick={(e) => onAction?.(e, task.id, 'complete')}
-                    className="p-1 hover:bg-[var(--card-bg)] rounded text-blue-500"
-                    title="Complete Task"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
 export default function TaskTrackingPage() {
   const toast = useToast();
+  const queryClient = useQueryClient();
 
-  // Data State
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [departments, setDepartments] = useState<TaskDepartment[]>([]);
-  const [users, setUsers] = useState<TaskUser[]>([]);
+  // Data from React Query — auto-refetches on socket data:changed events
+  const { data: tasks = [], isLoading: tasksLoading } = useTasks();
+  const { data: departments = [] } = useDepartments();
+  const { data: users = [] } = useUsers();
 
   // UI State
-  const [isLoading, setIsLoading] = useState(true);
+  const isLoading = tasksLoading;
   const [showModal, setShowModal] = useState(false);
   const [view, setView] = useState<"grid" | "list" | "calendar">('calendar');
 
@@ -236,27 +125,7 @@ export default function TaskTrackingPage() {
   useEffect(() => {
     // Load preference immediately to avoid flash
     setView(getTaskViewPreference());
-
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
-        const [tasksData, deptsData, usersData] = await Promise.all([
-          fetchTasks(),
-          fetchDepartments(),
-          fetchUsers()
-        ]);
-        setTasks(tasksData);
-        setDepartments(deptsData);
-        setUsers(usersData);
-        setIsLoading(false);
-      } catch (error) {
-        console.error("Failed to load task data:", error);
-        toast.error("Failed to load tasks");
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, [toast]);
+  }, []);
 
   // Action hander for Play/Pause/Complete
   const handleTaskAction = async (e: React.MouseEvent, taskId: string, action: 'play' | 'pause' | 'complete') => {
@@ -308,7 +177,7 @@ export default function TaskTrackingPage() {
     try {
       const updatedTask = await updateTask(taskId, updates);
       if (updatedTask) {
-        setTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
+        queryClient.invalidateQueries({ queryKey: ['tasks'] });
         toast.success(`Task ${action === 'complete' ? 'completed' : (action === 'play' ? 'started' : 'paused')}`);
       }
     } catch (err) {
@@ -373,10 +242,7 @@ export default function TaskTrackingPage() {
     setEditTaskData(null);
   }
 
-  // Derived Department for role filtering
-  // Use loose string comparison to handle cases where d.id is a number from the API but departmentId is a string from the select
-  const selectedDepartmentName = departments.find(d => d.id?.toString() === departmentId?.toString())?.name;
-  const availableRoles = selectedDepartmentName ? (DEPARTMENT_ROLES[selectedDepartmentName] || []) : [];
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -390,7 +256,7 @@ export default function TaskTrackingPage() {
     try {
       if (editTaskData) {
         // Update existing
-        const updates: any = {
+        const updates: Record<string, unknown> = {
           title: title.trim(),
           description: description.trim(),
           status,
@@ -411,7 +277,7 @@ export default function TaskTrackingPage() {
         }
 
         const updated = await updateTask(editTaskData.id, updates);
-        setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
+        queryClient.invalidateQueries({ queryKey: ['tasks'] });
         toast.success("Task updated");
       } else {
         // Create new
@@ -428,13 +294,13 @@ export default function TaskTrackingPage() {
           notes: [],
           estimatedTime: parseInt(estimatedTime),
         });
-        setTasks(prev => [created, ...prev]);
+        queryClient.invalidateQueries({ queryKey: ['tasks'] });
         toast.success("Task created");
       }
       closeModal();
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      toast.error(error.message || "Failed to save task");
+      toast.error(error instanceof Error ? error.message : "Failed to save task");
     }
   }
 
@@ -444,7 +310,7 @@ export default function TaskTrackingPage() {
 
     try {
       await deleteTask(editTaskData.id);
-      setTasks(prev => prev.filter(t => t.id !== editTaskData.id));
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       toast.success("Task deleted");
       closeModal();
     } catch (error) {
@@ -453,8 +319,13 @@ export default function TaskTrackingPage() {
     }
   }
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     try {
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
+
       const doc = new jsPDF('landscape');
 
       // Add Title
@@ -466,7 +337,7 @@ export default function TaskTrackingPage() {
 
       // Table Header
       const tableColumn = ["Task Name", "Status", "Priority", "Department", "Assignee", "Start Date", "Due Date", "Progress", "ETOC (m)"];
-      const tableRows: any[] = [];
+      const tableRows: string[][] = [];
 
       sortedTasks.forEach(task => {
         const taskData = [
@@ -494,8 +365,6 @@ export default function TaskTrackingPage() {
         margin: { top: 30 },
       });
 
-      // Save the PDF directly using jspdf's built-in save method
-      // This is the most reliable way to ensure the browser uses our filename
       const filename = `Task_Report_${new Date().toISOString().split('T')[0]}.pdf`;
       doc.save(filename);
 
@@ -631,11 +500,7 @@ export default function TaskTrackingPage() {
 
 
   if (isLoading && tasks.length === 0) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[var(--background)]">
-        <LoadingSpinner message="Loading tasks..." />
-      </div>
-    );
+    return <TaskBoardSkeleton />;
   }
 
   return (
@@ -812,8 +677,9 @@ export default function TaskTrackingPage() {
                     {/* Dropdown Filters */}
                     <div className="grid grid-cols-1 gap-3">
                       <div>
-                        <label className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-1">Assignee</label>
+                        <label htmlFor="filter-assignee" className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-1">Assignee</label>
                         <select
+                          id="filter-assignee"
                           value={filterUserId}
                           onChange={(e) => setFilterUserId(e.target.value)}
                           className="w-full bg-[var(--background)] border border-[var(--border)] rounded p-1.5 text-xs"
@@ -824,8 +690,9 @@ export default function TaskTrackingPage() {
                       </div>
 
                       <div>
-                        <label className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-1">Department</label>
+                        <label htmlFor="filter-department" className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-1">Department</label>
                         <select
+                          id="filter-department"
                           value={filterDeptId}
                           onChange={(e) => setFilterDeptId(e.target.value)}
                           className="w-full bg-[var(--background)] border border-[var(--border)] rounded p-1.5 text-xs"
@@ -904,7 +771,7 @@ export default function TaskTrackingPage() {
                           </div>
                           <div className="p-3 bg-[var(--card-surface)] flex-1 overflow-y-auto chat-scroll scroll-smooth">
                             {col.items.length === 0 ? (
-                              <div className="py-10 text-center opacity-30 text-xs">Empty</div>
+                              <div className="py-10 text-center opacity-50 text-xs">Empty</div>
                             ) : (
                               col.items.map((t) => (
                                 <BoardCard
@@ -980,15 +847,15 @@ export default function TaskTrackingPage() {
                           {t.status !== 'completed' && (
                             <>
                               {t.timerStatus === 'playing' ? (
-                                <button onClick={(e) => handleTaskAction(e, t.id, 'pause')} className="p-1.5 hover:bg-[var(--card-bg)] rounded text-[var(--accent)]">
+                                <button onClick={(e) => handleTaskAction(e, t.id, 'pause')} className="p-1.5 hover:bg-[var(--card-bg)] rounded text-[var(--accent)]" aria-label="Pause task">
                                   <Pause className="w-3.5 h-3.5 fill-current" />
                                 </button>
                               ) : (
-                                <button onClick={(e) => handleTaskAction(e, t.id, 'play')} className="p-1.5 hover:bg-[var(--card-bg)] rounded text-emerald-500">
+                                <button onClick={(e) => handleTaskAction(e, t.id, 'play')} className="p-1.5 hover:bg-[var(--card-bg)] rounded text-emerald-500" aria-label="Start task">
                                   <Play className="w-3.5 h-3.5 fill-current" />
                                 </button>
                               )}
-                              <button onClick={(e) => handleTaskAction(e, t.id, 'complete')} className="p-1.5 hover:bg-[var(--card-bg)] rounded text-blue-500">
+                              <button onClick={(e) => handleTaskAction(e, t.id, 'complete')} className="p-1.5 hover:bg-[var(--card-bg)] rounded text-blue-500" aria-label="Complete task">
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                               </button>
                             </>
@@ -1017,363 +884,37 @@ export default function TaskTrackingPage() {
           )}
 
           {view === "calendar" && (
-            <div className="flex-1 overflow-y-auto chat-scroll pr-2 pb-6 space-y-6">
-              <div className="rounded border border-[var(--border)] bg-[var(--card-bg)] p-4">
-                <FullCalendar
-                  plugins={[dayGridPlugin, interactionPlugin]}
-                  initialView="dayGridMonth"
-                  headerToolbar={{
-                    left: "prev,next today",
-                    center: "title",
-                    right: "dayGridMonth,dayGridWeek,dayGridDay",
-                  }}
-                  events={events}
-                  eventContent={(arg) => {
-                    const task = arg.event.extendedProps.task;
-                    const statusDot: Record<string, string> = {
-                      todo: '#6b7280',
-                      in_progress: '#3b82f6',
-                      review: '#f59e0b',
-                      completed: '#10b981',
-                    };
-                    return (
-                      <div className="flex items-center gap-1 px-1.5 py-0.5 w-full overflow-hidden">
-                        <span
-                          style={{
-                            width: 5,
-                            height: 5,
-                            borderRadius: '50%',
-                            background: statusDot[task?.status] || '#6b7280',
-                            flexShrink: 0,
-                            display: 'inline-block',
-                          }}
-                        />
-                        <span className="text-[10px] font-semibold text-white whitespace-nowrap overflow-hidden text-ellipsis leading-tight">
-                          {arg.event.title}
-                        </span>
-                      </div>
-                    );
-                  }}
-                  eventClick={(arg) => {
-                    if (arg.event.extendedProps.task) {
-                      openEdit(arg.event.extendedProps.task);
-                    }
-                  }}
-                  dayMaxEvents={3}
-                  height={600}
-                />
-              </div>
-
-              {/* Weekly Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Today */}
-                <div className="rounded border border-[var(--border)] bg-[var(--card-surface)] overflow-hidden">
-                  <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--card-bg)] flex justify-between">
-                    <div className="text-sm font-semibold">Due Today</div>
-                    <div className="text-xs text-[var(--muted)]">{todaysTasks.length}</div>
-                  </div>
-                  <div className="p-3">
-                    {todaysTasks.length === 0 ? (
-                      <div className="text-xs text-[var(--muted)] text-center py-4">No tasks due today</div>
-                    ) : (
-                      <ul className="space-y-2">
-                        {todaysTasks.map(t => (
-                          <li key={t.id} onClick={() => openEdit(t)} className="p-2 border border-[var(--border)] rounded text-sm cursor-pointer hover:bg-[var(--card-bg)]">
-                            <div className="font-medium">{t.title}</div>
-                            <div className="text-xs text-[var(--muted)]">{t.department?.name}</div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-
-                {/* Overdue */}
-                <div className="rounded border border-[var(--border)] bg-[var(--card-surface)] overflow-hidden">
-                  <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--card-bg)] flex justify-between">
-                    <div className="text-sm font-semibold text-[var(--status-blocked)]">Overdue</div>
-                    <div className="text-xs text-[var(--muted)]">{overdueTasks.length}</div>
-                  </div>
-                  <div className="p-3">
-                    {overdueTasks.length === 0 ? (
-                      <div className="text-xs text-[var(--muted)] text-center py-4">No overdue tasks</div>
-                    ) : (
-                      <ul className="space-y-2">
-                        {overdueTasks.slice(0, 3).map(t => (
-                          <li key={t.id} onClick={() => openEdit(t)} className="p-2 border border-[var(--status-blocked)] bg-[var(--status-blocked-bg)] rounded text-sm cursor-pointer">
-                            <div className="font-medium">{t.title}</div>
-                            <div className="text-xs text-[var(--status-blocked)]">Due: {t.dueDate}</div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div className="rounded border border-[var(--border)] bg-[var(--card-surface)] overflow-hidden">
-                  <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--card-bg)]">
-                    <div className="text-sm font-semibold">Overview</div>
-                  </div>
-                  <div className="p-3 grid grid-cols-2 gap-3">
-                    <div className="p-2 bg-[var(--card-bg)] rounded border border-[var(--border)] text-center">
-                      <div className="text-lg font-bold">{tasks.length}</div>
-                      <div className="text-xs text-[var(--muted)]">Total</div>
-                    </div>
-                    <div className="p-2 bg-[var(--card-bg)] rounded border border-[var(--border)] text-center">
-                      <div className="text-lg font-bold text-[var(--status-completed)]">{completedCount}</div>
-                      <div className="text-xs text-[var(--muted)]">Done</div>
-                    </div>
-                    <div className="p-2 bg-[var(--card-bg)] rounded border border-[var(--border)] text-center">
-                      <div className="text-lg font-bold text-[var(--status-in-progress)]">{inProgressCount}</div>
-                      <div className="text-xs text-[var(--muted)]">Active</div>
-                    </div>
-                    <div className="p-2 bg-[var(--card-bg)] rounded border border-[var(--border)] text-center">
-                      <div className="text-lg font-bold text-[var(--status-blocked)]">{overdueTasks.length}</div>
-                      <div className="text-xs text-[var(--muted)]">Overdue</div>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
+            <TaskCalendarView
+              events={events}
+              todaysTasks={todaysTasks}
+              overdueTasks={overdueTasks}
+              totalCount={filteredTasks.length}
+              completedCount={completedCount}
+              inProgressCount={inProgressCount}
+              onEditTask={openEdit}
+            />
           )}
         </div>
       </div>
 
       {/* Modal */}
       {showModal && (
-        <div
-          className="fixed z-50 flex items-start justify-center bg-gray-100/80 pt-20"
-          style={{
-            top: 0,
-            left: "var(--sidebar-width, 16rem)",
-            right: 0,
-            bottom: 0,
-          }}
-        >
-          <div className="bg-[var(--card-bg)] rounded-lg w-full max-w-2xl p-6 max-h-[80vh] overflow-y-auto shadow-lg border border-[var(--border)] chat-scroll">
-            <div className="flex items-start justify-between mb-6">
-              <h3 className="text-lg font-semibold">{editTaskData ? "Edit Task" : "Create New Task"}</h3>
-              <button
-                onClick={closeModal}
-                className="text-[var(--muted)] hover:text-[var(--foreground)]"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm mb-1 font-medium">Task Name <span className="text-red-500">*</span></label>
-                  <input
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="What needs to be done?"
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm mb-1 font-medium">Description <span className="text-red-500">*</span></label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Tell us more about this task..."
-                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] h-24 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm mb-1 font-medium">Department *</label>
-                  <select
-                    value={departmentId}
-                    onChange={(e) => {
-                      setDepartmentId(e.target.value);
-                      setRole(""); // Reset role on department change
-                    }}
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
-                    required
-                    aria-label="Department"
-                  >
-                    <option value="">Select department</option>
-                    {departments.map(d => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm mb-1 font-medium">Priority <span className="text-red-500">*</span></label>
-                  <select
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value as TaskPriority)}
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
-                    aria-label="Priority"
-                    required
-                  >
-                    <option value="Low">Low</option>
-                    <option value="Med">Med</option>
-                    <option value="High">High</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm mb-1 font-medium">Assign To <span className="text-red-500">*</span></label>
-                  <select
-                    value={assigneeId}
-                    onChange={(e) => setAssigneeId(e.target.value)}
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
-                    aria-label="Assign To"
-                    required
-                  >
-                    <option value="">Unassigned</option>
-                    {users.map(u => (
-                      <option key={u.id} value={u.id}>{u.name || u.email}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm mb-1 font-medium">Role <span className="text-red-500">*</span></label>
-                  {role === 'Other' ? (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={role}
-                        onChange={(e) => setRole(e.target.value)}
-                        placeholder="Enter role manually..."
-                        className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
-                        autoFocus
-                        required
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => setRole('')}
-                        className="px-3"
-                      >
-                        ✕
-                      </Button>
-                    </div>
-                  ) : (
-                    <select
-                      value={role}
-                      onChange={(e) => setRole(e.target.value)}
-                      disabled={!departmentId}
-                      className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] disabled:opacity-50"
-                      aria-label="Role"
-                      required
-                    >
-                      <option value="">Select role</option>
-                      {availableRoles.map((r) => (
-                        <option key={r} value={r}>{r}</option>
-                      ))}
-                      <option value="Other">Other (Manual Entry)...</option>
-                    </select>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm mb-1 font-medium">Start Date</label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
-                    aria-label="Start Date"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm mb-1 font-medium">Due Date <span className="text-red-500">*</span></label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
-                    aria-label="Due Date"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm mb-1 font-medium">Status <span className="text-red-500">*</span></label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as TaskStatus)}
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
-                    aria-label="Status"
-                    required
-                  >
-                    {Object.entries(STATUS_LABELS).map(([val, label]) => (
-                      <option key={val} value={val}>{label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm mb-1 font-medium">ETOC (Est. Minutes) <span className="text-red-500">*</span></label>
-                  <input
-                    type="number"
-                    value={estimatedTime}
-                    onChange={(e) => setEstimatedTime(e.target.value)}
-                    placeholder="e.g. 60"
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-                    required
-                  />
-                </div>
-              </div>
-
-
-
-              {editTaskData && (
-                <div>
-                  <label className="block text-sm mb-1 font-medium">Add Progress Note</label>
-                  <textarea
-                    value={progressNotes}
-                    onChange={(e) => setProgressNotes(e.target.value)}
-                    placeholder="Add a note about recent progress..."
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] h-20"
-                  />
-                </div>
-              )}
-
-              <div className="flex items-center justify-between pt-4 border-t border-[var(--border)]">
-                {editTaskData ? (
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    className="flex items-center gap-2 text-[var(--status-blocked)] hover:opacity-80 font-medium px-4 py-2 rounded hover:bg-[var(--status-blocked-bg)]"
-                  >
-                    <Trash2 className="w-4 h-4" /> Delete Task
-                  </button>
-                ) : (
-                  <div></div> // Spacer
-                )}
-
-                <div className="flex items-center gap-3">
-                  <Button variant="secondary" onClick={closeModal} type="button">
-                    Cancel
-                  </Button>
-                  <Button variant="primary" type="submit">
-                    {editTaskData ? "Save Changes" : "Create Task"}
-                  </Button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
+        <TaskModal
+          editTaskData={editTaskData}
+          title={title} setTitle={setTitle}
+          description={description} setDescription={setDescription}
+          assigneeId={assigneeId} setAssigneeId={setAssigneeId}
+          dueDate={dueDate} setDueDate={setDueDate}
+          startDate={startDate} setStartDate={setStartDate}
+          priority={priority} setPriority={setPriority}
+          departmentId={departmentId} setDepartmentId={setDepartmentId}
+          role={role} setRole={setRole}
+          status={status} setStatus={setStatus}
+          estimatedTime={estimatedTime} setEstimatedTime={setEstimatedTime}
+          progressNotes={progressNotes} setProgressNotes={setProgressNotes}
+          departments={departments} users={users}
+          onSubmit={handleSubmit} onDelete={handleDelete} onClose={closeModal}
+        />
       )}
 
       {/* Log Report Modal */}

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import { JwtService, JwtPayload } from './jwt.service'
+import { isAdminEmail } from '../config/env.config'
 
 // Extend Express Request to include authenticated user
 export interface AuthRequest extends Request {
@@ -92,9 +93,8 @@ export function requireRole(allowedRoles: string | string[]) {
                 }
             })
 
-            // Hardcoded bypass for operations leads as requested
-            const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com']
-                .includes(authReq.user!.email?.toLowerCase() || '');
+            // Admin email bypass (configured via ADMIN_EMAILS env var)
+            const isAuthorizedEmail = isAdminEmail(authReq.user!.email);
 
             if (userRoles.length > 0 || isAuthorizedEmail) {
                 next()
@@ -153,9 +153,8 @@ export function requireDepartment(allowedDepartments: string | string[]) {
                 where: { userId: authReq.user!.userId, role: 'admin', departmentId: null }
             });
 
-            // Hardcoded bypass for operations leads as requested
-            const isAuthorizedEmail = ['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com']
-                .includes(authReq.user!.email?.toLowerCase() || '');
+            // Admin email bypass (configured via ADMIN_EMAILS env var)
+            const isAuthorizedEmail = isAdminEmail(authReq.user!.email);
 
             if (userRoles.length > 0 || isGlobalAdmin || isAuthorizedEmail) {
                 next()

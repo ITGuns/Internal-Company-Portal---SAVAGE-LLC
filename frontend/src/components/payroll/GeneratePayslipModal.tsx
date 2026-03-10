@@ -176,11 +176,12 @@ export default function GeneratePayslipModal({
 
             {/* Employee */}
             <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-1.5">
+              <label htmlFor="payslip-employee" className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-1.5">
                 <User className="w-3.5 h-3.5" /> Employee
               </label>
               <div className="relative">
                 <select
+                  id="payslip-employee"
                   value={employeeId}
                   onChange={(e) => setEmployeeId(e.target.value)}
                   className="w-full pl-3 pr-8 py-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 appearance-none"
@@ -204,8 +205,9 @@ export default function GeneratePayslipModal({
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-[10px] text-[var(--muted)] mb-1">Start</p>
+                  <label htmlFor="pay-period-start" className="text-[10px] text-[var(--muted)] mb-1 block">Start</label>
                   <input
+                    id="pay-period-start"
                     type="date"
                     value={payPeriodStart}
                     onChange={(e) => setPayPeriodStart(e.target.value)}
@@ -214,8 +216,9 @@ export default function GeneratePayslipModal({
                   />
                 </div>
                 <div>
-                  <p className="text-[10px] text-[var(--muted)] mb-1">End</p>
+                  <label htmlFor="pay-period-end" className="text-[10px] text-[var(--muted)] mb-1 block">End</label>
                   <input
+                    id="pay-period-end"
                     type="date"
                     value={payPeriodEnd}
                     onChange={(e) => setPayPeriodEnd(e.target.value)}
@@ -314,6 +317,7 @@ export default function GeneratePayslipModal({
                         value={ded.type}
                         onChange={(e) => updateDeduction(i, "type", e.target.value)}
                         className="text-xs py-1 px-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                        aria-label={`Deduction ${i + 1} type`}
                       >
                         <option value="tax">Tax</option>
                         <option value="insurance">Insurance</option>
@@ -345,6 +349,7 @@ export default function GeneratePayslipModal({
                         type="button"
                         onClick={() => removeDeduction(i)}
                         className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                        aria-label={`Remove deduction ${i + 1}`}
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>

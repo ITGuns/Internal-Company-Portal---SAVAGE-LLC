@@ -3,6 +3,7 @@
  */
 
 import { apiFetch } from './api';
+import type { ApiTimeEntry } from './types/api';
 
 export type TimeEntry = {
   id: string;
@@ -16,7 +17,7 @@ export type TimeEntry = {
 // Helper to correctly map backend fields
 // NOTE: Prisma schema uses `start`/`end` (not startTime/endTime)
 // `duration` is stored in minutes by the server (authoritative)
-const mapBackendToFrontend = (data: any): TimeEntry => {
+const mapBackendToFrontend = (data: ApiTimeEntry): TimeEntry => {
   // Prefer server-calculated duration, fall back to client calculation
   const durationMin = data.duration != null
     ? data.duration

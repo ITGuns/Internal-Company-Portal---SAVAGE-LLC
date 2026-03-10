@@ -1,4 +1,4 @@
-import { PrismaClient, Task } from '@prisma/client'
+import { PrismaClient, Task, Prisma } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
 
 // Task status type
@@ -14,7 +14,7 @@ export interface CreateTaskDto {
   startDate?: Date | string
   dueDate?: Date | string
   role?: string
-  notes?: any
+  notes?: Prisma.JsonValue
   progress?: number
   timerStatus?: string
   timerStart?: Date | string
@@ -32,7 +32,7 @@ export interface UpdateTaskDto {
   startDate?: Date | string
   dueDate?: Date | string
   role?: string
-  notes?: any
+  notes?: Prisma.JsonValue
   progress?: number
   timerStatus?: string
   timerStart?: Date | string
@@ -54,24 +54,39 @@ export class TasksService {
   }
 
   /**
-   * Get all tasks
+   * Get all tasks (with optional pagination)
    */
-  async findAll(): Promise<Task[]> {
-    return this.prisma.task.findMany({
-      include: {
-        department: true,
-        assignee: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            avatar: true,
-          },
+  async findAll(page?: number, limit?: number) {
+    const include = {
+      department: true,
+      assignee: {
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          avatar: true,
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+    }
+
+    const orderBy = { createdAt: 'desc' as const }
+
+    if (page !== undefined && limit !== undefined) {
+      const [data, total] = await Promise.all([
+        this.prisma.task.findMany({
+          include,
+          orderBy,
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        this.prisma.task.count(),
+      ])
+      return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
+    }
+
+    return this.prisma.task.findMany({
+      include,
+      orderBy,
     })
   }
 

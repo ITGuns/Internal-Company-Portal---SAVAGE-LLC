@@ -58,8 +58,8 @@ export default function TimeClock() {
             const entry = await clockIn();
             setActiveEntry(entry);
             toast.success("Clocked in successfully");
-        } catch (err: any) {
-            toast.error(err.message || "Failed to clock in");
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to clock in");
         } finally {
             setActionLoading(false);
         }
@@ -71,8 +71,8 @@ export default function TimeClock() {
             await clockOut();
             setActiveEntry(null);
             toast.success("Clocked out successfully");
-        } catch (err: any) {
-            toast.error(err.message || "Failed to clock out");
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to clock out");
         } finally {
             setActionLoading(false);
         }

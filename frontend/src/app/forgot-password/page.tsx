@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Mail } from 'lucide-react';
 import LoginInput from '@/components/LoginInput';
 import { useUser } from '@/contexts/UserContext';
+import { requestPasswordReset } from '@/lib/api';
 import styles from '../login/login.module.css';
 
 export default function ForgotPasswordPage() {
@@ -48,7 +49,7 @@ export default function ForgotPasswordPage() {
 
       // Password reset not yet implemented in backend
       // Simulate success for now
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      await requestPasswordReset(email);
       
       setSuccess(true);
       setError('');

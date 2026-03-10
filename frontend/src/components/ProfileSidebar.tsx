@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from 'next/image';
 import { X, User, LogOut, Edit2 } from "lucide-react";
 import { getCurrentUser } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
@@ -96,9 +97,11 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
           <div className="relative">
             <div className="w-32 h-32 rounded-full overflow-hidden bg-[var(--card-surface)] border-4 border-[var(--border)] shadow-lg">
               {user?.avatar ? (
-                <img
+                <Image
                   src={user.avatar}
                   alt={user.name || "User"}
+                  width={128}
+                  height={128}
                   className="w-full h-full object-cover"
                 />
               ) : (

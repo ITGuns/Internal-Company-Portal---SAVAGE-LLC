@@ -27,7 +27,7 @@ import {
 import { useToast } from "@/components/ToastProvider";
 import { apiFetch } from "@/lib/api";
 import StatCard from "./StatCard";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import { PageSkeleton } from "@/components/ui/Skeleton";
 import type { Payslip } from "@/lib/payroll-calendar/types";
 import { generatePayslipPDF } from "@/lib/payroll-calendar/payslip-utils";
 
@@ -234,7 +234,7 @@ function PayslipArchive() {
     toast.success(`Downloading payslip for ${payslip.employeeName}`);
   };
 
-  if (loading) return <LoadingSpinner message="Loading payslip archive..." />;
+  if (loading) return <PageSkeleton />;
 
   return (
     <div className="flex flex-col gap-4">
@@ -257,6 +257,7 @@ function PayslipArchive() {
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
           className="text-sm border border-[var(--border)] rounded-lg px-3 py-2 bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+          aria-label="Filter by status"
         >
           <option value="all">All Statuses</option>
           <option value="paid">Paid</option>
@@ -405,7 +406,7 @@ export default function ReportsTab() {
   }, []);
 
   if (loading && activeTab !== "my-reports")
-    return <LoadingSpinner message="Loading reports..." />;
+    return <PageSkeleton />;
 
   const latest = stats[0] ?? null;
 
@@ -427,14 +428,14 @@ export default function ReportsTab() {
       <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--border)] bg-[var(--card-bg)] flex-shrink-0 gap-4">
         {/* Period navigator (left) */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <button className="p-1.5 rounded-lg hover:bg-[var(--card-surface)] transition-colors text-[var(--muted)]">
+          <button className="p-1.5 rounded-lg hover:bg-[var(--card-surface)] transition-colors text-[var(--muted)]" aria-label="Previous period">
             <ChevronLeft className="w-4 h-4" />
           </button>
           <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-[var(--card-surface)] transition-colors text-sm font-medium text-[var(--foreground)]">
             <Calendar className="w-3.5 h-3.5 text-[var(--muted)]" />
             This week
           </button>
-          <button className="p-1.5 rounded-lg hover:bg-[var(--card-surface)] transition-colors text-[var(--muted)]">
+          <button className="p-1.5 rounded-lg hover:bg-[var(--card-surface)] transition-colors text-[var(--muted)]" aria-label="Next period">
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>

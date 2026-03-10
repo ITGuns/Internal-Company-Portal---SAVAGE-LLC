@@ -4,16 +4,18 @@ import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import { DailyLogsSkeleton } from '@/components/ui/Skeleton';
 import EmptyState from '@/components/ui/EmptyState';
 import StatusBadge from '@/components/ui/StatusBadge';
+import Pagination from '@/components/ui/Pagination';
 import FormField from '@/components/forms/FormField';
 import { useToast } from '@/components/ToastProvider';
 import { useUser } from '@/contexts/UserContext';
+import { useQueryClient } from '@tanstack/react-query';
 import { Search, Plus, Clock, CheckCircle2, MessageCircle, ThumbsUp, FileText, StickyNote } from 'lucide-react';
 import { DEPARTMENTS } from '@/lib/departments';
+import { useDailyLogs } from '@/hooks/useDailyLogsQuery';
 import {
-  fetchDailyLogs,
   createDailyLog,
   updateDailyLog,
   toggleLogLike,
@@ -31,8 +33,8 @@ type DateFilter = 'today' | 'week' | 'month' | 'all';
 export default function DailyLogsPage() {
   const toast = useToast();
   const { user: currentUser } = useUser();
-  const [logs, setLogs] = useState<DailyLog[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: logs = [], isLoading: loading } = useDailyLogs();
   const [showModal, setShowModal] = useState(false);
   const [editingLog, setEditingLog] = useState<DailyLog | null>(null);
 
@@ -47,6 +49,8 @@ export default function DailyLogsPage() {
   });
   const [logTypeFilter, setLogTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 15;
 
   // Form state
   const [formDate, setFormDate] = useState(() => {
@@ -76,16 +80,7 @@ export default function DailyLogsPage() {
     }
   }, [currentUser]);
 
-  const loadData = async () => {
-    setLoading(true);
-    const data = await fetchDailyLogs();
-    setLogs(data);
-    setLoading(false);
-  };
 
-  useEffect(() => {
-    loadData();
-  }, []);
 
   const users = getUniqueUsers(logs);
 
@@ -129,12 +124,20 @@ export default function DailyLogsPage() {
     return true;
   });
 
+  const totalPages = Math.ceil(filteredLogs.length / PAGE_SIZE);
+  const paginatedLogs = filteredLogs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [dateFilter, departmentFilter, userFilter, statusFilters, logTypeFilter, searchQuery]);
+
   if (loading) {
     return (
       <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
         <div className="p-6 pt-3">
           <Header title="Daily Logs" subtitle="Track daily progress and tasks" />
-          <LoadingSpinner message="Loading daily logs..." />
+          <DailyLogsSkeleton />
         </div>
       </main>
     );
@@ -186,7 +189,7 @@ export default function DailyLogsPage() {
         toast.success('Daily log added successfully');
       }
 
-      await loadData();
+      queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
       resetForm();
       setShowModal(false);
     } catch (err) {
@@ -211,7 +214,7 @@ export default function DailyLogsPage() {
 
   const handleLike = async (logId: string) => {
     await toggleLogLike(logId);
-    await loadData();
+    queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
   };
 
   return (
@@ -384,7 +387,8 @@ export default function DailyLogsPage() {
                   onAction={() => setShowModal(true)}
                 />
               ) : (
-                filteredLogs.map(log => (
+                <>
+                  {paginatedLogs.map(log => (
                   <div key={log.id} className="bg-[var(--card-bg)] border border-[var(--border)] rounded-lg p-6 hover:shadow-sm transition">
                     <div className="flex items-start gap-4">
                       {/* Avatar */}
@@ -464,7 +468,15 @@ export default function DailyLogsPage() {
                       </div>
                     </div>
                   </div>
-                ))
+                ))}
+                  <Pagination
+                    page={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    total={filteredLogs.length}
+                    className="mt-6"
+                  />
+                </>
               )}
             </div>
           </div>

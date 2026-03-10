@@ -4,6 +4,7 @@
  */
 
 import { apiFetch } from './api';
+import type { ApiPayrollEvent } from './types/api';
 
 export type PayrollEventType = 'payday' | 'holiday' | 'deadline' | 'meeting' | 'other';
 
@@ -17,7 +18,7 @@ export type PayrollEvent = {
 };
 
 // Helper to map API data to Frontend interface
-const mapApiEvent = (data: any): PayrollEvent => ({
+const mapApiEvent = (data: ApiPayrollEvent): PayrollEvent => ({
   id: data.id,
   title: data.title,
   date: data.date.split('T')[0], // Backend returns ISO, frontend wants YYYY-MM-DD
@@ -76,7 +77,7 @@ export async function createPayrollEvent(event: Omit<PayrollEvent, 'id'>): Promi
  */
 export async function updatePayrollEvent(id: string, updates: Partial<Omit<PayrollEvent, 'id'>>): Promise<PayrollEvent | null> {
   try {
-    const payload: any = { ...updates };
+    const payload: Partial<Omit<PayrollEvent, 'id'>> & { date?: string } = { ...updates };
     if (updates.date) payload.date = new Date(updates.date).toISOString();
 
     const res = await apiFetch(`/payroll/events/${id}`, {

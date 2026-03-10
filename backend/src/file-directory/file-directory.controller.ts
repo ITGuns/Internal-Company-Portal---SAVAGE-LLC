@@ -7,7 +7,7 @@ interface AuthRequest extends Request {
         userId: string
         role?: string
         department?: string
-        [key: string]: any
+        [key: string]: unknown
     }
 }
 

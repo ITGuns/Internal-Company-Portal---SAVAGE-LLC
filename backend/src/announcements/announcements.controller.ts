@@ -5,7 +5,7 @@ import { authenticateToken, requireRole } from '../auth/auth.middleware'
 interface AuthRequest extends Request {
     user?: {
         userId: string
-        [key: string]: any
+        [key: string]: unknown
     }
 }
 
@@ -15,13 +15,15 @@ export class AnnouncementsController {
     router(): Router {
         const router = express.Router()
 
-        // Get all announcements (with optional filtering)
+        // Get all announcements (with optional filtering and pagination)
         router.get('/', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const category = req.query.category as string | undefined
                 const important = req.query.important === 'true' ? true : req.query.important === 'false' ? false : undefined
+                const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined
+                const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined
 
-                const items = await this.service.findAll(category, important)
+                const items = await this.service.findAll(category, important, page, limit)
                 res.json(items)
             } catch (error) {
                 console.error('Error fetching announcements:', error)
@@ -160,12 +162,12 @@ export class AnnouncementsController {
 
                 await this.service.deleteComment(commentId, user.userId)
                 res.json({ message: 'Comment deleted' })
-            } catch (error: any) {
+            } catch (error) {
                 console.error('Error deleting comment:', error)
-                if (error.message === 'Comment not found') {
+                if (error instanceof Error && error.message === 'Comment not found') {
                     return res.status(404).json({ error: 'Comment not found' })
                 }
-                if (error.message === 'Unauthorized to delete this comment') {
+                if (error instanceof Error && error.message === 'Unauthorized to delete this comment') {
                     return res.status(403).json({ error: 'Unauthorized to delete this comment' })
                 }
                 res.status(500).json({ error: 'Failed to delete comment' })

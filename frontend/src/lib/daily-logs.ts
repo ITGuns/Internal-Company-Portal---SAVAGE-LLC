@@ -4,6 +4,8 @@
  */
 
 import { apiFetch } from './api';
+import type { ApiDailyLog, ApiDailyLogLike } from './types/api';
+import type { PaginatedResponse } from './types/pagination';
 
 export type LogStatus = 'completed' | 'in-progress' | 'blocked';
 
@@ -30,25 +32,19 @@ export interface DailyLog {
 }
 
 // Helper to map API data to Frontend interface
-const mapApiLog = (data: any): DailyLog => {
+const mapApiLog = (data: ApiDailyLog): DailyLog => {
   return {
     id: data.id,
     author: data.author?.name || 'Unknown',
     authorId: data.authorId,
     department: data.department,
-    date: data.date, // Backend returns YYYY-MM-DD string? Or Date string? Controller says 'date' from body. Prisma stores as DateTime. 
-    // If Prisma returns Date object, JSON stringify makes it ISO string.
-    // The frontend expects YYYY-MM-DD for checking.
-    // Let's assume ISO string and substring it if needed.
-    // Actually Prisma DateTime is full ISO.
-    // Frontend 'date' field is used for 'YYYY-MM-DD' comparison.
-    // I should format it to YYYY-MM-DD.
+    date: data.date,
     timestamp: data.createdAt,
     status: data.status as LogStatus,
     hoursLogged: data.hoursLogged || 0,
-    tasks: data.tasks || [],
+    tasks: (data.tasks as LogTask[]) || [],
     shiftNotes: data.shiftNotes || '',
-    likes: data.likes?.map((l: any) => l.userId || l.user?.id) || [],
+    likes: data.likes?.map((l: ApiDailyLogLike) => l.userId || l.user?.id || '') || [],
     comments: 0,
     logType: data.logType || 'daily'
   };
@@ -70,7 +66,7 @@ export async function fetchDailyLogs(department?: string, status?: string, logTy
       if (!Array.isArray(data)) {
         throw new Error(`Expected array but got ${typeof data}: ${JSON.stringify(data).slice(0, 100)}`);
       }
-      return data.map((item: any) => {
+      return data.map((item: ApiDailyLog) => {
         const mapped = mapApiLog(item);
         if (mapped.date) {
           const d = new Date(mapped.date);
@@ -81,14 +77,53 @@ export async function fetchDailyLogs(department?: string, status?: string, logTy
     } else {
       throw new Error(`Invalid status: ${res.status}`);
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to fetch daily logs:', error);
     if (typeof window !== 'undefined') {
-      // Just hack in a global way to notify for now, or we can throw
-      alert(`Fetch logs failed: ${error.message || error}`);
+      const message = error instanceof Error ? error.message : String(error);
+      alert(`Fetch logs failed: ${message}`);
     }
   }
   return [];
+}
+
+/**
+ * Fetch daily logs with pagination
+ */
+export async function fetchDailyLogsPaginated(
+  page: number,
+  limit: number,
+  department?: string,
+  status?: string,
+  logType?: string,
+): Promise<PaginatedResponse<DailyLog>> {
+  try {
+    const query = new URLSearchParams();
+    query.append('page', String(page));
+    query.append('limit', String(limit));
+    if (department) query.append('department', department);
+    if (status) query.append('status', status);
+    if (logType) query.append('logType', logType);
+
+    const res = await apiFetch(`/daily-logs?${query.toString()}`);
+    if (res.status === 200) {
+      const json = await res.json();
+      return {
+        ...json,
+        data: json.data.map((item: ApiDailyLog) => {
+          const mapped = mapApiLog(item);
+          if (mapped.date) {
+            const d = new Date(mapped.date);
+            mapped.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          }
+          return mapped;
+        }),
+      };
+    }
+  } catch (error) {
+    console.error('Failed to fetch daily logs:', error);
+  }
+  return { data: [], total: 0, page, limit, totalPages: 0 };
 }
 
 /**
@@ -137,7 +172,7 @@ export async function createDailyLog(
  */
 export async function updateDailyLog(id: string, updates: Partial<Omit<DailyLog, 'id'>>): Promise<DailyLog | null> {
   try {
-    const payload: any = {};
+    const payload: Record<string, unknown> = {};
     if (updates.department) payload.department = updates.department;
     if (updates.date) payload.date = new Date(updates.date).toISOString();
     if (updates.hoursLogged !== undefined) payload.hoursLogged = updates.hoursLogged;
