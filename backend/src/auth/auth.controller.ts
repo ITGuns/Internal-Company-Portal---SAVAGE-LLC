@@ -294,9 +294,12 @@ export class AuthController {
                 }
 
                 // Ensure the user has the 'admin' role in UserRole table for RBAC to work
-                const existingRole = user.roles.find(r => r.role === 'admin' && r.departmentId === null);
+                // ONLY if they have no other roles OR if they are the explicit admin user
+                const hasAnyRole = user.roles && user.roles.length > 0;
+                const isAdminEmail = email === 'admin@savage.com';
+                const existingAdminRole = user.roles.find(r => r.role === 'admin' && r.departmentId === null);
 
-                if (!existingRole) {
+                if (!existingAdminRole && (!hasAnyRole || isAdminEmail)) {
                     await prisma.userRole.create({
                         data: {
                             userId: user.id,
