@@ -18,7 +18,7 @@ export class FileDirectoryController {
         const router = express.Router()
 
         const getUserDetails = async (userId: string | undefined) => {
-            if (!userId) return { role: 'member', department: undefined }
+            if (!userId) return { role: 'member', departments: [] }
             const dbRoles = await prisma.userRole.findMany({
                 where: { userId },
                 include: { department: true }
@@ -26,7 +26,7 @@ export class FileDirectoryController {
             const isGlobalAdmin = dbRoles.some(r => r.role === 'admin' || r.role === 'Overlord');
             return {
                 role: isGlobalAdmin ? 'admin' : (dbRoles[0]?.role || 'member'),
-                department: dbRoles.find(r => r.department)?.department?.name || undefined
+                departments: dbRoles.map(r => r.department?.name).filter(Boolean) as string[]
             };
         };
 
@@ -43,7 +43,7 @@ export class FileDirectoryController {
                     details.role = 'admin'
                 }
 
-                const folders = await this.service.findAll(details.department, details.role)
+                const folders = await this.service.findAll(details.departments, details.role)
                 res.json(folders)
             } catch (error) {
                 console.error('Error fetching file folders:', error)
@@ -62,7 +62,7 @@ export class FileDirectoryController {
                     details.role = 'admin'
                 }
 
-                const folders = await this.service.findChildren(id, details.department, details.role)
+                const folders = await this.service.findChildren(id, details.departments, details.role)
                 res.json(folders)
             } catch (error) {
                 console.error('Error fetching child folders:', error)
