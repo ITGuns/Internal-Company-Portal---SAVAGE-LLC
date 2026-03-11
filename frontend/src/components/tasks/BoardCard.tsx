@@ -9,6 +9,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import type { Task, TaskPriority } from "@/lib/tasks";
+import { useLiveElapsed } from "@/hooks/useLiveElapsed";
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
   Low: "var(--priority-low)",
@@ -39,9 +40,15 @@ interface BoardCardProps {
   onAction?: (e: React.MouseEvent, taskId: string, action: "play" | "pause" | "complete") => void;
 }
 
+function calcProgress(elapsedSecs: number, estimatedMinutes: number | undefined): number {
+  if (!estimatedMinutes) return 0;
+  return Math.min(100, Math.round((elapsedSecs / (estimatedMinutes * 60)) * 100));
+}
+
 export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
   const assigneeName = task.assignee?.name || task.assignee?.email || "Unassigned";
-  const progress = task.progress || 0;
+  const liveElapsed = useLiveElapsed(task.timerStatus, task.timerStart, task.totalElapsed || 0);
+  const progress = task.status === 'completed' ? 100 : calcProgress(liveElapsed, task.estimatedTime);
 
   return (
     <Card
@@ -83,8 +90,7 @@ export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
 
           {/* Progress Bar */}
           <div className="mt-3">
-            <div className="flex justify-between text-[10px] mb-1">
-              <span className="text-[var(--muted)]">Progress</span>
+            <div className="flex justify-end text-[10px] mb-1">
               <span className="font-medium text-[var(--foreground)]">{progress}%</span>
             </div>
             <div className="w-full bg-[var(--border)] h-1 rounded-full overflow-hidden">
@@ -100,12 +106,12 @@ export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
             <span className="text-[var(--muted)]">Time (Act/Est)</span>
             <span
               className={`font-medium ${
-                task.estimatedTime && (task.totalElapsed || 0) / 60 > task.estimatedTime
+                task.estimatedTime && liveElapsed / 60 > task.estimatedTime
                   ? "text-red-500"
                   : "text-[var(--foreground)]"
               }`}
             >
-              {formatTime(task.totalElapsed || 0)} /{" "}
+              {formatTime(liveElapsed)} /{" "}
               {task.estimatedTime ? formatMinutes(task.estimatedTime) : "-"}
             </span>
           </div>
@@ -125,7 +131,7 @@ export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
             </div>
 
             {/* Timer Controls */}
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex items-center gap-1">
               {task.status !== "completed" && (
                 <>
                   {task.timerStatus === "playing" ? (

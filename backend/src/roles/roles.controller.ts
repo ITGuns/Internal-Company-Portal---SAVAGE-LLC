@@ -11,8 +11,9 @@ export class RolesController {
         /**
          * GET /api/roles
          * List all available roles
+         * Public: needed by signup page
          */
-        router.get('/', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+        router.get('/', async (req: Request, res: Response, next: NextFunction) => {
             try {
                 const departmentId = req.query.departmentId as string
                 if (departmentId) {

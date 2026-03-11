@@ -35,6 +35,8 @@ interface TaskModalProps {
   setStatus: (v: TaskStatus) => void;
   estimatedTime: string;
   setEstimatedTime: (v: string) => void;
+  progress: number;
+  setProgress: (v: number) => void;
   progressNotes: string;
   setProgressNotes: (v: string) => void;
   departments: TaskDepartment[];
@@ -66,6 +68,8 @@ export default function TaskModal({
   setStatus,
   estimatedTime,
   setEstimatedTime,
+  progress,
+  setProgress,
   progressNotes,
   setProgressNotes,
   departments,
@@ -303,6 +307,21 @@ export default function TaskModal({
               />
             </div>
           </div>
+
+          {editTaskData && (
+            <div>
+              <label className="block text-sm mb-1 font-medium">
+                Progress — {progress}%
+              </label>
+              <div className="w-full bg-[var(--border)] h-2 rounded-full overflow-hidden">
+                <div
+                  className="bg-[var(--accent)] h-full transition-all duration-300 rounded-full"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-[var(--muted)] mt-1">Auto-calculated from time elapsed vs. estimated time</p>
+            </div>
+          )}
 
           {editTaskData && (
             <div>

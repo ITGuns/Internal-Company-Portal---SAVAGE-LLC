@@ -40,6 +40,9 @@ export default function UnifiedChatPage() {
     const [selectedChannelUsers, setSelectedChannelUsers] = useState<string[]>([])
     const [searchChannelQuery, setSearchChannelQuery] = useState('')
     const scrollRef = useRef<HTMLDivElement>(null)
+    const initialLoadDone = useRef(false)
+    const currentUserRef = useRef(currentUser)
+    currentUserRef.current = currentUser
 
     // Phase 5.1 — Chat enhancements
     const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set())
@@ -132,7 +135,7 @@ export default function UnifiedChatPage() {
         let mounted = true;
         async function load() {
             try {
-                setLoading(true)
+                if (!initialLoadDone.current) setLoading(true)
                 const [convData, userData] = await Promise.all([
                     fetchConversations().catch(() => {
                         return new Promise<Conversation[]>((resolve) => {
@@ -169,12 +172,16 @@ export default function UnifiedChatPage() {
                 console.error("Initial load failed", err)
                 toast.error("Failed to load conversations")
             } finally {
-                if (mounted) setLoading(false)
+                if (mounted) {
+                    setLoading(false)
+                    initialLoadDone.current = true
+                }
             }
         }
         load()
         return () => { mounted = false; }
-    }, [currentUser])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     // Fetch messages when conversation changes
     useEffect(() => {

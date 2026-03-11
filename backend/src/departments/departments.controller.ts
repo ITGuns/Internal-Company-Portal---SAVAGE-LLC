@@ -11,9 +11,9 @@ export class DepartmentsController {
         /**
          * GET /api/departments
          * List all departments
-         * Protected: Authenticated users only
+         * Public: needed by signup page
          */
-        router.get('/', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+        router.get('/', async (req: Request, res: Response, next: NextFunction) => {
             try {
                 const departments = await this.service.findAll()
                 res.json(departments)

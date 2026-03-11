@@ -102,6 +102,21 @@ export default function Sidebar() {
   const asideRef = useRef<HTMLElement | null>(null)
   const { user } = useUser()
   const { unreadChatCount } = useSocket()
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  // Listen for toggle events from the Header hamburger button
+  useEffect(() => {
+    function handleToggle() {
+      setMobileOpen(prev => !prev)
+    }
+    window.addEventListener('toggle-sidebar', handleToggle)
+    return () => window.removeEventListener('toggle-sidebar', handleToggle)
+  }, [])
+
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [pathname])
 
   useEffect(() => {
     const el = asideRef.current
@@ -128,18 +143,29 @@ export default function Sidebar() {
   }, [])
 
   return (
-    <aside
-      ref={asideRef}
-      className="fixed left-0 top-0 h-full w-64 pr-0 bg-white dark:bg-[var(--background)]"
-      style={{ zIndex: 9999, isolation: 'isolate' }}
-    >
+    <>
+      {/* Mobile overlay backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-[9998] md:hidden"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        ref={asideRef}
+        className={cn(
+          "fixed left-0 top-0 h-full w-64 pr-0 bg-white dark:bg-[var(--background)] transition-transform duration-200 ease-in-out",
+          // Hidden on mobile by default, shown when mobileOpen
+          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        )}
+        style={{ zIndex: 9999, isolation: 'isolate' }}
+      >
       {/* vertical divider recreated as an absolute element so other borders can align to it */}
       <div data-sidebar-divider className="absolute right-0 top-0 bottom-0 w-px z-50 bg-[var(--border)]" />
       <div className="flex flex-col h-full">
-        <header className="px-4 py-3 border-b border-[var(--border)] z-30 h-28 pl-6">
-          <div className="flex items-center gap-3">
-            <div className="font-semibold">SAVAGE LLC</div>
-          </div>
+        <header className="px-4 py-3 border-b border-[var(--border)] z-30 h-28 flex items-center justify-center">
+          <div className="font-semibold text-lg">SAVAGE LLC</div>
 
         </header>
 
@@ -191,5 +217,6 @@ export default function Sidebar() {
         </div>
       </div>
     </aside>
+    </>
   )
 }

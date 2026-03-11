@@ -19,9 +19,6 @@ import {
   ArrowUpDown,
   Search,
   CheckSquare,
-  Play,
-  Pause,
-  CheckCircle2,
   Download,
 } from "lucide-react";
 import { TaskBoardSkeleton } from '@/components/ui/Skeleton';
@@ -43,6 +40,7 @@ import { ClipboardCheck } from "lucide-react";
 const LogReportModal = dynamic(() => import("@/components/tasks/LogReportModal"), { ssr: false });
 
 import BoardCard from "@/components/tasks/BoardCard";
+import TaskListRow from "@/components/tasks/TaskListRow";
 import TaskModal from "@/components/tasks/TaskModal";
 import TaskCalendarView from "@/components/tasks/TaskCalendarView";
 
@@ -149,10 +147,15 @@ export default function TaskTrackingPage() {
       if (task.timerStart) {
         additionalSecs = Math.floor((new Date().getTime() - new Date(task.timerStart).getTime()) / 1000);
       }
+      const newElapsed = (task.totalElapsed || 0) + additionalSecs;
+      const autoProgress = task.estimatedTime
+        ? Math.min(100, Math.round((newElapsed / (task.estimatedTime * 60)) * 100))
+        : 0;
       updates = {
         timerStatus: 'paused',
         timerStart: undefined,
-        totalElapsed: (task.totalElapsed || 0) + additionalSecs
+        totalElapsed: newElapsed,
+        progress: autoProgress,
       };
     } else if (action === 'complete') {
       let finalElapsed = (task.totalElapsed || 0);
@@ -203,6 +206,7 @@ export default function TaskTrackingPage() {
   const [estimatedTime, setEstimatedTime] = useState<string>("");
 
   const [editTaskData, setEditTaskData] = useState<Task | null>(null);
+  const [progress, setProgress] = useState(0);
   const [progressNotes, setProgressNotes] = useState("");
 
   function openNewTask() {
@@ -216,6 +220,7 @@ export default function TaskTrackingPage() {
     setDepartmentId("");
     setRole("");
     setStatus("todo");
+    setProgress(0);
     setProgressNotes("");
     setEstimatedTime("");
     setShowModal(true);
@@ -232,6 +237,7 @@ export default function TaskTrackingPage() {
     setDepartmentId(task.departmentId || "");
     setRole(task.role || "");
     setStatus(task.status);
+    setProgress(task.progress || 0);
     setProgressNotes("");
     setEstimatedTime(task.estimatedTime?.toString() || "");
     setShowModal(true);
@@ -267,6 +273,7 @@ export default function TaskTrackingPage() {
           startDate: startDate || undefined,
           role,
           estimatedTime: parseInt(estimatedTime),
+          progress,
         };
 
         if (progressNotes.trim()) {
@@ -805,78 +812,12 @@ export default function TaskTrackingPage() {
               ) : (
                 <div className="space-y-3">
                   {sortedTasks.map((t) => (
-                    <div
+                    <TaskListRow
                       key={t.id}
+                      task={t}
                       onClick={() => openEdit(t)}
-                      className="p-3 bg-[var(--card-surface)] border border-[var(--border)] rounded flex items-center justify-between cursor-pointer hover:bg-[var(--card-bg)] transition-all animate-in fade-in slide-in-from-left-2 duration-200 group"
-                    >
-                      <div className="flex-1 flex items-center gap-4">
-                        <div className="flex items-center gap-2 min-w-[200px]">
-                          <span
-                            className="w-2.5 h-2.5 rounded-full shadow-[0_0_5px_rgba(0,0,0,0.1)] flex-shrink-0"
-                            style={{ backgroundColor: PRIORITY_COLORS[t.priority] }}
-                          />
-                          <div className="font-medium text-sm truncate">{t.title}</div>
-                        </div>
-
-                        {/* Progress Inline */}
-                        <div className="w-32 hidden sm:block">
-                          <div className="w-full bg-[var(--border)] h-1 rounded-full overflow-hidden">
-                            <div className="bg-[var(--accent)] h-full transition-all" style={{ width: `${t.progress || 0}%` }} />
-                          </div>
-                        </div>
-
-                        {/* Time Comparison List */}
-                        <div className="hidden lg:block w-32 text-[10px] text-right">
-                          <div className="text-[var(--muted)]">Time Spent</div>
-                          <div className={t.estimatedTime && (t.totalElapsed || 0) / 60 > t.estimatedTime ? 'text-red-500 font-medium' : 'text-[var(--foreground)]'}>
-                            {formatTime(t.totalElapsed || 0)} / {t.estimatedTime ? `${t.estimatedTime}m` : '-'}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] bg-[var(--card-bg)] px-1 rounded border border-[var(--border)] text-[var(--muted)]">
-                            {t.department?.name}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-6">
-                        {/* Inline Controls */}
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {t.status !== 'completed' && (
-                            <>
-                              {t.timerStatus === 'playing' ? (
-                                <button onClick={(e) => handleTaskAction(e, t.id, 'pause')} className="p-1.5 hover:bg-[var(--card-bg)] rounded text-[var(--accent)]" aria-label="Pause task">
-                                  <Pause className="w-3.5 h-3.5 fill-current" />
-                                </button>
-                              ) : (
-                                <button onClick={(e) => handleTaskAction(e, t.id, 'play')} className="p-1.5 hover:bg-[var(--card-bg)] rounded text-emerald-500" aria-label="Start task">
-                                  <Play className="w-3.5 h-3.5 fill-current" />
-                                </button>
-                              )}
-                              <button onClick={(e) => handleTaskAction(e, t.id, 'complete')} className="p-1.5 hover:bg-[var(--card-bg)] rounded text-blue-500" aria-label="Complete task">
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-6 text-xs text-[var(--muted)]">
-                          <div className={`px-2 py-0.5 rounded border ${t.status === 'completed' ? 'bg-green-500/10 border-green-500/20 text-green-600' : 'bg-[var(--card-bg)] border-[var(--border)]'
-                            }`}>
-                            {STATUS_LABELS[t.status]}
-                          </div>
-                          <div className="w-24 truncate text-right font-medium">
-                            {t.assignee ? (t.assignee.name || t.assignee.email) : 'Unassigned'}
-                          </div>
-                          <div className="w-32 text-right tabular-nums flex flex-col text-[10px] gap-0.5 justify-center">
-                            <div className="text-[var(--muted)]">Start: <span className="text-[var(--foreground)]">{t.startDate || '-'}</span></div>
-                            <div className="text-[var(--status-blocked)]">Due: <span className="text-[var(--foreground)]">{t.dueDate || '-'}</span></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                      onAction={handleTaskAction}
+                    />
                   ))}
                 </div>
               )}
@@ -911,6 +852,7 @@ export default function TaskTrackingPage() {
           role={role} setRole={setRole}
           status={status} setStatus={setStatus}
           estimatedTime={estimatedTime} setEstimatedTime={setEstimatedTime}
+          progress={progress} setProgress={setProgress}
           progressNotes={progressNotes} setProgressNotes={setProgressNotes}
           departments={departments} users={users}
           onSubmit={handleSubmit} onDelete={handleDelete} onClose={closeModal}

@@ -1,0 +1,5 @@
+# Playwright MCP logs/screenshots
+.playwright-mcp/
+
+# Temporary debug scripts
+tmp/

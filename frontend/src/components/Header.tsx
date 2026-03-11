@@ -9,7 +9,7 @@ import ThemeToggle from './ThemeToggle'
 import UserAvatar from '../assets/icons/UserAvatar'
 import NotificationSidebar from './NotificationSidebar'
 import ProfileSidebar from './ProfileSidebar'
-import { Bell, Search } from 'lucide-react'
+import { Bell, Menu, Search } from 'lucide-react'
 import { useSocket } from '@/context/SocketContext'
 import { useUser } from '@/contexts/UserContext'
 import TimeClock from './TimeClock'
@@ -124,8 +124,16 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
   }, [])
 
   return (
-    <header ref={headerRef} className="fixed top-0 left-64 right-0 z-35 flex items-center justify-between h-28 pl-7 pr-6 bg-[var(--background)]">
+    <header ref={headerRef} className="fixed top-0 left-0 md:left-64 right-0 z-35 flex items-center justify-between h-28 pl-4 md:pl-7 pr-6 bg-[var(--background)]">
       <div className="flex items-center gap-4">
+        {/* Mobile hamburger toggle */}
+        <button
+          className="md:hidden p-2 -ml-1 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+          onClick={() => window.dispatchEvent(new Event('toggle-sidebar'))}
+          aria-label="Toggle navigation menu"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
         {/* left area: allow explicit title, auto-resolve from route, else show dashboard greeting */}
         {isDashboard ? (
           <div className="text-left">

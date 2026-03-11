@@ -52,6 +52,23 @@ async function main() {
 
     console.log('✅ Created departments')
 
+    // Seed available roles for signup dropdown
+    const availableRoles = [
+        { name: 'Web Developer', departmentId: engineering.id },
+        { name: 'Head of 3D Modeling', departmentId: engineering.id },
+        { name: 'Operations Manager', departmentId: operations.id },
+        { name: 'Operations Assistant', departmentId: operations.id },
+        { name: 'Project Manager', departmentId: marketing.id },
+    ]
+    for (const r of availableRoles) {
+        await prisma.availableRole.upsert({
+            where: { name_departmentId: { name: r.name, departmentId: r.departmentId } },
+            update: {},
+            create: { name: r.name, departmentId: r.departmentId },
+        })
+    }
+    console.log('✅ Created available roles')
+
     // Helper to create users with hashing and roles
     const passwordHash = await bcrypt.hash('Savage2025!', 10)
 
