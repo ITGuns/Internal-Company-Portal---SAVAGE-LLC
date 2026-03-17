@@ -6,7 +6,7 @@ export class FileDirectoryService {
      *  - Admins get ALL folders (no dept filter).
      *  - Regular users get "All Departments" folders + their own dept.
      */
-    async findAll(userDepartment?: string, userRole?: string) {
+    async findAll(userDepartments?: string[], userRole?: string) {
         const isAdmin = userRole === 'admin'
 
         return prisma.fileFolder.findMany({
@@ -17,7 +17,7 @@ export class FileDirectoryService {
                     : {
                         OR: [
                             { department: 'All Departments' },
-                            ...(userDepartment ? [{ department: userDepartment }] : []),
+                            ...(userDepartments && userDepartments.length > 0 ? [{ department: { in: userDepartments } }] : []),
                         ],
                     }),
             },
@@ -26,7 +26,7 @@ export class FileDirectoryService {
     }
 
     /** Get child folders of a parent — same access rules apply */
-    async findChildren(parentId: string, userDepartment?: string, userRole?: string) {
+    async findChildren(parentId: string, userDepartments?: string[], userRole?: string) {
         const isAdmin = userRole === 'admin'
 
         return prisma.fileFolder.findMany({
@@ -37,7 +37,7 @@ export class FileDirectoryService {
                     : {
                         OR: [
                             { department: 'All Departments' },
-                            ...(userDepartment ? [{ department: userDepartment }] : []),
+                            ...(userDepartments && userDepartments.length > 0 ? [{ department: { in: userDepartments } }] : []),
                         ],
                     }),
             },
