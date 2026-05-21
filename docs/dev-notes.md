@@ -1,5 +1,46 @@
 # Development Notes
 
+## 2026-05-22 - Release Readiness Verification
+
+### Completed
+
+- Removed the obsolete top-level Docker Compose `version` field so `docker compose config` no longer emits the Compose version warning.
+- Fixed invalid chat sidebar markup by making the direct-message delete action a sibling of the row button instead of a nested button.
+- Re-ran backend, frontend, Prisma, audit, Compose, and browser smoke checks after the markup fix.
+- Verified authenticated local smoke routes for dashboard, task tracking, daily logs, payroll calendar, announcements, chat, and file directory.
+
+### Files Changed
+
+- `docker-compose.yml`
+- `frontend/src/components/chat/ChatSidebar.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the chat sidebar behavior unchanged and only corrected the HTML structure that caused the hydration warning.
+- Used temporary local placeholder secrets for Compose validation only; production still requires real `JWT_SECRET` and `REFRESH_TOKEN_SECRET` values.
+- Used installed system Chrome for the browser smoke pass because the Playwright bundled Chromium executable was not installed locally.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd backend && npm audit --audit-level=high`
+- `cd backend && npx prisma validate`
+- `cd backend && npm run prisma:generate`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- `cd frontend && npm audit --audit-level=high`
+- From repo root with temporary local secrets: `docker compose config`
+- From repo root: `git diff --check`
+- Browser smoke through system Chrome against local `http://localhost:3000` and `http://localhost:4000`.
+
+### Next Steps
+
+- Commit and push the verified branch when ready for preview/staging deployment.
+- Run the same smoke flow against the public preview/staging URL after deployment, especially auth, WebSocket chat, uploads/file-directory, OAuth/email, and production env/CORS behavior.
+
 ## 2026-05-20 - Session Summary
 
 ### Completed

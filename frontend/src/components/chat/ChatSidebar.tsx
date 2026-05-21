@@ -109,40 +109,41 @@ export default function ChatSidebar({
                         const isActive = selectedId === c.id
                         const isOnline = other?.id ? onlineUserIds.has(other.id) : false
                         return (
-                            <button
-                                key={c.id}
-                                onClick={() => onSelectConversation(c.id)}
-                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all flex items-center gap-3 group relative ${isActive
-                                    ? 'bg-[var(--accent)] text-white shadow-md'
-                                    : 'text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'
-                                    }`}
-                            >
-                                <div className="relative w-8 h-8 flex-shrink-0">
-                                    <div className="w-8 h-8 rounded-full bg-[var(--background)] border border-[var(--border)] overflow-hidden">
-                                    {other?.avatar ? (
-                                        <Image src={other.avatar} alt={other.name || 'User avatar'} width={32} height={32} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-[var(--accent)] text-white text-[10px] font-bold">
-                                            {other?.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                            <div key={c.id} className="relative group">
+                                <button
+                                    onClick={() => onSelectConversation(c.id)}
+                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all flex items-center gap-3 ${isActive
+                                        ? 'bg-[var(--accent)] text-white shadow-md'
+                                        : 'text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'
+                                        }`}
+                                >
+                                    <div className="relative w-8 h-8 flex-shrink-0">
+                                        <div className="w-8 h-8 rounded-full bg-[var(--background)] border border-[var(--border)] overflow-hidden">
+                                        {other?.avatar ? (
+                                            <Image src={other.avatar} alt={other.name || 'User avatar'} width={32} height={32} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-[var(--accent)] text-white text-[10px] font-bold">
+                                                {other?.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                                            </div>
+                                        )}
                                         </div>
+                                        {/* Online status dot */}
+                                        <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[var(--card-surface)] ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div>
+                                            <div className="font-medium line-clamp-1">{other?.name || 'Unknown User'}</div>
+                                            <div className={`text-[10px] truncate ${isActive ? 'text-white/70' : 'text-[var(--muted)]'}`}>
+                                                {new Date(c.updatedAt).toLocaleDateString()}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {unreadCounts[c.id] > 0 && selectedId !== c.id && (
+                                        <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse shadow-sm">
+                                            {unreadCounts[c.id]}
+                                        </span>
                                     )}
-                                    </div>
-                                    {/* Online status dot */}
-                                    <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[var(--card-surface)] ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div>
-                                        <div className="font-medium line-clamp-1">{other?.name || 'Unknown User'}</div>
-                                        <div className={`text-[10px] truncate ${isActive ? 'text-white/70' : 'text-[var(--muted)]'}`}>
-                                            {new Date(c.updatedAt).toLocaleDateString()}
-                                        </div>
-                                    </div>
-                                </div>
-                                {unreadCounts[c.id] > 0 && selectedId !== c.id && (
-                                    <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse shadow-sm">
-                                        {unreadCounts[c.id]}
-                                    </span>
-                                )}
+                                </button>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onDeleteConversation(c.id); }}
                                     className={`absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1.5 rounded-full transition-all ${isActive ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-red-500 text-white shadow-sm'}`}
@@ -150,7 +151,7 @@ export default function ChatSidebar({
                                 >
                                     <Trash2 className="w-3 h-3" />
                                 </button>
-                            </button>
+                            </div>
                         )
                     })}
                     {directMessages.length === 0 && (
