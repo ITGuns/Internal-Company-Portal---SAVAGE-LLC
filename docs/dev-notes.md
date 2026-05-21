@@ -8,6 +8,7 @@
 - Fixed invalid chat sidebar markup by making the direct-message delete action a sibling of the row button instead of a nested button.
 - Re-ran backend, frontend, Prisma, audit, Compose, and browser smoke checks after the markup fix.
 - Verified authenticated local smoke routes for dashboard, task tracking, daily logs, payroll calendar, announcements, chat, and file directory.
+- Opened draft PR #1 from `v2-improvements` to `main` and confirmed GitHub backend/frontend CI plus Vercel deployment checks passed.
 
 ### Files Changed
 
@@ -20,6 +21,7 @@
 - Kept the chat sidebar behavior unchanged and only corrected the HTML structure that caused the hydration warning.
 - Used temporary local placeholder secrets for Compose validation only; production still requires real `JWT_SECRET` and `REFRESH_TOKEN_SECRET` values.
 - Used installed system Chrome for the browser smoke pass because the Playwright bundled Chromium executable was not installed locally.
+- Public preview URLs are protected by Vercel Authentication, so unauthenticated HTTP smoke tests cannot reach the frontend or backend preview from this machine.
 
 ### How to Test
 
@@ -35,11 +37,12 @@
 - From repo root with temporary local secrets: `docker compose config`
 - From repo root: `git diff --check`
 - Browser smoke through system Chrome against local `http://localhost:3000` and `http://localhost:4000`.
+- PR checks for draft PR #1: backend CI, frontend CI, and Vercel preview deployments.
 
 ### Next Steps
 
-- Commit and push the verified branch when ready for preview/staging deployment.
-- Run the same smoke flow against the public preview/staging URL after deployment, especially auth, WebSocket chat, uploads/file-directory, OAuth/email, and production env/CORS behavior.
+- Run the same smoke flow against the public preview/staging URL after Vercel Authentication is available or a preview bypass token is configured.
+- Public/staging smoke should especially verify auth, WebSocket chat, uploads/file-directory, OAuth/email, and production env/CORS behavior.
 
 ## 2026-05-20 - Session Summary
 
