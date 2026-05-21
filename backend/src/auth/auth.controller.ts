@@ -6,6 +6,11 @@ import { User } from '@prisma/client'
 import { authenticateToken, AuthRequest } from './auth.middleware'
 import { buildPendingSignupProfile, canLoginApprovedUser } from './signup.requests'
 import { canIssueAuthTokens, serializeAuthUser } from './auth.security'
+import {
+    hasConfiguredSignupRolesForDepartment,
+    isDefaultSignupRoleAllowed,
+    normalizeSignupOption,
+} from './signup-role-options'
 
 export class AuthController {
     router(): Router {
@@ -115,16 +120,20 @@ export class AuthController {
                     return res.status(400).json({ error: 'Invalid department' })
                 }
 
-                const availableRole = await prisma.availableRole.findFirst({
+                const availableRoles = await prisma.availableRole.findMany({
                     where: {
-                        name: role,
                         OR: [
                             { departmentId },
                             { departmentId: null },
                         ],
                     },
                 })
-                if (!availableRole) {
+                const availableRole = availableRoles.find(
+                    (candidate) => normalizeSignupOption(candidate.name) === normalizeSignupOption(role),
+                )
+                const hasDepartmentRoles = hasConfiguredSignupRolesForDepartment(availableRoles, departmentId)
+                const usesFallbackRole = !hasDepartmentRoles && isDefaultSignupRoleAllowed(department.name, role)
+                if (!availableRole && !usesFallbackRole) {
                     return res.status(400).json({ error: 'Invalid role for selected department' })
                 }
 

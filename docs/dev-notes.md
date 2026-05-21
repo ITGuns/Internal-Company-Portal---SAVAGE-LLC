@@ -44,6 +44,47 @@
 - Run the same smoke flow against the public preview/staging URL after Vercel Authentication is available or a preview bypass token is configured.
 - Public/staging smoke should especially verify auth, WebSocket chat, uploads/file-directory, OAuth/email, and production env/CORS behavior.
 
+## 2026-05-22 - Signup Role Options Fix
+
+### Completed
+
+- Fixed signup role loading so the frontend uses role options returned with the selected department instead of relying on a separate roles fetch.
+- Added backend fallback signup role options for known org-chart departments when a department exists but has no configured role rows yet.
+- Kept signup validation server-side so fallback roles are only accepted for the matching department name and unknown roles are still rejected.
+- Added regression coverage for department role selection and Website Developers fallback role validation.
+
+### Files Changed
+
+- `backend/src/auth/auth.controller.ts`
+- `backend/src/auth/signup-role-options.ts`
+- `backend/src/departments/departments.service.ts`
+- `backend/tests/signup.requests.test.ts`
+- `frontend/src/app/signup/page.tsx`
+- `frontend/src/lib/signup-options.ts`
+- `frontend/tests/signup-options.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Did not mutate or clear database contents; the fix works with existing department rows and configured roles.
+- Preserved configured database roles when they exist, and only uses fallback roles for departments with no role rows.
+- Used local Engineering data for the browser smoke test because the local seed database does not include the Website Developers department.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- From repo root: call `http://localhost:3000/api/departments` and confirm each department includes `availableRoles`.
+- Browser smoke: open `http://localhost:3000/signup`, select a department, and confirm the Role dropdown enables with role choices.
+
+### Next Steps
+
+- On staging/production, verify the Website Developers department row now exposes the fallback role list in signup.
+- Optionally seed official `AvailableRole` rows for the org-chart departments so the database becomes the long-term source of truth.
+
 ## 2026-05-20 - Session Summary
 
 ### Completed
