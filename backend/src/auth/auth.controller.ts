@@ -5,6 +5,7 @@ import { JwtService, JwtPayload } from './jwt.service'
 import { User } from '@prisma/client'
 import { authenticateToken, AuthRequest } from './auth.middleware'
 import { buildPendingSignupProfile, canLoginApprovedUser } from './signup.requests'
+import { canIssueAuthTokens, serializeAuthUser } from './auth.security'
 
 export class AuthController {
     router(): Router {
@@ -21,22 +22,19 @@ export class AuthController {
             passport.authenticate('google', { session: false, failureRedirect: '/auth/failure' }),
             (req: Request, res: Response) => {
                 const user = req.user as User
+                if (!canIssueAuthTokens(user)) {
+                    return res.status(403).json({ error: 'Account pending approval' })
+                }
+
                 const tokens = JwtService.generateTokenPair({
                     userId: user.id,
                     email: user.email,
                     name: user.name || undefined,
                 })
 
-                // In production, redirect to frontend with tokens
-                // For now, return JSON
                 res.json({
                     success: true,
-                    user: {
-                        id: user.id,
-                        email: user.email,
-                        name: user.name,
-                        avatar: user.avatar,
-                    },
+                    user: serializeAuthUser(user),
                     tokens,
                 })
             }
@@ -53,6 +51,10 @@ export class AuthController {
             passport.authenticate('discord', { session: false, failureRedirect: '/auth/failure' }),
             (req: Request, res: Response) => {
                 const user = req.user as User
+                if (!canIssueAuthTokens(user)) {
+                    return res.status(403).json({ error: 'Account pending approval' })
+                }
+
                 const tokens = JwtService.generateTokenPair({
                     userId: user.id,
                     email: user.email,
@@ -61,12 +63,7 @@ export class AuthController {
 
                 res.json({
                     success: true,
-                    user: {
-                        id: user.id,
-                        email: user.email,
-                        name: user.name,
-                        avatar: user.avatar,
-                    },
+                    user: serializeAuthUser(user),
                     tokens,
                 })
             }
@@ -208,18 +205,9 @@ export class AuthController {
                     name: user.name || undefined,
                 })
 
-                // Map roles for cleaner frontend usage
-                const roleList = user.roles.map(r => r.role)
-                const primaryRole = roleList.includes('admin') ? 'admin' : roleList[0] || 'member'
-
                 res.json({
                     success: true,
-                    user: {
-                        ...user,
-                        password: '', // Redact password
-                        role: primaryRole,
-                        roles: roleList
-                    },
+                    user: serializeAuthUser(user),
                     tokens,
                 })
             } catch (error) {
@@ -229,7 +217,7 @@ export class AuthController {
         })
 
         // Refresh token endpoint
-        router.post('/refresh', (req: Request, res: Response) => {
+        router.post('/refresh', async (req: Request, res: Response) => {
             const { refreshToken } = req.body
 
             if (!refreshToken) {
@@ -238,6 +226,15 @@ export class AuthController {
 
             try {
                 const payload = JwtService.verifyRefreshToken(refreshToken)
+                const { prisma } = await import('../database/prisma.service')
+                const user = await prisma.user.findUnique({
+                    where: { id: payload.userId },
+                })
+
+                if (!user || !canIssueAuthTokens(user)) {
+                    return res.status(403).json({ error: 'Account pending approval' })
+                }
+
                 const newAccessToken = JwtService.generateAccessToken(payload)
 
                 res.json({
@@ -269,17 +266,8 @@ export class AuthController {
                     return res.status(401).json({ error: 'User no longer exists' })
                 }
 
-                // Map roles for cleaner frontend usage
-                const roleList = user.roles.map(r => r.role)
-                const primaryRole = roleList.includes('admin') ? 'admin' : roleList[0] || 'member'
-
                 res.json({
-                    user: {
-                        ...user,
-                        password: '', // Redact password
-                        role: primaryRole,
-                        roles: roleList
-                    },
+                    user: serializeAuthUser(user),
                 })
             } catch (error) {
                 console.error('Failed to fetch user in /me:', error)

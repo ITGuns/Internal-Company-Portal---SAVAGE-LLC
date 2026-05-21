@@ -28,7 +28,12 @@ export class EmployeesService {
                 status: 'pending',
             },
             include: {
-                employeeProfile: true
+                employeeProfile: true,
+                roles: {
+                    include: {
+                        department: true,
+                    },
+                },
             },
             orderBy: {
                 appliedDate: 'desc',
@@ -46,7 +51,14 @@ export class EmployeesService {
                     in: ['active', 'vacation', 'leave', 'verified'],
                 },
             },
-            include: { employeeProfile: true },
+            include: {
+                employeeProfile: true,
+                roles: {
+                    include: {
+                        department: true,
+                    },
+                },
+            },
             orderBy: { name: 'asc' },
         })
 
@@ -144,6 +156,11 @@ export class EmployeesService {
                 },
                 include: {
                     employeeProfile: true,
+                    roles: {
+                        include: {
+                            department: true,
+                        },
+                    },
                 },
             })
 
@@ -166,7 +183,17 @@ export class EmployeesService {
                 })
             }
 
-            return updated
+            return tx.user.findUniqueOrThrow({
+                where: { id: updated.id },
+                include: {
+                    employeeProfile: true,
+                    roles: {
+                        include: {
+                            department: true,
+                        },
+                    },
+                },
+            })
         })
 
         // Auto-add to General channel if it exists

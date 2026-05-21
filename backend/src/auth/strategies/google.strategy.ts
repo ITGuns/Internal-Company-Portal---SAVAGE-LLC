@@ -30,16 +30,21 @@ export function setupGoogleStrategy(): void {
                     // Find or create user
                     let user = await prisma.user.findUnique({
                         where: { email },
+                        include: { roles: true },
                     })
 
                     if (!user) {
-                        // Create new user
+                        // OAuth-created users still require manager approval before login.
                         user = await prisma.user.create({
                             data: {
                                 email,
                                 name,
                                 avatar,
+                                status: 'pending',
+                                isApproved: false,
+                                appliedDate: new Date(),
                             },
+                            include: { roles: true },
                         })
                         console.log(`✅ New user created via Google OAuth: ${email}`)
                     } else {
@@ -50,6 +55,7 @@ export function setupGoogleStrategy(): void {
                                 name,
                                 avatar,
                             },
+                            include: { roles: true },
                         })
                     }
 

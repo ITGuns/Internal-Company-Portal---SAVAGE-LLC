@@ -620,3 +620,95 @@
 
 - Add durable audit-history storage for payroll corrections if managers need immutable correction trails.
 - Consider linking daily-log task badges directly back to the Task Tracking detail modal when cross-page navigation is acceptable.
+
+## 2026-05-21 - Documentation Refresh
+
+### Completed
+
+- Added a current architecture overview for backend, frontend, data model, access control, and verification commands.
+- Updated API notes to include current auth, OAuth, users, employees, task visibility, daily-log, payroll, chat, upload, and notification behavior.
+- Expanded database notes for migrations, identity/authorization, available roles, daily-log task JSON, payroll records, and collaboration/file data.
+- Rewrote the 2026-05-21 session report so it reflects the pushed release state instead of the earlier uncommitted worktree snapshot.
+- Marked the 2026-05-20 codebase audit as a historical backlog and listed the remaining cleanup items after the release.
+
+### Files Changed
+
+- `docs/architecture.md`
+- `docs/api.md`
+- `docs/database.md`
+- `docs/session-report-2026-05-21.md`
+- `docs/codebase-audit-2026-05-20.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Keep `docs/features.md` unchanged because it already matches the current workflow behavior.
+- Keep the old audit findings as historical evidence, but add a clear current-status section to avoid treating fixed blockers as active risks.
+- Document current API and database behavior from controllers, helper files, and Prisma schema rather than from older report text.
+
+### How to Test
+
+- `git diff --check`
+- Review the changed Markdown files for stale release-state claims.
+
+### Next Steps
+
+- Add or refresh a root `README.md` if the repo should have a short setup entry point.
+- Keep docs updated whenever API contracts, schema behavior, or cross-page workflow deep links change.
+
+## 2026-05-21 - Source-Based Security Cleanup
+
+### Completed
+
+- Re-checked the active source code instead of relying on older backlog notes.
+- Added auth serializers for `/auth/login`, `/auth/me`, and OAuth callbacks so password and reset-token fields are not returned.
+- Blocked OAuth token issuance for pending/unapproved users and made new OAuth users pending by default.
+- Revalidated refresh-token requests against the current user approval state before issuing a new access token.
+- Restricted pending/deployed employee review endpoints to employee-management access and serialized employee responses.
+- Stopped public employee verification responses from returning raw user records.
+- Tightened directory user serialization to public fields only.
+- Restricted employee-created company-wide chat/channel conversations.
+- Replaced public `/uploads` static serving with authenticated `/api/uploads/files/:filename` access for future generic uploads.
+- Removed tracked root `node_modules`, `backend/debug_output.txt`, and `backend/final_list.txt` from the git index without deleting local files.
+
+### Files Changed
+
+- `backend/src/auth/auth.controller.ts`
+- `backend/src/auth/auth.security.ts`
+- `backend/src/auth/strategies/discord.strategy.ts`
+- `backend/src/auth/strategies/google.strategy.ts`
+- `backend/src/chat/chat.controller.ts`
+- `backend/src/chat/chat.permissions.ts`
+- `backend/src/employees/employees.controller.ts`
+- `backend/src/employees/employees.security.ts`
+- `backend/src/employees/employees.service.ts`
+- `backend/src/main.ts`
+- `backend/src/uploads/uploads.controller.ts`
+- `backend/src/users/users.security.ts`
+- `backend/tests/auth.security.test.ts`
+- `backend/tests/chat.permissions.test.ts`
+- `backend/tests/employees.security.test.ts`
+- `backend/tests/run-tests.ts`
+- `backend/tests/users.security.test.ts`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Keep management payroll/employee views able to see salary data, but only behind employee-management access.
+- Keep direct and ordinary group chat creation available to employees; reserve channels and `General`/`Global` style company-wide conversations for management.
+- Leave local debug/dependency files on disk and only remove them from version control.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- `cd backend && npm audit --audit-level=high`
+- `cd frontend && npm audit --audit-level=high`
+
+### Next Steps
+
+- Add integration tests around the actual Express routes for auth, employees, uploads, and chat.
+- Consider moving browser tokens from localStorage to httpOnly cookies in a later auth hardening pass.

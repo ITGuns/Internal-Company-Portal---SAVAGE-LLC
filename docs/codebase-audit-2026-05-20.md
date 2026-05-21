@@ -12,6 +12,37 @@ The portal has moved beyond the scaffold described in the README. It now contain
 
 The first priority should be to restore build reliability, then close auth and authorization bypasses before adding more product surface. In particular, account approval can currently be bypassed through self-profile updates, sockets trust client-supplied user IDs, and broad user endpoints can expose sensitive employee/payroll data.
 
+## Current Status Update - 2026-05-21
+
+This audit is now a historical backlog and evidence record. The release pushed on 2026-05-21 resolved the original critical build, approval, signup role, socket-auth, user serialization, task ownership, and dependency-audit blockers.
+
+Current release status:
+
+- Backend build, backend tests, frontend tests, frontend lint, frontend build, backend audit, and frontend audit pass.
+- Pending users are blocked from normal login.
+- Signup stores requested role/department separately from active authorization.
+- User directory responses are sanitized before returning to the frontend.
+- Socket.io verifies JWTs and checks conversation-room participation.
+- Task read visibility is scoped by assignment or requester ownership for non-privileged users.
+- Prisma migration SQL is tracked for the task-session, signup-request, and task-creator changes.
+- CI and Docker runtime versions are aligned to Node 22.
+
+Additional local hardening is currently uncommitted in the worktree:
+
+- Auth token issuance and refresh now use a shared approval check and safe auth serializer.
+- Google and Discord OAuth-created users default to pending approval.
+- Employee pending/deployed lists now use employee-management access and serialized responses.
+- Chat conversation creation now validates direct conversations, participant counts, and management-only channels.
+- Uploaded files are served through authenticated `/api/uploads/files/:filename` routes.
+
+Remaining cleanup items from the audit:
+
+- Remove any already tracked root `node_modules/` files through a separate index-only cleanup if they are still present.
+- Remove the obsolete top-level `version` field from `docker-compose.yml`.
+- Continue splitting large feature files progressively when those areas are touched.
+- Add durable audit-history storage if payroll corrections need immutable review trails.
+- Keep expanding docs as features change.
+
 ## Verification Snapshot
 
 Commands run locally:
@@ -374,14 +405,14 @@ Recommended fix:
 3. Create baseline Prisma migration.
 4. Add bounded list queries and pagination defaults.
 
-## Current Working Priority
+## Original Working Priority
 
 The first code changes should be:
 
 1. Fix `file-directory.controller.ts` typing and centralize admin email bypass. Status: completed.
 2. Fix signup route and refresh-token storage/cleanup. Status: completed.
 3. Prevent self-approval/status mutation through `PATCH /api/users/:id`. Status: completed.
-4. Re-run backend build, frontend lint, and frontend build. Status: completed with remaining frontend warnings.
+4. Re-run backend build, frontend lint, and frontend build. Status: completed.
 
 ## Remediation Progress - 2026-05-20
 
@@ -435,11 +466,9 @@ docker compose config
 
 Result: passed. Docker Compose reported that the top-level `version` attribute is obsolete; this remains a cleanup item.
 
-Remaining high-priority work:
+Remaining work after the 2026-05-21 release:
 
-- Add explicit safe serializers for auth/user responses to prevent password reset tokens, password hashes, payroll fields, and private profile fields from leaking.
-- Restrict broad user list/detail endpoints by role or return a minimal directory shape.
-- Rework signup so requested role/department are stored as application metadata instead of active `UserRole` records.
-- Add a baseline Prisma migration for the current schema.
-- Remove root `node_modules/` from git tracking with a non-destructive index-only cleanup after approval.
-- Address the remaining 72 frontend lint warnings progressively.
+- Remove root `node_modules/` from git tracking with a non-destructive index-only cleanup after approval if tracked dependency files remain.
+- Remove the obsolete top-level Docker Compose `version` field.
+- Continue progressive refactors for large feature files.
+- Add durable audit-history storage if payroll corrections need immutable tracking.

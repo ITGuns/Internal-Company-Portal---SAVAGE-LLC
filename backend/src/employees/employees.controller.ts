@@ -2,9 +2,15 @@ import { Request, Response, Router } from 'express';
 import bcrypt from 'bcrypt';
 import { emailService } from '../email/email.service';
 import { EmployeesService } from './employees.service';
-import { authenticateToken, requireRole } from '../auth/auth.middleware';
+import { authenticateToken, AuthRequest } from '../auth/auth.middleware';
 import * as crypto from 'crypto';
 import { isAdminEmail, config } from '../config/env.config';
+import {
+    hasEmployeeManagementAccess,
+    serializeDeployedEmployee,
+    serializeEmployeeApplication,
+    serializeEmployeesForManagement,
+} from './employees.security';
 export class EmployeesController {
     private _router = Router();
     private employeesService: EmployeesService;
@@ -21,7 +27,7 @@ export class EmployeesController {
 
         // Approval Workflow - PROTECTED
         // Managers or Admins can see pending and deployed lists
-        this._router.get('/pending', authenticateToken, requireRole(['admin', 'manager', 'operations_manager', 'operations manager']), this.getPending);
+        this._router.get('/pending', authenticateToken, this.getPending);
         this._router.get('/deployed', authenticateToken, this.getDeployed);
 
         // Approve and Reject are strictly for Admins, Operations Managers, or authorized emails
@@ -31,8 +37,11 @@ export class EmployeesController {
 
     private getPending = async (req: Request, res: Response) => {
         try {
+            if (!(await this.authorizeBypass(req))) {
+                return res.status(403).json({ error: 'Unauthorized to view pending employees' });
+            }
             const pending = await this.employeesService.getPending();
-            res.status(200).json(pending);
+            res.status(200).json(serializeEmployeesForManagement(pending));
         } catch (error) {
             console.error('[Employees] Error fetching pending:', error);
             res.status(500).json({ error: 'Internal Server Error' });
@@ -41,8 +50,11 @@ export class EmployeesController {
 
     private getDeployed = async (req: Request, res: Response) => {
         try {
+            if (!(await this.authorizeBypass(req))) {
+                return res.status(403).json({ error: 'Unauthorized to view deployed employees' });
+            }
             const deployed = await this.employeesService.getDeployed();
-            res.status(200).json(deployed);
+            res.status(200).json(serializeEmployeesForManagement(deployed));
         } catch (error) {
             console.error('[Employees] Error fetching deployed:', error);
             res.status(500).json({ error: 'Internal Server Error' });
@@ -50,18 +62,18 @@ export class EmployeesController {
     }
 
     private authorizeBypass = async (req: Request) => {
-        const authReq = req as any;
+        const authReq = req as AuthRequest;
         const email = authReq.user?.email?.toLowerCase();
         const userId = authReq.user?.userId;
+        if (!userId) return false;
 
         // Admin email bypass (configured via ADMIN_EMAILS env var)
         const isAuthorizedEmail = isAdminEmail(email);
         if (isAuthorizedEmail) return true;
 
-        // Check if admin/manager
         const { prisma } = await import('../database/prisma.service');
         const roles = await prisma.userRole.findMany({ where: { userId } });
-        return roles.some(r => ['admin', 'manager', 'operations_manager', 'operations manager'].includes(r.role.toLowerCase()));
+        return hasEmployeeManagementAccess(roles);
     }
 
     private approve = async (req: Request, res: Response) => {
@@ -71,7 +83,7 @@ export class EmployeesController {
             }
             const { id } = req.params;
             const updated = await this.employeesService.approve(id as string);
-            res.status(200).json({ success: true, user: updated });
+            res.status(200).json({ success: true, user: serializeDeployedEmployee(updated) });
         } catch (error) {
             console.error('[Employees] Error approving:', error);
             res.status(500).json({ error: 'Internal Server Error' });
@@ -85,7 +97,7 @@ export class EmployeesController {
             }
             const { id } = req.params;
             const updated = await this.employeesService.reject(id as string);
-            res.status(200).json({ success: true, user: updated });
+            res.status(200).json({ success: true, user: serializeEmployeeApplication(updated) });
         } catch (error) {
             console.error('[Employees] Error rejecting:', error);
             res.status(500).json({ error: 'Internal Server Error' });
@@ -147,7 +159,7 @@ export class EmployeesController {
             res.status(201).json({
                 success: true,
                 message: `Application submitted. Welcome email sent to ${employeeData.name}.`,
-                employee: newEmployee,
+                employee: serializeEmployeeApplication(newEmployee),
                 emailStatus
             });
 

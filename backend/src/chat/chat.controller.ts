@@ -2,6 +2,10 @@ import express, { Request, Response, Router } from 'express'
 import { ChatService } from './chat.service'
 import { authenticateToken, AuthRequest } from '../auth/auth.middleware'
 import { notificationService } from '../notifications/socket.service'
+import { prisma } from '../database/prisma.service'
+import { isAdminEmail } from '../config/env.config'
+import { hasEmployeeManagementAccess } from '../employees/employees.security'
+import { canCreateConversation } from './chat.permissions'
 
 export class ChatController {
     private service = new ChatService()
@@ -60,15 +64,36 @@ export class ChatController {
                 // @ts-ignore
                 const userId = (req as AuthRequest).user.userId
                 const { type, participantIds, name } = req.body // type: 'direct' | 'group' | 'channel'
+                const requestedType = typeof type === 'string' ? type : 'direct'
+                const requestedParticipants = Array.isArray(participantIds)
+                    ? participantIds.filter((id): id is string => typeof id === 'string' && Boolean(id.trim()))
+                    : []
 
                 // Ensure current user is in participants
-                const allParticipants = Array.from(new Set([...(participantIds || []), userId]))
+                const allParticipants = Array.from(new Set([...requestedParticipants, userId]))
 
                 if (allParticipants.length < 2) {
                     return res.status(400).json({ error: 'At least 2 participants required' })
                 }
 
-                const conversation = await this.service.createConversation(type || 'direct', allParticipants, name)
+                if (requestedType === 'direct' && allParticipants.length !== 2) {
+                    return res.status(400).json({ error: 'Direct conversations require exactly 2 participants' })
+                }
+
+                if (allParticipants.length > 50) {
+                    return res.status(400).json({ error: 'Conversation cannot exceed 50 participants' })
+                }
+
+                const roles = await prisma.userRole.findMany({ where: { userId } })
+                const isPrivileged = hasEmployeeManagementAccess(roles, isAdminEmail((req as AuthRequest).user?.email))
+                if (!canCreateConversation(
+                    { requesterId: userId, isPrivileged },
+                    { type: requestedType, participantIds: allParticipants, name },
+                )) {
+                    return res.status(403).json({ error: 'Only authorized managers can create channels or company-wide conversations' })
+                }
+
+                const conversation = await this.service.createConversation(requestedType, allParticipants, name)
 
                 // Notify participants
                 conversation.participants.forEach((p: { userId: string }) => {

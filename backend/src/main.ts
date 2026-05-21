@@ -19,7 +19,6 @@ import { EmployeesController } from './employees/employees.controller'
 import { FileDirectoryController } from './file-directory/file-directory.controller'
 import { NotificationsController } from './notifications/notifications.controller'
 import { config, validateConfig } from './config/env.config'
-import path from 'path'
 import { PrismaService } from './database/prisma.service'
 import { initializePassport } from './auth/passport.config'
 import { notificationService } from './notifications/socket.service' // Service for real-time updates
@@ -42,12 +41,6 @@ async function bootstrap() {
 
   app.use(bodyParser.json({ limit: '50mb' }))
   app.use(passport.initialize())
-
-  // Serve static uploads (from backend/uploads)
-  const uploadsPath = process.env.VERCEL === '1'
-    ? path.join('/tmp', 'uploads')
-    : path.join(__dirname, '../uploads')
-  app.use('/uploads', express.static(uploadsPath))
 
   // Debug Logging Middleware
   app.use((req: Request, res: Response, next: NextFunction) => {

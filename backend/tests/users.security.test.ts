@@ -5,6 +5,10 @@ const sanitized = sanitizeUserForDirectory({
   id: 'user-1',
   email: 'employee@example.com',
   name: 'Employee',
+  phone: '555',
+  address: 'Street',
+  city: 'City',
+  citizenship: 'PH',
   password: 'hashed',
   passwordResetToken: 'secret',
   passwordResetExpiry: new Date(),
@@ -22,6 +26,10 @@ const sanitized = sanitizeUserForDirectory({
 assert.equal('password' in sanitized, false)
 assert.equal('passwordResetToken' in sanitized, false)
 assert.equal('passwordResetExpiry' in sanitized, false)
+assert.equal('phone' in sanitized, false)
+assert.equal('address' in sanitized, false)
+assert.equal('city' in sanitized, false)
+assert.equal('citizenship' in sanitized, false)
 assert.deepEqual(sanitized.employeeProfile, {
   jobTitle: 'Developer',
   employmentType: 'Full Time',

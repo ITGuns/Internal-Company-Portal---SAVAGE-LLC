@@ -11,6 +11,17 @@ const PUBLIC_EMPLOYEE_PROFILE_FIELDS = new Set([
   'employmentType',
 ])
 
+const PUBLIC_DIRECTORY_USER_FIELDS = new Set([
+  'id',
+  'email',
+  'name',
+  'avatar',
+  'status',
+  'isApproved',
+  'createdAt',
+  'updatedAt',
+])
+
 export function sanitizeUserForDirectory<T extends AnyRecord>(user: T): AnyRecord {
   const sanitized: AnyRecord = {}
 
@@ -24,7 +35,24 @@ export function sanitizeUserForDirectory<T extends AnyRecord>(user: T): AnyRecor
       return
     }
 
-    sanitized[key] = value
+    if (key === 'roles' && Array.isArray(value)) {
+      sanitized.roles = value.map((assignment) => ({
+        id: assignment.id,
+        role: assignment.role,
+        departmentId: assignment.departmentId,
+        department: assignment.department
+          ? {
+              id: assignment.department.id,
+              name: assignment.department.name,
+            }
+          : null,
+      }))
+      return
+    }
+
+    if (PUBLIC_DIRECTORY_USER_FIELDS.has(key)) {
+      sanitized[key] = value
+    }
   })
 
   return sanitized

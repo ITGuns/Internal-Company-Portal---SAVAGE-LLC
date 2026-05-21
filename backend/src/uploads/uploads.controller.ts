@@ -21,6 +21,28 @@ export class UploadsController {
             }
         }
 
+        router.get('/files/:filename', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const filename = path.basename(String(req.params.filename || ''))
+                if (!filename) {
+                    return res.status(400).json({ error: 'Filename required' })
+                }
+
+                const filepath = path.join(uploadDir, filename)
+                const resolvedUploadDir = path.resolve(uploadDir)
+                const resolvedFilepath = path.resolve(filepath)
+
+                if (!resolvedFilepath.startsWith(resolvedUploadDir + path.sep) || !fs.existsSync(resolvedFilepath)) {
+                    return res.status(404).json({ error: 'File not found' })
+                }
+
+                res.sendFile(resolvedFilepath)
+            } catch (error) {
+                console.error('File fetch error:', error)
+                res.status(500).json({ error: 'Failed to fetch file' })
+            }
+        })
+
         router.post('/', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const { name, type, data } = req.body
@@ -59,7 +81,7 @@ export class UploadsController {
 
                 fs.writeFileSync(filepath, buffer)
 
-                const url = `/uploads/${filename}`
+                const url = `/api/uploads/files/${filename}`
                 res.status(201).json({ url, name: safeName, type, size: sizeInBytes })
             } catch (error) {
                 console.error('Upload error:', error)

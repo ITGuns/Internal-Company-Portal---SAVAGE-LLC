@@ -3,6 +3,8 @@
 
 # Temporary debug scripts
 tmp/
+backend/debug_output.txt
+backend/final_list.txt
 
 # Root dependencies
 node_modules/
