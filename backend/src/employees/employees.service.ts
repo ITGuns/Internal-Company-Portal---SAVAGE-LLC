@@ -1,5 +1,6 @@
 import { PrismaClient, User } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
+import { buildPendingSignupProfile, getApprovedRoleAssignment } from '../auth/signup.requests'
 
 export interface CreateEmployeeDto {
     email: string
@@ -90,6 +91,17 @@ export class EmployeesService {
      * Create a pending employee application
      */
     async createPending(data: CreateEmployeeDto): Promise<User> {
+        const department = data.department
+            ? await this.prisma.department.findFirst({
+                where: {
+                    name: {
+                        equals: data.department,
+                        mode: 'insensitive',
+                    },
+                },
+            })
+            : null
+
         // Create user with pending status
         const user = await this.prisma.user.create({
             data: {
@@ -107,7 +119,10 @@ export class EmployeesService {
         await this.prisma.employeeProfile.create({
             data: {
                 userId: user.id,
-                jobTitle: data.role,
+                ...buildPendingSignupProfile({
+                    role: data.role,
+                    departmentId: department?.id || null,
+                }),
                 baseSalary: data.salary,
                 // We could map department too if we had the ID
             },
@@ -120,12 +135,38 @@ export class EmployeesService {
      * Approve a pending employee
      */
     async approve(id: string): Promise<User> {
-        const user = await this.prisma.user.update({
-            where: { id },
-            data: {
-                status: 'verified',
-                isApproved: true,
-            },
+        const user = await this.prisma.$transaction(async (tx) => {
+            const updated = await tx.user.update({
+                where: { id },
+                data: {
+                    status: 'verified',
+                    isApproved: true,
+                },
+                include: {
+                    employeeProfile: true,
+                },
+            })
+
+            const assignment = getApprovedRoleAssignment(updated.employeeProfile)
+            if (assignment) {
+                await tx.userRole.upsert({
+                    where: {
+                        userId_departmentId_role: {
+                            userId: updated.id,
+                            departmentId: assignment.departmentId,
+                            role: assignment.role,
+                        },
+                    },
+                    update: {},
+                    create: {
+                        userId: updated.id,
+                        departmentId: assignment.departmentId,
+                        role: assignment.role,
+                    },
+                })
+            }
+
+            return updated
         })
 
         // Auto-add to General channel if it exists

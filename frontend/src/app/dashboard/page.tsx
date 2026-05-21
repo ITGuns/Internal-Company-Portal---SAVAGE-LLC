@@ -1,14 +1,29 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import Header from '@/components/Header'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import { DashboardSkeleton } from '@/components/ui/Skeleton'
-import { Clock, CheckCircle2, AlertCircle, TrendingUp, ExternalLink, Send, Megaphone, Star, Trophy } from 'lucide-react'
-import { calculateWeeklyStats } from '@/lib/tasks'
-import { getTotalMinutesForDate } from '@/lib/time-entries'
-import { getTimeAgo, type Announcement } from '@/lib/announcements'
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowRight,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  ExternalLink,
+  FileText,
+  Megaphone,
+  Send,
+  Star,
+  TrendingUp,
+  Trophy,
+  UserCheck,
+} from 'lucide-react'
+import { getTimeAgo } from '@/lib/announcements'
 import { useRouter } from 'next/navigation'
 import { useSocket } from '@/context/SocketContext'
 import { fetchConversations, fetchMessages, sendMessage, type Message, type Conversation } from '@/lib/chat'
@@ -17,6 +32,14 @@ import { useTasks } from '@/hooks/useTasksQuery'
 import { useAnnouncements } from '@/hooks/useAnnouncementsQuery'
 import { useTimeEntries } from '@/hooks/useTimeEntriesQuery'
 import { useToast } from '@/components/ToastProvider'
+import { useDailyLogs } from '@/hooks/useDailyLogsQuery'
+import { fetchPendingEmployees } from '@/lib/employees'
+import {
+  buildDashboardSummary,
+  hasDashboardManagementAccess,
+  type DashboardAttentionItem,
+} from '@/lib/dashboard-summary'
+import { DASHBOARD_DEEP_LINKS } from '@/lib/dashboard-deep-links'
 
 function QuickLink({ title, subtitle, icon: Icon, onClick, href }: { title: string; subtitle?: string; icon: React.ComponentType<{ className?: string }>; onClick?: () => void; href?: string }) {
   const handleClick = () => {
@@ -41,16 +64,140 @@ function QuickLink({ title, subtitle, icon: Icon, onClick, href }: { title: stri
   )
 }
 
+function DashboardMetric({
+  label,
+  value,
+  helper,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  value: string | number;
+  helper: string;
+  icon: React.ComponentType<{ className?: string }>;
+  tone: 'emerald' | 'blue' | 'amber' | 'red' | 'violet';
+}) {
+  const toneClass = {
+    emerald: 'bg-emerald-500/10 text-emerald-500',
+    blue: 'bg-blue-500/10 text-blue-500',
+    amber: 'bg-amber-500/10 text-amber-500',
+    red: 'bg-red-500/10 text-red-500',
+    violet: 'bg-violet-500/10 text-violet-500',
+  }[tone];
+
+  return (
+    <Card padding="md" className="min-h-[116px]">
+      <div className="flex h-full items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-xs text-[var(--muted)]">{label}</div>
+          <div className="mt-2 text-2xl font-semibold tabular-nums">{value}</div>
+          <div className="mt-1 text-xs text-[var(--muted)]">{helper}</div>
+        </div>
+        <div className={`rounded-lg p-2 ${toneClass}`}>
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function AttentionRow({ item }: { item: DashboardAttentionItem }) {
+  const iconClass = item.severity === 'danger'
+    ? 'bg-red-500/10 text-red-500'
+    : item.severity === 'warning'
+      ? 'bg-amber-500/10 text-amber-500'
+      : 'bg-sky-500/10 text-sky-500';
+
+  return (
+    <a
+      href={item.href}
+      className="flex items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 transition hover:border-[var(--muted)] hover:bg-[var(--card-bg)]"
+    >
+      <div className={`mt-0.5 rounded-md p-1.5 ${iconClass}`}>
+        <AlertTriangle className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <div className="text-sm font-medium text-[var(--foreground)]">{item.title}</div>
+          {item.count != null && (
+            <span className="rounded-full bg-[var(--card-surface)] px-2 py-0.5 text-[10px] text-[var(--muted)]">
+              {item.count}
+            </span>
+          )}
+        </div>
+        <div className="mt-1 text-xs text-[var(--muted)]">{item.description}</div>
+      </div>
+      <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-[var(--muted)]" />
+    </a>
+  );
+}
+
+function ActionButton({
+  label,
+  helper,
+  icon: Icon,
+  onClick,
+}: {
+  label: string;
+  helper: string;
+  icon: React.ComponentType<{ className?: string }>;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-[86px] items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 text-left transition hover:border-[var(--muted)] hover:bg-[var(--card-bg)]"
+    >
+      <div className="rounded-md bg-[var(--card-surface)] p-2 text-[var(--foreground)]">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <div className="text-sm font-medium">{label}</div>
+        <div className="mt-1 text-xs text-[var(--muted)]">{helper}</div>
+      </div>
+    </button>
+  );
+}
+
 import { useUser } from '@/contexts/UserContext'
 
+function getTodayDateInput() {
+  const now = new Date();
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
 export default function DashboardPage() {
+  const { user, isLoading: userLoading } = useUser();
+  const isManagementDashboard = hasDashboardManagementAccess(user);
   const { data: allTasks = [], isLoading: tasksLoading } = useTasks();
   const { data: allAnnouncements = [], isLoading: announcementsLoading } = useAnnouncements();
   const { data: timeEntries = [], isLoading: timeLoading } = useTimeEntries();
+  const { data: dailyLogs = [], isLoading: dailyLogsLoading } = useDailyLogs();
+  const { data: pendingEmployees = [], isLoading: pendingEmployeesLoading } = useQuery({
+    queryKey: ['employees', 'pending'],
+    queryFn: fetchPendingEmployees,
+    enabled: isManagementDashboard,
+    staleTime: 60 * 1000,
+  });
 
-  const today = new Date().toISOString().slice(0, 10);
-  const todayMinutes = useMemo(() => getTotalMinutesForDate(timeEntries, today), [timeEntries, today]);
-  const weekTasks = useMemo(() => calculateWeeklyStats(allTasks), [allTasks]);
+  const today = useMemo(() => getTodayDateInput(), []);
+  const dashboardSummary = useMemo(
+    () => buildDashboardSummary({
+      userId: user?.id,
+      todayDate: today,
+      tasks: allTasks,
+      timeEntries,
+      dailyLogs,
+      pendingApprovals: pendingEmployees.length,
+      isManagement: isManagementDashboard,
+    }),
+    [allTasks, dailyLogs, isManagementDashboard, pendingEmployees.length, timeEntries, today, user?.id],
+  );
   const recentAnnouncements = useMemo(() => {
     const sorted = [...allAnnouncements].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     return sorted.slice(0, 3);
@@ -59,9 +206,7 @@ export default function DashboardPage() {
     const sorted = [...allAnnouncements].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     return sorted.filter(a => a.category === 'shoutouts').slice(0, 3);
   }, [allAnnouncements]);
-  const loading = tasksLoading || announcementsLoading || timeLoading;
-
-  const { user, isLoading: userLoading } = useUser();
+  const loading = tasksLoading || announcementsLoading || timeLoading || dailyLogsLoading || (isManagementDashboard && pendingEmployeesLoading);
 
   // Chat State
   const toast = useToast();
@@ -70,7 +215,7 @@ export default function DashboardPage() {
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
-  const [onlineCount, setOnlineCount] = useState(0);
+  const [onlineCount] = useState(0);
   const chatScrollRef = React.useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -134,7 +279,7 @@ export default function DashboardPage() {
     return () => {
       socket.off('chat:message', handleNewMessage);
     };
-  }, [socket, activeConversation]);
+  }, [socket, activeConversation, user?.id]);
 
   // Scroll chat to bottom
   useEffect(() => {
@@ -216,65 +361,95 @@ export default function DashboardPage() {
       <div className="p-6 pt-3">
         <Header />
 
-        {user && (
-          <div className="mt-8 mb-4 flex justify-between items-center bg-gradient-to-r from-blue-600/10 to-indigo-600/10 p-6 rounded-3xl border border-blue-500/20">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-xl font-bold text-[var(--foreground)]">Track Your Work Hours</h2>
-              <p className="text-sm text-[var(--muted)]">Every minute counts towards your next payslip. Don't forget to Clock In!</p>
+        <div className="mt-8 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] gap-4">
+          <Card padding="lg" className="overflow-hidden">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-2xl">
+                <div className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+                  {isManagementDashboard ? 'Team command center' : 'Personal command center'}
+                </div>
+                <h2 className="mt-2 text-2xl font-semibold text-[var(--foreground)]">
+                  {isManagementDashboard ? 'Review today before work piles up.' : 'Your day, tasks, logs, and payroll in one place.'}
+                </h2>
+                <p className="mt-2 text-sm text-[var(--muted)]">
+                  {isManagementDashboard
+                    ? 'Use the alerts and quick actions below to keep approvals, tasks, logs, and time entries moving.'
+                    : 'Start with the attention list, then jump straight into the next action without hunting through pages.'}
+                </p>
+              </div>
+              <div className="shrink-0">
+                <TimeClock />
+              </div>
             </div>
-            <TimeClock />
-          </div>
-        )}
+          </Card>
+
+          <Card variant="elevated" className="overflow-hidden">
+            <Card.Header className="py-4">
+              <div>
+                <h3 className="text-sm font-semibold">Needs Attention</h3>
+                <div className="mt-1 text-xs text-[var(--muted)]">
+                  {dashboardSummary.attentionItems.length} open item{dashboardSummary.attentionItems.length === 1 ? '' : 's'}
+                </div>
+              </div>
+            </Card.Header>
+            <Card.Content className="space-y-2">
+              {dashboardSummary.attentionItems.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--background)] p-4 text-sm text-[var(--muted)]">
+                  Nothing needs immediate review.
+                </div>
+              ) : (
+                dashboardSummary.attentionItems.slice(0, 4).map((item) => (
+                  <AttentionRow key={item.id} item={item} />
+                ))
+              )}
+            </Card.Content>
+          </Card>
+        </div>
 
         {/* Stats Overview */}
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card padding="md">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-emerald-500/10">
-                <Clock className="w-5 h-5 text-emerald-500" />
-              </div>
-              <div>
-                <div className="text-xs text-[var(--muted)]">Today&apos;s Time</div>
-                <div className="text-lg font-semibold">{formatHours(todayMinutes)}</div>
-              </div>
-            </div>
-          </Card>
-
-          <Card padding="md">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-blue-500/10">
-                <TrendingUp className="w-5 h-5 text-blue-500" />
-              </div>
-              <div>
-                <div className="text-xs text-[var(--muted)]">This Week</div>
-                <div className="text-lg font-semibold">{weekTasks.total} Tasks</div>
-              </div>
-            </div>
-          </Card>
-
-          <Card padding="md">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-green-500/10">
-                <CheckCircle2 className="w-5 h-5 text-green-500" />
-              </div>
-              <div>
-                <div className="text-xs text-[var(--muted)]">Completed</div>
-                <div className="text-lg font-semibold">{weekTasks.completed}</div>
-              </div>
-            </div>
-          </Card>
-
-          <Card padding="md">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-amber-500/10">
-                <AlertCircle className="w-5 h-5 text-amber-500" />
-              </div>
-              <div>
-                <div className="text-xs text-[var(--muted)]">Overdue</div>
-                <div className="text-lg font-semibold">{weekTasks.overdue}</div>
-              </div>
-            </div>
-          </Card>
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
+          <DashboardMetric
+            label="Today's Time"
+            value={formatHours(dashboardSummary.metrics.todayMinutes)}
+            helper={dashboardSummary.metrics.activeClockIn ? 'Clock is running' : 'Tracked today'}
+            icon={Clock}
+            tone="emerald"
+          />
+          <DashboardMetric
+            label="Assigned Tasks"
+            value={dashboardSummary.metrics.assignedTasks}
+            helper={isManagementDashboard ? 'Visible to your role' : 'Assigned to you'}
+            icon={ClipboardList}
+            tone="blue"
+          />
+          <DashboardMetric
+            label="In Progress"
+            value={dashboardSummary.metrics.inProgressTasks}
+            helper="Active work items"
+            icon={TrendingUp}
+            tone="violet"
+          />
+          <DashboardMetric
+            label="Completed Today"
+            value={dashboardSummary.metrics.completedToday}
+            helper="Closed today"
+            icon={CheckCircle2}
+            tone="emerald"
+          />
+          <DashboardMetric
+            label="Overdue"
+            value={dashboardSummary.metrics.overdueTasks}
+            helper="Past due and open"
+            icon={AlertCircle}
+            tone={dashboardSummary.metrics.overdueTasks > 0 ? 'red' : 'amber'}
+          />
+          <DashboardMetric
+            label={isManagementDashboard ? 'Approvals' : 'Daily Log'}
+            value={isManagementDashboard ? dashboardSummary.metrics.pendingApprovals : (dashboardSummary.metrics.pendingDailyLog ? 'Open' : 'Done')}
+            helper={isManagementDashboard ? 'Pending employees' : 'Today status'}
+            icon={isManagementDashboard ? UserCheck : FileText}
+            tone={dashboardSummary.metrics.pendingApprovals > 0 || dashboardSummary.metrics.pendingDailyLog ? 'amber' : 'emerald'}
+          />
         </div>
 
         <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -442,11 +617,31 @@ export default function DashboardPage() {
                   <h4 className="font-semibold">Quick Actions</h4>
                 </Card.Header>
 
-                <Card.Content className="grid grid-cols-2 gap-3 items-start">
-                  <button onClick={() => router.push('/task-tracking')} className="py-2 px-3 bg-[var(--background)] rounded text-xs text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--card-surface)] hover:shadow-sm transition">New Task</button>
-                  <button onClick={() => router.push('/payroll-calendar')} className="py-2 px-3 bg-[var(--background)] rounded text-xs text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--card-surface)] hover:shadow-sm transition">Schedule</button>
-                  <button onClick={() => router.push('/announcements')} className="py-2 px-3 bg-[var(--background)] rounded text-xs text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--card-surface)] hover:shadow-sm transition">Announce</button>
-                  <button onClick={() => router.push('/announcements')} className="py-2 px-3 bg-[var(--background)] rounded text-xs text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--card-surface)] hover:shadow-sm transition">Shoutout</button>
+                <Card.Content className="grid gap-3 sm:grid-cols-2">
+                  <ActionButton
+                    label="Create Task"
+                    helper="Open task tracking"
+                    icon={ClipboardList}
+                    onClick={() => router.push(DASHBOARD_DEEP_LINKS.createTask)}
+                  />
+                  <ActionButton
+                    label="Add Daily Log"
+                    helper="Record today's work"
+                    icon={FileText}
+                    onClick={() => router.push(DASHBOARD_DEEP_LINKS.addDailyLog)}
+                  />
+                  <ActionButton
+                    label="Review Payroll"
+                    helper="Check time entries"
+                    icon={CalendarDays}
+                    onClick={() => router.push(DASHBOARD_DEEP_LINKS.reviewPayroll)}
+                  />
+                  <ActionButton
+                    label={isManagementDashboard ? 'Approvals' : 'Announcements'}
+                    helper={isManagementDashboard ? 'Review pending employees' : 'Read company updates'}
+                    icon={isManagementDashboard ? UserCheck : Megaphone}
+                    onClick={() => router.push(isManagementDashboard ? DASHBOARD_DEEP_LINKS.approvals : DASHBOARD_DEEP_LINKS.announcements)}
+                  />
                 </Card.Content>
               </Card>
             </div>

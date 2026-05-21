@@ -6,14 +6,15 @@
 "use client"
 
 import React, { useRef, useEffect, useState } from 'react'
-import { Eraser, Pencil, Download, Trash2, ArrowLeft, Square, Circle, Minus } from 'lucide-react'
-import Link from 'next/link'
+import { Eraser, Pencil, Download, Trash2 } from 'lucide-react'
 import { useUser } from '@/contexts/UserContext'
 import { useRouter } from 'next/navigation'
 import Button from '@/components/Button'
 import Header from '@/components/Header'
 
 type Tool = 'pencil' | 'eraser' | 'rect' | 'circle' | 'line'
+const INITIAL_COLOR = '#3b82f6'
+const INITIAL_BRUSH_SIZE = 5
 
 export default function WhiteboardPage() {
   const { user } = useUser()
@@ -21,9 +22,9 @@ export default function WhiteboardPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const contextRef = useRef<CanvasRenderingContext2D | null>(null)
   const [isDrawing, setIsDrawing] = useState(false)
-  const [color, setColor] = useState('#3b82f6')
+  const [color, setColor] = useState(INITIAL_COLOR)
   const [tool, setTool] = useState<Tool>('pencil')
-  const [brushSize, setBrushSize] = useState(5)
+  const [brushSize, setBrushSize] = useState(INITIAL_BRUSH_SIZE)
 
   // Auth Check
   useEffect(() => {
@@ -49,8 +50,8 @@ export default function WhiteboardPage() {
     if (context) {
       context.scale(2, 2)
       context.lineCap = 'round'
-      context.strokeStyle = color
-      context.lineWidth = brushSize
+      context.strokeStyle = INITIAL_COLOR
+      context.lineWidth = INITIAL_BRUSH_SIZE
       contextRef.current = context
 
       // Set white background

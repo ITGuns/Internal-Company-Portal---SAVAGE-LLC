@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Header from '@/components/Header';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
@@ -12,9 +12,10 @@ import FormField from '@/components/forms/FormField';
 import { useToast } from '@/components/ToastProvider';
 import { useUser } from '@/contexts/UserContext';
 import { useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, Clock, CheckCircle2, MessageCircle, ThumbsUp, FileText, StickyNote } from 'lucide-react';
+import { Search, Plus, Clock, CheckCircle2, MessageCircle, ThumbsUp, FileText, StickyNote, ClipboardList } from 'lucide-react';
 import { DEPARTMENTS } from '@/lib/departments';
 import { useDailyLogs } from '@/hooks/useDailyLogsQuery';
+import { useTasks } from '@/hooks/useTasksQuery';
 import {
   createDailyLog,
   updateDailyLog,
@@ -27,16 +28,36 @@ import {
   type LogStatus,
   type LogTask,
 } from '@/lib/daily-logs';
+import {
+  getDailyLogTaskImportOptions,
+  getDailyLogTaskReviewOptions,
+  mergeDailyLogTasksWithImports,
+  type DailyLogTaskImportOption,
+} from '@/lib/daily-log-task-import';
+import { shouldOpenCreateFromSearch } from '@/lib/dashboard-deep-links';
+import { getDailyLogReviewSummary } from '@/lib/daily-log-review';
+import { hasManagementAccess } from '@/lib/role-access';
 
 type DateFilter = 'today' | 'week' | 'month' | 'all';
 
 export default function DailyLogsPage() {
   const toast = useToast();
   const { user: currentUser } = useUser();
+  const currentUserDepartment = currentUser?.department;
+  const currentUserRole = currentUser?.role;
+  const canReviewTeamLogs = hasManagementAccess(currentUser);
   const queryClient = useQueryClient();
   const { data: logs = [], isLoading: loading } = useDailyLogs();
+  const currentUserId = currentUser?.id ? String(currentUser.id) : '';
+  const {
+    data: trackedTasks = [],
+    isLoading: trackedTasksLoading,
+  } = useTasks(undefined, canReviewTeamLogs ? undefined : currentUserId || undefined, {
+    enabled: canReviewTeamLogs || Boolean(currentUserId),
+  });
   const [showModal, setShowModal] = useState(false);
   const [editingLog, setEditingLog] = useState<DailyLog | null>(null);
+  const handledNewLogDeepLinkRef = useRef(false);
 
   // Filters
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
@@ -64,25 +85,59 @@ export default function DailyLogsPage() {
   const [formTaskInput, setFormTaskInput] = useState('');
   const [formShiftNotes, setFormShiftNotes] = useState('');
   const [formLogType, setFormLogType] = useState<string>('daily');
+  const taskImportOptions = useMemo(
+    () => getDailyLogTaskImportOptions(trackedTasks, {
+      currentUserId,
+      selectedDate: formDate,
+      existingTasks: formTasks,
+    }),
+    [currentUserId, formDate, formTasks, trackedTasks],
+  );
+  const taskReviewOptions = useMemo(
+    () => getDailyLogTaskReviewOptions(trackedTasks, {
+      currentUserId,
+      selectedDate: formDate,
+      existingTasks: formTasks,
+    }),
+    [currentUserId, formDate, formTasks, trackedTasks],
+  );
+  const taskLookup = useMemo(
+    () => new Map(trackedTasks.map((task) => [task.id, task])),
+    [trackedTasks],
+  );
 
   // Set default department when user loads
   useEffect(() => {
-    if (currentUser?.department && !formDepartment) {
-      setFormDepartment(currentUser.department);
+    if (currentUserDepartment) {
+      setFormDepartment(previous => previous || currentUserDepartment);
     }
-    // Also default filter if same department
-    if (currentUser?.department && departmentFilter === DEPARTMENTS[0]) {
-      // if not admin, default to their department
-      // if admin, keep "All Departments"
-      if (currentUser.role?.toLowerCase() !== 'admin') {
-        setDepartmentFilter(currentUser.department);
-      }
+
+    if (currentUserDepartment && currentUserRole?.toLowerCase() !== 'admin') {
+      setDepartmentFilter(previous => {
+        if (previous === DEPARTMENTS[0]) {
+          return currentUserDepartment;
+        }
+        return previous;
+      });
     }
-  }, [currentUser]);
+  }, [currentUserDepartment, currentUserRole]);
+
+  useEffect(() => {
+    if (handledNewLogDeepLinkRef.current || typeof window === 'undefined') return;
+
+    if (shouldOpenCreateFromSearch(new URLSearchParams(window.location.search))) {
+      handledNewLogDeepLinkRef.current = true;
+      setEditingLog(null);
+      setShowModal(true);
+    }
+  }, []);
 
 
 
   const users = getUniqueUsers(logs);
+  const reviewSummary = getDailyLogReviewSummary(logs, {
+    selectedUserId: userFilter === 'all' ? undefined : userFilter,
+  });
 
   // Filter logs
   const filteredLogs = logs.filter(log => {
@@ -167,6 +222,17 @@ export default function DailyLogsPage() {
 
   const handleRemoveTask = (taskId: string) => {
     setFormTasks(formTasks.filter(task => task.id !== taskId));
+  };
+
+  const handleImportTask = (option: DailyLogTaskImportOption) => {
+    setFormTasks((tasks) => mergeDailyLogTasksWithImports(tasks, [option]));
+  };
+
+  const handleImportAllTasks = () => {
+    setFormTasks((tasks) => mergeDailyLogTasksWithImports(tasks, taskImportOptions));
+    if (taskImportOptions.length > 0) {
+      toast.success(`Imported ${taskImportOptions.length} task${taskImportOptions.length === 1 ? '' : 's'} from Task Tracking`);
+    }
   };
 
   const handleSubmit = async () => {
@@ -355,6 +421,37 @@ export default function DailyLogsPage() {
                   </div>
                 </div>
               </div>
+
+              {canReviewTeamLogs && (
+                <div className="pt-4 border-t border-[var(--border)]">
+                  <h4 className="font-semibold text-sm mb-3">Manager Review</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-[var(--muted)]">Reviewed Logs</span>
+                      <span className="font-semibold">{reviewSummary.totalLogs}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[var(--muted)]">Completed</span>
+                      <span className="font-semibold">{reviewSummary.completedLogs}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[var(--muted)]">Blocked</span>
+                      <span className="font-semibold">{reviewSummary.blockedLogs}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[var(--muted)]">Linked Tasks</span>
+                      <span className="font-semibold">{reviewSummary.linkedTaskCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[var(--muted)]">Hours</span>
+                      <span className="font-semibold">{reviewSummary.totalHours}</span>
+                    </div>
+                    <div className="text-xs text-[var(--muted)]">
+                      Last log: {reviewSummary.lastLogDate || 'No logs yet'}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -422,9 +519,23 @@ export default function DailyLogsPage() {
                                 ) : (
                                   <div className="w-4 h-4 rounded-full border-2 border-[var(--border)] flex-shrink-0 mt-0.5" />
                                 )}
-                                <span className={task.completed ? 'line-through text-[var(--muted)]' : ''}>
-                                  {task.text}
-                                </span>
+                                <div className="min-w-0">
+                                  <span className={task.completed ? 'line-through text-[var(--muted)]' : ''}>
+                                    {task.text}
+                                  </span>
+                                  {task.id.startsWith('task:') && (
+                                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-[var(--muted)]">
+                                      <span className="rounded bg-sky-500/10 px-1.5 py-0.5 text-sky-600 dark:text-sky-300">
+                                        Task Tracking
+                                      </span>
+                                      {taskLookup.get(task.id.slice('task:'.length))?.workSessions?.length ? (
+                                        <span>
+                                          {taskLookup.get(task.id.slice('task:'.length))?.workSessions?.length} session{taskLookup.get(task.id.slice('task:'.length))?.workSessions?.length === 1 ? '' : 's'}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -559,6 +670,102 @@ export default function DailyLogsPage() {
 
             <div>
               <label className="block text-sm font-medium mb-2">Tasks Completed Today</label>
+              <div className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--card-surface)] p-3">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2">
+                    <ClipboardList className="mt-0.5 h-4 w-4 text-[var(--accent)]" />
+                    <div>
+                      <div className="text-sm font-medium">Import from Task Tracking</div>
+                      <p className="mt-0.5 text-xs text-[var(--muted)]">
+                        Completed and in-progress tasks assigned to you for {formDate}.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleImportAllTasks}
+                    disabled={taskImportOptions.length === 0}
+                  >
+                    Import All
+                  </Button>
+                </div>
+
+                {trackedTasksLoading ? (
+                  <div className="text-xs text-[var(--muted)]">Checking your assigned tasks...</div>
+                ) : taskImportOptions.length === 0 ? (
+                  <div className="text-xs text-[var(--muted)]">
+                    No matching task-tracking items found for this date. You can still add work manually below.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {taskImportOptions.map(option => (
+                      <div
+                        key={option.id}
+                        className="flex items-center justify-between gap-3 rounded border border-[var(--border)] bg-[var(--background)] px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium">{option.text}</div>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                            <span className={option.completed ? 'text-emerald-500' : 'text-blue-500'}>
+                              {option.completed ? 'Completed' : 'In Progress'}
+                            </span>
+                            {typeof option.progress === 'number' && (
+                              <span>{option.progress}% progress</span>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleImportTask(option)}
+                        >
+                          Import
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {taskReviewOptions.length > 0 && (
+                  <div className="mt-3 border-t border-[var(--border)] pt-3">
+                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+                      Optional review-stage tasks
+                    </div>
+                    <div className="space-y-2">
+                      {taskReviewOptions.map(option => (
+                        <div
+                          key={option.id}
+                          className="flex items-center justify-between gap-3 rounded border border-amber-500/20 bg-amber-500/10 px-3 py-2"
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium">{option.text}</div>
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                              <span className="text-amber-600 dark:text-amber-300">Review</span>
+                              {typeof option.progress === 'number' && (
+                                <span>{option.progress}% progress</span>
+                              )}
+                              {option.sessionCount ? (
+                                <span>{option.sessionCount} session{option.sessionCount === 1 ? '' : 's'}</span>
+                              ) : null}
+                              {option.trackedMinutes ? (
+                                <span>{option.trackedMinutes}m tracked</span>
+                              ) : null}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleImportTask(option)}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
               <div className="flex gap-2 mb-3">
                 <input
                   type="text"

@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { APP_CONFIG } from '@/lib/config'
-import { STORAGE_KEYS, SOCKET_EVENTS } from '@/lib/constants'
+import { STORAGE_KEYS } from '@/lib/constants'
 import { apiFetch } from '@/lib/api'
 import { getQueryClient } from '@/lib/queryClient'
 import type { SocketNotificationPayload } from '@/lib/types/api'
@@ -211,7 +211,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
                     if (uid && (!socketRef.current || !socketRef.current.connected)) {
                         connect(uid)
                     }
-                } catch (e) {
+                } catch {
                     // Ignore parse errors
                 }
             }
@@ -240,7 +240,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             markAsRead,
             markAllAsRead,
             clearNotifications,
-            clearChatBadge: () => setUnreadChatCount(0)
+            clearChatBadge
         }}>
             {children}
         </SocketContext.Provider>

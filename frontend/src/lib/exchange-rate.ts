@@ -4,6 +4,7 @@
 
 const CACHE_KEY = 'usd_to_php_rate';
 const CACHE_EXPIRY = 3600000; // 1 hour
+const FALLBACK_USD_TO_PHP_RATE = 56.0;
 
 export interface ExchangeRateData {
     rate: number;
@@ -15,36 +16,42 @@ export interface ExchangeRateData {
  */
 export async function getUSDToPHPRate(): Promise<number> {
     // Try to get from cache first
-    const cached = localStorage.getItem(CACHE_KEY);
+    const cached = typeof window !== 'undefined' ? localStorage.getItem(CACHE_KEY) : null;
     if (cached) {
         try {
             const data: ExchangeRateData = JSON.parse(cached);
             if (Date.now() - data.timestamp < CACHE_EXPIRY) {
                 return data.rate;
             }
-        } catch (e) {
-            console.error('Failed to parse cached exchange rate', e);
+        } catch {
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem(CACHE_KEY);
+            }
         }
     }
 
     try {
-        // API: frankfurter.app (free, no API key required)
-        const response = await fetch('https://api.frankfurter.app/latest?from=USD&to=PHP');
-        if (!response.ok) throw new Error('API request failed');
+        const response = await fetch('/internal/exchange-rate', { cache: 'no-store' });
+        if (!response.ok) throw new Error('Exchange rate request failed');
 
         const data = await response.json();
-        const rate = data.rates.PHP;
+        const rate = Number(data.rate);
+
+        if (!Number.isFinite(rate) || rate <= 0) {
+            throw new Error('Invalid exchange rate response');
+        }
 
         // Save to cache
-        localStorage.setItem(CACHE_KEY, JSON.stringify({
-            rate,
-            timestamp: Date.now()
-        }));
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(CACHE_KEY, JSON.stringify({
+                rate,
+                timestamp: Date.now()
+            }));
+        }
 
         return rate;
-    } catch (err) {
-        console.error('Failed to fetch real-time exchange rate:', err);
+    } catch {
         // Fallback if API fails
-        return 56.0;
+        return FALLBACK_USD_TO_PHP_RATE;
     }
 }

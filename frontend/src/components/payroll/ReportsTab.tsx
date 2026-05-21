@@ -4,7 +4,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   BarChart3,
   Download,
@@ -13,7 +13,6 @@ import {
   PhilippinePeso,
   Users,
   FileText,
-  Clock,
   PieChart,
   Layers,
   ChevronLeft,
@@ -104,20 +103,21 @@ function DonutChart({
   segments: { value: number; color: string; label: string }[];
 }) {
   const total = segments.reduce((s, seg) => s + seg.value, 0) || 1;
-  let cum = -90;
   const r = 36;
   const cx = 50;
   const cy = 50;
   const toRad = (deg: number) => (deg * Math.PI) / 180;
 
-  const arcs = segments.map((seg) => {
+  const arcs = segments.map((seg, index) => {
+    const start = -90 + segments
+      .slice(0, index)
+      .reduce((sum, previous) => sum + (previous.value / total) * 360, 0);
     const angle = (seg.value / total) * 360;
-    const start = cum;
-    cum += angle;
+    const end = start + angle;
     const x1 = cx + r * Math.cos(toRad(start));
     const y1 = cy + r * Math.sin(toRad(start));
-    const x2 = cx + r * Math.cos(toRad(cum));
-    const y2 = cy + r * Math.sin(toRad(cum));
+    const x2 = cx + r * Math.cos(toRad(end));
+    const y2 = cy + r * Math.sin(toRad(end));
     const large = angle > 180 ? 1 : 0;
     return {
       ...seg,
@@ -182,7 +182,7 @@ function StatusBadge({ status }: { status: string }) {
 // ── Payslip Archive tab ───────────────────────────────────
 
 function PayslipArchive() {
-  const toast = useToast();
+  const { error: showToastError, success: showToastSuccess } = useToast();
   const [allPayslips, setAllPayslips] = useState<Payslip[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -199,13 +199,13 @@ function PayslipArchive() {
         }
       } catch (err) {
         console.error(err);
-        toast.error("Could not load payslip archive");
+        showToastError("Could not load payslip archive");
       } finally {
         setLoading(false);
       }
     };
     fetchAll();
-  }, []);
+  }, [showToastError]);
 
   const filtered = useMemo(() => {
     return allPayslips.filter((p) => {
@@ -231,7 +231,7 @@ function PayslipArchive() {
       performance: 0,
       status: "active",
     });
-    toast.success(`Downloading payslip for ${payslip.employeeName}`);
+    showToastSuccess(`Downloading payslip for ${payslip.employeeName}`);
   };
 
   if (loading) return <PageSkeleton />;
@@ -380,12 +380,12 @@ function PayslipArchive() {
 // ── Main component ────────────────────────────────────────
 
 export default function ReportsTab() {
-  const toast = useToast();
+  const { error: showToastError } = useToast();
   const [stats, setStats] = useState<ReportStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<SubTab>("summary");
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
       const res = await apiFetch("/payroll/reports");
@@ -395,15 +395,15 @@ export default function ReportsTab() {
       }
     } catch (err) {
       console.error("Failed to fetch reports", err);
-      toast.error("Failed to load reports");
+      showToastError("Failed to load reports");
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToastError]);
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [fetchStats]);
 
   if (loading && activeTab !== "my-reports")
     return <PageSkeleton />;

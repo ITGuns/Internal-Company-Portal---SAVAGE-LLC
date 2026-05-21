@@ -4,7 +4,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   PhilippinePeso,
   Save,
@@ -64,15 +64,25 @@ export default function GeneratePayslipModal({
   const [grossPay, setGrossPay] = useState<number>(0);
   const [isCalculating, setIsCalculating] = useState(false);
   const [hoursManual, setHoursManual] = useState(false);       // true = user edited manually
+  const hoursManualRef = useRef(hoursManual);
+  const hoursWorkedRef = useRef(hoursWorked);
 
   const [customDeductions, setCustomDeductions] = useState<Omit<Deduction, "id">[]>([]);
+
+  useEffect(() => {
+    hoursManualRef.current = hoursManual;
+  }, [hoursManual]);
+
+  useEffect(() => {
+    hoursWorkedRef.current = hoursWorked;
+  }, [hoursWorked]);
 
   // Sync employee on prop change
   useEffect(() => {
     if (selectedEmployee) {
       setEmployeeId(selectedEmployee.id.toString());
-    } else if (employees.length > 0 && !employeeId) {
-      setEmployeeId(employees[0].id.toString());
+    } else if (employees.length > 0) {
+      setEmployeeId(current => current || employees[0].id.toString());
     }
   }, [selectedEmployee, employees]);
 
@@ -88,16 +98,20 @@ export default function GeneratePayslipModal({
         const data = await res.json();
         const hrs = overrideHours ?? data.totalHours ?? 0;
         const rate = data.hourlyRate ?? 0;
+        const manualHoursEnabled = hoursManualRef.current;
+        const currentHours = hoursWorkedRef.current;
 
         setHourlyRate(rate);
-        if (!hoursManual || overrideHours !== undefined) {
+        if (!manualHoursEnabled || overrideHours !== undefined) {
+          hoursManualRef.current = false;
+          hoursWorkedRef.current = hrs;
           setHoursWorked(hrs);
           setHoursManual(false);
         }
         // Recalculate gross with whatever hours we have
-        const effectiveHrs = hoursManual && overrideHours === undefined
-          ? hoursWorked
-          : (data.totalHours ?? 0);
+        const effectiveHrs = manualHoursEnabled && overrideHours === undefined
+          ? currentHours
+          : hrs;
         setGrossPay(rate * effectiveHrs);
       }
     } catch (err) {
@@ -105,13 +119,14 @@ export default function GeneratePayslipModal({
     } finally {
       setIsCalculating(false);
     }
-  }, [employeeId, payPeriodStart, payPeriodEnd, hoursManual, hoursWorked]);
+  }, [employeeId, payPeriodStart, payPeriodEnd]);
 
   // Auto-fetch whenever employee or dates change
   useEffect(() => {
+    hoursManualRef.current = false;
     setHoursManual(false);
     fetchPreview();
-  }, [employeeId, payPeriodStart, payPeriodEnd]);
+  }, [fetchPreview]);
 
   // Recalculate gross when hours are edited manually
   useEffect(() => {
@@ -241,7 +256,11 @@ export default function GeneratePayslipModal({
                   )}
                   <button
                     type="button"
-                    onClick={() => { setHoursManual(false); fetchPreview(undefined); }}
+                    onClick={() => {
+                      hoursManualRef.current = false;
+                      setHoursManual(false);
+                      fetchPreview(undefined);
+                    }}
                     className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 hover:opacity-75 transition-opacity"
                     title="Re-fetch calculated hours"
                   >

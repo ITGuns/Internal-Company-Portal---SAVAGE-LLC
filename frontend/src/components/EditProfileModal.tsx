@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Modal from "./Modal";
 import Button from "./Button";
-import { User, Mail, Calendar, Phone, Camera, MapPin, Flag } from "lucide-react";
+import { User, Mail, Calendar, Phone, Camera, MapPin } from "lucide-react";
 import { useToast } from "./ToastProvider";
 import { useUser } from "@/contexts/UserContext";
 import { updateUserProfile, uploadAvatar } from "@/lib/api";

@@ -2,7 +2,7 @@
  * Payslips Management Tab - Time & Salary Management with 3-column layout
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Search, Loader2, Zap, Sparkles } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -23,6 +23,7 @@ import type { ApiPayslip, ApiPayslipItem, ApiEmployee } from "@/lib/types/api";
 
 export default function PayslipsTab() {
   const toast = useToast();
+  const showToastError = toast.error;
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -31,7 +32,6 @@ export default function PayslipsTab() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [isBulkGenerating, setIsBulkGenerating] = useState(false);
   const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
-  const [payslips, setPayslips] = useState<Payslip[]>([]);
 
   // Local state for the selected employee's payslips
   const [employeePayslips, setEmployeePayslips] = useState<Payslip[]>([]);
@@ -68,7 +68,7 @@ export default function PayslipsTab() {
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
       // Fetch deployed employees
@@ -93,21 +93,21 @@ export default function PayslipsTab() {
       }));
 
       setEmployees(normalizedEmployees);
-      if (normalizedEmployees.length > 0 && !selectedEmployee) {
-        setSelectedEmployee(normalizedEmployees[0]);
+      if (normalizedEmployees.length > 0) {
+        setSelectedEmployee(previous => previous ?? normalizedEmployees[0]);
       }
     } catch (err) {
       console.error("Failed to fetch data", err);
       const message = err instanceof Error ? err.message : "Failed to load employees";
-      toast.error(message === "Failed to fetch" ? "Connection failed" : message);
+      showToastError(message === "Failed to fetch" ? "Connection failed" : message);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [showToastError]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   // Fetch payslips when selected employee changes or manual refresh
   useEffect(() => {
@@ -226,16 +226,6 @@ export default function PayslipsTab() {
       toast.success(`PDF downloaded for ${selectedEmployee.name}`);
     } else {
       toast.error("Unable to generate PDF - payslip or employee not found");
-    }
-  };
-
-  // Handle view latest payslip
-  const handleViewPayslip = () => {
-    if (employeePayslips.length > 0) {
-      setSelectedPayslip(employeePayslips[0]);
-      setShowDetailsModal(true);
-    } else {
-      toast.info("No payslip found for this employee");
     }
   };
 

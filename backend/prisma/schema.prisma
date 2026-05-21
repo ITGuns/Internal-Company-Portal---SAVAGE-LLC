@@ -40,7 +40,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  tasks                Task[]
+  tasks                Task[]            @relation("TaskAssignee")
+  createdTasks         Task[]            @relation("TaskCreator")
   roles                UserRole[]
   announcements        Announcement[]
   dailyLogs            DailyLog[]
@@ -53,6 +54,7 @@ model User {
   messages             Message[]
   employeeProfile      EmployeeProfile?
   payslips             Payslip[]
+  taskWorkSessions     TaskWorkSession[]
 
   @@index([email])
 }
@@ -97,23 +99,46 @@ model Task {
 
   departmentId String?
   assigneeId   String?
+  createdById  String?
 
   progress      Int?      @default(0)
   timerStatus   String?   @default("stopped")
   timerStart    DateTime?
   totalElapsed  Int?      @default(0)
   estimatedTime Int? // In minutes
+  completedAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  assignee   User?       @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  department   Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  assignee     User?             @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  creator      User?             @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  workSessions TaskWorkSession[]
 
   @@index([status])
   @@index([departmentId])
   @@index([assigneeId])
+  @@index([createdById])
+  @@index([completedAt])
+}
+
+model TaskWorkSession {
+  id              String   @id @default(cuid())
+  taskId          String
+  userId          String
+  startedAt       DateTime
+  endedAt         DateTime
+  durationSeconds Int
+  createdAt       DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([startedAt])
 }
 
 model UserRole {
@@ -300,6 +325,8 @@ model EmployeeProfile {
   userId           String  @unique
   jobTitle         String?
   employmentType   String? @default("Full-Time")
+  requestedRole    String?
+  requestedDepartmentId String?
   baseSalary       Float?  @default(0)
   currency         String  @default("PHP")
   paymentFrequency String  @default("Semi-Monthly")

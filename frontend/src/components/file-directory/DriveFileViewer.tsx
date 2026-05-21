@@ -6,7 +6,7 @@ import {
     FolderOpen,
     File,
     FileText,
-    Image,
+    Image as ImageIcon,
     Video,
     Music,
     Archive,
@@ -28,7 +28,7 @@ import type { DriveFile } from '@/lib/file-directory';
 
 function getMimeIcon(mimeType: string, isFolder: boolean) {
     if (isFolder) return <FolderOpen className="w-5 h-5 text-amber-500" />;
-    if (mimeType.includes('image')) return <Image className="w-5 h-5 text-purple-500" />;
+    if (mimeType.includes('image')) return <ImageIcon className="w-5 h-5 text-purple-500" />;
     if (mimeType.includes('video')) return <Video className="w-5 h-5 text-rose-500" />;
     if (mimeType.includes('audio')) return <Music className="w-5 h-5 text-pink-400" />;
     if (mimeType.includes('spreadsheet') || mimeType.includes('csv'))

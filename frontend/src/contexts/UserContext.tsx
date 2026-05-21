@@ -5,10 +5,11 @@ import { getCurrentUser, setCurrentUser as saveCurrentUser, getRefreshToken, set
 import { STORAGE_KEYS } from '@/lib/constants';
 
 export interface User {
-  id: number;
+  id: string | number;
   email: string;
   name: string;
   role: string;
+  roles?: string[];
   department?: string;
   position?: string;
   avatar?: string;

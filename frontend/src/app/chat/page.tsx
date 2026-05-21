@@ -210,7 +210,7 @@ export default function UnifiedChatPage() {
             }
         }
         loadMessages()
-    }, [selectedId, socket, clearChatBadge])
+    }, [selectedId, socket, clearChatBadge, toast])
 
     // Listen for real-time events
     useEffect(() => {

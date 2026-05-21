@@ -1,6 +1,8 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import { config } from '../config/env.config';
+import { JwtPayload, JwtService } from '../auth/jwt.service';
+import { prisma } from '../database/prisma.service';
 
 export interface NotificationPayload {
     type: 'info' | 'success' | 'warning' | 'error';
@@ -28,16 +30,57 @@ class NotificationService {
             allowEIO3: true // Support older clients just in case
         });
 
+        this.io.use((socket, next) => {
+            const authToken = socket.handshake.auth?.token;
+            const authHeader = socket.handshake.headers.authorization;
+            const bearerToken = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+                ? authHeader.slice('Bearer '.length)
+                : undefined;
+            const token = typeof authToken === 'string' ? authToken : bearerToken;
+
+            if (!token) {
+                next(new Error('Unauthorized socket connection'));
+                return;
+            }
+
+            try {
+                socket.data.user = JwtService.verifyAccessToken(token);
+                next();
+            } catch {
+                next(new Error('Invalid socket token'));
+            }
+        });
+
         this.io.on('connection', (socket: Socket) => {
+            const socketUser = socket.data.user as JwtPayload | undefined;
+
+            if (!socketUser?.userId) {
+                socket.disconnect(true);
+                return;
+            }
             console.log(`🔌 Client connected: ${socket.id}`);
 
             // Handle authentication/user identification
-            socket.on('authenticate', (userId: string) => {
-                this.registerUserSocket(userId, socket.id);
-                console.log(`👤 User authenticated on socket: ${userId}`);
+            socket.on('authenticate', () => {
+                this.registerUserSocket(socketUser.userId, socket.id);
+                console.log(`👤 User authenticated on socket: ${socketUser.userId}`);
             });
 
-            socket.on('join:conversation', (conversationId: string) => {
+            socket.on('join:conversation', async (conversationId: string) => {
+                const participant = await prisma.participant.findUnique({
+                    where: {
+                        conversationId_userId: {
+                            conversationId,
+                            userId: socketUser.userId,
+                        },
+                    },
+                });
+
+                if (!participant) {
+                    socket.emit('error', { message: 'Not authorized to join this conversation' });
+                    return;
+                }
+
                 socket.join(`conversation:${conversationId}`);
                 console.log(`💬 Socket ${socket.id} joined conversation room: ${conversationId}`);
             });
@@ -46,7 +89,7 @@ class NotificationService {
             socket.on('typing:start', (data: { conversationId: string; userId: string; userName: string }) => {
                 socket.to(`conversation:${data.conversationId}`).emit('typing:start', {
                     conversationId: data.conversationId,
-                    userId: data.userId,
+                    userId: socketUser.userId,
                     userName: data.userName,
                 });
             });
@@ -54,7 +97,7 @@ class NotificationService {
             socket.on('typing:stop', (data: { conversationId: string; userId: string }) => {
                 socket.to(`conversation:${data.conversationId}`).emit('typing:stop', {
                     conversationId: data.conversationId,
-                    userId: data.userId,
+                    userId: socketUser.userId,
                 });
             });
 

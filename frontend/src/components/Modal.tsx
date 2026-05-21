@@ -134,13 +134,13 @@ export default function Modal({
 
   return (
     <div
-      className="fixed left-64 top-0 right-0 bottom-0 z-[9999] flex items-center justify-center p-4 animate-fadeIn modal-print-wrapper"
+      className="fixed inset-y-0 left-0 right-0 md:left-64 z-[9999] flex items-center justify-center p-3 sm:p-4 animate-fadeIn modal-print-wrapper"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
       aria-describedby={subtitle ? "modal-description" : undefined}
     >
-      {/* Backdrop - only covers content area, not sidebar */}
+      {/* Backdrop - covers the active content area and preserves the desktop sidebar. */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fadeIn"
         onClick={closeOnBackdrop ? onClose : undefined}
@@ -152,7 +152,7 @@ export default function Modal({
         ref={modalRef}
         tabIndex={-1}
         className={cn(
-          'relative bg-[var(--card-surface)] rounded-xl shadow-2xl ring-1 ring-[var(--border)] w-full animate-slideUp',
+          'relative bg-[var(--card-surface)] rounded-xl shadow-2xl ring-1 ring-[var(--border)] w-full max-h-[calc(100vh-1.5rem)] overflow-hidden animate-slideUp',
           sizeClasses[size],
           className,
         )}
@@ -185,7 +185,7 @@ export default function Modal({
         </div>
 
         {/* Body */}
-        <div className="p-6 max-h-[60vh] overflow-y-auto chat-scroll">{children}</div>
+        <div className="p-4 sm:p-6 max-h-[calc(100vh-9rem)] sm:max-h-[60vh] overflow-y-auto chat-scroll">{children}</div>
 
         {/* Footer */}
         {footer && (

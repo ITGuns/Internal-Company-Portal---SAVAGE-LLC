@@ -1,15 +1,8 @@
 import express, { Request, Response, Router } from 'express'
 import { FileDirectoryService } from './file-directory.service'
-import { authenticateToken } from '../auth/auth.middleware'
+import { AuthRequest, authenticateToken } from '../auth/auth.middleware'
 import { prisma } from '../database/prisma.service'
-interface AuthRequest extends Request {
-    user?: {
-        userId: string
-        role?: string
-        department?: string
-        [key: string]: unknown
-    }
-}
+import { isAdminEmail } from '../config/env.config'
 
 export class FileDirectoryController {
     private service = new FileDirectoryService()
@@ -39,7 +32,7 @@ export class FileDirectoryController {
                 // Allow "Operations leads" hack explicitly if needed, but the service `findAll` has the role check.
                 // Actually if `details.role === 'admin'` they see all.
                 // Or if email matches
-                if (['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(user?.email?.toLowerCase() || '')) {
+                if (isAdminEmail(user?.email)) {
                     details.role = 'admin'
                 }
 
@@ -58,7 +51,7 @@ export class FileDirectoryController {
                 const id = String(req.params.id)
                 const details = await getUserDetails(user?.userId)
                 
-                if (['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(user?.email?.toLowerCase() || '')) {
+                if (isAdminEmail(user?.email)) {
                     details.role = 'admin'
                 }
 
@@ -110,7 +103,7 @@ export class FileDirectoryController {
 
                 // Only admin or the creator can delete
                 const details = await getUserDetails(user?.userId)
-                if (['genroujoshcatacutan25@gmail.com', 'daryldave018@gmail.com'].includes(user?.email?.toLowerCase() || '')) {
+                if (isAdminEmail(user?.email)) {
                     details.role = 'admin'
                 }
 

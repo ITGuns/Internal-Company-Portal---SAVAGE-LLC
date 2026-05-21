@@ -8,11 +8,7 @@ import {
   FileText,
   Download,
   Calendar,
-  Phone,
   Mail,
-  Globe,
-  MapPin,
-  Home,
   Upload,
 } from "lucide-react";
 import Button from "@/components/Button";

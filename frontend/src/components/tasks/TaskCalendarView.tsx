@@ -17,7 +17,7 @@ interface TaskCalendarViewProps {
   totalCount: number;
   completedCount: number;
   inProgressCount: number;
-  onEditTask: (task: Task) => void;
+  onOpenTask: (task: Task) => void;
 }
 
 export default function TaskCalendarView({
@@ -27,7 +27,7 @@ export default function TaskCalendarView({
   totalCount,
   completedCount,
   inProgressCount,
-  onEditTask,
+  onOpenTask,
 }: TaskCalendarViewProps) {
   return (
     <div className="flex-1 overflow-y-auto chat-scroll pr-2 pb-6 space-y-6">
@@ -68,7 +68,7 @@ export default function TaskCalendarView({
           }}
           eventClick={(arg) => {
             if (arg.event.extendedProps.task) {
-              onEditTask(arg.event.extendedProps.task);
+              onOpenTask(arg.event.extendedProps.task);
             }
           }}
           dayMaxEvents={3}
@@ -96,7 +96,7 @@ export default function TaskCalendarView({
                 {todaysTasks.map((t) => (
                   <li
                     key={t.id}
-                    onClick={() => onEditTask(t)}
+                    onClick={() => onOpenTask(t)}
                     className="p-2 border border-[var(--border)] rounded text-sm cursor-pointer hover:bg-[var(--card-bg)]"
                   >
                     <div className="font-medium">{t.title}</div>
@@ -130,7 +130,7 @@ export default function TaskCalendarView({
                 {overdueTasks.slice(0, 3).map((t) => (
                   <li
                     key={t.id}
-                    onClick={() => onEditTask(t)}
+                    onClick={() => onOpenTask(t)}
                     className="p-2 border border-[var(--status-blocked)] bg-[var(--status-blocked-bg)] rounded text-sm cursor-pointer"
                   >
                     <div className="font-medium">{t.title}</div>

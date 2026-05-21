@@ -32,7 +32,7 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
     useEffect(() => {
         if (isOpen) {
             const now = new Date();
-            let startDate = new Date();
+            const startDate = new Date();
 
             if (logType === 'daily') {
                 startDate.setHours(0, 0, 0, 0);

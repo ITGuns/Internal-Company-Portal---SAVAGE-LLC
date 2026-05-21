@@ -1,11 +1,44 @@
 import express, { Request, Response, Router } from 'express'
 import { TasksService, TaskStatus } from './tasks.service'
-import { authenticateToken, requireRole } from '../auth/auth.middleware'
+import { authenticateToken, requireRole, AuthRequest } from '../auth/auth.middleware'
 import { emailService } from '../email/email.service'
 import { notificationService } from '../notifications/socket.service'
+import { prisma } from '../database/prisma.service'
+import { isAdminEmail } from '../config/env.config'
+import {
+  canReadTask,
+  canRequestAssigneeTasks,
+  getPrimaryTaskAssignment,
+  getTaskVisibilityFilter,
+  hasTaskAssignmentPrivilege,
+  type PrimaryTaskAssignment,
+} from './tasks.permissions'
+
+interface TaskAccessContext {
+  requesterId: string
+  isPrivileged: boolean
+  primaryAssignment: PrimaryTaskAssignment | null
+}
 
 export class TasksController {
   private service = new TasksService()
+
+  private async getAccessContext(req: Request): Promise<TaskAccessContext | null> {
+    const authReq = req as AuthRequest
+    const requesterId = authReq.user?.userId
+    if (!requesterId) return null
+
+    const roles = await prisma.userRole.findMany({
+      where: { userId: requesterId },
+      include: { department: true },
+    })
+
+    return {
+      requesterId,
+      isPrivileged: hasTaskAssignmentPrivilege(roles) || isAdminEmail(authReq.user?.email),
+      primaryAssignment: getPrimaryTaskAssignment(roles),
+    }
+  }
 
   router(): Router {
     const router = express.Router()
@@ -15,7 +48,12 @@ export class TasksController {
       try {
         const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined
         const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined
-        const tasks = await this.service.findAll(page, limit)
+        const access = await this.getAccessContext(req)
+        if (!access) {
+          return res.status(401).json({ error: 'Authentication required' })
+        }
+
+        const tasks = await this.service.findAll(page, limit, getTaskVisibilityFilter(access))
         res.json(tasks)
       } catch (error) {
         res.status(500).json({ error: 'Failed to fetch tasks' })
@@ -29,7 +67,12 @@ export class TasksController {
         if (!query) {
           return res.status(400).json({ error: 'Search query required' })
         }
-        const tasks = await this.service.search(query)
+        const access = await this.getAccessContext(req)
+        if (!access) {
+          return res.status(401).json({ error: 'Authentication required' })
+        }
+
+        const tasks = await this.service.search(query, getTaskVisibilityFilter(access))
         res.json(tasks)
       } catch (error) {
         res.status(500).json({ error: 'Failed to search tasks' })
@@ -52,7 +95,12 @@ export class TasksController {
           })
         }
 
-        const tasks = await this.service.findByStatus(status as TaskStatus)
+        const access = await this.getAccessContext(req)
+        if (!access) {
+          return res.status(401).json({ error: 'Authentication required' })
+        }
+
+        const tasks = await this.service.findByStatus(status as TaskStatus, getTaskVisibilityFilter(access))
         res.json(tasks)
       } catch (error) {
         res.status(500).json({ error: 'Failed to fetch tasks by status' })
@@ -66,7 +114,12 @@ export class TasksController {
           ? req.params.departmentId[0]
           : req.params.departmentId
 
-        const tasks = await this.service.findByDepartment(departmentId)
+        const access = await this.getAccessContext(req)
+        if (!access) {
+          return res.status(401).json({ error: 'Authentication required' })
+        }
+
+        const tasks = await this.service.findByDepartment(departmentId, getTaskVisibilityFilter(access))
         res.json(tasks)
       } catch (error) {
         res.status(500).json({ error: 'Failed to fetch tasks by department' })
@@ -79,6 +132,14 @@ export class TasksController {
         const assigneeId = Array.isArray(req.params.assigneeId)
           ? req.params.assigneeId[0]
           : req.params.assigneeId
+
+        const access = await this.getAccessContext(req)
+        if (!access) {
+          return res.status(401).json({ error: 'Authentication required' })
+        }
+        if (!canRequestAssigneeTasks(access, assigneeId)) {
+          return res.status(403).json({ error: 'You can only view tasks assigned to you' })
+        }
 
         const tasks = await this.service.findByAssignee(assigneeId)
         res.json(tasks)
@@ -97,6 +158,14 @@ export class TasksController {
           return res.status(404).json({ error: 'Task not found' })
         }
 
+        const access = await this.getAccessContext(req)
+        if (!access) {
+          return res.status(401).json({ error: 'Authentication required' })
+        }
+        if (!canReadTask(access, task)) {
+          return res.status(403).json({ error: 'You can only view tasks assigned to you' })
+        }
+
         res.json(task)
       } catch (error) {
         res.status(500).json({ error: 'Failed to fetch task' })
@@ -107,12 +176,32 @@ export class TasksController {
     router.post('/', authenticateToken, async (req: Request, res: Response) => {
       try {
         const { title, description, status, departmentId, assigneeId, priority, startDate, dueDate, notes, estimatedTime, role } = req.body
+        const access = await this.getAccessContext(req)
+        if (!access) {
+          return res.status(401).json({ error: 'Authentication required' })
+        }
 
         if (!title) {
           return res.status(400).json({ error: 'Title is required' })
         }
 
-        if (!departmentId) {
+        let effectiveDepartmentId = departmentId
+        let effectiveAssigneeId = assigneeId
+        let effectiveRole = role
+
+        if (!access.isPrivileged) {
+          if (!access.primaryAssignment) {
+            return res.status(400).json({
+              error: 'Your account needs an assigned role and department before creating tasks',
+            })
+          }
+
+          effectiveDepartmentId = access.primaryAssignment.departmentId
+          effectiveAssigneeId = access.requesterId
+          effectiveRole = access.primaryAssignment.role
+        }
+
+        if (!effectiveDepartmentId) {
           return res.status(400).json({ error: 'Department ID is required' })
         }
 
@@ -120,12 +209,13 @@ export class TasksController {
           title,
           description,
           status,
-          departmentId,
-          assigneeId,
+          departmentId: effectiveDepartmentId,
+          assigneeId: effectiveAssigneeId,
+          createdById: access.requesterId,
           priority,
           startDate,
           dueDate,
-          role,
+          role: effectiveRole,
           notes,
           estimatedTime
         })
@@ -133,7 +223,7 @@ export class TasksController {
         // Send task assigned email & notification if there's an assignee
         if (task.assignee && task.department) {
           const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
-          const taskUrl = `${frontendUrl}/tasks/${task.id}`
+          const taskUrl = `${frontendUrl}/task-tracking?task=${task.id}`
 
           // 1. Send Email
           emailService.sendTaskAssignedEmail(
@@ -153,7 +243,7 @@ export class TasksController {
             type: 'info',
             title: 'New Task Assigned',
             message: `You have been assigned to: ${task.title}`,
-            link: `/tasks/${task.id}`
+            link: `/task-tracking?task=${task.id}`
           })
         }
 
@@ -174,6 +264,10 @@ export class TasksController {
       try {
         const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
         const { title, description, status, departmentId, assigneeId, priority, startDate, dueDate, notes, progress, timerStatus, timerStart, totalElapsed, estimatedTime, role } = req.body
+        const access = await this.getAccessContext(req)
+        if (!access) {
+          return res.status(401).json({ error: 'Authentication required' })
+        }
 
         // Check if task exists
         const existingTask = await this.service.findById(id)
@@ -181,28 +275,47 @@ export class TasksController {
           return res.status(404).json({ error: 'Task not found' })
         }
 
+        if (!access.isPrivileged) {
+          if (existingTask.assigneeId !== access.requesterId) {
+            return res.status(403).json({ error: 'You can only update tasks assigned to you' })
+          }
+
+          const protectedFields = ['assigneeId', 'departmentId', 'role']
+          const requestedProtectedFields = protectedFields.filter((field) =>
+            Object.prototype.hasOwnProperty.call(req.body, field),
+          )
+
+          if (requestedProtectedFields.length > 0) {
+            return res.status(403).json({
+              error: 'Only managers and admins can change task assignment, department, or role',
+            })
+          }
+        }
+
         const task = await this.service.update(id, {
           title,
           description,
           status,
-          departmentId,
-          assigneeId,
+          departmentId: access.isPrivileged ? departmentId : undefined,
+          assigneeId: access.isPrivileged ? assigneeId : undefined,
           priority,
           startDate,
           dueDate,
-          role,
+          role: access.isPrivileged ? role : undefined,
           notes,
           progress,
           timerStatus,
           timerStart,
           totalElapsed,
           estimatedTime
+        }, {
+          actorId: access.requesterId,
         })
 
         // Send status changed email & notification if status was updated
         if (status && existingTask.status !== status && task.assignee) {
           const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
-          const taskUrl = `${frontendUrl}/tasks/${task.id}`
+          const taskUrl = `${frontendUrl}/task-tracking?task=${task.id}`
 
           // 1. Send Email
           emailService.sendTaskStatusChangedEmail(
@@ -222,7 +335,7 @@ export class TasksController {
             type: 'info',
             title: 'Task Updated',
             message: `Task "${task.title}" moved to ${status}`,
-            link: `/tasks/${task.id}`
+            link: `/task-tracking?task=${task.id}`
           })
         }
 

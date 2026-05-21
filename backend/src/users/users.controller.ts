@@ -5,6 +5,8 @@ import { emailService } from '../email/email.service'
 import { PayrollService } from '../payroll/payroll.service'
 import { DepartmentsService } from '../departments/departments.service'
 import { isAdminEmail } from '../config/env.config'
+import { canRequestAssigneeTasks, hasTaskAssignmentPrivilege } from '../tasks/tasks.permissions'
+import { sanitizeUserForDirectory, sanitizeUsersForDirectory } from './users.security'
 
 export class UsersController {
     private service = new UsersService()
@@ -20,7 +22,13 @@ export class UsersController {
                 const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined
                 const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined
                 const users = await this.service.findAll(page, limit)
-                res.json(users)
+                if (Array.isArray(users)) {
+                    return res.json(sanitizeUsersForDirectory(users))
+                }
+                res.json({
+                    ...users,
+                    data: sanitizeUsersForDirectory(users.data),
+                })
             } catch (error) {
                 res.status(500).json({ error: 'Failed to fetch users' })
             }
@@ -34,7 +42,7 @@ export class UsersController {
                     return res.status(400).json({ error: 'Search query required' })
                 }
                 const users = await this.service.search(query)
-                res.json(users)
+                res.json(sanitizeUsersForDirectory(users))
             } catch (error) {
                 res.status(500).json({ error: 'Failed to search users' })
             }
@@ -50,7 +58,7 @@ export class UsersController {
                     return res.status(404).json({ error: 'User not found' })
                 }
 
-                res.json(user)
+                res.json(sanitizeUserForDirectory(user))
             } catch (error) {
                 res.status(500).json({ error: 'Failed to fetch user' })
             }
@@ -89,7 +97,7 @@ export class UsersController {
 
                 const user = await this.service.update(id, { avatar })
 
-                res.json({ success: true, user })
+                res.json({ success: true, user: sanitizeUserForDirectory(user) })
             } catch (error) {
                 console.error('Avatar upload error:', error)
                 res.status(500).json({ error: 'Failed to update avatar' })
@@ -111,6 +119,22 @@ export class UsersController {
         router.get('/:id/tasks', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+                const authReq = req as AuthRequest
+                const requesterId = authReq.user?.userId
+                if (!requesterId) {
+                    return res.status(401).json({ error: 'Authentication required' })
+                }
+
+                const roles = await this.service.getUserRoles(requesterId)
+                const access = {
+                    requesterId,
+                    isPrivileged: hasTaskAssignmentPrivilege(roles) || isAdminEmail(authReq.user?.email),
+                }
+
+                if (!canRequestAssigneeTasks(access, id)) {
+                    return res.status(403).json({ error: 'You can only view tasks assigned to you' })
+                }
+
                 const tasks = await this.service.getUserTasks(id)
                 res.json(tasks)
             } catch (error) {
@@ -146,7 +170,7 @@ export class UsersController {
                     // Don't fail user creation if email fails
                 })
 
-                res.status(201).json(user)
+                res.status(201).json(sanitizeUserForDirectory(user))
             } catch (error) {
                 res.status(500).json({ error: 'Failed to create user' })
             }
@@ -159,22 +183,31 @@ export class UsersController {
                 const { name, email, avatar, birthday, phone, address, city, citizenship, status, appliedDate, salary, role, department } = req.body
                 const authReq = req as AuthRequest
                 const requesterId = authReq.user?.userId
+                if (!requesterId) {
+                    return res.status(401).json({ error: 'Authentication required' })
+                }
 
-                // Check authorization
-                if (requesterId !== id) {
-                    // Check if requester is admin or operations_manager
-                    const userRoles = await this.service.getUserRoles(requesterId!)
-                    const isPrivileged = userRoles.some(r =>
-                        r.role === 'admin' ||
-                        r.role === 'operations_manager' ||
-                        r.role === 'Operations Manager' ||
-                        r.role === 'Chief Operations Officer'
-                    )
-                    const isAuthorizedEmail = isAdminEmail(authReq.user?.email)
+                const requesterRoles = await this.service.getUserRoles(requesterId)
+                const isPrivileged = requesterRoles.some(r =>
+                    r.role === 'admin' ||
+                    r.role === 'operations_manager' ||
+                    r.role === 'Operations Manager' ||
+                    r.role === 'Chief Operations Officer'
+                ) || isAdminEmail(authReq.user?.email)
 
-                    if (!isPrivileged && !isAuthorizedEmail) {
-                        return res.status(403).json({ error: 'Unauthorized to update another user' })
-                    }
+                if (requesterId !== id && !isPrivileged) {
+                    return res.status(403).json({ error: 'Unauthorized to update another user' })
+                }
+
+                const protectedFields = ['status', 'appliedDate', 'salary', 'role', 'department', 'departmentId', 'isApproved']
+                const requestedProtectedFields = protectedFields.filter(field =>
+                    Object.prototype.hasOwnProperty.call(req.body, field)
+                )
+
+                if (requestedProtectedFields.length > 0 && !isPrivileged) {
+                    return res.status(403).json({
+                        error: 'Only authorized managers can update employee status, payroll, role, or department fields',
+                    })
                 }
 
                 // Check if user exists
@@ -194,7 +227,8 @@ export class UsersController {
                     city,
                     citizenship,
                     status,
-                    appliedDate
+                    appliedDate,
+                    isApproved: status !== undefined ? status !== 'pending' : undefined,
                 })
 
                 // Handle Salary / Payroll Update
@@ -226,7 +260,7 @@ export class UsersController {
                     await this.service.assignRole(id, newRole, departmentIdToAssign)
                 }
 
-                res.json({ success: true, user })
+                res.json({ success: true, user: sanitizeUserForDirectory(user) })
             } catch (error) {
                 console.error('Update user error:', error)
                 res.status(500).json({ error: 'Failed to update user' })

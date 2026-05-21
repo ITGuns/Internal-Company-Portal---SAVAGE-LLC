@@ -2,7 +2,7 @@
  * Calendar Tab - main payroll calendar view with time tracking
  */
 
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -12,15 +12,22 @@ import {
   Clock,
   Calendar as CalendarIcon,
   Square,
+  Edit2,
   Trash2,
   Plus,
   LogOut,
   BarChart3,
 } from "lucide-react";
 import StatCard from "./StatCard";
-import EventCard from "./EventCard";
+import AddTimeEntryModal from "./AddTimeEntryModal";
+import PayrollDayDetailPanel from "./PayrollDayDetailPanel";
+import TimeEntryDeleteModal from "./TimeEntryDeleteModal";
 import type { CalendarEvent, PayrollStats } from "@/lib/payroll-calendar/types";
 import type { TimeEntry } from "@/lib/time-entries";
+import {
+  getPayrollDayAudit,
+  type PayrollAuditEntry,
+} from "@/lib/payroll-calendar/day-audit";
 import { colorForType, dotForType, getLocalDateString } from "@/lib/payroll-calendar/utils";
 
 interface CalendarTabProps {
@@ -35,7 +42,10 @@ interface CalendarTabProps {
   onClockIn: () => void;
   onClockOut: () => void;
   onAddManualEntry: () => void;
-  onDeleteTimeEntry: (id: string) => void;
+  onEditTimeEntry: (id: string, startIso: string, endIso?: string, notes?: string, userId?: string) => Promise<boolean>;
+  onDeleteTimeEntry: (id: string) => Promise<void> | void;
+  isOwnTimeView?: boolean;
+  auditEmployeeLabel?: string;
 }
 
 /** Format total seconds into "Xh XXm XXs" or "Xm XXs" */
@@ -69,10 +79,15 @@ export default function CalendarTab({
   onClockIn,
   onClockOut,
   onAddManualEntry,
+  onEditTimeEntry,
   onDeleteTimeEntry,
+  isOwnTimeView = true,
+  auditEmployeeLabel,
 }: CalendarTabProps) {
   const calendarRef = useRef<FullCalendar>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [editingEntry, setEditingEntry] = useState<PayrollAuditEntry | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PayrollAuditEntry | null>(null);
   // Ticks every second so active timers update live
   const [now, setNow] = useState(() => new Date());
 
@@ -81,11 +96,16 @@ export default function CalendarTab({
     return () => clearInterval(id);
   }, []);
 
-  // Filter today's entries
-  const todayEntries = (() => {
-    const today = getLocalDateString(new Date());
-    return timeEntries.filter((e) => getLocalDateString(e.start) === today);
-  })();
+  const today = getLocalDateString(new Date());
+  const todayAudit = useMemo(
+    () => getPayrollDayAudit(timeEntries, { date: today, now }),
+    [timeEntries, today, now],
+  );
+  const selectedDayAudit = useMemo(
+    () => selectedDate ? getPayrollDayAudit(timeEntries, { date: selectedDate, now }) : null,
+    [selectedDate, timeEntries, now],
+  );
+  const todayEntries = todayAudit.entries;
 
   // Calculate today's total — completed entries use durationMin, active entry uses live elapsed
   const todayTotalSeconds = todayEntries.reduce((acc, e) => {
@@ -93,6 +113,23 @@ export default function CalendarTab({
     // Active entry (no end) — count live elapsed seconds
     return acc + Math.max(0, Math.round((now.getTime() - new Date(e.start).getTime()) / 1000));
   }, 0);
+
+  async function handleConfirmDeleteTimeEntry(entryId: string) {
+    await onDeleteTimeEntry(entryId);
+  }
+
+  async function handleSubmitEditTimeEntry(
+    startIso: string,
+    endIso?: string,
+    notes?: string,
+    userId?: string,
+  ) {
+    if (!editingEntry) return false;
+
+    const success = await onEditTimeEntry(editingEntry.id, startIso, endIso, notes, userId);
+    if (success) setEditingEntry(null);
+    return success;
+  }
 
   return (
     <>
@@ -235,7 +272,11 @@ export default function CalendarTab({
             {/* Header */}
             <div className="flex items-center justify-between mb-3">
               <div className="text-sm font-semibold">Time Clock</div>
-              {clockedIn && (
+              {!isOwnTimeView ? (
+                <div className="inline-flex items-center gap-2 rounded-full bg-sky-600/10 px-2 py-1 text-xs font-medium text-sky-600">
+                  Audit View
+                </div>
+              ) : clockedIn && (
                 <div className="inline-flex items-center gap-2 bg-emerald-600 text-white text-xs px-2 py-1 rounded-full">
                   <span className="w-2 h-2 rounded-full bg-white/90 animate-pulse inline-block" />
                   <span>Clocked In</span>
@@ -244,23 +285,29 @@ export default function CalendarTab({
             </div>
 
             {/* Clock In / Out buttons */}
-            <div className="flex items-center gap-3 mb-4">
-              {!clockedIn ? (
-                <button
-                  onClick={onClockIn}
-                  className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 transition-colors"
-                >
-                  <Clock className="w-4 h-4" aria-hidden="true" />
-                  Clock In
-                </button>
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              {isOwnTimeView ? (
+                !clockedIn ? (
+                  <button
+                    onClick={onClockIn}
+                    className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 transition-colors"
+                  >
+                    <Clock className="w-4 h-4" aria-hidden="true" />
+                    Clock In
+                  </button>
+                ) : (
+                  <button
+                    onClick={onClockOut}
+                    className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white flex items-center gap-2 transition-colors"
+                  >
+                    <Square className="w-4 h-4" aria-hidden="true" />
+                    Clock Out
+                  </button>
+                )
               ) : (
-                <button
-                  onClick={onClockOut}
-                  className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white flex items-center gap-2 transition-colors"
-                >
-                  <Square className="w-4 h-4" aria-hidden="true" />
-                  Clock Out
-                </button>
+                <div className="w-full rounded border border-sky-500/20 bg-sky-500/10 px-3 py-2 text-xs text-sky-700 dark:text-sky-300">
+                  Viewing {auditEmployeeLabel || "selected employee"}. Clock in/out controls are only available on your own time view.
+                </div>
               )}
               <button
                 onClick={onAddManualEntry}
@@ -340,9 +387,18 @@ export default function CalendarTab({
                             : "—"}
                       </span>
                       <button
+                        aria-label="Edit entry"
+                        onClick={() => setEditingEntry(e)}
+                        className="p-1 rounded border border-transparent bg-transparent text-[var(--muted)] hover:bg-sky-600 hover:text-white transition-colors"
+                        title="Edit entry"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
                         aria-label="Delete entry"
-                        onClick={() => onDeleteTimeEntry(e.id)}
+                        onClick={() => setDeleteTarget(e)}
                         className="p-1 rounded border border-transparent bg-transparent text-[var(--muted)] hover:bg-red-600 hover:text-white transition-colors"
+                        title="Delete entry"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -353,43 +409,16 @@ export default function CalendarTab({
             </ul>
           </div>
 
-          {/* ── Event Details ── */}
-          <div className="rounded border border-[var(--border)] bg-[var(--card-surface)] p-4 mb-4">
-            <div className="text-sm font-semibold">
-              {selectedDate
-                ? new Date(selectedDate).toLocaleDateString(undefined, {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                })
-                : "Event Details"}
-            </div>
-            <div className="mt-3">
-              {selectedDate ? (
-                (() => {
-                  const eventsForDate = events.filter(
-                    (e: CalendarEvent) => e.start === selectedDate
-                  );
-                  return eventsForDate.length ? (
-                    eventsForDate.map((e: CalendarEvent) => (
-                      <EventCard
-                        key={e.id}
-                        event={e}
-                        onEdit={() => onEditEvent(e)}
-                        onDelete={() => onDeleteEvent(e)}
-                      />
-                    ))
-                  ) : (
-                    <div className="text-[var(--muted)] text-sm">No events on this date.</div>
-                  );
-                })()
-              ) : (
-                <div className="text-[var(--muted)] text-sm">
-                  Select a date on the calendar to view details.
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Day details */}
+          <PayrollDayDetailPanel
+            selectedDate={selectedDate}
+            audit={selectedDayAudit}
+            events={events}
+            onEditEvent={onEditEvent}
+            onDeleteEvent={onDeleteEvent}
+            onRequestEditEntry={setEditingEntry}
+            onRequestDeleteEntry={setDeleteTarget}
+          />
 
           {/* ── Upcoming Events ── */}
           <div className="rounded border border-[var(--border)] bg-[var(--card-surface)] p-4">
@@ -421,6 +450,20 @@ export default function CalendarTab({
           </div>
         </div>
       </div>
+      <TimeEntryDeleteModal
+        entry={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDeleteTimeEntry}
+      />
+      <AddTimeEntryModal
+        isOpen={Boolean(editingEntry)}
+        onClose={() => setEditingEntry(null)}
+        onSubmit={handleSubmitEditTimeEntry}
+        mode="edit"
+        editingEntry={editingEntry}
+        initialUserId={editingEntry?.userId}
+        auditContextLabel={!isOwnTimeView ? auditEmployeeLabel : undefined}
+      />
     </>
   );
 }

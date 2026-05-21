@@ -1,8 +1,20 @@
 import express, { Request, Response, Router } from 'express'
-import { PayrollService } from './payroll.service'
-import { authenticateToken, requireRole, requireDepartment } from '../auth/auth.middleware'
+import {
+    PayrollForbiddenError,
+    PayrollNotFoundError,
+    PayrollService,
+    UpdateTimeEntryDto,
+} from './payroll.service'
+import { authenticateToken, requireRole } from '../auth/auth.middleware'
 import { notificationService } from '../notifications/socket.service'
 import { isAdminEmail } from '../config/env.config'
+import { prisma } from '../database/prisma.service'
+import {
+    canAccessPayrollTarget,
+    filterPayrollProfileUpdate,
+    hasPayrollManagementAccess,
+    PayrollAccess,
+} from './payroll.permissions'
 
 interface AuthRequest extends Request {
     user?: {
@@ -13,6 +25,55 @@ interface AuthRequest extends Request {
 
 export class PayrollController {
     private service = new PayrollService()
+
+    private getParam(value: string | string[]): string {
+        return Array.isArray(value) ? value[0] : value
+    }
+
+    private async getPayrollAccess(req: Request): Promise<PayrollAccess | null> {
+        const authReq = req as AuthRequest
+        const requesterId = authReq.user?.userId
+        if (!requesterId) return null
+
+        const roles = await prisma.userRole.findMany({
+            where: { userId: requesterId },
+            select: { role: true },
+        })
+
+        return {
+            requesterId,
+            isPrivileged: hasPayrollManagementAccess(
+                roles,
+                isAdminEmail(authReq.user?.email),
+            ),
+        }
+    }
+
+    private parseDate(value: unknown): Date | null {
+        if (value === undefined || value === null || value === '') return null
+
+        const date = new Date(String(value))
+        return Number.isNaN(date.getTime()) ? null : date
+    }
+
+    private sendPayrollError(res: Response, error: unknown, fallback: string) {
+        if (error instanceof PayrollForbiddenError) {
+            return res.status(403).json({ error: error.message })
+        }
+        if (error instanceof PayrollNotFoundError) {
+            return res.status(404).json({ error: error.message })
+        }
+        if (error instanceof Error && (
+            error.message === 'Invalid start time' ||
+            error.message === 'Invalid end time' ||
+            error.message === 'End time must be after start time' ||
+            error.message === 'Invalid base salary'
+        )) {
+            return res.status(400).json({ error: error.message })
+        }
+
+        return res.status(500).json({ error: fallback })
+    }
 
     router(): Router {
         const router = express.Router()
@@ -90,24 +151,17 @@ export class PayrollController {
         // TimeEntry endpoints
         router.get('/time-entries', authenticateToken, async (req: Request, res: Response) => {
             try {
-                const authReq = req as AuthRequest
-                const requesterId = authReq.user?.userId
-                if (!requesterId) return res.sendStatus(401)
+                const access = await this.getPayrollAccess(req)
+                if (!access) return res.sendStatus(401)
 
-                let targetUserId = requesterId
+                let targetUserId = access.requesterId
 
-                // Allow admins/managers to query another user's entries via ?userId=
-                if (req.query.userId && req.query.userId !== requesterId) {
-                    // Check if requester is admin or manager
-                    const { prisma } = await import('../database/prisma.service')
-                    const requesterRoles = await prisma.userRole.findMany({ where: { userId: requesterId } })
-                    const isPrivileged = requesterRoles.some(r => ['admin', 'manager', 'operations_manager', 'operations manager'].includes(r.role.toLowerCase()))
-                    const isAuthorizedEmail = isAdminEmail(authReq.user?.email)
-
-                    if (!isPrivileged && !isAuthorizedEmail) {
+                if (req.query.userId) {
+                    const queriedUserId = req.query.userId as string
+                    if (!canAccessPayrollTarget(access, queriedUserId)) {
                         return res.status(403).json({ error: 'Unauthorized to view another user\'s time entries' })
                     }
-                    targetUserId = req.query.userId as string
+                    targetUserId = queriedUserId
                 }
 
                 const start = req.query.start ? new Date(req.query.start as string) : undefined
@@ -152,54 +206,98 @@ export class PayrollController {
 
         router.post('/entry', authenticateToken, async (req: Request, res: Response) => {
             try {
-                const authReq = req as AuthRequest
-                const requesterId = authReq.user?.userId
-                if (!requesterId) return res.sendStatus(401)
+                const access = await this.getPayrollAccess(req)
+                if (!access) return res.sendStatus(401)
 
                 const { start, end, notes, userId } = req.body
                 if (!start) return res.status(400).json({ error: 'Start time required' })
 
-                let targetUserId = requesterId
+                const targetUserId = userId || access.requesterId
+                if (!canAccessPayrollTarget(access, targetUserId)) {
+                    return res.status(403).json({ error: 'Unauthorized to add manual entry for another user' })
+                }
 
-                // Allow admins/managers to add entry for another user
-                if (userId && userId !== requesterId) {
-                    const { prisma } = await import('../database/prisma.service')
-                    const requesterRoles = await prisma.userRole.findMany({ where: { userId: requesterId } })
-                    const isPrivileged = requesterRoles.some(r => ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase()))
-                    const isAuthorizedEmail = isAdminEmail(authReq.user?.email)
-
-                    if (!isPrivileged && !isAuthorizedEmail) {
-                        return res.status(403).json({ error: 'Unauthorized to add manual entry for another user' })
-                    }
-                    targetUserId = userId
+                const startDate = this.parseDate(start)
+                const endDate = end ? this.parseDate(end) : null
+                if (!startDate || (end && !endDate)) {
+                    return res.status(400).json({ error: 'Invalid start or end time' })
                 }
 
                 const entry = await this.service.addManualEntry(
                     targetUserId,
-                    new Date(start),
-                    end ? new Date(end) : null,
+                    startDate,
+                    endDate,
                     notes
                 )
                 res.json(entry)
                 notificationService.broadcastDataChange('time-entries')
             } catch (e) {
                 console.error('Error adding entry:', e)
-                res.status(500).json({ error: 'Failed' })
+                this.sendPayrollError(res, e, 'Failed')
+            }
+        })
+
+        router.patch('/entry/:id', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const access = await this.getPayrollAccess(req)
+                if (!access) return res.sendStatus(401)
+
+                const id = this.getParam(req.params.id)
+                const { start, end, notes, userId } = req.body
+                const updates: UpdateTimeEntryDto = {}
+
+                if (start !== undefined) {
+                    const startDate = this.parseDate(start)
+                    if (!startDate) return res.status(400).json({ error: 'Invalid start time' })
+                    updates.start = startDate
+                }
+                if (end !== undefined) {
+                    if (end === null || end === '') {
+                        updates.end = null
+                    } else {
+                        const endDate = this.parseDate(end)
+                        if (!endDate) return res.status(400).json({ error: 'Invalid end time' })
+                        updates.end = endDate
+                    }
+                }
+                if (notes !== undefined) updates.notes = notes
+                if (userId !== undefined) {
+                    if (!access.isPrivileged && userId !== access.requesterId) {
+                        return res.status(403).json({ error: 'Only payroll managers can reassign time entries' })
+                    }
+                    updates.userId = userId
+                }
+
+                if (Object.keys(updates).length === 0) {
+                    return res.status(400).json({ error: 'No time entry updates provided' })
+                }
+
+                const entry = await this.service.updateTimeEntry(id, updates, {
+                    requesterId: access.requesterId,
+                    canManageAny: access.isPrivileged,
+                })
+                res.json(entry)
+                notificationService.broadcastDataChange('time-entries')
+            } catch (e) {
+                console.error('Error updating entry:', e)
+                this.sendPayrollError(res, e, 'Failed to update entry')
             }
         })
 
         router.delete('/entry/:id', authenticateToken, async (req: Request, res: Response) => {
             try {
-                const user = (req as AuthRequest).user
-                if (!user) return res.sendStatus(401)
+                const access = await this.getPayrollAccess(req)
+                if (!access) return res.sendStatus(401)
 
-                const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
-                await this.service.deleteTimeEntry(id, user.userId)
+                const id = this.getParam(req.params.id)
+                await this.service.deleteTimeEntry(id, access.requesterId, {
+                    canManageAny: access.isPrivileged,
+                })
                 res.json({ success: true })
                 notificationService.broadcastDataChange('time-entries')
             } catch (e) {
                 console.error('Error deleting entry:', e)
-                res.status(500).json({ error: 'Failed' })
+                this.sendPayrollError(res, e, 'Failed')
             }
         })
 
@@ -214,17 +312,10 @@ export class PayrollController {
                     return res.status(400).json({ error: 'userId, startDate, and endDate are required' })
                 }
 
-                // Check permissions (self or admin/manager)
-                const authReq = req as AuthRequest
-                const requesterId = authReq.user?.userId
-                const { prisma } = await import('../database/prisma.service')
-                const roles = await prisma.userRole.findMany({ where: { userId: requesterId } })
-                const isPrivileged = roles.some(r =>
-                    ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
-                )
-                const isAuthorizedEmail = isAdminEmail(authReq.user?.email)
+                const access = await this.getPayrollAccess(req)
+                if (!access) return res.sendStatus(401)
 
-                if (requesterId !== userId && !isPrivileged && !isAuthorizedEmail) {
+                if (!canAccessPayrollTarget(access, userId)) {
                     return res.status(403).json({ error: 'Forbidden' })
                 }
 
@@ -245,23 +336,13 @@ export class PayrollController {
         // Get Employee Profile (Self or Privileged Role)
         router.get('/config/:userId', authenticateToken, async (req: Request, res: Response) => {
             try {
-                const authReq = req as AuthRequest
-                const requesterId = authReq.user?.userId
-                if (!requesterId) return res.sendStatus(401)
+                const access = await this.getPayrollAccess(req)
+                if (!access) return res.sendStatus(401)
 
-                const targetUserId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId
+                const targetUserId = this.getParam(req.params.userId)
 
-                // Only allow self, or admin/manager
-                if (requesterId !== targetUserId) {
-                    const { prisma } = await import('../database/prisma.service')
-                    const roles = await prisma.userRole.findMany({ where: { userId: requesterId } })
-                    const isPrivileged = roles.some(r =>
-                        ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
-                    )
-                    const isAuthorizedEmail = isAdminEmail(authReq.user?.email)
-                    if (!isPrivileged && !isAuthorizedEmail) {
-                        return res.status(403).json({ error: 'Unauthorized to view another user\'s payroll profile' })
-                    }
+                if (!canAccessPayrollTarget(access, targetUserId)) {
+                    return res.status(403).json({ error: 'Unauthorized to view another user\'s payroll profile' })
                 }
 
                 const profile = await this.service.getEmployeeProfile(targetUserId)
@@ -275,30 +356,33 @@ export class PayrollController {
         // Update Employee Profile (Self or Privileged Role)
         router.post('/config/:userId', authenticateToken, async (req: Request, res: Response) => {
             try {
-                const authReq = req as AuthRequest
-                const requesterId = authReq.user?.userId
-                if (!requesterId) return res.sendStatus(401)
+                const access = await this.getPayrollAccess(req)
+                if (!access) return res.sendStatus(401)
 
-                const targetUserId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId
+                const targetUserId = this.getParam(req.params.userId)
 
-                // Only allow self, or admin/manager
-                if (requesterId !== targetUserId) {
-                    const { prisma } = await import('../database/prisma.service')
-                    const roles = await prisma.userRole.findMany({ where: { userId: requesterId } })
-                    const isPrivileged = roles.some(r =>
-                        ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
-                    )
-                    const isAuthorizedEmail = isAdminEmail(authReq.user?.email)
-                    if (!isPrivileged && !isAuthorizedEmail) {
-                        return res.status(403).json({ error: 'Unauthorized to update another user\'s payroll profile' })
-                    }
+                if (!canAccessPayrollTarget(access, targetUserId)) {
+                    return res.status(403).json({ error: 'Unauthorized to update another user\'s payroll profile' })
                 }
 
-                const profile = await this.service.updateEmployeeProfile(targetUserId, req.body)
+                const filteredUpdate = filterPayrollProfileUpdate(req.body || {}, {
+                    isPrivileged: access.isPrivileged,
+                })
+                if (filteredUpdate.rejectedFields.length > 0) {
+                    return res.status(403).json({
+                        error: 'Only payroll managers can update protected payroll profile fields',
+                        fields: filteredUpdate.rejectedFields,
+                    })
+                }
+                if (Object.keys(filteredUpdate.data).length === 0) {
+                    return res.status(400).json({ error: 'No permitted payroll profile fields provided' })
+                }
+
+                const profile = await this.service.updateEmployeeProfile(targetUserId, filteredUpdate.data)
                 res.json(profile)
             } catch (e) {
                 console.error('Error updating payroll config:', e)
-                res.status(500).json({ error: 'Failed to update profile' })
+                this.sendPayrollError(res, e, 'Failed to update profile')
             }
         })
 
@@ -380,22 +464,14 @@ export class PayrollController {
         // Get Payslips (own, or any user if admin/manager)
         router.get('/my-payslips', authenticateToken, async (req: Request, res: Response) => {
             try {
-                const authReq = req as AuthRequest
-                const requesterId = authReq.user?.userId
-                if (!requesterId) return res.sendStatus(401)
+                const access = await this.getPayrollAccess(req)
+                if (!access) return res.sendStatus(401)
 
-                let targetUserId = requesterId
+                let targetUserId = access.requesterId
 
-                // Allow managers/admins to fetch another user's payslips via ?userId=
                 const queriedUserId = req.query.userId as string | undefined
-                if (queriedUserId && queriedUserId !== requesterId) {
-                    const { prisma } = await import('../database/prisma.service')
-                    const roles = await prisma.userRole.findMany({ where: { userId: requesterId } })
-                    const isPrivileged = roles.some(r =>
-                        ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase())
-                    )
-                    const isAuthorizedEmail = isAdminEmail(authReq.user?.email)
-                    if (!isPrivileged && !isAuthorizedEmail) {
+                if (queriedUserId) {
+                    if (!canAccessPayrollTarget(access, queriedUserId)) {
                         return res.status(403).json({ error: 'Unauthorized to view another user\'s payslips' })
                     }
                     targetUserId = queriedUserId

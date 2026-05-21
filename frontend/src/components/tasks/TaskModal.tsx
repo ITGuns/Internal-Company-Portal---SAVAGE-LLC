@@ -3,8 +3,8 @@
 import React from "react";
 import Button from "@/components/Button";
 import { Trash2 } from "lucide-react";
-import { DEPARTMENT_ROLES } from "@/lib/departments";
 import type { TaskPriority, TaskStatus, TaskDepartment, TaskUser, Task } from "@/lib/tasks";
+import { getPrimaryTaskAssignmentFromRoles } from "@/lib/task-access";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "To Do",
@@ -41,6 +41,14 @@ interface TaskModalProps {
   setProgressNotes: (v: string) => void;
   departments: TaskDepartment[];
   users: TaskUser[];
+  canManageAssignments: boolean;
+  assignmentSummary?: {
+    assigneeName: string;
+    departmentName?: string;
+    role?: string;
+    isReady: boolean;
+  };
+  onAssignToCurrentUser?: () => void;
   onSubmit: (e: React.FormEvent) => void;
   onDelete: () => void;
   onClose: () => void;
@@ -69,21 +77,36 @@ export default function TaskModal({
   estimatedTime,
   setEstimatedTime,
   progress,
-  setProgress,
   progressNotes,
   setProgressNotes,
   departments,
   users,
+  canManageAssignments,
+  assignmentSummary,
+  onAssignToCurrentUser,
   onSubmit,
   onDelete,
   onClose,
 }: TaskModalProps) {
-  const selectedDepartmentName = departments.find(
-    (d) => d.id?.toString() === departmentId?.toString()
-  )?.name;
-  const availableRoles = selectedDepartmentName
-    ? DEPARTMENT_ROLES[selectedDepartmentName] || []
-    : [];
+  const selectedDepartment = departments.find(
+    (department) => department.id?.toString() === departmentId?.toString(),
+  );
+  const availableRoles = selectedDepartment?.availableRoles?.map((availableRole) => availableRole.name) || [];
+  const roleOptions =
+    role && role !== "Other" && !availableRoles.includes(role) ? [role, ...availableRoles] : availableRoles;
+
+  function handleAssigneeChange(nextAssigneeId: string) {
+    setAssigneeId(nextAssigneeId);
+
+    const selectedUser = users.find((user) => String(user.id) === String(nextAssigneeId));
+    const selectedAssignment = getPrimaryTaskAssignmentFromRoles(selectedUser?.roles);
+    if (!selectedAssignment) return;
+
+    if (selectedAssignment.departmentId) {
+      setDepartmentId(selectedAssignment.departmentId);
+    }
+    setRole(selectedAssignment.role);
+  }
 
   return (
     <div
@@ -101,22 +124,24 @@ export default function TaskModal({
             {editTaskData ? "Edit Task" : "Create New Task"}
           </h3>
           <button
+            type="button"
             onClick={onClose}
             className="text-[var(--muted)] hover:text-[var(--foreground)]"
+            aria-label="Close task modal"
           >
-            ✕
+            x
           </button>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label className="block text-sm mb-1 font-medium">
                 Task Name <span className="text-red-500">*</span>
               </label>
               <input
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(event) => setTitle(event.target.value)}
                 placeholder="What needs to be done?"
                 className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                 required
@@ -130,130 +155,170 @@ export default function TaskModal({
             </label>
             <textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(event) => setDescription(event.target.value)}
               placeholder="Tell us more about this task..."
               className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] h-24 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               required
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm mb-1 font-medium">
-                Department *
-              </label>
-              <select
-                value={departmentId}
-                onChange={(e) => {
-                  setDepartmentId(e.target.value);
-                  setRole("");
-                }}
-                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
-                required
-                aria-label="Department"
-              >
-                <option value="">Select department</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm mb-1 font-medium">
-                Priority <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={priority}
-                onChange={(e) => setPriority(e.target.value as TaskPriority)}
-                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
-                aria-label="Priority"
-                required
-              >
-                <option value="Low">Low</option>
-                <option value="Med">Med</option>
-                <option value="High">High</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm mb-1 font-medium">
-                Assign To <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={assigneeId}
-                onChange={(e) => setAssigneeId(e.target.value)}
-                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
-                aria-label="Assign To"
-                required
-              >
-                <option value="">Unassigned</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name || u.email}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm mb-1 font-medium">
-                Role <span className="text-red-500">*</span>
-              </label>
-              {role === "Other" ? (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    placeholder="Enter role manually..."
+          {canManageAssignments ? (
+            <>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-sm mb-1 font-medium">
+                    Department <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={departmentId}
+                    onChange={(event) => {
+                      setDepartmentId(event.target.value);
+                      setRole("");
+                    }}
                     className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
-                    autoFocus
                     required
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setRole("")}
-                    className="px-3"
+                    aria-label="Department"
                   >
-                    ✕
-                  </Button>
+                    <option value="">Select department</option>
+                    {departments.map((department) => (
+                      <option key={department.id} value={department.id}>
+                        {department.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              ) : (
+
+                <div>
+                  <label className="block text-sm mb-1 font-medium">
+                    Priority <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={priority}
+                    onChange={(event) => setPriority(event.target.value as TaskPriority)}
+                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                    aria-label="Priority"
+                    required
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Med">Med</option>
+                    <option value="High">High</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="block text-sm mb-1 font-medium">
+                      Assign To <span className="text-red-500">*</span>
+                    </label>
+                    {onAssignToCurrentUser && (
+                      <button
+                        type="button"
+                        onClick={onAssignToCurrentUser}
+                        className="text-xs font-medium text-[var(--accent)] hover:underline"
+                      >
+                        Assign to me
+                      </button>
+                    )}
+                  </div>
+                  <select
+                    value={assigneeId}
+                    onChange={(event) => handleAssigneeChange(event.target.value)}
+                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                    aria-label="Assign To"
+                    required
+                  >
+                    <option value="">Unassigned</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name || user.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm mb-1 font-medium">
+                    Role <span className="text-red-500">*</span>
+                  </label>
+                  {role === "Other" ? (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={role}
+                        onChange={(event) => setRole(event.target.value)}
+                        placeholder="Enter role manually..."
+                        className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                        autoFocus
+                        required
+                      />
+                      <Button type="button" variant="ghost" onClick={() => setRole("")} className="px-3">
+                        x
+                      </Button>
+                    </div>
+                  ) : (
+                    <select
+                      value={role}
+                      onChange={(event) => setRole(event.target.value)}
+                      disabled={!departmentId}
+                      className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] disabled:opacity-50"
+                      aria-label="Role"
+                      required
+                    >
+                      <option value="">Select role</option>
+                      {roleOptions.map((roleOption) => (
+                        <option key={roleOption} value={roleOption}>
+                          {roleOption}
+                        </option>
+                      ))}
+                      <option value="Other">Other (Manual Entry)...</option>
+                    </select>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_180px]">
+              <div className="rounded border border-[var(--border)] bg-[var(--background)] p-3">
+                <div className="text-xs font-semibold uppercase text-[var(--muted)]">Assignment</div>
+                <div className="mt-1 text-sm font-medium">{assignmentSummary?.assigneeName || "You"}</div>
+                <div className="mt-1 text-xs text-[var(--muted)]">
+                  {assignmentSummary?.departmentName || "Department not set"} / {assignmentSummary?.role || "Role not set"}
+                </div>
+                {!assignmentSummary?.isReady && (
+                  <p className="mt-2 text-xs text-red-500">
+                    Ask an admin to assign your department and role before creating tasks.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1 font-medium">
+                  Priority <span className="text-red-500">*</span>
+                </label>
                 <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  disabled={!departmentId}
-                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] disabled:opacity-50"
-                  aria-label="Role"
+                  value={priority}
+                  onChange={(event) => setPriority(event.target.value as TaskPriority)}
+                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                  aria-label="Priority"
                   required
                 >
-                  <option value="">Select role</option>
-                  {availableRoles.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                  <option value="Other">Other (Manual Entry)...</option>
+                  <option value="Low">Low</option>
+                  <option value="Med">Med</option>
+                  <option value="High">High</option>
                 </select>
-              )}
+              </div>
             </div>
-          </div>
+          )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="block text-sm mb-1 font-medium">
-                Start Date
-              </label>
+              <label className="block text-sm mb-1 font-medium">Start Date</label>
               <input
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(event) => setStartDate(event.target.value)}
                 className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
                 aria-label="Start Date"
               />
@@ -266,7 +331,7 @@ export default function TaskModal({
               <input
                 type="date"
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+                onChange={(event) => setDueDate(event.target.value)}
                 className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
                 aria-label="Due Date"
                 required
@@ -274,20 +339,20 @@ export default function TaskModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label className="block text-sm mb-1 font-medium">
                 Status <span className="text-red-500">*</span>
               </label>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value as TaskStatus)}
+                onChange={(event) => setStatus(event.target.value as TaskStatus)}
                 className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
                 aria-label="Status"
                 required
               >
-                {Object.entries(STATUS_LABELS).map(([val, label]) => (
-                  <option key={val} value={val}>
+                {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
                     {label}
                   </option>
                 ))}
@@ -300,7 +365,7 @@ export default function TaskModal({
               <input
                 type="number"
                 value={estimatedTime}
-                onChange={(e) => setEstimatedTime(e.target.value)}
+                onChange={(event) => setEstimatedTime(event.target.value)}
                 placeholder="e.g. 60"
                 className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                 required
@@ -310,27 +375,25 @@ export default function TaskModal({
 
           {editTaskData && (
             <div>
-              <label className="block text-sm mb-1 font-medium">
-                Progress — {progress}%
-              </label>
+              <label className="block text-sm mb-1 font-medium">Progress - {progress}%</label>
               <div className="w-full bg-[var(--border)] h-2 rounded-full overflow-hidden">
                 <div
                   className="bg-[var(--accent)] h-full transition-all duration-300 rounded-full"
                   style={{ width: `${progress}%` }}
                 />
               </div>
-              <p className="text-[10px] text-[var(--muted)] mt-1">Auto-calculated from time elapsed vs. estimated time</p>
+              <p className="text-[10px] text-[var(--muted)] mt-1">
+                Auto-calculated from time elapsed vs. estimated time
+              </p>
             </div>
           )}
 
           {editTaskData && (
             <div>
-              <label className="block text-sm mb-1 font-medium">
-                Add Progress Note
-              </label>
+              <label className="block text-sm mb-1 font-medium">Add Progress Note</label>
               <textarea
                 value={progressNotes}
-                onChange={(e) => setProgressNotes(e.target.value)}
+                onChange={(event) => setProgressNotes(event.target.value)}
                 placeholder="Add a note about recent progress..."
                 className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] h-20"
               />

@@ -2,7 +2,7 @@
  * Employee Overview Tab - displays employee cards and stats
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { Users, User, Clock, Award, CheckCircle, XCircle, UserCheck, UserPlus, Edit2, Loader2, Plus } from "lucide-react";
@@ -21,9 +21,14 @@ const AddEmployeeModal = dynamic(() => import("./AddEmployeeModal"), { ssr: fals
 
 type EmployeeView = "deployed" | "pending";
 
-export default function EmployeeOverviewTab() {
+interface EmployeeOverviewTabProps {
+    initialView?: EmployeeView;
+}
+
+export default function EmployeeOverviewTab({ initialView = "deployed" }: EmployeeOverviewTabProps) {
     const toast = useToast();
-    const [view, setView] = useState<EmployeeView>("deployed");
+    const showToastError = toast.error;
+    const [view, setView] = useState<EmployeeView>(initialView);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [pendingEmployees, setPendingEmployees] = useState<Employee[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -34,7 +39,7 @@ export default function EmployeeOverviewTab() {
     const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
 
     // Fetch data from backend
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setIsLoading(true);
         try {
             const deployedRes = await apiFetch('/employees/deployed');
@@ -63,15 +68,19 @@ export default function EmployeeOverviewTab() {
             setPendingEmployees(pendingData.map(normalize));
         } catch (err) {
             console.error("Failed to fetch employees", err);
-            toast.error(err instanceof Error && err.message === "Failed to fetch" ? "Connection failed" : "Failed to load employees");
+            showToastError(err instanceof Error && err.message === "Failed to fetch" ? "Connection failed" : "Failed to load employees");
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [showToastError]);
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [fetchData]);
+
+    useEffect(() => {
+        setView(initialView);
+    }, [initialView]);
 
     const handleViewDetails = (employee: Employee) => {
         setSelectedEmployee(employee);

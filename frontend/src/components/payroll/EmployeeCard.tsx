@@ -2,7 +2,7 @@
  * Employee card component for displaying employee information
  */
 
-import React, { useState } from "react";
+import React from "react";
 import Image from "next/image";
 import { TrendingUp, Trash2, Check, Plane, Coffee } from "lucide-react";
 import Button from "@/components/Button";

@@ -4,7 +4,6 @@ import React, { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import BrandLogo from '../assets/icons/BrandLogo'
-import IconButton from './IconButton'
 import ThemeToggle from './ThemeToggle'
 import UserAvatar from '../assets/icons/UserAvatar'
 import NotificationSidebar from './NotificationSidebar'
@@ -16,7 +15,7 @@ import TimeClock from './TimeClock'
 
 export default function Header({ title, subtitle }: { title?: string; subtitle?: string }) {
   const pathname = usePathname() || '/'
-  const { unreadCount, notifications, markAsRead, markAllAsRead, clearNotifications, connect, isConnected } = useSocket()
+  const { unreadCount, notifications, markAsRead, markAllAsRead, clearNotifications } = useSocket()
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const { user } = useUser()
@@ -42,7 +41,6 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
   const resolvedSubtitle = subtitle ?? autoTitle?.subtitle
   const headerRef = useRef<HTMLElement | null>(null)
   const [outlineLeft, setOutlineLeft] = useState<number | null>(null)
-  const [outlineWidth, setOutlineWidth] = useState<number | null>(null)
   const [outlineTop, setOutlineTop] = useState<number | null>(null)
   const [debugMode, setDebugMode] = useState(false)
   const [debugInfo, setDebugInfo] = useState<{ headerLeft: number; headerWidth: number; dividerRight: number | null } | null>(null)
@@ -62,9 +60,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
         // use the divider right edge and add a 2px overlap to ensure no visible seam
         const dividerRight = Math.round(divRect.right)
         const leftViewport = dividerRight - 2 // absolute viewport coordinate
-        const width = Math.max(0, Math.round(window.innerWidth - leftViewport))
         setOutlineLeft(leftViewport)
-        setOutlineWidth(width)
 
         // Prefer aligning the outline vertically to the sidebar header's bottom border
         const asideHeader = document.querySelector('aside header') as HTMLElement | null
@@ -85,9 +81,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
         const asideRect = aside.getBoundingClientRect()
         const asideRight = Math.round(asideRect.right)
         const leftViewport = asideRight - 1
-        const width = Math.max(0, Math.round(window.innerWidth - leftViewport))
         setOutlineLeft(leftViewport)
-        setOutlineWidth(width)
 
         const asideHeader = document.querySelector('aside header') as HTMLElement | null
         if (asideHeader) {
@@ -102,7 +96,6 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
 
       const defaultLeft = Math.max(0, Math.round(headerRect.left))
       setOutlineLeft(defaultLeft)
-      setOutlineWidth(Math.round(window.innerWidth - defaultLeft))
       setOutlineTop(Math.round(headerRect.bottom))
       setDebugInfo({ headerLeft: Math.round(headerRect.left), headerWidth: Math.round(headerRect.width), dividerRight: null })
     }

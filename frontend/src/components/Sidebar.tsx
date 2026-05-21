@@ -7,12 +7,9 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import UserAvatar from '../assets/icons/UserAvatar'
-import { DEPARTMENT_ROLES, DEPARTMENTS } from '@/lib/departments'
+import { DEPARTMENT_ROLES } from '@/lib/departments'
 import { useUser } from '@/contexts/UserContext'
 import { cn } from '@/lib/utils'
-
-// Sidebar departments: use the top-level DEPARTMENTS list
-const SIDEBAR_DEPARTMENTS = DEPARTMENTS;
 import { useSocket } from '@/context/SocketContext'
 import {
   Home,
@@ -21,7 +18,6 @@ import {
   MessageSquare,
   DollarSign,
   Megaphone,
-  Mail,
   Folder,
 } from 'lucide-react'
 
@@ -59,7 +55,6 @@ function NavItem({ icon: Icon, label, badge, href }: { icon: React.ComponentType
 }
 
 function SidebarDepartment({ dept, roles, depth = 0 }: { dept: string; roles: string[]; depth?: number }) {
-  const pathname = usePathname() || '/'
   const [open, setOpen] = useState(false)
 
   const base = "nav-animated w-full text-left flex items-center gap-3 px-3 py-2 rounded-md group transform transition-colors transition-transform duration-150 ease-out border border-transparent hover:bg-gray-50 dark:hover:bg-white/5 hover:border-[var(--border)] active:translate-y-[1px] active:scale-[0.995] active:bg-gray-100 dark:active:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400"
@@ -98,7 +93,6 @@ function SidebarDepartment({ dept, roles, depth = 0 }: { dept: string; roles: st
 
 export default function Sidebar() {
   const pathname = usePathname() || '/'
-  const isDashboard = pathname === '/' || pathname === '/dashboard'
   const asideRef = useRef<HTMLElement | null>(null)
   const { user } = useUser()
   const { unreadChatCount } = useSocket()

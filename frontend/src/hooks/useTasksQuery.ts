@@ -8,26 +8,29 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchTasks,
   fetchTasksPaginated,
+  fetchTaskDetail,
   createTask,
   updateTask,
   deleteTask,
   fetchUsers,
   fetchDepartments,
-  type Task,
   type CreateTaskPayload,
   type UpdateTaskPayload,
-  type TaskUser,
-  type TaskDepartment,
 } from '@/lib/tasks';
 
 const TASKS_KEY = ['tasks'] as const;
 const USERS_KEY = ['users'] as const;
 const DEPARTMENTS_KEY = ['departments'] as const;
 
-export function useTasks(departmentId?: string, assigneeId?: number | string) {
+interface UseTasksOptions {
+  enabled?: boolean;
+}
+
+export function useTasks(departmentId?: string, assigneeId?: number | string, options: UseTasksOptions = {}) {
   return useQuery({
     queryKey: [...TASKS_KEY, departmentId, assigneeId],
     queryFn: () => fetchTasks(departmentId, assigneeId),
+    enabled: options.enabled ?? true,
   });
 }
 
@@ -36,6 +39,14 @@ export function useTasksPaginated(page: number, limit: number) {
     queryKey: [...TASKS_KEY, 'paginated', page, limit],
     queryFn: () => fetchTasksPaginated(page, limit),
     placeholderData: (prev) => prev,
+  });
+}
+
+export function useTaskDetail(taskId?: string) {
+  return useQuery({
+    queryKey: [...TASKS_KEY, 'detail', taskId],
+    queryFn: () => fetchTaskDetail(taskId as string),
+    enabled: Boolean(taskId),
   });
 }
 

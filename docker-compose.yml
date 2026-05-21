@@ -30,7 +30,10 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres:5432/${POSTGRES_DB:-portal_db}?schema=public
       PORT: 4000
       FRONTEND_URL: http://localhost:3000
-      JWT_SECRET: ${JWT_SECRET:-supersecretkey}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:?REFRESH_TOKEN_SECRET is required}
+      CORS_ORIGIN: http://localhost:3000
+      OPS_MANAGER_EMAIL: ${OPS_MANAGER_EMAIL:-ops-manager@example.com}
       EMAIL_ENABLED: "false" # Set true if SMTP/SendGrid configured
     ports:
       - "4000:4000"
@@ -50,7 +53,7 @@ services:
       - backend
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:4000/api
-      NEXT_PUBLIC_SOCKET_URL: http://localhost:4000
+      NEXT_PUBLIC_WS_URL: ws://localhost:4000
     ports:
       - "3000:3000"
     networks:

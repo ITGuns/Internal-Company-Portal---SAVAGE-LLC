@@ -5,6 +5,7 @@
   "scripts": {
     "start": "ts-node -r tsconfig-paths/register src/main.ts",
     "dev": "ts-node-dev --respawn --transpile-only src/main.ts",
+    "test": "ts-node tests/run-tests.ts",
     "build": "tsc -p tsconfig.json",
     "prisma:generate": "dotenv -e .env -- prisma generate",
     "prisma:migrate": "dotenv -e .env -- prisma migrate dev",
@@ -59,5 +60,8 @@
     "ts-node-dev": "^2.0.0",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.1.6"
+  },
+  "overrides": {
+    "@hono/node-server": "1.19.14"
   }
 }

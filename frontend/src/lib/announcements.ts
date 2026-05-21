@@ -113,6 +113,8 @@ export async function addAnnouncement(
   isImportant: boolean = false,
   birthdayDate?: string
 ): Promise<Announcement | null> {
+  void _author;
+
   try {
     const payload: Record<string, unknown> = {
       category,
@@ -217,6 +219,8 @@ export async function addComment(
   text: string,
   _author: string = 'User'
 ): Promise<Comment | null> {
+  void _author;
+
   try {
     const res = await apiFetch(`/announcements/${announcementId}/comments`, {
       method: 'POST',

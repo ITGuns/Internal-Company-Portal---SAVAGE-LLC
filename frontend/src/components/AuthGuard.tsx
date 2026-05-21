@@ -42,43 +42,11 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   // Show loading state while checking authentication
   if (isLoading) {
     return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        backgroundColor: 'var(--background)',
-      }}>
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '16px',
-        }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            border: '3px solid var(--foreground)',
-            borderRightColor: 'transparent',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-          }} />
-          <p style={{
-            fontSize: '14px',
-            color: 'var(--foreground)',
-            opacity: 0.7,
-          }}>
-            Loading...
-          </p>
+      <div className="flex min-h-screen items-center justify-center bg-[var(--background)]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-[3px] border-[var(--foreground)] border-r-transparent" />
+          <p className="text-sm text-[var(--foreground)] opacity-70">Loading...</p>
         </div>
-
-        <style jsx>{`
-          @keyframes spin {
-            to {
-              transform: rotate(360deg);
-            }
-          }
-        `}</style>
       </div>
     );
   }

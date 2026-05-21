@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Cake, CheckCircle2, Calendar, Loader2 } from "lucide-react";
-import type { Employee, LeaveRecord, CompletedTask } from "@/lib/payroll-calendar/types";
+import type { Employee, LeaveRecord } from "@/lib/payroll-calendar/types";
 import { fetchTimeEntries, type TimeEntry } from "@/lib/time-entries";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
@@ -48,7 +48,6 @@ const MONTH_NAMES = [
 
 export default function TimeTrackingCalendar({
   employee,
-  onAddTimeEntry,
   onDeleteTimeEntry,
   refreshKey = 0,
 }: TimeTrackingCalendarProps) {
@@ -91,7 +90,7 @@ export default function TimeTrackingCalendar({
     };
 
     fetchData();
-  }, [employee, month, year, refreshKey]);
+  }, [employee, month, year, refreshKey, toast]);
 
   // Leave records — no mock data; real API to be wired later
   const employeeLeaveRecords = useMemo(() => {
@@ -106,7 +105,7 @@ export default function TimeTrackingCalendar({
     const salary = employee.salary; // Monthly salary
 
     return { totalHours: hours, monthlySalary: salary };
-  }, [employee, timeEntries, month, year]);
+  }, [employee, timeEntries]);
 
   // Navigate to previous month
   const handlePrevMonth = () => {

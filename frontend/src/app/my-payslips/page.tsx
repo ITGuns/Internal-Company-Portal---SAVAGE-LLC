@@ -232,7 +232,7 @@ export default function MyPayslipsPage() {
             }
         };
         load();
-    }, []);
+    }, [toast]);
 
     // YTD stats
     const currentYear = new Date().getFullYear();

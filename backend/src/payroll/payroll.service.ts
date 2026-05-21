@@ -18,6 +18,21 @@ export interface UpdatePayrollEventDto {
     description?: string
 }
 
+export interface UpdateTimeEntryDto {
+    userId?: string
+    start?: Date
+    end?: Date | null
+    notes?: string | null
+}
+
+interface TimeEntryAccessOptions {
+    requesterId: string
+    canManageAny?: boolean
+}
+
+export class PayrollForbiddenError extends Error { }
+export class PayrollNotFoundError extends Error { }
+
 export class PayrollService {
     private prisma: PrismaClient
 
@@ -123,26 +138,70 @@ export class PayrollService {
         })
     }
 
-    async addManualEntry(userId: string, start: Date, end: Date | null, notes?: string) {
-        let duration = null
-        if (end) {
-            duration = Math.round((end.getTime() - start.getTime()) / 60000)
+    private calculateDuration(start: Date, end: Date | null): number | null {
+        if (!end) return null
+
+        return Math.round((end.getTime() - start.getTime()) / 60000)
+    }
+
+    private validateTimeRange(start: Date, end: Date | null) {
+        if (Number.isNaN(start.getTime())) {
+            throw new Error('Invalid start time')
         }
+        if (end && Number.isNaN(end.getTime())) {
+            throw new Error('Invalid end time')
+        }
+        if (end && end <= start) {
+            throw new Error('End time must be after start time')
+        }
+    }
+
+    async addManualEntry(userId: string, start: Date, end: Date | null, notes?: string) {
+        this.validateTimeRange(start, end)
+
         return this.prisma.timeEntry.create({
             data: {
                 userId,
                 start,
                 end,
-                duration,
+                duration: this.calculateDuration(start, end),
                 notes
             }
         })
     }
 
-    async deleteTimeEntry(id: string, userId: string) {
-        // Ensure user owns entry (or is admin, but simplified here)
+    async updateTimeEntry(id: string, data: UpdateTimeEntryDto, options: TimeEntryAccessOptions) {
+        const existing = await this.prisma.timeEntry.findUnique({ where: { id } })
+        if (!existing) throw new PayrollNotFoundError('Time entry not found')
+        if (!options.canManageAny && existing.userId !== options.requesterId) {
+            throw new PayrollForbiddenError('Unauthorized to update this time entry')
+        }
+
+        const start = data.start ?? existing.start
+        const end = data.end === undefined ? existing.end : data.end
+        this.validateTimeRange(start, end)
+
+        return this.prisma.timeEntry.update({
+            where: { id },
+            data: {
+                userId: data.userId && options.canManageAny ? data.userId : undefined,
+                start,
+                end,
+                duration: this.calculateDuration(start, end),
+                notes: data.notes === undefined ? undefined : data.notes,
+            },
+        })
+    }
+
+    async deleteTimeEntry(id: string, userId: string, options: { canManageAny?: boolean } = {}) {
+        const existing = await this.prisma.timeEntry.findUnique({ where: { id } })
+        if (!existing) throw new PayrollNotFoundError('Time entry not found')
+        if (!options.canManageAny && existing.userId !== userId) {
+            throw new PayrollForbiddenError('Unauthorized to delete this time entry')
+        }
+
         return this.prisma.timeEntry.delete({
-            where: { id, userId } // Safety check
+            where: { id }
         })
     }
 
@@ -170,10 +229,16 @@ export class PayrollService {
      * Update Employee Profile
      */
     async updateEmployeeProfile(userId: string, data: Record<string, unknown>) {
+        await this.getEmployeeProfile(userId)
+
         const updateData: Prisma.EmployeeProfileUpdateInput = {}
         if (data.jobTitle !== undefined) updateData.jobTitle = data.jobTitle
         if (data.employmentType !== undefined) updateData.employmentType = data.employmentType
-        if (data.baseSalary !== undefined) updateData.baseSalary = parseFloat(String(data.baseSalary))
+        if (data.baseSalary !== undefined) {
+            const baseSalary = parseFloat(String(data.baseSalary))
+            if (Number.isNaN(baseSalary)) throw new Error('Invalid base salary')
+            updateData.baseSalary = baseSalary
+        }
         if (data.currency !== undefined) updateData.currency = data.currency
         if (data.paymentFrequency !== undefined) updateData.paymentFrequency = data.paymentFrequency
         if (data.bankAccount !== undefined) updateData.bankAccount = data.bankAccount

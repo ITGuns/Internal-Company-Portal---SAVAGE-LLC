@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import Header from "@/components/Header";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
@@ -15,14 +15,33 @@ type Department = {
   name: string;
   driveId?: string;
   description?: string;
+  _count?: {
+    tasks?: number;
+    roles?: number;
+  };
 };
+
+type Role = {
+  id: string;
+  name: string;
+  department?: {
+    id: string;
+    name: string;
+  } | null;
+};
+
+type DeleteTarget =
+  | { type: 'department'; id: string; name: string; tasks: number; roles: number }
+  | { type: 'role'; id: string; name: string; departmentName?: string };
 
 export default function OperationsPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [roles, setRoles] = useState<any[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'departments' | 'roles'>('departments');
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   // Form states
   const [name, setName] = useState("");
@@ -33,7 +52,7 @@ export default function OperationsPage() {
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       const [deptRes, roleRes] = await Promise.all([
         apiFetch('/departments'),
@@ -46,11 +65,11 @@ export default function OperationsPage() {
       console.error(e);
       toast.error('An error occurred while loading data');
     }
-  }
+  }, [toast]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -113,33 +132,47 @@ export default function OperationsPage() {
     }
   }
 
-  async function handleDelete(id: string, departmentName: string) {
-    if (!confirm(`Delete "${departmentName}"? This may affect users/tasks linked to it.`)) return;
-
-    try {
-      const res = await apiFetch(`/departments/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        toast.success('Department deleted successfully');
-        loadData();
-      }
-    } catch (e) {
-      console.error(e);
-      toast.error('Failed to delete department');
-    }
+  function openDepartmentDelete(department: Department) {
+    setDeleteTarget({
+      type: 'department',
+      id: department.id,
+      name: department.name,
+      tasks: department._count?.tasks || 0,
+      roles: department._count?.roles || 0,
+    });
+    setDeleteConfirmation("");
   }
 
-  async function handleDeleteRole(id: string, roleName: string) {
-    if (!confirm(`Delete role "${roleName}"?`)) return;
+  function openRoleDelete(role: Role) {
+    setDeleteTarget({
+      type: 'role',
+      id: role.id,
+      name: role.name,
+      departmentName: role.department?.name,
+    });
+    setDeleteConfirmation("");
+  }
 
+  async function handleDeleteConfirmed() {
+    if (!deleteTarget || deleteConfirmation !== deleteTarget.name) return;
+
+    setLoading(true);
     try {
-      const res = await apiFetch(`/roles/${id}`, { method: 'DELETE' });
+      const endpoint = deleteTarget.type === 'department'
+        ? `/departments/${deleteTarget.id}`
+        : `/roles/${deleteTarget.id}`;
+      const res = await apiFetch(endpoint, { method: 'DELETE' });
       if (res.ok) {
-        toast.success('Role deleted successfully');
+        toast.success(`${deleteTarget.type === 'department' ? 'Department' : 'Role'} deleted successfully`);
+        setDeleteTarget(null);
+        setDeleteConfirmation("");
         loadData();
       }
     } catch (e) {
       console.error(e);
-      toast.error('Failed to delete role');
+      toast.error(`Failed to delete ${deleteTarget.type}`);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -223,7 +256,7 @@ export default function OperationsPage() {
                         )}
                       </div>
                       <button
-                        onClick={() => handleDelete(dept.id, dept.name)}
+                        onClick={() => openDepartmentDelete(dept)}
                         className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-500"
                         aria-label={`Delete ${dept.name}`}
                       >
@@ -255,7 +288,7 @@ export default function OperationsPage() {
                     </div>
                     <div className="flex justify-end">
                       <button
-                        onClick={() => handleDeleteRole(role.id, role.name)}
+                        onClick={() => openRoleDelete(role)}
                         className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-500"
                         aria-label={`Delete role ${role.name}`}
                       >
@@ -340,6 +373,68 @@ export default function OperationsPage() {
             <Button type="submit" variant="primary" loading={loading}>Create Role</Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => {
+          setDeleteTarget(null);
+          setDeleteConfirmation("");
+        }}
+        title={deleteTarget ? `Delete ${deleteTarget.type}` : "Delete"}
+        size="md"
+      >
+        {deleteTarget && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm">
+              <div className="font-semibold text-red-600 dark:text-red-400">
+                This action cannot be undone.
+              </div>
+              <p className="mt-2 text-[var(--foreground)]">
+                You are deleting <strong>{deleteTarget.name}</strong>.
+              </p>
+              {deleteTarget.type === 'department' && (
+                <p className="mt-2 text-[var(--muted)]">
+                  Current linked records: {deleteTarget.tasks} task{deleteTarget.tasks === 1 ? '' : 's'} and {deleteTarget.roles} user role{deleteTarget.roles === 1 ? '' : 's'}.
+                </p>
+              )}
+              {deleteTarget.type === 'role' && (
+                <p className="mt-2 text-[var(--muted)]">
+                  This removes the role option{deleteTarget.departmentName ? ` for ${deleteTarget.departmentName}` : ''}. Existing user assignments are not automatically changed.
+                </p>
+              )}
+            </div>
+
+            <FormField
+              id="delete-confirmation"
+              label={`Type "${deleteTarget.name}" to confirm`}
+              value={deleteConfirmation}
+              onChange={setDeleteConfirmation}
+              placeholder={deleteTarget.name}
+            />
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setDeleteConfirmation("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                icon={<Trash2 className="w-4 h-4" />}
+                onClick={handleDeleteConfirmed}
+                loading={loading}
+                disabled={deleteConfirmation !== deleteTarget.name}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </main>
   );

@@ -29,7 +29,12 @@ export class DepartmentsService {
                         tasks: true,
                         roles: true
                     }
-                }
+                },
+                availableRoles: {
+                    orderBy: {
+                        name: 'asc',
+                    },
+                },
             },
             orderBy: {
                 name: 'asc',

@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, Play, Pause, Square, AlertCircle, Loader2 } from 'lucide-react';
+import { Play, Square, Loader2 } from 'lucide-react';
 import { clockIn, clockOut, fetchTimeEntries, getActiveEntry, type TimeEntry } from '@/lib/time-entries';
 import { useToast } from '@/components/ToastProvider';
-import Button from '@/components/Button';
 
 export default function TimeClock() {
     const toast = useToast();

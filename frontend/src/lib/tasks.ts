@@ -4,7 +4,6 @@
 
 import { apiFetch } from './api';
 import type { PaginatedResponse } from './types/pagination';
-import { Department } from './departments';
 import type { ApiTask } from './types/api';
 
 export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'completed';
@@ -20,11 +19,33 @@ export interface TaskUser {
   name: string | null;
   email: string;
   avatar: string | null;
+  role?: string | null;
+  roles?: Array<{
+    role: string;
+    departmentId?: string | null;
+    department?: TaskDepartment | null;
+  }>;
 }
 
 export interface TaskDepartment {
   id: string;
   name: string;
+  availableRoles?: Array<{
+    id: string;
+    name: string;
+    departmentId?: string | null;
+  }>;
+}
+
+export interface TaskWorkSession {
+  id: string;
+  taskId: string;
+  userId: string;
+  startedAt: string;
+  endedAt: string;
+  durationSeconds: number;
+  createdAt?: string;
+  user?: Pick<TaskUser, 'id' | 'name' | 'email' | 'avatar'>;
 }
 
 export interface Task {
@@ -37,8 +58,10 @@ export interface Task {
   departmentId?: string;
   department?: TaskDepartment;
 
-  assigneeId?: number;
+  assigneeId?: number | string;
   assignee?: TaskUser;
+  createdById?: number | string;
+  creator?: TaskUser;
 
   dueDate?: string; // ISO Date string (was 'when')
   startDate?: string; // ISO Date string — when the task begins
@@ -51,10 +74,16 @@ export interface Task {
   timerStart?: string;
   totalElapsed?: number; // in seconds
   estimatedTime?: number; // in minutes
+  completedAt?: string;
+  workSessions?: TaskWorkSession[];
 
   createdAt?: string;
   updatedAt?: string;
 }
+
+export type TaskDetail = Task & {
+  workSessions: TaskWorkSession[];
+};
 
 export interface CreateTaskPayload {
   title: string;
@@ -93,7 +122,6 @@ export interface UpdateTaskPayload {
  * Fetch all tasks
  */
 export async function fetchTasks(departmentId?: string, assigneeId?: number | string): Promise<Task[]> {
-  const params = new URLSearchParams();
   let url = '/tasks';
 
   if (departmentId) {
@@ -127,6 +155,18 @@ export async function fetchTasksPaginated(page: number, limit: number): Promise<
   };
 }
 
+export async function fetchTaskDetail(taskId: string): Promise<TaskDetail> {
+  const res = await apiFetch(`/tasks/${taskId}`);
+  if (!res.ok) {
+    throw new Error('Failed to fetch task details');
+  }
+  const task = processTaskFromApi(await res.json());
+  return {
+    ...task,
+    workSessions: task.workSessions || [],
+  };
+}
+
 function processTaskFromApi(task: ApiTask): Task {
   return {
     id: task.id,
@@ -136,14 +176,29 @@ function processTaskFromApi(task: ApiTask): Task {
     department: task.department,
     assigneeId: task.assigneeId,
     assignee: task.assignee,
+    createdById: task.createdById as number | string | undefined,
+    creator: task.creator as TaskUser | undefined,
     role: task.role,
     progress: task.progress,
     timerStatus: task.timerStatus as Task['timerStatus'],
     timerStart: task.timerStart,
     totalElapsed: task.totalElapsed,
     estimatedTime: task.estimatedTime,
+    completedAt: task.completedAt as string | undefined,
     createdAt: task.createdAt as string | undefined,
     updatedAt: task.updatedAt as string | undefined,
+    workSessions: Array.isArray(task.workSessions)
+      ? task.workSessions.map((session) => ({
+          id: session.id,
+          taskId: session.taskId,
+          userId: session.userId,
+          startedAt: session.startedAt,
+          endedAt: session.endedAt,
+          durationSeconds: session.durationSeconds || 0,
+          createdAt: session.createdAt,
+          user: session.user,
+        }))
+      : undefined,
     // Ensure status matches our enum (handle potential drift)
     status: (['todo', 'in_progress', 'review', 'completed'].includes(task.status)
       ? task.status

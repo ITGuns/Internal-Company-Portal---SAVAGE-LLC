@@ -7,7 +7,6 @@ import React from "react";
 import { Clock, CheckCircle2, Trash2 } from "lucide-react";
 import Modal from "@/components/Modal";
 import type { DayTask } from "@/lib/types/api";
-import type { CompletedTask } from "@/lib/payroll-calendar/types";
 
 /** One session row (from the actual backend TimeEntry) */
 export interface DayTimeSession {

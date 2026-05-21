@@ -3,11 +3,19 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Save } from "lucide-react";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import { fetchUsers, type TaskUser } from "@/lib/tasks";
+import type { TimeEntry } from "@/lib/time-entries";
+import {
+  buildTimeEntryPayload,
+  getTimeEntryFormDefaults,
+  getTodayDateInput,
+  validateTimeEntryForm,
+} from "@/lib/payroll-calendar/time-entry-form";
 import { useUser } from "@/contexts/UserContext";
+import { hasManagementAccess } from "@/lib/role-access";
 
 interface AddTimeEntryModalProps {
   isOpen: boolean;
@@ -17,6 +25,9 @@ interface AddTimeEntryModalProps {
   onError?: () => void;
   initialUserId?: string;
   initialDate?: string;
+  mode?: "create" | "edit";
+  editingEntry?: TimeEntry | null;
+  auditContextLabel?: string;
 }
 
 export default function AddTimeEntryModal({
@@ -27,14 +38,16 @@ export default function AddTimeEntryModal({
   onError,
   initialUserId,
   initialDate,
+  mode = "create",
+  editingEntry,
+  auditContextLabel,
 }: AddTimeEntryModalProps) {
   const { user } = useUser();
-  const formattedRole = (user?.role?.toLowerCase() || "").trim().replace(/ /g, '_');
-  const isAdmin = ['admin', 'manager', 'operations_manager', 'administrator'].includes(formattedRole);
+  const isAdmin = hasManagementAccess(user);
+  const fallbackUserId = user?.id != null ? user.id.toString() : undefined;
+  const isEditMode = mode === "edit" && Boolean(editingEntry);
 
-  const [manualDate, setManualDate] = useState<string>(
-    new Date().toISOString().slice(0, 10)
-  );
+  const [manualDate, setManualDate] = useState<string>(getTodayDateInput());
   const [manualIn, setManualIn] = useState<string>("09:00");
   const [manualOut, setManualOut] = useState<string>("17:00");
   const [manualNotes, setManualNotes] = useState<string>("");
@@ -57,47 +70,31 @@ export default function AddTimeEntryModal({
 
   useEffect(() => {
     if (isOpen) {
-      if (initialDate) setManualDate(initialDate);
-      if (initialUserId) setSelectedUserId(initialUserId);
-      else if (user) setSelectedUserId(user.id.toString());
+      const defaults = getTimeEntryFormDefaults({
+        entry: isEditMode ? editingEntry : null,
+        initialDate,
+        initialUserId,
+        fallbackUserId,
+      });
+
+      setManualDate(defaults.manualDate);
+      setManualIn(defaults.manualIn);
+      setManualOut(defaults.manualOut);
+      setManualNotes(defaults.manualNotes);
+      setSelectedUserId(defaults.selectedUserId);
+      setValidationErrors({});
     }
-  }, [isOpen, initialDate, initialUserId, user]);
+  }, [isOpen, isEditMode, editingEntry, initialDate, initialUserId, fallbackUserId]);
 
   const validateTimeEntry = () => {
-    const errors: Record<string, string> = {};
-    if (isAdmin && !selectedUserId) {
-      errors.userId = "Employee is required";
-    }
-
-    if (!manualDate) {
-      errors.date = "Date is required";
-    } else {
-      const entryDate = new Date(manualDate);
-      const today = new Date();
-      today.setHours(23, 59, 59, 999);
-      if (entryDate > today) {
-        errors.date = "Date cannot be in the future";
-      }
-    }
-
-    if (!manualIn) {
-      errors.timeIn = "Time In is required";
-    }
-
-    if (!manualOut) {
-      errors.timeOut = "Time Out is required";
-    } else if (manualIn) {
-      const timeInDate = new Date(`${manualDate}T${manualIn}`);
-      const timeOutDate = new Date(`${manualDate}T${manualOut}`);
-      if (timeOutDate <= timeInDate) {
-        errors.timeOut = "Time Out must be after Time In";
-      }
-    }
-
-    if (!manualNotes.trim()) {
-      errors.notes = "Notes are required";
-    }
-
+    const errors = validateTimeEntryForm({
+      manualDate,
+      manualIn,
+      manualOut,
+      manualNotes,
+      selectedUserId,
+      isPrivilegedUser: isAdmin,
+    });
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -108,12 +105,15 @@ export default function AddTimeEntryModal({
     }
 
     try {
-      const startIso = new Date(`${manualDate}T${manualIn}`).toISOString();
-      const endIso = manualOut
-        ? new Date(`${manualDate}T${manualOut}`).toISOString()
-        : undefined;
+      const { startIso, endIso, notes, userId } = buildTimeEntryPayload({
+        manualDate,
+        manualIn,
+        manualOut,
+        manualNotes,
+        selectedUserId,
+      });
 
-      const success = await onSubmit(startIso, endIso, manualNotes, selectedUserId || undefined);
+      const success = await onSubmit(startIso, endIso, notes, userId);
 
       if (success) {
         handleClose();
@@ -128,11 +128,16 @@ export default function AddTimeEntryModal({
   };
 
   const handleClose = () => {
-    setManualDate(new Date().toISOString().slice(0, 10));
-    setManualIn("09:00");
-    setManualOut("17:00");
-    setManualNotes("");
-    setSelectedUserId(user?.id.toString() || "");
+    const defaults = getTimeEntryFormDefaults({
+      initialDate,
+      initialUserId,
+      fallbackUserId,
+    });
+    setManualDate(defaults.manualDate);
+    setManualIn(defaults.manualIn);
+    setManualOut(defaults.manualOut);
+    setManualNotes(defaults.manualNotes);
+    setSelectedUserId(defaults.selectedUserId);
     setValidationErrors({});
     onClose();
   };
@@ -141,8 +146,8 @@ export default function AddTimeEntryModal({
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Add Time Entry"
-      subtitle="Manually add a time entry for a specific date"
+      title={isEditMode ? "Edit Time Entry" : "Add Time Entry"}
+      subtitle={isEditMode ? "Update the selected work period and notes" : "Manually add a time entry for a specific date"}
       size="md"
       footer={
         <>
@@ -151,11 +156,11 @@ export default function AddTimeEntryModal({
           </Button>
           <Button
             variant="success"
-            icon={<Plus className="w-4 h-4" />}
+            icon={isEditMode ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
             onClick={handleSubmit}
             disabled={!manualDate || !manualIn || !manualOut || !manualNotes.trim() || (isAdmin && !selectedUserId)}
           >
-            Add Entry
+            {isEditMode ? "Save Changes" : "Add Entry"}
           </Button>
         </>
       }
@@ -212,7 +217,7 @@ export default function AddTimeEntryModal({
                 setValidationErrors((prev) => ({ ...prev, date: "" }));
               }
             }}
-            max={new Date().toISOString().slice(0, 10)}
+            max={getTodayDateInput()}
             className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer dark:[&::-webkit-calendar-picker-indicator]:filter dark:[&::-webkit-calendar-picker-indicator]:invert-[1] dark:[&::-webkit-calendar-picker-indicator]:brightness-[1.5] ${validationErrors.date
               ? "border-red-500"
               : "border-[var(--border)]"
@@ -290,7 +295,7 @@ export default function AddTimeEntryModal({
             htmlFor="manual-notes"
             className="block text-sm font-medium text-[var(--foreground)] mb-1"
           >
-            Notes <span className="text-red-500">*</span>
+            {auditContextLabel ? "Correction reason / notes" : "Notes"} <span className="text-red-500">*</span>
           </label>
           <input
             id="manual-notes"
@@ -302,10 +307,15 @@ export default function AddTimeEntryModal({
                 setValidationErrors((prev) => ({ ...prev, notes: "" }));
               }
             }}
-            placeholder="e.g. Overtime, client meeting..."
+            placeholder={auditContextLabel ? "Reason for manager correction..." : "e.g. Overtime, client meeting..."}
             className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${validationErrors.notes ? "border-red-500" : "border-[var(--border)]"}`}
             required
           />
+          {auditContextLabel && (
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Manager edit for {auditContextLabel}. Include the correction reason for payroll review.
+            </p>
+          )}
           {validationErrors.notes && (
             <p className="text-red-500 text-xs mt-1">{validationErrors.notes}</p>
           )}

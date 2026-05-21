@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import { JwtService, JwtPayload } from './jwt.service'
 import { User } from '@prisma/client'
 import { authenticateToken, AuthRequest } from './auth.middleware'
+import { buildPendingSignupProfile, canLoginApprovedUser } from './signup.requests'
 
 export class AuthController {
     router(): Router {
@@ -79,6 +80,10 @@ export class AuthController {
                 return res.status(400).json({ error: 'Name, email and password required' })
             }
 
+            if (!departmentId || !role) {
+                return res.status(400).json({ error: 'Department and role are required' })
+            }
+
             // Validate email format
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
             if (!emailRegex.test(email)) {
@@ -108,7 +113,26 @@ export class AuthController {
 
                 const passwordHash = await bcrypt.hash(password, 10)
 
-                // Create user, profile and role in a transaction
+                const department = await prisma.department.findUnique({ where: { id: departmentId } })
+                if (!department) {
+                    return res.status(400).json({ error: 'Invalid department' })
+                }
+
+                const availableRole = await prisma.availableRole.findFirst({
+                    where: {
+                        name: role,
+                        OR: [
+                            { departmentId },
+                            { departmentId: null },
+                        ],
+                    },
+                })
+                if (!availableRole) {
+                    return res.status(400).json({ error: 'Invalid role for selected department' })
+                }
+
+                // Create user and pending profile in a transaction. Active authorization
+                // roles are assigned only after manager approval.
                 const user = await prisma.$transaction(async (tx) => {
                     const newUser = await tx.user.create({
                         data: {
@@ -124,17 +148,7 @@ export class AuthController {
                     await tx.employeeProfile.create({
                         data: {
                             userId: newUser.id,
-                            jobTitle: role,
-                            // departmentId: departmentId // Wait, check if the model has this
-                        }
-                    })
-
-                    // Create user role
-                    await tx.userRole.create({
-                        data: {
-                            userId: newUser.id,
-                            role,
-                            departmentId: departmentId || null
+                            ...buildPendingSignupProfile({ role, departmentId }),
                         }
                     })
 
@@ -182,6 +196,10 @@ export class AuthController {
                 const valid = await bcrypt.compare(password, user.password)
                 if (!valid) {
                     return res.status(401).json({ error: 'Invalid credentials' })
+                }
+
+                if (!canLoginApprovedUser(user)) {
+                    return res.status(403).json({ error: 'Account pending approval' })
                 }
 
                 const tokens = JwtService.generateTokenPair({

@@ -171,6 +171,17 @@ export interface GoogleDriveFile {
 
 // ── Tasks (raw from API) ─────────────────────────────────────────────────────
 
+export interface ApiTaskWorkSession {
+  id: string;
+  taskId: string;
+  userId: string;
+  startedAt: string;
+  endedAt: string;
+  durationSeconds: number;
+  createdAt?: string;
+  user?: { id: string; name: string | null; email: string; avatar: string | null };
+}
+
 export interface ApiTask {
   id: string;
   title: string;
@@ -181,15 +192,21 @@ export interface ApiTask {
   startDate?: string;
   notes?: unknown;
   departmentId?: string;
-  department?: { id: string; name: string };
-  assigneeId?: number;
+  department?: { id: string; name: string; availableRoles?: Array<{ id: string; name: string; departmentId?: string | null }> };
+  assigneeId?: number | string;
   assignee?: { id: number | string; name: string | null; email: string; avatar: string | null };
+  createdById?: number | string;
+  creator?: { id: number | string; name: string | null; email: string; avatar: string | null };
   role?: string;
   progress?: number;
   timerStatus?: string;
   timerStart?: string;
   totalElapsed?: number;
   estimatedTime?: number;
+  completedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  workSessions?: ApiTaskWorkSession[];
   [key: string]: unknown;
 }
 
@@ -197,6 +214,7 @@ export interface ApiTask {
 
 export interface ApiTimeEntry {
   id: string;
+  userId?: string;
   start: string;
   end?: string;
   duration?: number;

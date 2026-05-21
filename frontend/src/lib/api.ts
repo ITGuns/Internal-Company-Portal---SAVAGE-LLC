@@ -1,4 +1,3 @@
-import { APP_CONFIG } from './config';
 import { STORAGE_KEYS } from './constants';
 import type { LoginCredentials, AuthResponse } from './types/auth';
 
@@ -94,6 +93,7 @@ export const loginWithEmail = async (credentials: LoginCredentials): Promise<Aut
         if (res.ok && data.success && data.tokens) {
             // Store auth token and user data
             setAuthToken(data.tokens.accessToken);
+            setRefreshToken(data.tokens.refreshToken);
             setCurrentUser(data.user);
             return data;
         }
@@ -113,6 +113,7 @@ export const loginWithEmail = async (credentials: LoginCredentials): Promise<Aut
 export const logout = () => {
     if (typeof window !== 'undefined') {
         localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
         localStorage.removeItem(STORAGE_KEYS.USER);
     }
 }

@@ -2,7 +2,7 @@
  * Custom hook for managing calendar events (built-in, custom, hidden, aggregated)
  */
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import type { TimeEntry } from "../time-entries";
 import type { PayrollEvent } from "../payroll-events";
 import type { EventType, CalendarEvent, PayrollStats } from "./types";

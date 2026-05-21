@@ -7,6 +7,7 @@ import type { ApiTimeEntry } from './types/api';
 
 export type TimeEntry = {
   id: string;
+  userId?: string;
   start: string; // ISO string
   end?: string; // ISO string
   durationMin?: number;
@@ -24,6 +25,7 @@ const mapBackendToFrontend = (data: ApiTimeEntry): TimeEntry => {
     : (data.end ? Math.round((new Date(data.end).getTime() - new Date(data.start).getTime()) / 60000) : undefined);
   return {
     id: data.id,
+    userId: data.userId,
     start: data.start,
     end: data.end || undefined,
     notes: data.notes,
@@ -108,6 +110,26 @@ export async function createTimeEntry(start: string, end?: string, notes?: strin
     }
   } catch (error) {
     console.error('Create entry failed:', error);
+  }
+  return null;
+}
+
+/**
+ * Update manual entry
+ */
+export async function updateTimeEntry(id: string, start: string, end?: string, notes?: string, userId?: string): Promise<TimeEntry | null> {
+  try {
+    const payload = { start, end, notes, userId };
+    const res = await apiFetch(`/payroll/entry/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
+    });
+    if (res.status === 200) {
+      const data = await res.json();
+      return mapBackendToFrontend(data);
+    }
+  } catch (error) {
+    console.error('Update entry failed:', error);
   }
   return null;
 }

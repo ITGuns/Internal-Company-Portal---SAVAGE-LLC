@@ -53,21 +53,6 @@ async function apiChildren(parentId: string): Promise<FileDirectory[]> {
   return res.json();
 }
 
-async function apiCreateFolder(data: {
-  name: string;
-  department: string;
-  driveLink?: string;
-  parentId?: string | null;
-  customColor?: string;
-}): Promise<FileDirectory> {
-  const res = await apiFetch('/file-directory', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error('Failed to create folder');
-  return res.json();
-}
-
 async function apiDeleteFolder(id: string): Promise<void> {
   const res = await apiFetch(`/file-directory/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete folder');
@@ -91,6 +76,8 @@ function buildBreadcrumbs(allFolders: FileDirectory[], folderId: string | null):
 export default function FileDirectoryPage() {
   const toast = useToast();
   const { user } = useUser();
+  const userRole = user?.role;
+  const userDepartment = user?.department;
 
   // Navigation state
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -113,13 +100,13 @@ export default function FileDirectoryPage() {
 
   // Set department filter based on role once user loads
   useEffect(() => {
-    if (!user) return;
-    if (user.role === 'admin') {
+    if (!userRole && !userDepartment) return;
+    if (userRole === 'admin') {
       setDepartmentFilter('All Departments'); // admins see everything
-    } else if (user.department) {
-      setDepartmentFilter(user.department);
+    } else if (userDepartment) {
+      setDepartmentFilter(userDepartment);
     }
-  }, [user?.role, user?.department]);
+  }, [userRole, userDepartment]);
 
   // Load folders from backend
   const loadFolders = useCallback(async () => {
@@ -139,18 +126,21 @@ export default function FileDirectoryPage() {
       const filtered = filterFolders(data, searchQuery, departmentFilter);
       const sorted = sortFolders(filtered, sortBy);
       setFolders(sorted);
-      setBreadcrumbs(buildBreadcrumbs(allLoadedFolders, currentFolderId));
     } catch (err) {
       console.error(err);
       toast.error('Failed to load folders');
     } finally {
       setLoading(false);
     }
-  }, [currentFolderId, searchQuery, departmentFilter, sortBy]);
+  }, [currentFolderId, searchQuery, departmentFilter, sortBy, toast]);
 
   useEffect(() => {
     loadFolders();
   }, [loadFolders]);
+
+  useEffect(() => {
+    setBreadcrumbs(buildBreadcrumbs(allLoadedFolders, currentFolderId));
+  }, [allLoadedFolders, currentFolderId]);
 
   // Handle view mode change
   const handleViewChange = (mode: 'grid' | 'list') => {

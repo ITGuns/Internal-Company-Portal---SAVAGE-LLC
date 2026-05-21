@@ -3,3 +3,6 @@
 
 # Temporary debug scripts
 tmp/
+
+# Root dependencies
+node_modules/

@@ -37,7 +37,6 @@ export default function AddFolderModal({
   const [loading, setLoading] = useState(false);
 
   // Subfolder detection state
-  const [detectingSubfolders, setDetectingSubfolders] = useState(false);
   const [detectedSubfolders, setDetectedSubfolders] = useState<DriveSubfolder[]>([]);
   const [detectedFileCount, setDetectedFileCount] = useState(0);
   const [selectedSubfolders, setSelectedSubfolders] = useState<Set<string>>(new Set());
@@ -67,7 +66,6 @@ export default function AddFolderModal({
       }
 
       setDetectionStatus('loading');
-      setDetectingSubfolders(true);
       setDetectedSubfolders([]);
       setSelectedSubfolders(new Set());
 
@@ -77,8 +75,8 @@ export default function AddFolderModal({
         setDetectedFileCount(fileCount);
 
         // Auto-fill folder name if it's currently empty
-        if (name && !folderName) {
-          setFolderName(name);
+        if (name) {
+          setFolderName(current => current || name);
         }
 
         // Pre-select all detected subfolders
@@ -89,7 +87,6 @@ export default function AddFolderModal({
         else if (err instanceof Error && err.message === 'ACCESS_DENIED') setDetectionStatus('error');
         else setDetectionStatus('error');
       } finally {
-        setDetectingSubfolders(false);
       }
     }, 600);
 

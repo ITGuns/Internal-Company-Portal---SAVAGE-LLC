@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Header from "@/components/Header";
 import Button from "@/components/Button";
@@ -15,6 +15,19 @@ import EmployeeOverviewTab from "../../components/payroll/EmployeeOverviewTab";
 import PayslipsTab from "@/components/payroll/PayslipsTab";
 import ReportsTab from "@/components/payroll/ReportsTab";
 import { useUser } from "@/contexts/UserContext";
+import { fetchUsers, type TaskUser } from "@/lib/tasks";
+import {
+  getEmployeeOverviewViewFromSearch,
+  getPayrollTabFromSearch,
+  type EmployeeOverviewView,
+} from "@/lib/dashboard-deep-links";
+import {
+  filterPayrollAuditUsers,
+  getPayrollAuditDateRange,
+  getPayrollAuditTarget,
+  getPayrollTimeEntryRange,
+} from "@/lib/payroll-calendar/audit-target";
+import { hasManagementAccess as getHasManagementAccess } from "@/lib/role-access";
 
 // Lazy-loaded heavy components (CalendarTab has FullCalendar, modals are only shown on interaction)
 const CalendarTab = dynamic(() => import("@/components/payroll/CalendarTab"), { ssr: false });
@@ -24,9 +37,17 @@ const AddEventModal = dynamic(() => import("@/components/payroll/AddEventModal")
 export default function PayrollCalendarPage() {
   const { user } = useUser();
   const toast = useToast();
+  const showErrorToast = toast.error;
   const [activeTab, setActiveTab] = useState<PayrollTab>("calendar");
+  const [employeeOverviewView, setEmployeeOverviewView] = useState<EmployeeOverviewView>("deployed");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
+  const [payrollUsers, setPayrollUsers] = useState<TaskUser[]>([]);
+  const [isLoadingPayrollUsers, setIsLoadingPayrollUsers] = useState(false);
+  const [selectedAuditUserId, setSelectedAuditUserId] = useState("");
+  const [auditUserSearch, setAuditUserSearch] = useState("");
+  const [auditStartDate, setAuditStartDate] = useState("");
+  const [auditEndDate, setAuditEndDate] = useState("");
   const [editingEvent, setEditingEvent] = useState<{
     id: string;
     title: string;
@@ -34,6 +55,22 @@ export default function PayrollCalendarPage() {
     type: PayrollEventType;
     description?: string;
   } | null>(null);
+
+  // RBAC: Check if user has management access
+  const hasManagementAccess = getHasManagementAccess(user);
+  const currentUserId = user?.id != null ? String(user.id) : undefined;
+  const targetUserId = hasManagementAccess && selectedAuditUserId ? selectedAuditUserId : undefined;
+  const selectedPayrollUser = payrollUsers.find((payrollUser) => String(payrollUser.id) === targetUserId);
+  const filteredPayrollUsers = useMemo(
+    () => filterPayrollAuditUsers(payrollUsers, auditUserSearch),
+    [auditUserSearch, payrollUsers],
+  );
+  const auditEmployeeLabel = selectedPayrollUser?.name || selectedPayrollUser?.email || "selected employee";
+  const isOwnTimeView = !targetUserId || targetUserId === currentUserId;
+  const timeEntryRange = useMemo(
+    () => getPayrollTimeEntryRange({ startDate: auditStartDate, endDate: auditEndDate }),
+    [auditEndDate, auditStartDate],
+  );
 
   // Custom hooks for data management
   const {
@@ -44,11 +81,12 @@ export default function PayrollCalendarPage() {
     clockIn: handleClockIn,
     clockOut: handleClockOut,
     createTimeEntry,
+    updateTimeEntry,
     deleteTimeEntry,
     addCustomEvent,
     updateCustomEvent,
     deleteCustomEvent,
-  } = usePayrollData();
+  } = usePayrollData(targetUserId, timeEntryRange.startIso, timeEntryRange.endIso);
 
   const {
     events,
@@ -56,10 +94,100 @@ export default function PayrollCalendarPage() {
     stats,
   } = useCalendarEvents(timeEntries, customEvents);
 
-  // RBAC: Check if user has management access
-  const userRole = user?.role?.toLowerCase() || 'member';
-  const formattedRole = userRole.trim().replace(/ /g, '_');
-  const hasManagementAccess = ['admin', 'manager', 'operations_manager', 'administrator'].includes(formattedRole);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.has("tab")) {
+      setActiveTab(getPayrollTabFromSearch(searchParams, hasManagementAccess));
+    }
+    if (searchParams.has("view")) {
+      setEmployeeOverviewView(getEmployeeOverviewViewFromSearch(searchParams));
+    }
+
+    const auditTarget = getPayrollAuditTarget({
+      searchParams,
+      currentUserId,
+      hasManagementAccess,
+    });
+    const auditRange = getPayrollAuditDateRange(searchParams);
+    setSelectedAuditUserId(searchParams.has("userId") && auditTarget.targetUserId ? auditTarget.targetUserId : "");
+    setAuditStartDate(auditRange.startDate);
+    setAuditEndDate(auditRange.endDate);
+  }, [currentUserId, hasManagementAccess]);
+
+  useEffect(() => {
+    if (!hasManagementAccess) {
+      setPayrollUsers([]);
+      setIsLoadingPayrollUsers(false);
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingPayrollUsers(true);
+
+    fetchUsers()
+      .then((users) => {
+        if (isMounted) setPayrollUsers(users);
+      })
+      .catch(() => {
+        if (isMounted) showErrorToast("Failed to load payroll users");
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingPayrollUsers(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [hasManagementAccess, showErrorToast]);
+
+  const updateCalendarQuery = (updates: {
+    userId?: string;
+    startDate?: string;
+    endDate?: string;
+  }) => {
+    setActiveTab("calendar");
+
+    if (typeof window === "undefined") return;
+
+    const searchParams = new URLSearchParams(window.location.search);
+    searchParams.set("tab", "calendar");
+
+    if (updates.userId !== undefined) {
+      if (updates.userId) searchParams.set("userId", updates.userId);
+      else searchParams.delete("userId");
+    }
+    if (updates.startDate !== undefined) {
+      if (updates.startDate) searchParams.set("start", updates.startDate);
+      else searchParams.delete("start");
+    }
+    if (updates.endDate !== undefined) {
+      if (updates.endDate) searchParams.set("end", updates.endDate);
+      else searchParams.delete("end");
+    }
+
+    const nextQuery = searchParams.toString();
+    const nextUrl = nextQuery
+      ? `${window.location.pathname}?${nextQuery}`
+      : window.location.pathname;
+    window.history.replaceState(null, "", nextUrl);
+  };
+
+  const handleAuditUserChange = (nextUserId: string) => {
+    setSelectedAuditUserId(nextUserId);
+    updateCalendarQuery({ userId: nextUserId });
+  };
+
+  const handleAuditDateChange = (field: "start" | "end", value: string) => {
+    if (field === "start") {
+      setAuditStartDate(value);
+      updateCalendarQuery({ startDate: value });
+    } else {
+      setAuditEndDate(value);
+      updateCalendarQuery({ endDate: value });
+    }
+  };
 
   // Event handlers
   const handleAddManualEntry = async (
@@ -68,11 +196,27 @@ export default function PayrollCalendarPage() {
     notes?: string,
     userId?: string
   ) => {
-    const success = await createTimeEntry(startIso, endIso, notes, userId);
+    const success = await createTimeEntry(startIso, endIso, notes, userId || targetUserId);
     if (success) {
       toast.success("Time entry added successfully");
     } else {
       toast.error("Failed to add time entry");
+    }
+    return success;
+  };
+
+  const handleEditManualEntry = async (
+    id: string,
+    startIso: string,
+    endIso?: string,
+    notes?: string,
+    userId?: string
+  ) => {
+    const success = await updateTimeEntry(id, startIso, endIso, notes, userId || targetUserId);
+    if (success) {
+      toast.success("Time entry updated");
+    } else {
+      toast.error("Failed to update time entry");
     }
     return success;
   };
@@ -205,7 +349,7 @@ export default function PayrollCalendarPage() {
 
         {/* Tab Navigation */}
         <div className="mt-6">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex flex-wrap items-center gap-2 mb-4">
             <Button
               variant={activeTab === "calendar" ? "primary" : "outline"}
               size="md"
@@ -242,13 +386,78 @@ export default function PayrollCalendarPage() {
                 </Button>
               </>
             )}
+            {hasManagementAccess && activeTab === "calendar" && (
+              <div className="grid w-full grid-cols-1 gap-2 rounded border border-[var(--border)] bg-[var(--card-surface)] p-3 sm:ml-auto sm:w-auto sm:min-w-[520px] sm:grid-cols-[1fr_130px_130px]">
+                <div>
+                  <label
+                    htmlFor="payroll-audit-user-search"
+                    className="mb-1 block text-xs font-medium uppercase tracking-wide text-[var(--muted)]"
+                  >
+                    Employee audit
+                  </label>
+                  <input
+                    id="payroll-audit-user-search"
+                    type="search"
+                    value={auditUserSearch}
+                    onChange={(event) => setAuditUserSearch(event.target.value)}
+                    placeholder="Search employee..."
+                    className="mb-2 w-full rounded border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                  />
+                  <select
+                    id="payroll-audit-user"
+                    value={selectedAuditUserId}
+                    onChange={(event) => handleAuditUserChange(event.target.value)}
+                    disabled={isLoadingPayrollUsers}
+                    className="w-full rounded border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label="Employee"
+                  >
+                    <option value="">My time entries</option>
+                    {filteredPayrollUsers.map((payrollUser) => (
+                      <option key={payrollUser.id} value={payrollUser.id}>
+                        {payrollUser.name || payrollUser.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor="payroll-audit-start"
+                    className="mb-1 block text-xs font-medium uppercase tracking-wide text-[var(--muted)]"
+                  >
+                    Start
+                  </label>
+                  <input
+                    id="payroll-audit-start"
+                    type="date"
+                    value={auditStartDate}
+                    onChange={(event) => handleAuditDateChange("start", event.target.value)}
+                    className="w-full rounded border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] [color-scheme:light] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] dark:[color-scheme:dark]"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="payroll-audit-end"
+                    className="mb-1 block text-xs font-medium uppercase tracking-wide text-[var(--muted)]"
+                  >
+                    End
+                  </label>
+                  <input
+                    id="payroll-audit-end"
+                    type="date"
+                    value={auditEndDate}
+                    onChange={(event) => handleAuditDateChange("end", event.target.value)}
+                    className="w-full rounded border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] [color-scheme:light] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] dark:[color-scheme:dark]"
+                  />
+                </div>
+              </div>
+            )}
             {activeTab === "calendar" && (
               <Button
                 variant="primary"
                 size="md"
                 icon={<Plus className="w-4 h-4" />}
                 onClick={() => setShowEventModal(true)}
-                className="ml-auto"
+                className={hasManagementAccess ? "" : "ml-auto"}
               >
                 Add Event
               </Button>
@@ -269,11 +478,16 @@ export default function PayrollCalendarPage() {
               onClockIn={handleClockInClick}
               onClockOut={handleClockOutClick}
               onAddManualEntry={() => setShowAddModal(true)}
+              onEditTimeEntry={handleEditManualEntry}
               onDeleteTimeEntry={handleDeleteTimeEntry}
+              isOwnTimeView={isOwnTimeView}
+              auditEmployeeLabel={auditEmployeeLabel}
             />
           )}
 
-          {hasManagementAccess && activeTab === "employees" && <EmployeeOverviewTab />}
+          {hasManagementAccess && activeTab === "employees" && (
+            <EmployeeOverviewTab initialView={employeeOverviewView} />
+          )}
           {hasManagementAccess && activeTab === "payslips" && <PayslipsTab />}
           {hasManagementAccess && activeTab === "reports" && <ReportsTab />}
         </div>
@@ -284,6 +498,8 @@ export default function PayrollCalendarPage() {
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onSubmit={handleAddManualEntry}
+        initialUserId={targetUserId}
+        auditContextLabel={!isOwnTimeView ? auditEmployeeLabel : undefined}
       />
       <AddEventModal
         isOpen={showEventModal}

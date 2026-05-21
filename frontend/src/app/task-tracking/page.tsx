@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Header from "@/components/Header";
 import Button from "@/components/Button";
@@ -15,6 +15,7 @@ import {
   Plus,
   MoreHorizontal,
   Check,
+  X,
   ChevronDown,
   ArrowUpDown,
   Search,
@@ -26,6 +27,7 @@ import {
   createTask,
   updateTask,
   deleteTask,
+  fetchTaskDetail,
   getTaskViewPreference,
   saveTaskViewPreference,
   type Task,
@@ -35,6 +37,20 @@ import {
 import { useTasks, useUsers, useDepartments } from "@/hooks/useTasksQuery";
 import { useQueryClient } from "@tanstack/react-query";
 import { ClipboardCheck } from "lucide-react";
+import { useUser } from "@/contexts/UserContext";
+import {
+  canManageTaskAssignments,
+  getUserTaskAssignment,
+} from "@/lib/task-access";
+import { shouldOpenCreateFromSearch } from "@/lib/dashboard-deep-links";
+import {
+  getTaskDeepLinkState,
+  getTaskFilterDescription,
+  getTaskFilterLabel,
+  getTaskUrlWithoutDeepLinkFilter,
+  taskMatchesDeepLinkFilter,
+  type TaskDeepLinkFilter,
+} from "@/lib/task-deep-links";
 
 // Lazy-loaded heavy components
 const LogReportModal = dynamic(() => import("@/components/tasks/LogReportModal"), { ssr: false });
@@ -42,6 +58,7 @@ const LogReportModal = dynamic(() => import("@/components/tasks/LogReportModal")
 import BoardCard from "@/components/tasks/BoardCard";
 import TaskListRow from "@/components/tasks/TaskListRow";
 import TaskModal from "@/components/tasks/TaskModal";
+import TaskDetailModal from "@/components/tasks/TaskDetailModal";
 import TaskCalendarView from "@/components/tasks/TaskCalendarView";
 
 // Map backend status to nice labels
@@ -50,22 +67,6 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   in_progress: "In Progress",
   review: "Review",
   completed: "Completed"
-};
-
-const PRIORITY_COLORS: Record<TaskPriority, string> = {
-  Low: "var(--priority-low)",
-  Med: "var(--priority-medium)",
-  High: "var(--priority-high)",
-};
-
-const formatTime = (seconds: number) => {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
 };
 
 const formatMinutes = (minutes: number) => {
@@ -79,15 +80,26 @@ const formatMinutes = (minutes: number) => {
 export default function TaskTrackingPage() {
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { user: currentUser } = useUser();
 
   // Data from React Query — auto-refetches on socket data:changed events
   const { data: tasks = [], isLoading: tasksLoading } = useTasks();
   const { data: departments = [] } = useDepartments();
   const { data: users = [] } = useUsers();
+  const currentUserId = currentUser?.id ? String(currentUser.id) : "";
+  const canManageAssignments = canManageTaskAssignments(currentUser);
+  const currentUserAssignment = useMemo(
+    () => getUserTaskAssignment(currentUser, users),
+    [currentUser, users],
+  );
 
   // UI State
   const isLoading = tasksLoading;
   const [showModal, setShowModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [deepLinkFilter, setDeepLinkFilter] = useState<TaskDeepLinkFilter | null>(null);
+  const [deepLinkTaskId, setDeepLinkTaskId] = useState<string | null>(null);
+  const [taskLinkError, setTaskLinkError] = useState<string | null>(null);
   const [view, setView] = useState<"grid" | "list" | "calendar">('calendar');
 
   // Filter & Sort State
@@ -105,6 +117,9 @@ export default function TaskTrackingPage() {
   const [showEODModal, setShowEODModal] = useState(false);
 
   const displayRef = useRef<HTMLDivElement>(null);
+  const appliedDefaultUserFilterRef = useRef(false);
+  const handledCreateDeepLinkRef = useRef(false);
+  const openedDeepLinkTaskRef = useRef<string | null>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -124,6 +139,13 @@ export default function TaskTrackingPage() {
     // Load preference immediately to avoid flash
     setView(getTaskViewPreference());
   }, []);
+
+  useEffect(() => {
+    if (appliedDefaultUserFilterRef.current || canManageAssignments || !currentUserId) return;
+
+    setFilterUserId(currentUserId);
+    appliedDefaultUserFilterRef.current = true;
+  }, [canManageAssignments, currentUserId]);
 
   // Action hander for Play/Pause/Complete
   const handleTaskAction = async (e: React.MouseEvent, taskId: string, action: 'play' | 'pause' | 'complete') => {
@@ -181,9 +203,10 @@ export default function TaskTrackingPage() {
       const updatedTask = await updateTask(taskId, updates);
       if (updatedTask) {
         queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        queryClient.invalidateQueries({ queryKey: ['tasks', 'detail', taskId] });
         toast.success(`Task ${action === 'complete' ? 'completed' : (action === 'play' ? 'started' : 'paused')}`);
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to update task action");
     }
   };
@@ -209,24 +232,57 @@ export default function TaskTrackingPage() {
   const [progress, setProgress] = useState(0);
   const [progressNotes, setProgressNotes] = useState("");
 
-  function openNewTask() {
+  function applyCurrentUserAssignment() {
+    if (!currentUserId) return;
+
+    setAssigneeId(currentUserId);
+    if (currentUserAssignment?.departmentId) {
+      setDepartmentId(currentUserAssignment.departmentId);
+    }
+    if (currentUserAssignment?.role) {
+      setRole(currentUserAssignment.role);
+    }
+  }
+
+  const openNewTask = useCallback(() => {
+    setSelectedTask(null);
     setEditTaskData(null);
     setTitle("");
     setDescription("");
-    setAssigneeId("");
+    setAssigneeId(canManageAssignments ? "" : currentUserId);
     setDueDate("");
     setStartDate("");
     setPriority("Med");
-    setDepartmentId("");
-    setRole("");
+    setDepartmentId(canManageAssignments ? "" : currentUserAssignment?.departmentId || "");
+    setRole(canManageAssignments ? "" : currentUserAssignment?.role || "");
     setStatus("todo");
     setProgress(0);
     setProgressNotes("");
     setEstimatedTime("");
     setShowModal(true);
-  }
+  }, [
+    canManageAssignments,
+    currentUserAssignment?.departmentId,
+    currentUserAssignment?.role,
+    currentUserId,
+  ]);
+
+  useEffect(() => {
+    if (handledCreateDeepLinkRef.current || typeof window === "undefined") return;
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const deepLinkState = getTaskDeepLinkState(searchParams);
+    setDeepLinkFilter(deepLinkState.filter);
+    setDeepLinkTaskId(deepLinkState.taskId);
+
+    if (shouldOpenCreateFromSearch(searchParams)) {
+      handledCreateDeepLinkRef.current = true;
+      openNewTask();
+    }
+  }, [openNewTask]);
 
   function openEdit(task: Task) {
+    setSelectedTask(null);
     setEditTaskData(task);
     setTitle(task.title);
     setDescription(task.description || "");
@@ -243,19 +299,105 @@ export default function TaskTrackingPage() {
     setShowModal(true);
   }
 
+  function openTaskDetails(task: Task) {
+    setSelectedTask(task);
+  }
+
+  function closeTaskDetails() {
+    setSelectedTask(null);
+  }
+
+  function clearDeepLinkFilter() {
+    setDeepLinkFilter(null);
+
+    if (typeof window === "undefined") return;
+
+    const nextUrl = getTaskUrlWithoutDeepLinkFilter(new URLSearchParams(window.location.search));
+    window.history.replaceState(null, "", nextUrl);
+  }
+
+  function openEditFromDetails(task: Task) {
+    setSelectedTask(null);
+    openEdit(task);
+  }
+
+  useEffect(() => {
+    if (!deepLinkTaskId || openedDeepLinkTaskRef.current === deepLinkTaskId) return;
+
+    const localTask = tasks.find((task) => task.id === deepLinkTaskId);
+    if (localTask) {
+      openedDeepLinkTaskRef.current = deepLinkTaskId;
+      setTaskLinkError(null);
+      setSelectedTask(localTask);
+      return;
+    }
+
+    fetchTaskDetail(deepLinkTaskId)
+      .then((task) => {
+        openedDeepLinkTaskRef.current = deepLinkTaskId;
+        setTaskLinkError(null);
+        setSelectedTask(task);
+      })
+      .catch(() => {
+        openedDeepLinkTaskRef.current = deepLinkTaskId;
+        const message = "Task link is unavailable, deleted, or restricted for your role.";
+        setTaskLinkError(message);
+        toast.error(message);
+      });
+  }, [deepLinkTaskId, tasks, toast]);
+
   function closeModal() {
     setShowModal(false);
     setEditTaskData(null);
   }
+
+  useEffect(() => {
+    if (!showModal || editTaskData || canManageAssignments) return;
+
+    if (currentUserId && assigneeId !== currentUserId) {
+      setAssigneeId(currentUserId);
+    }
+    if (currentUserAssignment?.departmentId && departmentId !== currentUserAssignment.departmentId) {
+      setDepartmentId(currentUserAssignment.departmentId);
+    }
+    if (currentUserAssignment?.role && role !== currentUserAssignment.role) {
+      setRole(currentUserAssignment.role);
+    }
+  }, [
+    assigneeId,
+    canManageAssignments,
+    currentUserAssignment?.departmentId,
+    currentUserAssignment?.role,
+    currentUserId,
+    departmentId,
+    editTaskData,
+    role,
+    showModal,
+  ]);
 
 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    // Validation
-    if (!title.trim() || !description.trim() || !departmentId || !assigneeId || !dueDate || !estimatedTime || !role) {
+    const effectiveAssigneeId = canManageAssignments ? assigneeId : currentUserId;
+    const effectiveDepartmentId = canManageAssignments ? departmentId : currentUserAssignment?.departmentId || "";
+    const effectiveRole = canManageAssignments ? role : currentUserAssignment?.role || "";
+
+    if (!title.trim() || !description.trim() || !dueDate || !estimatedTime) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (canManageAssignments && (!effectiveDepartmentId || !effectiveAssigneeId || !effectiveRole)) {
+      toast.error(
+        "Please choose an assignee, department, and role",
+      );
+      return;
+    }
+
+    if (!canManageAssignments && !editTaskData && (!effectiveDepartmentId || !effectiveAssigneeId || !effectiveRole)) {
+      toast.error("Your account needs an assigned department and role before creating tasks");
       return;
     }
 
@@ -267,14 +409,17 @@ export default function TaskTrackingPage() {
           description: description.trim(),
           status,
           priority,
-          departmentId,
-          assigneeId,
           dueDate,
           startDate: startDate || undefined,
-          role,
           estimatedTime: parseInt(estimatedTime),
           progress,
         };
+
+        if (canManageAssignments) {
+          updates.departmentId = effectiveDepartmentId;
+          updates.assigneeId = effectiveAssigneeId;
+          updates.role = effectiveRole;
+        }
 
         if (progressNotes.trim()) {
           updates.notes = [
@@ -283,21 +428,21 @@ export default function TaskTrackingPage() {
           ];
         }
 
-        const updated = await updateTask(editTaskData.id, updates);
+        await updateTask(editTaskData.id, updates);
         queryClient.invalidateQueries({ queryKey: ['tasks'] });
         toast.success("Task updated");
       } else {
         // Create new
-        const created = await createTask({
+        await createTask({
           title: title.trim(),
           description: description.trim(),
           status,
           priority,
-          departmentId,
-          assigneeId,
+          departmentId: effectiveDepartmentId,
+          assigneeId: effectiveAssigneeId,
           dueDate,
           startDate: startDate || undefined,
-          role,
+          role: effectiveRole,
           notes: [],
           estimatedTime: parseInt(estimatedTime),
         });
@@ -382,8 +527,11 @@ export default function TaskTrackingPage() {
     }
   };
 
+  const todayStr = new Date().toISOString().split('T')[0];
+
   // Filtering Logic
   const filteredTasks = tasks.filter(t => {
+    if (!taskMatchesDeepLinkFilter(t, deepLinkFilter, todayStr)) return false;
     if (filterStatus.length > 0 && !filterStatus.includes(t.status)) return false;
     if (filterPriority.length > 0 && !filterPriority.includes(t.priority)) return false;
     if (filterUserId && t.assigneeId?.toString() !== filterUserId.toString()) return false;
@@ -453,11 +601,12 @@ export default function TaskTrackingPage() {
   }
 
   // Stats for "Today" and "Overdue" (client-side calculation)
-  const todayStr = new Date().toISOString().split('T')[0];
   const todaysTasks = filteredTasks.filter(t => t.dueDate === todayStr && t.status !== 'completed');
   const overdueTasks = filteredTasks.filter(t => t.dueDate && t.dueDate < todayStr && t.status !== 'completed');
   const completedCount = filteredTasks.filter(t => t.status === 'completed').length;
   const inProgressCount = filteredTasks.filter(t => t.status === 'in_progress').length;
+  const deepLinkFilterLabel = getTaskFilterLabel(deepLinkFilter);
+  const deepLinkFilterDescription = getTaskFilterDescription(deepLinkFilter);
 
   // Calendar Events - Deduplicated by title and date for a cleaner view
   const events = (() => {
@@ -564,7 +713,7 @@ export default function TaskTrackingPage() {
                       onClick={() => {
                         setFilterStatus([]);
                         setFilterPriority([]);
-                        setFilterUserId("");
+                        setFilterUserId(!canManageAssignments && currentUserId ? currentUserId : "");
                         setFilterDeptId("");
                         setSortBy("dueDate");
                         setSortOrder("asc");
@@ -726,27 +875,74 @@ export default function TaskTrackingPage() {
               </div>
               <Button
                 onClick={() => setView("list")}
+                aria-label="Show tasks as a list"
                 aria-pressed={view === "list"}
+                title="List view"
                 variant={view === "list" ? "primary" : "secondary"}
                 icon={<List className="w-4 h-4" />}
                 size="sm"
               />
               <Button
                 onClick={() => setView("grid")}
+                aria-label="Show tasks as cards"
                 aria-pressed={view === "grid"}
+                title="Card view"
                 variant={view === "grid" ? "primary" : "secondary"}
                 icon={<Grid className="w-4 h-4" />}
                 size="sm"
               />
               <Button
                 onClick={() => setView("calendar")}
+                aria-label="Show tasks on the calendar"
                 aria-pressed={view === "calendar"}
+                title="Calendar view"
                 variant={view === "calendar" ? "primary" : "secondary"}
                 icon={<CalendarIcon className="w-4 h-4" />}
                 size="sm"
               />
             </div>
           </div>
+
+          {(deepLinkFilterLabel || taskLinkError) && (
+            <div className="mb-4 space-y-2">
+              {deepLinkFilterLabel && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-sm">
+                  <div>
+                    <div className="font-semibold text-sky-700 dark:text-sky-300">
+                      {deepLinkFilterLabel}
+                    </div>
+                    {deepLinkFilterDescription && (
+                      <div className="mt-0.5 text-xs text-sky-700/80 dark:text-sky-300/80">
+                        {deepLinkFilterDescription} {sortedTasks.length} result{sortedTasks.length === 1 ? "" : "s"}.
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={clearDeepLinkFilter}
+                    className="inline-flex items-center gap-1 rounded border border-sky-500/30 bg-[var(--card-bg)] px-3 py-1.5 text-xs font-medium text-sky-700 transition hover:bg-sky-500/10 dark:text-sky-300"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Clear filter
+                  </button>
+                </div>
+              )}
+
+              {taskLinkError && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+                  <span>{taskLinkError}</span>
+                  <button
+                    type="button"
+                    onClick={() => setTaskLinkError(null)}
+                    className="inline-flex items-center gap-1 rounded border border-amber-500/30 bg-[var(--card-bg)] px-3 py-1.5 text-xs font-medium transition hover:bg-amber-500/10"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Dismiss
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {view === "grid" && (
             <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -784,7 +980,7 @@ export default function TaskTrackingPage() {
                                 <BoardCard
                                   key={t.id}
                                   task={t}
-                                  onClick={() => openEdit(t)}
+                                  onClick={() => openTaskDetails(t)}
                                   onAction={handleTaskAction}
                                 />
                               ))
@@ -815,7 +1011,7 @@ export default function TaskTrackingPage() {
                     <TaskListRow
                       key={t.id}
                       task={t}
-                      onClick={() => openEdit(t)}
+                      onClick={() => openTaskDetails(t)}
                       onAction={handleTaskAction}
                     />
                   ))}
@@ -832,7 +1028,7 @@ export default function TaskTrackingPage() {
               totalCount={filteredTasks.length}
               completedCount={completedCount}
               inProgressCount={inProgressCount}
-              onEditTask={openEdit}
+              onOpenTask={openTaskDetails}
             />
           )}
         </div>
@@ -855,7 +1051,23 @@ export default function TaskTrackingPage() {
           progress={progress} setProgress={setProgress}
           progressNotes={progressNotes} setProgressNotes={setProgressNotes}
           departments={departments} users={users}
+          canManageAssignments={canManageAssignments}
+          assignmentSummary={{
+            assigneeName: currentUser?.name || currentUser?.email || "You",
+            departmentName: currentUserAssignment?.departmentName,
+            role: currentUserAssignment?.role,
+            isReady: Boolean(currentUserId && currentUserAssignment?.departmentId && currentUserAssignment?.role),
+          }}
+          onAssignToCurrentUser={applyCurrentUserAssignment}
           onSubmit={handleSubmit} onDelete={handleDelete} onClose={closeModal}
+        />
+      )}
+
+      {selectedTask && (
+        <TaskDetailModal
+          task={selectedTask}
+          onClose={closeTaskDetails}
+          onEdit={openEditFromDetails}
         />
       )}
 

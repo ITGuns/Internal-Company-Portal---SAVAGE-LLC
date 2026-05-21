@@ -18,6 +18,7 @@ export interface UpdateUserDto {
     citizenship?: string // Country of citizenship
     status?: string      // active, pending, vacation, leave
     appliedDate?: string // ISO date string
+    isApproved?: boolean
 }
 
 export class UsersService {
@@ -43,7 +44,6 @@ export class UsersService {
                     department: true,
                 },
             },
-            tasks: true,
             employeeProfile: true,
         }
 
@@ -78,11 +78,6 @@ export class UsersService {
             where: { id },
             include: {
                 roles: {
-                    include: {
-                        department: true,
-                    },
-                },
-                tasks: {
                     include: {
                         department: true,
                     },
@@ -137,12 +132,8 @@ export class UsersService {
         if (data.address !== undefined) updateData.address = data.address
         if (data.city !== undefined) updateData.city = data.city
         if (data.citizenship !== undefined) updateData.citizenship = data.citizenship
-        if (data.status !== undefined) {
-            updateData.status = data.status
-            if (data.status !== 'pending') {
-                updateData.isApproved = true
-            }
-        }
+        if (data.status !== undefined) updateData.status = data.status
+        if (data.isApproved !== undefined) updateData.isApproved = data.isApproved
 
         // Handle date conversions
         if (data.birthday !== undefined) {
