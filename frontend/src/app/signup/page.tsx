@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Mail, Lock, User as UserIcon } from 'lucide-react';
 import LoginInput from '@/components/LoginInput';
 import { useUser } from '@/contexts/UserContext';
+import { getSignupRoleOptions, type SignupDepartmentOption } from '@/lib/signup-options';
 import styles from '../login/login.module.css';
 
 export default function SignUpPage() {
@@ -19,8 +20,7 @@ export default function SignUpPage() {
   const [departmentId, setDepartmentId] = useState('');
   const [role, setRole] = useState('');
 
-  const [departments, setDepartments] = useState<any[]>([]);
-  const [roles, setRoles] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<SignupDepartmentOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -32,16 +32,12 @@ export default function SignUpPage() {
     }
   }, [user, router]);
 
-  // Fetch departments and roles on mount
+  // Fetch departments and their signup role options on mount
   useEffect(() => {
     async function loadOptions() {
       try {
-        const [deptRes, roleRes] = await Promise.all([
-          fetch('/api/departments').then(r => r.json()),
-          fetch('/api/roles').then(r => r.json())
-        ]);
+        const deptRes = await fetch('/api/departments').then(r => r.json());
         setDepartments(Array.isArray(deptRes) ? deptRes : []);
-        setRoles(Array.isArray(roleRes) ? roleRes : []);
       } catch (e) {
         console.error('Failed to load signup options', e);
       }
@@ -49,10 +45,7 @@ export default function SignUpPage() {
     loadOptions();
   }, []);
 
-  // Filter roles based on selected department
-  const filteredRoles = departmentId
-    ? roles.filter(r => !r.departmentId || r.departmentId === departmentId)
-    : roles.filter(r => !r.departmentId);
+  const roleOptions = getSignupRoleOptions(departments, departmentId);
 
   // Validate password match
   const validatePasswords = () => {
@@ -252,10 +245,16 @@ export default function SignUpPage() {
                 className={styles.input}
                 style={{ width: '100%', padding: '0.75rem', borderRadius: '0.375rem', backgroundColor: 'var(--login-input-bg)', color: 'var(--login-text-primary)', border: '1px solid var(--login-border)' }}
                 required
-                disabled={loading || !departmentId}
+                disabled={loading || !departmentId || roleOptions.length === 0}
               >
-                <option value="">Select Role</option>
-                {filteredRoles.map(r => (
+                <option value="">
+                  {!departmentId
+                    ? 'Select Department First'
+                    : roleOptions.length === 0
+                      ? 'No roles configured'
+                      : 'Select Role'}
+                </option>
+                {roleOptions.map(r => (
                   <option key={r.id} value={r.name}>{r.name}</option>
                 ))}
               </select>

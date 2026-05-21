@@ -1,5 +1,6 @@
 import { PrismaClient, Department } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
+import { mergeSignupRolesForDepartment } from '../auth/signup-role-options'
 
 export interface CreateDepartmentDto {
     name: string
@@ -21,8 +22,8 @@ export class DepartmentsService {
     /**
      * Get all departments
      */
-    async findAll(): Promise<Department[]> {
-        return this.prisma.department.findMany({
+    async findAll() {
+        const departments = await this.prisma.department.findMany({
             include: {
                 _count: {
                     select: {
@@ -40,6 +41,11 @@ export class DepartmentsService {
                 name: 'asc',
             },
         })
+
+        return departments.map((department) => ({
+            ...department,
+            availableRoles: mergeSignupRolesForDepartment(department),
+        }))
     }
 
     /**
