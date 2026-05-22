@@ -30,7 +30,7 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
         className={
           hideSidebar 
             ? "min-h-screen bg-[var(--background)] text-[var(--foreground)]"
-            : "min-h-screen md:pl-64 pt-[112px] bg-[var(--background)] text-[var(--foreground)]"
+            : "min-h-screen pt-20 md:pl-64 md:pt-[112px] bg-[var(--background)] text-[var(--foreground)]"
         }
       >
         {children}

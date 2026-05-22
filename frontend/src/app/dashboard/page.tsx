@@ -358,26 +358,26 @@ export default function DashboardPage() {
 
   return (
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
-      <div className="p-6 pt-3">
+      <div className="p-4 pt-3 md:p-6">
         <Header />
 
-        <div className="mt-8 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] gap-4">
-          <Card padding="lg" className="overflow-hidden">
+        <div className="mt-5 grid grid-cols-1 items-start gap-4 xl:mt-8 xl:grid-cols-[minmax(0,1fr)_380px]">
+          <Card padding="lg" className="overflow-hidden border-l-4 border-l-[var(--accent)]">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="max-w-2xl">
                 <div className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
                   {isManagementDashboard ? 'Team command center' : 'Personal command center'}
                 </div>
-                <h2 className="mt-2 text-2xl font-semibold text-[var(--foreground)]">
+                <h2 className="mt-2 max-w-xl text-2xl font-semibold leading-tight text-[var(--foreground)] md:text-3xl">
                   {isManagementDashboard ? 'Review today before work piles up.' : 'Your day, tasks, logs, and payroll in one place.'}
                 </h2>
-                <p className="mt-2 text-sm text-[var(--muted)]">
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
                   {isManagementDashboard
                     ? 'Use the alerts and quick actions below to keep approvals, tasks, logs, and time entries moving.'
                     : 'Start with the attention list, then jump straight into the next action without hunting through pages.'}
                 </p>
               </div>
-              <div className="shrink-0">
+              <div className="hidden shrink-0 sm:block">
                 <TimeClock />
               </div>
             </div>
@@ -407,7 +407,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats Overview */}
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 xl:grid-cols-6">
           <DashboardMetric
             label="Today's Time"
             value={formatHours(dashboardSummary.metrics.todayMinutes)}
@@ -452,7 +452,7 @@ export default function DashboardPage() {
           />
         </div>
 
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6">
           <div className="space-y-4">
             <Card variant="elevated" className="overflow-hidden">
               <Card.Header>

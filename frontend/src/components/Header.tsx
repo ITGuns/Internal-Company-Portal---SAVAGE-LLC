@@ -117,8 +117,8 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
   }, [])
 
   return (
-    <header ref={headerRef} className="fixed top-0 left-0 md:left-64 right-0 z-35 flex items-center justify-between h-28 pl-4 md:pl-7 pr-6 bg-[var(--background)]">
-      <div className="flex items-center gap-4">
+    <header ref={headerRef} className="fixed top-0 left-0 md:left-64 right-0 z-35 flex min-h-20 items-center justify-between gap-3 bg-[var(--background)] px-4 py-3 md:h-28 md:pl-7 md:pr-6 md:py-0">
+      <div className="flex min-w-0 flex-1 items-center gap-3 md:gap-4">
         {/* Mobile hamburger toggle */}
         <button
           className="md:hidden p-2 -ml-1 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
@@ -129,24 +129,24 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
         </button>
         {/* left area: allow explicit title, auto-resolve from route, else show dashboard greeting */}
         {isDashboard ? (
-          <div className="text-left">
-            <h2 className="text-xl font-semibold">Welcome back, {user?.name || 'Guest'}</h2>
-            <div className="text-sm text-[var(--muted)]">Here's what's happening today</div>
+          <div className="min-w-0 text-left">
+            <h2 className="truncate text-base font-semibold md:text-xl">Welcome back, {user?.name || 'Guest'}</h2>
+            <div className="mt-0.5 line-clamp-2 text-xs text-[var(--muted)] md:text-sm">Here's what's happening today</div>
           </div>
         ) : resolvedTitle ? (
-          <div className="text-left">
-            <h2 className="text-xl font-semibold">{resolvedTitle}</h2>
-            {resolvedSubtitle ? <div className="text-sm text-[var(--muted)] mt-1">{resolvedSubtitle}</div> : null}
+          <div className="min-w-0 text-left">
+            <h2 className="truncate text-base font-semibold md:text-xl">{resolvedTitle}</h2>
+            {resolvedSubtitle ? <div className="mt-0.5 line-clamp-2 text-xs text-[var(--muted)] md:mt-1 md:text-sm">{resolvedSubtitle}</div> : null}
           </div>
         ) : (
           <>
             <BrandLogo width={28} height={28} ariaHidden={true} />
-            <h1 className="text-2xl font-semibold">SAVAGE - LLC ENTERPRISES</h1>
+            <h1 className="truncate text-lg font-semibold md:text-2xl">SAVAGE - LLC ENTERPRISES</h1>
           </>
         )}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-1.5 md:gap-3">
         {/* Search and Add Task intentionally removed for a cleaner header */}
 
         {/* Command palette trigger */}
@@ -160,7 +160,11 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
           <kbd className="ml-1 text-xs font-mono opacity-70">Ctrl+K</kbd>
         </button>
 
-        {user && <TimeClock />}
+        {user && (
+          <div className="hidden lg:block">
+            <TimeClock />
+          </div>
+        )}
 
         <ThemeToggle />
 

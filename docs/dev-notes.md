@@ -114,6 +114,41 @@
 
 - After logging in locally, smoke protected pages again with a valid session to verify notifications and chat unread counts still load.
 
+## 2026-05-22 - MyDeskii Shell Remodel Foundation
+
+### Completed
+
+- Audited protected MyDeskii pages locally with the admin session: dashboard, task tracking, daily logs, payroll, chat, file directory, operations, and announcements.
+- Created the Open Design prompt from the real app structure and audit notes.
+- Tightened the shared shell header for mobile so the dashboard no longer overflows horizontally.
+- Reduced the dashboard command-center stretch and tightened spacing as the first implementation pass toward the Open Design-inspired workspace direction.
+
+### Files Changed
+
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/LayoutWrapper.tsx`
+- `frontend/src/app/dashboard/page.tsx`
+- `docs/mydeskii-open-design-prompt.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Started with the shared shell and dashboard because every protected page inherits that rhythm.
+- Kept the pass conservative: no route rewrites, no backend changes, and no broad redesign of task/log/payroll internals yet.
+- Kept the Open Design direction as a reference prompt rather than a direct clone of Open Design's product UI.
+
+### How to Test
+
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- Browser smoke with admin login against `/dashboard` on desktop and mobile widths.
+
+### Next Steps
+
+- Use `docs/mydeskii-open-design-prompt.md` in Open Design for richer screen mockups.
+- Continue implementation with the app shell/nav system, then task tracking, daily logs, and payroll in that order.
+
 ## 2026-05-20 - Session Summary
 
 ### Completed
