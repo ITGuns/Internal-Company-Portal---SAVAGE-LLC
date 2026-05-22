@@ -167,6 +167,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     // Fetch historical notifications from REST API on mount
     useEffect(() => {
         const loadHistorical = async () => {
+            const hasAuthenticatedSession = typeof window !== 'undefined'
+                && Boolean(localStorage.getItem(STORAGE_KEYS.USER))
+                && Boolean(localStorage.getItem('accessToken'))
+
+            if (!hasAuthenticatedSession) return
+
             try {
                 // Fetch general notifications AND actual unread chat count in parallel
                 const [notifRes, chatRes] = await Promise.all([
@@ -203,17 +209,22 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const checkUserAndConnect = () => {
             const storedUser = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.USER) : null
-            if (storedUser) {
-                try {
-                    const user = JSON.parse(storedUser)
-                    const uid = user.id || user.userId || user.uuid
+            const accessToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
 
-                    if (uid && (!socketRef.current || !socketRef.current.connected)) {
-                        connect(uid)
-                    }
-                } catch {
-                    // Ignore parse errors
+            if (!storedUser || !accessToken) {
+                if (socketRef.current) disconnect()
+                return
+            }
+
+            try {
+                const user = JSON.parse(storedUser)
+                const uid = user.id || user.userId || user.uuid
+
+                if (uid && (!socketRef.current || !socketRef.current.connected)) {
+                    connect(uid)
                 }
+            } catch {
+                // Ignore parse errors
             }
         }
 
@@ -226,7 +237,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
                 socketRef.current.disconnect()
             }
         }
-    }, [connect])
+    }, [connect, disconnect])
 
     return (
         <SocketContext.Provider value={{

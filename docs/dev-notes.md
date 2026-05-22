@@ -85,6 +85,35 @@
 - On staging/production, verify the Website Developers department row now exposes the fallback role list in signup.
 - Optionally seed official `AvailableRole` rows for the org-chart departments so the database becomes the long-term source of truth.
 
+## 2026-05-22 - Public Auth Noise Fix
+
+### Completed
+
+- Guarded the global socket/notification provider so unauthenticated public pages no longer fetch protected notification or chat unread endpoints.
+- Stopped stale or missing auth state from opening a socket connection with an invalid token.
+- Verified fresh unauthenticated visits to `/`, `/login`, and `/signup` no longer produce 401 console errors.
+
+### Files Changed
+
+- `frontend/src/context/SocketContext.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept protected notification/chat loading for authenticated sessions only.
+- Did not change backend auth rules; protected endpoints still require valid tokens.
+
+### How to Test
+
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- Browser smoke with a fresh context against `/`, `/login`, and `/signup`.
+
+### Next Steps
+
+- After logging in locally, smoke protected pages again with a valid session to verify notifications and chat unread counts still load.
+
 ## 2026-05-20 - Session Summary
 
 ### Completed
