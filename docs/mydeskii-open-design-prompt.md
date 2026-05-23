@@ -60,4 +60,3 @@ Practical constraints:
 - The highest-value first remodel pass is the shared shell and dashboard because every page inherits the header/sidebar rhythm.
 - Mobile dashboard previously exposed header overflow; the shell pass should keep the top bar compact and move dense controls out of the mobile header.
 - Dashboard should be tightened into a command-center view with less stretched empty space and more useful priority/action grouping.
-
