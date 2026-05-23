@@ -1,5 +1,144 @@
 # Development Notes
 
+## 2026-05-24 - Documentation Cleanup Before Client Portal
+
+### Completed
+
+- Removed completed historical Markdown artifacts that were no longer the source of truth for the current app.
+- Deleted old daily report files, obsolete launch/session/audit reports, and stale backend/frontend status documents.
+- Kept durable project memory in `docs/architecture.md`, `docs/features.md`, `docs/api.md`, `docs/database.md`, `docs/dev-notes.md`, `PRODUCT.md`, `DESIGN.md`, and the active frontend redesign plan.
+- Updated backend and frontend READMEs so they point to the remaining source-of-truth docs instead of deleted status logs.
+
+### Files Changed
+
+- `backend/README.md`
+- `frontend/README.md`
+- `docs/architecture.md`
+- `docs/dev-notes.md`
+- Removed completed historical Markdown reports and status logs from the repo.
+
+### Decisions Made
+
+- Keep one concise project memory system instead of preserving every completed report as a root or package-level Markdown file.
+- Preserve active product/design direction because it will guide client portal work.
+- Treat `docs/dev-notes.md` as the place for session history instead of creating new one-off report files.
+
+### How to Test
+
+- `rg --files -g '*.md'`
+- `git status --short`
+- `git diff --check`
+
+### Next Steps
+
+- Run the normal backend/frontend readiness checks before starting the client portal vertical slice.
+- Keep future client portal planning in the existing docs instead of adding extra standalone report files.
+
+## 2026-05-24 - Daily Log Department And EOD Report Posting
+
+### Completed
+
+- Added backend department resolution for Daily Logs so employee logs derive department from the authenticated user's assigned role.
+- Blocked non-privileged department spoofing while preserving manager/admin department overrides.
+- Updated the Daily Logs form so regular employees see their assigned department as a locked field.
+- Fixed Task Tracking's `Generate EOD Report` flow to post structured task objects into Daily Logs instead of task ID strings.
+- Made EOD shift notes optional so a user can post the generated report without adding notes.
+- Hardened Daily Logs review summaries so older malformed task arrays no longer crash the page.
+- Added regression coverage for backend department resolution and frontend task-report payload mapping.
+- Browser-smoked the Task Tracking EOD modal and `/daily-logs?new=1` modal after the legacy task fix.
+
+### Files Changed
+
+- `backend/src/daily-logs/daily-logs.controller.ts`
+- `backend/src/daily-logs/daily-logs.department.ts`
+- `backend/tests/daily-logs.department.test.ts`
+- `backend/tests/run-tests.ts`
+- `docs/api.md`
+- `docs/dev-notes.md`
+- `docs/features.md`
+- `frontend/src/app/daily-logs/page.tsx`
+- `frontend/src/components/tasks/LogReportModal.tsx`
+- `frontend/src/lib/daily-log-review.ts`
+- `frontend/src/lib/daily-log-task-import.ts`
+- `frontend/tests/daily-log-review.test.mjs`
+- `frontend/tests/daily-log-task-import.test.mjs`
+
+### Decisions Made
+
+- Kept `POST /daily-logs` as the single endpoint for both manual Daily Logs and Task Tracking generated reports.
+- The backend remains the source of truth for Daily Log department assignment; frontend locking is only UX support.
+- Used existing React Query cache invalidation instead of adding a new daily-log event path.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- From repo root: `git diff --check`
+- Browser smoke: open Task Tracking, click `Generate EOD Report`, confirm the report can post to Daily Logs and the created log shows linked task entries.
+
+### Next Steps
+
+- Add a browser smoke script that creates and then cleans up a generated EOD daily log in a test database.
+- Continue redesigning the Task Tracking and Daily Logs surfaces as one connected workflow.
+
+## 2026-05-24 - Frontend Redesign Foundation Pass
+
+### Completed
+
+- Added product and design context files for MyDeskii so future frontend work has a stable design direction.
+- Added a route-by-route frontend redesign plan covering foundation, shell, auth, dashboard, task logs, payroll, collaboration, files, and admin screens.
+- Updated global visual tokens for the restrained light product theme, semantic states, 8px radius, compact app typography, and faster interaction easing.
+- Refined shared Card and Button components so panels, actions, focus states, and press feedback feel consistent.
+- Remodeled the app shell with a wider desktop sidebar, cleaner header, improved route titles, mobile drawer behavior, and profile footer.
+- Polished login and signup pages, including clearer signup role helper text and a non-emoji account-submitted state.
+- Improved the dashboard first viewport, metrics, attention rows, quick links, chat surface, and quick actions while preserving existing data behavior.
+
+### Files Changed
+
+- `PRODUCT.md`
+- `DESIGN.md`
+- `docs/frontend-redesign-plan.md`
+- `docs/dev-notes.md`
+- `frontend/src/app/dashboard/page.tsx`
+- `frontend/src/app/globals.css`
+- `frontend/src/app/login/login.module.css`
+- `frontend/src/app/login/page.tsx`
+- `frontend/src/app/signup/page.tsx`
+- `frontend/src/components/AuthGuard.tsx`
+- `frontend/src/components/Button.tsx`
+- `frontend/src/components/Card.tsx`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/LayoutWrapper.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/ThemeToggle.tsx`
+- `frontend/src/components/TimeClock.tsx`
+- `frontend/src/lib/design-tokens.ts`
+
+### Decisions Made
+
+- Treat MyDeskii as a product UI with restrained color, familiar navigation, and clear state handling rather than a decorative redesign.
+- Keep using the existing Next.js, Tailwind CSS v4, Geist, and `lucide-react` stack for this pass.
+- Avoid new dependencies and avoid changing backend API contracts.
+- Use system Chrome for visual smoke tests because Playwright's bundled Chromium executable is not installed locally.
+
+### How to Test
+
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- Browser smoke: `/signup` shows department options and keeps role disabled until a department is selected.
+- Browser smoke: local admin login reaches `/dashboard` with no console errors on desktop or mobile widths.
+- From repo root: `git diff --check`
+
+### Next Steps
+
+- Redesign Task Tracking and Daily Logs as one workflow, including the finish-task to daily-log handoff with optional notes.
+- Continue with Payroll Calendar and employee approval review polish.
+- Add route-level visual QA screenshots before merging a larger frontend redesign branch.
+
 ## 2026-05-22 - Release Readiness Verification
 
 ### Completed
@@ -119,7 +258,7 @@
 ### Completed
 
 - Audited protected MyDeskii pages locally with the admin session: dashboard, task tracking, daily logs, payroll, chat, file directory, operations, and announcements.
-- Created the Open Design prompt from the real app structure and audit notes.
+- Captured the Open Design direction from the real app structure and audit notes.
 - Tightened the shared shell header for mobile so the dashboard no longer overflows horizontally.
 - Reduced the dashboard command-center stretch and tightened spacing as the first implementation pass toward the Open Design-inspired workspace direction.
 
@@ -128,7 +267,6 @@
 - `frontend/src/components/Header.tsx`
 - `frontend/src/components/LayoutWrapper.tsx`
 - `frontend/src/app/dashboard/page.tsx`
-- `docs/mydeskii-open-design-prompt.md`
 - `docs/dev-notes.md`
 
 ### Decisions Made
@@ -146,14 +284,14 @@
 
 ### Next Steps
 
-- Use `docs/mydeskii-open-design-prompt.md` in Open Design for richer screen mockups.
+- Use the current product/design docs for richer screen mockups when needed.
 - Continue implementation with the app shell/nav system, then task tracking, daily logs, and payroll in that order.
 
 ## 2026-05-20 - Session Summary
 
 ### Completed
 
-- Created `docs/codebase-audit-2026-05-20.md` as the working flaw report and remediation backlog.
+- Captured the May 20 flaw report and remediation backlog in project notes.
 - Fixed the backend TypeScript build blocker in file-directory auth typing.
 - Centralized file-directory admin email bypass checks through `isAdminEmail()`.
 - Fixed frontend signup to call `/backend-auth/signup`.
@@ -176,7 +314,6 @@
 - `backend/src/users/users.controller.ts`
 - `backend/src/users/users.service.ts`
 - `docker-compose.yml`
-- `docs/codebase-audit-2026-05-20.md`
 - `docs/dev-notes.md`
 - `frontend/Dockerfile`
 - `frontend/src/app/signup/page.tsx`
@@ -609,7 +746,7 @@
 - Applied non-breaking audit fixes to backend and frontend dependency locks.
 - Updated frontend Next.js and matching ESLint config to `16.2.6` to clear high-severity Next.js advisories.
 - Added targeted npm overrides for Prisma's transitive `@hono/node-server` and Next's nested `postcss` advisory.
-- Restored unconfirmed root report and `reports/daily` deletions so they are not included in the release.
+- Deferred report-file cleanup until explicit approval so it stayed out of that release.
 - Fixed the payroll audit target test assertion and cleaned the remaining payroll data hook lint warning.
 - Re-ran tests, lint, builds, Prisma validation/generation, Docker Compose config, and Git whitespace checks after dependency updates.
 
@@ -777,16 +914,14 @@
 - Added a current architecture overview for backend, frontend, data model, access control, and verification commands.
 - Updated API notes to include current auth, OAuth, users, employees, task visibility, daily-log, payroll, chat, upload, and notification behavior.
 - Expanded database notes for migrations, identity/authorization, available roles, daily-log task JSON, payroll records, and collaboration/file data.
-- Rewrote the 2026-05-21 session report so it reflects the pushed release state instead of the earlier uncommitted worktree snapshot.
-- Marked the 2026-05-20 codebase audit as a historical backlog and listed the remaining cleanup items after the release.
+- Refreshed the release-state notes so they reflect the pushed release instead of the earlier uncommitted worktree snapshot.
+- Marked the May 20 audit findings as a historical backlog and listed the remaining cleanup items after the release.
 
 ### Files Changed
 
 - `docs/architecture.md`
 - `docs/api.md`
 - `docs/database.md`
-- `docs/session-report-2026-05-21.md`
-- `docs/codebase-audit-2026-05-20.md`
 - `docs/dev-notes.md`
 
 ### Decisions Made
@@ -804,6 +939,57 @@
 
 - Add or refresh a root `README.md` if the repo should have a short setup entry point.
 - Keep docs updated whenever API contracts, schema behavior, or cross-page workflow deep links change.
+
+## 2026-05-23 - Backend Readiness and Approval Safety Pass
+
+### Completed
+
+- Ran the full backend/frontend readiness suite and fixed the remaining npm audit advisory by refreshing lockfile-resolved dependency versions.
+- Verified the local database still has an approved admin account, departments, signup role options, and no approved users without roles.
+- Hardened employee approval so pending accounts cannot become approved unless a role/department assignment can be created or preserved.
+- Improved the employee approval UI error toast so backend approval errors are shown to managers.
+- Started local dev servers and smoke-tested backend health, frontend login, public signup department options, and protected no-auth route responses.
+
+### Files Changed
+
+- `backend/package-lock.json`
+- `backend/src/auth/signup.requests.ts`
+- `backend/src/employees/employees.controller.ts`
+- `backend/src/employees/employees.service.ts`
+- `backend/tests/signup.requests.test.ts`
+- `frontend/package-lock.json`
+- `frontend/src/components/payroll/EmployeeOverviewTab.tsx`
+- `docs/api.md`
+- `docs/dev-notes.md`
+- `docs/features.md`
+
+### Decisions Made
+
+- Keep the database unchanged during readiness checks; old pending accounts missing requested role data should be fixed through an explicit admin decision, not automatic inference.
+- Allow approval to preserve an existing role assignment for older pending records, but block approval when no role/department source exists.
+- Treat moderate dependency advisories as worth fixing when `npm audit fix` is patch-level and verification remains green.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd backend && npx prisma validate`
+- `cd backend && npm run prisma:generate`
+- `cd backend && npm audit --audit-level=high`
+- `cd backend && npm ci --dry-run`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- `cd frontend && npm audit --audit-level=high`
+- `cd frontend && npm ci --dry-run`
+- `docker compose config` with temporary local `JWT_SECRET` and `REFRESH_TOKEN_SECRET`
+- `git diff --check`
+- Live smoke: `GET /health`, `/login`, public `/api/departments`, and unauthenticated protected routes.
+
+### Next Steps
+
+- Manually decide whether to reject or repair old pending applications that have no requested role/department.
+- Add route-level integration tests for employee approval responses if the backend test harness is expanded beyond helper-level checks.
 
 ## 2026-05-21 - Source-Based Security Cleanup
 

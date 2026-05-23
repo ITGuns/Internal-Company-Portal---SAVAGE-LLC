@@ -3,6 +3,7 @@ import {
   buildPendingSignupProfile,
   canLoginApprovedUser,
   getApprovedRoleAssignment,
+  requireApprovedRoleAssignment,
 } from '../src/auth/signup.requests'
 import {
   getDefaultSignupRoles,
@@ -38,6 +39,17 @@ assert.equal(
     requestedDepartmentId: null,
   }),
   null,
+)
+assert.throws(
+  () => requireApprovedRoleAssignment({ requestedRole: null, requestedDepartmentId: null }),
+  /missing a requested role or department/i,
+)
+assert.deepEqual(
+  requireApprovedRoleAssignment({ requestedRole: 'Designer', requestedDepartmentId: 'dept-design' }),
+  {
+    role: 'Designer',
+    departmentId: 'dept-design',
+  },
 )
 
 assert.equal(canLoginApprovedUser({ status: 'pending', isApproved: false }), false)

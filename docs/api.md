@@ -88,6 +88,7 @@ Approval behavior:
 
 - Sets `status` to `verified` and `isApproved` to `true`.
 - Assigns the requested role and department from `EmployeeProfile` as an active `UserRole` when both values are present.
+- If the pending account has neither a requested role/department nor an existing role assignment with a department, approval returns `400` and does not mark the account approved.
 - Approval and rejection responses are serialized before returning to the frontend.
 
 ## Tasks
@@ -182,7 +183,14 @@ All daily-log endpoints require authentication.
 - `DELETE /api/daily-logs/:id` deletes a log when the requester owns it or has management access.
 - `POST /api/daily-logs/:id/like` toggles the authenticated user's like.
 
-Frontend task import and manager review helpers use existing task and daily-log APIs. There is no dedicated task-import backend route at this time.
+Daily-log department handling is server-managed:
+
+- Non-privileged users do not choose the stored department; the backend derives it from the user's assigned `UserRole.department`.
+- Non-privileged create/update requests that try to submit a different department return `403`.
+- Admin, manager, operations-manager, chief-operations-officer, and configured admin bypass emails may submit a department override.
+- Accounts with no assigned department cannot create daily logs until their role assignment is fixed.
+
+Frontend task import, task-report posting, and manager review helpers use existing task and daily-log APIs. There is no dedicated task-import backend route at this time.
 
 ## Payroll
 

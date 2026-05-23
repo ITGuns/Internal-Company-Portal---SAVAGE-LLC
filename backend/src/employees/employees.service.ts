@@ -1,6 +1,10 @@
 import { PrismaClient, User } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
-import { buildPendingSignupProfile, getApprovedRoleAssignment } from '../auth/signup.requests'
+import {
+    MissingSignupRoleAssignmentError,
+    buildPendingSignupProfile,
+    getApprovedRoleAssignment,
+} from '../auth/signup.requests'
 
 export interface CreateEmployeeDto {
     email: string
@@ -148,6 +152,29 @@ export class EmployeesService {
      */
     async approve(id: string): Promise<User> {
         const user = await this.prisma.$transaction(async (tx) => {
+            const existing = await tx.user.findUniqueOrThrow({
+                where: { id },
+                include: {
+                    employeeProfile: true,
+                    roles: {
+                        include: {
+                            department: true,
+                        },
+                    },
+                },
+            })
+
+            const existingAssignment = existing.roles.find((role) => role.role?.trim() && role.departmentId)
+            const assignment = getApprovedRoleAssignment(existing.employeeProfile) ?? (
+                existingAssignment
+                    ? { role: existingAssignment.role, departmentId: existingAssignment.departmentId as string }
+                    : null
+            )
+
+            if (!assignment) {
+                throw new MissingSignupRoleAssignmentError()
+            }
+
             const updated = await tx.user.update({
                 where: { id },
                 data: {
@@ -164,24 +191,21 @@ export class EmployeesService {
                 },
             })
 
-            const assignment = getApprovedRoleAssignment(updated.employeeProfile)
-            if (assignment) {
-                await tx.userRole.upsert({
-                    where: {
-                        userId_departmentId_role: {
-                            userId: updated.id,
-                            departmentId: assignment.departmentId,
-                            role: assignment.role,
-                        },
-                    },
-                    update: {},
-                    create: {
+            await tx.userRole.upsert({
+                where: {
+                    userId_departmentId_role: {
                         userId: updated.id,
                         departmentId: assignment.departmentId,
                         role: assignment.role,
                     },
-                })
-            }
+                },
+                update: {},
+                create: {
+                    userId: updated.id,
+                    departmentId: assignment.departmentId,
+                    role: assignment.role,
+                },
+            })
 
             return tx.user.findUniqueOrThrow({
                 where: { id: updated.id },

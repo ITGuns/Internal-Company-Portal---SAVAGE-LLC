@@ -19,7 +19,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   const { user, isLoading, logout } = useUser();
 
   // Routes that don't require authentication
-  const exemptRoutes = ['/login', '/signup', '/forgot-password'];
+  const exemptRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'];
   const isExemptRoute = exemptRoutes.includes(pathname);
 
   useEffect(() => {
@@ -42,7 +42,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   // Show loading state while checking authentication
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--background)]">
+      <div className="flex min-h-[100dvh] items-center justify-center bg-[var(--background)]">
         <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 animate-spin rounded-full border-[3px] border-[var(--foreground)] border-r-transparent" />
           <p className="text-sm text-[var(--foreground)] opacity-70">Loading...</p>
@@ -62,15 +62,15 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     return (
       <div className="relative min-h-screen">
         {/* Blurred Content */}
-        <div className="blur-md pointer-events-none brightness-75 select-none overflow-hidden h-screen">
+        <div className="pointer-events-none h-[100dvh] select-none overflow-hidden blur-md brightness-75">
           {children}
         </div>
 
         {/* Approval Overlay */}
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
-          <div className="max-w-md w-full mx-4 bg-[var(--card-bg)] rounded-2xl border border-[var(--border)] shadow-2xl p-8 text-center animate-in fade-in zoom-in duration-300">
-            <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-[2px]">
+          <div className="w-full max-w-md rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card-bg)] p-8 text-center shadow-[var(--shadow-md)] animate-in fade-in zoom-in duration-200">
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-[var(--radius-md)] bg-[var(--priority-medium-bg)]">
+              <div className="h-9 w-9 animate-spin rounded-full border-4 border-[var(--priority-medium)] border-t-transparent" />
             </div>
             <h2 className="text-2xl font-bold text-[var(--foreground)] mb-3">
               Account Pending Approval
@@ -78,7 +78,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
             <p className="text-[var(--muted)] mb-8 leading-relaxed">
               Welcome to the portal, <strong>{user.name}</strong>! Your account has been created successfully but is currently awaiting approval from an Operations Manager.
             </p>
-            <div className="p-4 bg-[var(--card-surface)] rounded-xl border border-[var(--border)] mb-8 text-left">
+            <div className="mb-8 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-4 text-left">
               <div className="flex items-center gap-3 text-sm text-[var(--muted)]">
                 <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                 <span>Status: <strong>Awaiting Verification</strong></span>
@@ -87,7 +87,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
             <div className="flex flex-col gap-3">
               <button
                 onClick={() => window.location.reload()}
-                className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98]"
+                className="w-full rounded-[var(--radius-md)] bg-[var(--accent)] px-4 py-3 font-semibold text-[var(--accent-foreground)] transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-95 active:translate-y-px active:scale-[0.98]"
               >
                 Check Approval Status
               </button>
@@ -96,7 +96,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
                   logout();
                   window.location.href = '/login';
                 }}
-                className="w-full py-3 px-4 bg-[var(--card-surface)] hover:bg-[var(--border)] text-[var(--foreground)] rounded-xl font-semibold border border-[var(--border)] transition-all active:scale-[0.98]"
+                className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] px-4 py-3 font-semibold text-[var(--foreground)] transition-[background-color,transform] duration-150 ease-[var(--ease-out)] hover:bg-[var(--surface-hover)] active:translate-y-px active:scale-[0.98]"
               >
                 Sign Out
               </button>

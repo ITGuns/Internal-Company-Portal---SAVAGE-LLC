@@ -13,7 +13,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   loading?: boolean;
 }
 
-const baseStyles = 'inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-offset-2 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100';
+const baseStyles = 'inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-[var(--ease-out)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] active:translate-y-px active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0 disabled:active:scale-100';
 
 const sizeStyles: Record<ButtonSize, string> = {
   sm: 'px-3 py-1.5 text-sm',
@@ -22,12 +22,12 @@ const sizeStyles: Record<ButtonSize, string> = {
 };
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-[var(--accent)] text-white hover:brightness-110 hover:shadow-md hover:shadow-[var(--accent)]/25 focus:ring-[var(--accent)]',
-  secondary: 'bg-[var(--card-surface)] text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--card-bg)] hover:border-[var(--muted)] focus:ring-[var(--foreground)]',
-  success: 'bg-emerald-600 text-white hover:bg-emerald-500 hover:shadow-md hover:shadow-emerald-500/25 focus:ring-emerald-500',
-  danger: 'bg-red-600 text-white hover:bg-red-500 hover:shadow-md hover:shadow-red-500/25 focus:ring-red-500',
-  ghost: 'bg-transparent text-[var(--foreground)] hover:bg-[var(--card-surface)] focus:ring-[var(--foreground)]',
-  outline: 'bg-transparent text-[var(--foreground)] border border-[var(--border)] hover:bg-[var(--card-surface)] hover:border-[var(--muted)] focus:ring-[var(--foreground)]',
+  primary: 'border border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)] hover:brightness-95',
+  secondary: 'border border-[var(--border)] bg-[var(--card-surface)] text-[var(--foreground)] hover:border-[var(--muted)] hover:bg-[var(--surface-hover)]',
+  success: 'border border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800',
+  danger: 'border border-red-700 bg-red-700 text-white hover:bg-red-800',
+  ghost: 'border border-transparent bg-transparent text-[var(--foreground)] hover:bg-[var(--card-surface)]',
+  outline: 'border border-[var(--border)] bg-transparent text-[var(--foreground)] hover:border-[var(--muted)] hover:bg-[var(--card-surface)]',
 };
 
 export default function Button({

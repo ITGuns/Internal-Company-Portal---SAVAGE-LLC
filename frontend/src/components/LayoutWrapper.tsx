@@ -19,18 +19,18 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
   const pathname = usePathname();
 
   // Routes where sidebar should be hidden
-  const noSidebarRoutes = ['/login', '/signup', '/forgot-password'];
+  const noSidebarRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'];
   const hideSidebar = noSidebarRoutes.includes(pathname);
 
   return (
     <AuthGuard>
       {!hideSidebar && <Sidebar />}
       {!hideSidebar && <CommandPalette />}
-      <div 
+      <div
         className={
-          hideSidebar 
-            ? "min-h-screen bg-[var(--background)] text-[var(--foreground)]"
-            : "min-h-screen pt-20 md:pl-64 md:pt-[112px] bg-[var(--background)] text-[var(--foreground)]"
+          hideSidebar
+            ? "min-h-[100dvh] bg-[var(--background)] text-[var(--foreground)]"
+            : "min-h-[100dvh] bg-[var(--background)] pt-20 text-[var(--foreground)] md:pl-72 md:pt-24"
         }
       >
         {children}

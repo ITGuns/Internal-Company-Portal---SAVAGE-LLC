@@ -148,3 +148,11 @@ export function mergeDailyLogTasksWithImports(
 
   return nextTasks;
 }
+
+export function buildDailyLogTasksFromTaskReport(tasks: ImportableTask[]): ExistingLogTask[] {
+  return tasks.map((task) => ({
+    id: `task:${task.id}`,
+    text: task.title,
+    completed: task.status === 'completed',
+  }));
+}

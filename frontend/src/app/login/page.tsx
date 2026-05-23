@@ -12,27 +12,23 @@ export default function LoginPage() {
   const router = useRouter();
   const { user, refreshUser } = useUser();
 
-  // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Redirect if already logged in
   useEffect(() => {
     if (user) {
       router.push('/dashboard');
     }
   }, [user, router]);
 
-  // Handle email/password login
   const handleEmailLogin = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      // Validate inputs
       if (!email || !password) {
         setError('Please enter both email and password');
         setLoading(false);
@@ -49,7 +45,6 @@ export default function LoginPage() {
     }
   };
 
-  // Don't render login form if already logged in
   if (user) {
     return null;
   }
@@ -57,13 +52,11 @@ export default function LoginPage() {
   return (
     <div className={styles.loginContainer}>
       <div className={styles.card}>
-        {/* Header */}
         <div className={styles.header}>
-          <h1 className={styles.title}>SAVAGE LLC</h1>
-          <p className={styles.subtitle}>Sign in to your account</p>
+          <h1 className={styles.title}>MyDeskii</h1>
+          <p className={styles.subtitle}>Sign in to SAVAGE LLC workspace</p>
         </div>
 
-        {/* Email/Password Form */}
         <form className={styles.form} onSubmit={handleEmailLogin}>
           <LoginInput
             id="email"
@@ -84,14 +77,13 @@ export default function LoginPage() {
             type="password"
             value={password}
             onChange={setPassword}
-            placeholder="••••••••"
+            placeholder="Password"
             required
             disabled={loading}
             icon={Lock}
             autoComplete="current-password"
           />
 
-          {/* Forgot Password Link */}
           <a
             href="/forgot-password"
             className={styles.forgotPassword}
@@ -109,18 +101,16 @@ export default function LoginPage() {
             disabled={loading}
           >
             {loading && <span className={styles.spinner} />}
-            {loading ? 'Signing In...' : 'Sign In'}
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
-        {/* Error Message */}
         {error && (
           <div className={styles.error} role="alert">
             {error}
           </div>
         )}
 
-        {/* Sign Up Section */}
         <div className={styles.signUpSection}>
           <p className={styles.signUpText}>
             Don't have an account?

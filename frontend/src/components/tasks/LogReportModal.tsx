@@ -8,8 +8,9 @@ import Button from "@/components/Button";
 import Card from "@/components/Card";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
-import { useUser } from "@/contexts/UserContext";
+import { buildDailyLogTasksFromTaskReport } from "@/lib/daily-log-task-import";
 import type { Task } from "@/lib/tasks";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface EODReportModalProps {
     isOpen: boolean;
@@ -19,9 +20,17 @@ interface EODReportModalProps {
 
 export type LogPeriod = "daily" | "weekly" | "monthly";
 
+function getLocalDateInput(date = new Date()) {
+    return [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0"),
+    ].join("-");
+}
+
 export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModalProps) {
-    const { user } = useUser();
     const toast = useToast();
+    const queryClient = useQueryClient();
     const [logType, setLogType] = useState<LogPeriod>("daily");
     const [content, setContent] = useState("");
     const [shiftNotes, setShiftNotes] = useState("");
@@ -66,14 +75,12 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
         }
     }, [isOpen, tasks, logType]);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async () => {
         const isContentValid = content.trim();
-        const isNotesValid = logType === 'daily' ? shiftNotes.trim() : true;
-        const isHoursValid = hoursLogged > 0;
+        const isHoursValid = Number.isFinite(hoursLogged) && hoursLogged >= 0;
 
-        if (!isContentValid || !isNotesValid || !isHoursValid) {
-            toast.error("Please fill in all required fields accurately.");
+        if (!isContentValid || !isHoursValid) {
+            toast.error("Please add report content and a valid hour total.");
             return;
         }
 
@@ -86,15 +93,15 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
                     shiftNotes,
                     hoursLogged,
                     logType,
-                    department: user?.department || "General",
                     status: "completed",
-                    tasks: periodTasks.map(t => t.id),
-                    date: new Date().toISOString()
+                    tasks: buildDailyLogTasksFromTaskReport(periodTasks),
+                    date: getLocalDateInput()
                 })
             });
 
             if (res.ok) {
-                toast.success(`${logType.charAt(0).toUpperCase() + logType.slice(1)} Report submitted successfully!`);
+                queryClient.invalidateQueries({ queryKey: ["daily-logs"] });
+                toast.success(`${logType.charAt(0).toUpperCase() + logType.slice(1)} report posted to Daily Logs.`);
                 onClose();
                 setContent("");
                 setShiftNotes("");
@@ -147,7 +154,14 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6 chat-scroll">
+                <form
+                    id="task-report-daily-log-form"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        void handleSubmit();
+                    }}
+                    className="flex-1 overflow-y-auto p-6 space-y-6 chat-scroll"
+                >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20">
                             <div className="flex items-center gap-2 text-blue-500 mb-2">
@@ -184,14 +198,13 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
                     {logType === 'daily' && (
                         <div>
                             <label className="block text-sm font-semibold mb-2">
-                                Additional Shift Notes <span className="text-red-500">*</span>
+                                Additional Shift Notes
                             </label>
                             <textarea
                                 value={shiftNotes}
                                 onChange={(e) => setShiftNotes(e.target.value)}
                                 className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl p-4 text-sm min-h-[100px] focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                placeholder="Any roadblocks, handovers, or notes for the next shift..."
-                                required
+                                placeholder="Optional roadblocks, handovers, or notes for the next shift..."
                             />
                         </div>
                     )}
@@ -209,7 +222,7 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
                                 onChange={(e) => setHoursLogged(parseFloat(e.target.value) || 0)}
                                 className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500"
                                 required
-                                min="0.1"
+                                min="0"
                             />
                         </div>
                     </div>
@@ -222,10 +235,10 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
                     <Button
                         variant="primary"
                         type="submit"
-                        onClick={handleSubmit}
+                        form="task-report-daily-log-form"
                         disabled={isSubmitting || !content.trim()}
                     >
-                        {isSubmitting ? "Submitting..." : `Submit ${logType.charAt(0).toUpperCase() + logType.slice(1)} Report`}
+                        {isSubmitting ? "Posting..." : `Post ${logType.charAt(0).toUpperCase() + logType.slice(1)} to Daily Logs`}
                     </Button>
                 </div>
             </Card>

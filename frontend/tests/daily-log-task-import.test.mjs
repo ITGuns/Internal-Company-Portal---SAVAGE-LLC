@@ -225,3 +225,35 @@ test('surfaces review-stage tasks separately without auto-importing them', () =>
   assert.equal(reviewOptions[0].sessionCount, 1);
   assert.equal(reviewOptions[0].trackedMinutes, 30);
 });
+
+test('builds Daily Log task objects from Task Tracking reports', () => {
+  const { buildDailyLogTasksFromTaskReport } = loadImportHelper();
+
+  const logTasks = buildDailyLogTasksFromTaskReport([
+    {
+      id: 'completed-task',
+      title: 'Ship EOD report integration',
+      status: 'completed',
+      progress: 100,
+    },
+    {
+      id: 'active-task',
+      title: 'Review daily log handoff',
+      status: 'in_progress',
+      progress: 60,
+    },
+  ]);
+
+  assert.deepEqual(JSON.parse(JSON.stringify(logTasks)), [
+    {
+      id: 'task:completed-task',
+      text: 'Ship EOD report integration',
+      completed: true,
+    },
+    {
+      id: 'task:active-task',
+      text: 'Review daily log handoff',
+      completed: false,
+    },
+  ]);
+});

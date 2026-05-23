@@ -1,276 +1,138 @@
-"use client"
+"use client";
 
-import React, { useEffect, useRef, useState } from 'react'
-import Image from 'next/image'
-import { usePathname } from 'next/navigation'
-import BrandLogo from '../assets/icons/BrandLogo'
-import ThemeToggle from './ThemeToggle'
-import UserAvatar from '../assets/icons/UserAvatar'
-import NotificationSidebar from './NotificationSidebar'
-import ProfileSidebar from './ProfileSidebar'
-import { Bell, Menu, Search } from 'lucide-react'
-import { useSocket } from '@/context/SocketContext'
-import { useUser } from '@/contexts/UserContext'
-import TimeClock from './TimeClock'
+import React, { useState } from 'react';
+import Image from 'next/image';
+import { usePathname } from 'next/navigation';
+import { Bell, Menu, Search } from 'lucide-react';
+import ThemeToggle from './ThemeToggle';
+import UserAvatar from '../assets/icons/UserAvatar';
+import NotificationSidebar from './NotificationSidebar';
+import ProfileSidebar from './ProfileSidebar';
+import { useSocket } from '@/context/SocketContext';
+import { useUser } from '@/contexts/UserContext';
+import TimeClock from './TimeClock';
+import { cn } from '@/lib/utils';
+
+const routeTitles: Record<string, { title: string; subtitle?: string }> = {
+  '/dashboard': { title: 'Dashboard', subtitle: 'Today, tasks, logs, and approvals' },
+  '/task-tracking': { title: 'Task Tracking', subtitle: 'Plan, assign, and close work' },
+  '/task-calendar': { title: 'Task Calendar', subtitle: 'Task schedule and due dates' },
+  '/payroll-calendar': { title: 'Payroll Calendar', subtitle: 'Time entries, events, and day review' },
+  '/payroll-dashboard': { title: 'Payroll Dashboard', subtitle: 'Payroll review and reporting' },
+  '/my-payslips': { title: 'My Payslips', subtitle: 'Payslip history and details' },
+  '/announcements': { title: 'Announcements', subtitle: 'Company updates and shoutouts' },
+  '/daily-logs': { title: 'Daily Logs', subtitle: 'Daily work reports and reviews' },
+  '/chat': { title: 'Messages & Chat', subtitle: 'Team communication' },
+  '/company-chat': { title: 'Company Chat', subtitle: 'Public team channels' },
+  '/private-messages': { title: 'Private Messages', subtitle: 'Direct conversations' },
+  '/file-directory': { title: 'File Directory', subtitle: 'Shared documents and folders' },
+  '/operations': { title: 'Operations', subtitle: 'Departments, roles, and approvals' },
+  '/profile': { title: 'Profile', subtitle: 'Account settings' },
+  '/whiteboard': { title: 'Whiteboard', subtitle: 'Collaborative workspace' },
+  '/discord': { title: 'Discord', subtitle: 'External team channel' },
+};
+
+function getRouteTitle(pathname: string) {
+  return routeTitles[pathname] ?? Object.entries(routeTitles).find(([key]) => pathname.startsWith(`${key}/`))?.[1];
+}
 
 export default function Header({ title, subtitle }: { title?: string; subtitle?: string }) {
-  const pathname = usePathname() || '/'
-  const { unreadCount, notifications, markAsRead, markAllAsRead, clearNotifications } = useSocket()
-  const [showNotifications, setShowNotifications] = useState(false)
-  const [showProfile, setShowProfile] = useState(false)
-  const { user } = useUser()
+  const pathname = usePathname() || '/';
+  const { unreadCount, notifications, markAsRead, markAllAsRead, clearNotifications } = useSocket();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const { user } = useUser();
 
-  const isDashboard = pathname === '/' || pathname === '/dashboard'
+  const isDashboard = pathname === '/' || pathname === '/dashboard';
+  const autoTitle = getRouteTitle(pathname);
+  const resolvedTitle = title ?? (isDashboard ? `Welcome back, ${user?.name || 'Guest'}` : autoTitle?.title);
+  const resolvedSubtitle = subtitle ?? (isDashboard ? 'Your work status and next actions for today' : autoTitle?.subtitle);
 
-  // Auto-resolve page title from route when not explicitly provided
-  const routeTitles: Record<string, { title: string; subtitle?: string }> = {
-    '/task-tracking': { title: 'Task Tracking', subtitle: 'Manage and track your tasks' },
-    '/payroll-calendar': { title: 'Payroll Calendar', subtitle: 'Schedules and time entries' },
-    '/announcements': { title: 'Announcements', subtitle: 'Company news and updates' },
-    '/daily-logs': { title: 'Daily Logs', subtitle: 'Daily work activity reports' },
-    '/chat': { title: 'Messages & Chat', subtitle: 'Team communication' },
-    '/file-directory': { title: 'File Directory', subtitle: 'Shared documents and files' },
-    '/whiteboard': { title: 'Whiteboard', subtitle: 'Collaborative workspace' },
-    '/profile': { title: 'Profile', subtitle: 'Your account settings' },
-    '/employees': { title: 'Employees', subtitle: 'Team directory' },
-    '/departments': { title: 'Departments', subtitle: 'Organization structure' },
-  }
-  // Match exact route or find prefix match for sub-routes
-  const autoTitle = routeTitles[pathname] ?? Object.entries(routeTitles).find(([key]) => pathname.startsWith(key + '/'))?.[1]
-  const resolvedTitle = title ?? autoTitle?.title
-  const resolvedSubtitle = subtitle ?? autoTitle?.subtitle
-  const headerRef = useRef<HTMLElement | null>(null)
-  const [outlineLeft, setOutlineLeft] = useState<number | null>(null)
-  const [outlineTop, setOutlineTop] = useState<number | null>(null)
-  const [debugMode, setDebugMode] = useState(false)
-  const [debugInfo, setDebugInfo] = useState<{ headerLeft: number; headerWidth: number; dividerRight: number | null } | null>(null)
-
-
-  // Ensure outline updates on mount and resize
-  useEffect(() => {
-    function updateOutline() {
-      const headerEl = headerRef.current
-      if (!headerEl) return
-      const headerRect = headerEl.getBoundingClientRect()
-
-      // Prefer the exact divider element for pixel-perfect alignment
-      const divider = document.querySelector('[data-sidebar-divider]') as HTMLElement | null
-      if (divider) {
-        const divRect = divider.getBoundingClientRect()
-        // use the divider right edge and add a 2px overlap to ensure no visible seam
-        const dividerRight = Math.round(divRect.right)
-        const leftViewport = dividerRight - 2 // absolute viewport coordinate
-        setOutlineLeft(leftViewport)
-
-        // Prefer aligning the outline vertically to the sidebar header's bottom border
-        const asideHeader = document.querySelector('aside header') as HTMLElement | null
-        if (asideHeader) {
-          const asideHeaderRect = asideHeader.getBoundingClientRect()
-          setOutlineTop(Math.round(asideHeaderRect.bottom))
-        } else {
-          setOutlineTop(Math.round(headerRect.bottom))
-        }
-
-        setDebugInfo({ headerLeft: Math.round(headerRect.left), headerWidth: Math.round(headerRect.width), dividerRight })
-        return
-      }
-
-      // fallback to using the aside element's right edge
-      const aside = document.querySelector('aside') as HTMLElement | null
-      if (aside) {
-        const asideRect = aside.getBoundingClientRect()
-        const asideRight = Math.round(asideRect.right)
-        const leftViewport = asideRight - 1
-        setOutlineLeft(leftViewport)
-
-        const asideHeader = document.querySelector('aside header') as HTMLElement | null
-        if (asideHeader) {
-          const asideHeaderRect = asideHeader.getBoundingClientRect()
-          setOutlineTop(Math.round(asideHeaderRect.bottom))
-        } else {
-          setOutlineTop(Math.round(headerRect.bottom))
-        }
-
-        return
-      }
-
-      const defaultLeft = Math.max(0, Math.round(headerRect.left))
-      setOutlineLeft(defaultLeft)
-      setOutlineTop(Math.round(headerRect.bottom))
-      setDebugInfo({ headerLeft: Math.round(headerRect.left), headerWidth: Math.round(headerRect.width), dividerRight: null })
-    }
-
-    updateOutline()
-    window.addEventListener('resize', updateOutline)
-    const ro = new ResizeObserver(updateOutline)
-    ro.observe(document.documentElement)
-    return () => {
-      window.removeEventListener('resize', updateOutline)
-      ro.disconnect()
-    }
-  }, [])
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setDebugMode(window.location.search.includes('outlineDebug'))
-    }
-  }, [])
+  const iconButtonClass = cn(
+    'inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] text-[var(--muted)]',
+    'transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-out)]',
+    'hover:border-[var(--muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]',
+    'active:translate-y-px active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]',
+  );
 
   return (
-    <header ref={headerRef} className="fixed top-0 left-0 md:left-64 right-0 z-35 flex min-h-20 items-center justify-between gap-3 bg-[var(--background)] px-4 py-3 md:h-28 md:pl-7 md:pr-6 md:py-0">
-      <div className="flex min-w-0 flex-1 items-center gap-3 md:gap-4">
-        {/* Mobile hamburger toggle */}
+    <header className="fixed left-0 right-0 top-0 z-30 flex h-20 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--background)]/95 px-4 backdrop-blur md:left-72 md:h-24 md:px-6">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <button
-          className="md:hidden p-2 -ml-1 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+          type="button"
+          className={cn(iconButtonClass, 'md:hidden')}
           onClick={() => window.dispatchEvent(new Event('toggle-sidebar'))}
-          aria-label="Toggle navigation menu"
+          aria-label="Open navigation"
         >
-          <Menu className="w-6 h-6" />
+          <Menu className="h-5 w-5" />
         </button>
-        {/* left area: allow explicit title, auto-resolve from route, else show dashboard greeting */}
-        {isDashboard ? (
-          <div className="min-w-0 text-left">
-            <h2 className="truncate text-base font-semibold md:text-xl">Welcome back, {user?.name || 'Guest'}</h2>
-            <div className="mt-0.5 line-clamp-2 text-xs text-[var(--muted)] md:text-sm">Here's what's happening today</div>
-          </div>
-        ) : resolvedTitle ? (
-          <div className="min-w-0 text-left">
-            <h2 className="truncate text-base font-semibold md:text-xl">{resolvedTitle}</h2>
-            {resolvedSubtitle ? <div className="mt-0.5 line-clamp-2 text-xs text-[var(--muted)] md:mt-1 md:text-sm">{resolvedSubtitle}</div> : null}
-          </div>
-        ) : (
-          <>
-            <BrandLogo width={28} height={28} ariaHidden={true} />
-            <h1 className="truncate text-lg font-semibold md:text-2xl">SAVAGE - LLC ENTERPRISES</h1>
-          </>
-        )}
+
+        <div className="min-w-0">
+          <h1 className="truncate text-base font-semibold tracking-tight text-[var(--foreground)] md:text-xl">
+            {resolvedTitle}
+          </h1>
+          {resolvedSubtitle ? (
+            <p className="mt-0.5 line-clamp-1 text-xs text-[var(--muted)] md:text-sm">
+              {resolvedSubtitle}
+            </p>
+          ) : null}
+        </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5 md:gap-3">
-        {/* Search and Add Task intentionally removed for a cleaner header */}
-
-        {/* Command palette trigger */}
+      <div className="flex shrink-0 items-center gap-2">
         <button
+          type="button"
           onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}
-          className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--muted)] bg-[var(--card-bg)] border border-[var(--border)] rounded-lg hover:border-[var(--muted)] hover:text-[var(--foreground)] transition-all duration-150"
+          className="hidden h-10 items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--muted)] transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] active:translate-y-px sm:flex"
           aria-label="Open command palette"
         >
-          <Search className="w-4 h-4" />
-          <span>Search</span>
-          <kbd className="ml-1 text-xs font-mono opacity-70">Ctrl+K</kbd>
+          <Search className="h-4 w-4" />
+          <span className="hidden lg:inline">Search</span>
+          <kbd className="hidden rounded border border-[var(--border)] bg-[var(--card-surface)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--muted)] lg:inline">
+            Ctrl K
+          </kbd>
         </button>
 
-        {user && (
-          <div className="hidden lg:block">
+        {user ? (
+          <div className="hidden xl:block">
             <TimeClock />
           </div>
-        )}
+        ) : null}
 
         <ThemeToggle />
 
         <button
-          aria-label="notifications"
-          className="btn btn-ghost btn-circle relative"
-          onClick={() => setShowNotifications(!showNotifications)}
+          type="button"
+          aria-label="Open notifications"
+          className={cn(iconButtonClass, 'relative')}
+          onClick={() => setShowNotifications((open) => !open)}
         >
-          <Bell className="w-5 h-5" />
-          {unreadCount > 0 && (
-            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-[var(--background)]"></span>
-          )}
+          <Bell className="h-5 w-5" />
+          {unreadCount > 0 ? (
+            <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border-2 border-[var(--background)] bg-[var(--accent)]" />
+          ) : null}
         </button>
 
         <button
+          type="button"
           onClick={() => setShowProfile(true)}
-          className="rounded-full hover:ring-2 hover:ring-[var(--border)] transition-all overflow-hidden"
+          className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] transition-[border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--muted)] active:translate-y-px active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
           aria-label="Open profile"
         >
-          <div className="w-8 h-8 rounded-full overflow-hidden bg-[var(--card-surface)] border-2 border-[var(--border)]">
-            {user?.avatar ? (
-              <Image
-                src={user.avatar}
-                alt={user.name || "User"}
-                width={32}
-                height={32}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <UserAvatar className="w-full h-full" size={32} ariaHidden={true} />
-            )}
-          </div>
+          {user?.avatar ? (
+            <Image
+              src={user.avatar}
+              alt={user.name || 'User'}
+              width={40}
+              height={40}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <UserAvatar className="h-full w-full" size={40} ariaHidden={true} />
+          )}
         </button>
       </div>
 
-      {/* subtle bottom outline using theme border token + small shadow
-          stretch left to sit under the fixed sidebar (sidebar width: 16rem) */}
-      {/* fixed positioned outline so it reaches viewport right edge reliably */}
-      {outlineTop !== null ? (
-        <>
-          <div
-            style={{
-              position: 'fixed',
-              top: `${outlineTop - 1}px`,
-              left: `${outlineLeft ?? -2}px`,
-              right: 0,
-              height: '1px',
-              background: 'var(--border)',
-              opacity: 0.9,
-              zIndex: 1200,
-              pointerEvents: 'none',
-            }}
-          />
-
-          <div
-            style={{
-              position: 'fixed',
-              top: `${outlineTop}px`,
-              left: `${outlineLeft ?? -2}px`,
-              right: 0,
-              height: '6px',
-              boxShadow: '0 6px 18px rgba(2,6,23,0.04)',
-              zIndex: 1190,
-              pointerEvents: 'none',
-            }}
-          />
-        </>
-      ) : (
-        <>
-          <div className="absolute bottom-0 h-px bg-[var(--border)]/90" style={{ left: '-1px', width: 'calc(100% + 1px)', zIndex: 20 }} />
-          <div className="absolute bottom-[-6px] h-[6px] pointer-events-none" style={{ left: '-1px', width: 'calc(100% + 1px)', boxShadow: '0 6px 18px rgba(2,6,23,0.04)', zIndex: 10 }} />
-        </>
-      )}
-
-      {debugMode && debugInfo && (
-        <>
-          <div
-            style={{
-              position: 'fixed',
-              top: `${outlineTop ? outlineTop - (outlineTop ? (outlineTop - outlineTop) : 0) : 0}px`,
-              left: `${debugInfo.headerLeft}px`,
-              width: `${debugInfo.headerWidth}px`,
-              height: '52px',
-              background: 'rgba(0,255,0,0.06)',
-              pointerEvents: 'none',
-              zIndex: 1000,
-            }}
-          />
-          {typeof debugInfo.dividerRight === 'number' && (
-            <div
-              style={{
-                position: 'fixed',
-                top: `${outlineTop ? outlineTop - 52 : 0}px`,
-                left: `${debugInfo.dividerRight - 1}px`,
-                width: '2px',
-                height: '64px',
-                background: 'rgba(255,0,0,0.7)',
-                pointerEvents: 'none',
-                zIndex: 1001,
-              }}
-            />
-          )}
-        </>
-      )}
-
-      {/* Notification Sidebar */}
       <NotificationSidebar
         isOpen={showNotifications}
         onClose={() => setShowNotifications(false)}
@@ -280,8 +142,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
         onClear={clearNotifications}
       />
 
-      {/* Profile Sidebar */}
       <ProfileSidebar isOpen={showProfile} onClose={() => setShowProfile(false)} />
     </header>
-  )
+  );
 }

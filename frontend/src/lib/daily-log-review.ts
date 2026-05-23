@@ -3,9 +3,7 @@ interface ReviewableDailyLog {
   date: string;
   status: string;
   hoursLogged?: number | null;
-  tasks?: Array<{
-    id: string;
-  }>;
+  tasks?: unknown[];
 }
 
 interface DailyLogReviewSummaryOptions {
@@ -20,6 +18,16 @@ export interface DailyLogReviewSummary {
   totalHours: number;
   linkedTaskCount: number;
   lastLogDate: string | null;
+}
+
+function isLinkedTaskEntry(task: unknown): boolean {
+  return (
+    typeof task === 'object' &&
+    task !== null &&
+    'id' in task &&
+    typeof task.id === 'string' &&
+    task.id.startsWith('task:')
+  );
 }
 
 export function getDailyLogReviewSummary(
@@ -37,7 +45,7 @@ export function getDailyLogReviewSummary(
     blockedLogs: filteredLogs.filter((log) => log.status === "blocked").length,
     totalHours: filteredLogs.reduce((total, log) => total + (log.hoursLogged || 0), 0),
     linkedTaskCount: filteredLogs.reduce(
-      (total, log) => total + (log.tasks || []).filter((task) => task.id.startsWith("task:")).length,
+      (total, log) => total + (log.tasks || []).filter(isLinkedTaskEntry).length,
       0,
     ),
     lastLogDate: filteredLogs

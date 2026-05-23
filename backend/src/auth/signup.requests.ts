@@ -37,6 +37,23 @@ export function getApprovedRoleAssignment(profile?: PendingSignupProfileData | n
   }
 }
 
+export class MissingSignupRoleAssignmentError extends Error {
+  constructor() {
+    super('Pending employee is missing a requested role or department')
+    this.name = 'MissingSignupRoleAssignmentError'
+  }
+}
+
+export function requireApprovedRoleAssignment(profile?: PendingSignupProfileData | null) {
+  const assignment = getApprovedRoleAssignment(profile)
+
+  if (!assignment) {
+    throw new MissingSignupRoleAssignmentError()
+  }
+
+  return assignment
+}
+
 export function canLoginApprovedUser(user: LoginApprovalState): boolean {
   return user.isApproved === true && user.status !== 'pending'
 }

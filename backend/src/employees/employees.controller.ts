@@ -5,6 +5,7 @@ import { EmployeesService } from './employees.service';
 import { authenticateToken, AuthRequest } from '../auth/auth.middleware';
 import * as crypto from 'crypto';
 import { isAdminEmail, config } from '../config/env.config';
+import { MissingSignupRoleAssignmentError } from '../auth/signup.requests';
 import {
     hasEmployeeManagementAccess,
     serializeDeployedEmployee,
@@ -85,6 +86,9 @@ export class EmployeesController {
             const updated = await this.employeesService.approve(id as string);
             res.status(200).json({ success: true, user: serializeDeployedEmployee(updated) });
         } catch (error) {
+            if (error instanceof MissingSignupRoleAssignmentError) {
+                return res.status(400).json({ error: error.message });
+            }
             console.error('[Employees] Error approving:', error);
             res.status(500).json({ error: 'Internal Server Error' });
         }

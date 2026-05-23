@@ -3,16 +3,34 @@ import { DailyLogsService } from './daily-logs.service'
 import { authenticateToken, requireRole } from '../auth/auth.middleware'
 import { notificationService } from '../notifications/socket.service'
 import { isAdminEmail } from '../config/env.config'
+import { prisma } from '../database/prisma.service'
+import {
+    canOverrideDailyLogDepartment,
+    resolveDailyLogDepartment,
+    type DailyLogDepartmentRole,
+} from './daily-logs.department'
 
 interface AuthRequest extends Request {
     user?: {
         userId: string
+        email?: string
         [key: string]: unknown
     }
 }
 
 export class DailyLogsController {
     private service = new DailyLogsService()
+
+    private async getUserDepartmentRoles(userId: string): Promise<DailyLogDepartmentRole[]> {
+        return prisma.userRole.findMany({
+            where: { userId },
+            include: {
+                department: {
+                    select: { name: true },
+                },
+            },
+        })
+    }
 
     router(): Router {
         const router = express.Router()
@@ -28,10 +46,9 @@ export class DailyLogsController {
 
                 if (!found) return res.status(404).json({ error: 'Log not found' })
 
-                // Allow if author, admin, or specific authorized emails
-                const { prisma } = await import('../database/prisma.service')
-                const roles = await prisma.userRole.findMany({ where: { userId: user.userId } })
-                const isPrivileged = roles.some(r => ['admin', 'manager', 'operations manager', 'operations_manager'].includes(r.role.toLowerCase()))
+                // Allow if author, privileged role, or specific authorized emails
+                const roles = await this.getUserDepartmentRoles(user.userId)
+                const isPrivileged = canOverrideDailyLogDepartment(roles)
                 const isAuthorizedEmail = isAdminEmail(String(user.email || ''))
 
                 if (found.authorId !== user.userId && !isPrivileged && !isAuthorizedEmail) {
@@ -84,18 +101,25 @@ export class DailyLogsController {
                     return res.status(400).json({ error: 'Content is required' })
                 }
 
-                if (!department) {
-                    return res.status(400).json({ error: 'Department is required' })
-                }
-
                 if (!user?.userId) {
                     return res.status(401).json({ error: 'User not authenticated' })
+                }
+
+                const roles = await this.getUserDepartmentRoles(user.userId)
+                const departmentResult = resolveDailyLogDepartment({
+                    requestedDepartment: department,
+                    roles,
+                    isPrivilegedEmail: isAdminEmail(String(user.email || '')),
+                })
+
+                if (departmentResult.ok === false) {
+                    return res.status(departmentResult.status).json({ error: departmentResult.error })
                 }
 
                 const item = await this.service.create({
                     content,
                     date,
-                    department,
+                    department: departmentResult.department,
                     status,
                     hoursLogged,
                     tasks,
@@ -117,10 +141,31 @@ export class DailyLogsController {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
                 const { content, department, status, hoursLogged, tasks, shiftNotes, logType } = req.body
+                const user = (req as AuthRequest).user
+                let resolvedDepartment: string | undefined
+
+                if (department !== undefined) {
+                    if (!user?.userId) {
+                        return res.status(401).json({ error: 'User not authenticated' })
+                    }
+
+                    const roles = await this.getUserDepartmentRoles(user.userId)
+                    const departmentResult = resolveDailyLogDepartment({
+                        requestedDepartment: department,
+                        roles,
+                        isPrivilegedEmail: isAdminEmail(String(user.email || '')),
+                    })
+
+                    if (departmentResult.ok === false) {
+                        return res.status(departmentResult.status).json({ error: departmentResult.error })
+                    }
+
+                    resolvedDepartment = departmentResult.department
+                }
 
                 const item = await this.service.update(id, {
                     content,
-                    department,
+                    department: resolvedDepartment,
                     status,
                     hoursLogged,
                     tasks,

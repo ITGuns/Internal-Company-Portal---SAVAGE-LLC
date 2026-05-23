@@ -6,7 +6,7 @@ The portal is a full-stack internal company application with a TypeScript Expres
 
 - `backend/` owns API routes, authentication, authorization, Prisma access, payroll logic, email, uploads, file directory, chat, and notifications.
 - `frontend/` owns authenticated portal pages, workflow UI, shared React helpers, route-level deep links, and focused utility tests.
-- `docs/` is the project memory for architecture, API behavior, database notes, feature behavior, audits, and session notes.
+- `docs/` is the project memory for architecture, API behavior, database notes, feature behavior, project decisions, and session notes.
 - `docker-compose.yml` provides local service wiring for the app stack and requires explicit auth secrets.
 
 The backend and frontend are developed and verified separately. The root `package.json` currently only contains a few shared dependencies and should not be treated as the main app command surface.

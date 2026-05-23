@@ -51,16 +51,18 @@ function QuickLink({ title, subtitle, icon: Icon, onClick, href }: { title: stri
   };
 
   return (
-    <Card variant="interactive" padding="sm" onClick={handleClick}>
-      <div className="flex items-center gap-3">
-        <Icon className="w-4 h-4 text-[var(--muted)]" />
-        <div className="flex-1">
-          <div className="font-medium text-sm text-[var(--foreground)]">{title}</div>
-          {subtitle && <div className="text-xs text-[var(--muted)] mt-1">{subtitle}</div>}
-        </div>
-        <ExternalLink className="w-3 h-3 text-[var(--muted)]" />
+    <button
+      type="button"
+      onClick={handleClick}
+      className="flex min-h-14 w-full items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3 text-left transition-[background-color,border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--muted)] hover:bg-[var(--surface-hover)] active:translate-y-px active:scale-[0.995]"
+    >
+      <Icon className="h-4 w-4 shrink-0 text-[var(--muted)]" />
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium text-[var(--foreground)]">{title}</div>
+        {subtitle && <div className="mt-1 text-xs text-[var(--muted)]">{subtitle}</div>}
       </div>
-    </Card>
+      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[var(--muted)]" />
+    </button>
   )
 }
 
@@ -75,25 +77,25 @@ function DashboardMetric({
   value: string | number;
   helper: string;
   icon: React.ComponentType<{ className?: string }>;
-  tone: 'emerald' | 'blue' | 'amber' | 'red' | 'violet';
+  tone: 'emerald' | 'blue' | 'amber' | 'red' | 'slate';
 }) {
   const toneClass = {
-    emerald: 'bg-emerald-500/10 text-emerald-500',
-    blue: 'bg-blue-500/10 text-blue-500',
-    amber: 'bg-amber-500/10 text-amber-500',
-    red: 'bg-red-500/10 text-red-500',
-    violet: 'bg-violet-500/10 text-violet-500',
+    emerald: 'bg-[var(--status-completed-bg)] text-[var(--status-completed)]',
+    blue: 'bg-[var(--status-in-progress-bg)] text-[var(--status-in-progress)]',
+    amber: 'bg-[var(--priority-medium-bg)] text-[var(--priority-medium)]',
+    red: 'bg-[var(--status-blocked-bg)] text-[var(--status-blocked)]',
+    slate: 'bg-[var(--card-surface)] text-[var(--foreground)]',
   }[tone];
 
   return (
-    <Card padding="md" className="min-h-[116px]">
+    <Card padding="md" className="min-h-[112px]">
       <div className="flex h-full items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-xs text-[var(--muted)]">{label}</div>
           <div className="mt-2 text-2xl font-semibold tabular-nums">{value}</div>
           <div className="mt-1 text-xs text-[var(--muted)]">{helper}</div>
         </div>
-        <div className={`rounded-lg p-2 ${toneClass}`}>
+        <div className={`rounded-[var(--radius-md)] p-2 ${toneClass}`}>
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -111,7 +113,7 @@ function AttentionRow({ item }: { item: DashboardAttentionItem }) {
   return (
     <a
       href={item.href}
-      className="flex items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 transition hover:border-[var(--muted)] hover:bg-[var(--card-bg)]"
+      className="flex items-start gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3 transition-[background-color,border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--muted)] hover:bg-[var(--surface-hover)] active:translate-y-px"
     >
       <div className={`mt-0.5 rounded-md p-1.5 ${iconClass}`}>
         <AlertTriangle className="h-4 w-4" />
@@ -120,7 +122,7 @@ function AttentionRow({ item }: { item: DashboardAttentionItem }) {
         <div className="flex items-center gap-2">
           <div className="text-sm font-medium text-[var(--foreground)]">{item.title}</div>
           {item.count != null && (
-            <span className="rounded-full bg-[var(--card-surface)] px-2 py-0.5 text-[10px] text-[var(--muted)]">
+        <span className="rounded-[var(--radius-sm)] bg-[var(--card-surface)] px-2 py-0.5 text-[10px] text-[var(--muted)]">
               {item.count}
             </span>
           )}
@@ -147,9 +149,9 @@ function ActionButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-[86px] items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 text-left transition hover:border-[var(--muted)] hover:bg-[var(--card-bg)]"
+      className="flex min-h-[86px] items-start gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3 text-left transition-[background-color,border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--muted)] hover:bg-[var(--surface-hover)] active:translate-y-px active:scale-[0.995]"
     >
-      <div className="rounded-md bg-[var(--card-surface)] p-2 text-[var(--foreground)]">
+      <div className="rounded-[var(--radius-md)] bg-[var(--card-surface)] p-2 text-[var(--foreground)]">
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
@@ -358,30 +360,77 @@ export default function DashboardPage() {
 
   return (
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
-      <div className="p-4 pt-3 md:p-6">
+      <div className="mx-auto max-w-[1480px] p-4 pt-3 md:p-6">
         <Header />
 
         <div className="mt-5 grid grid-cols-1 items-start gap-4 xl:mt-8 xl:grid-cols-[minmax(0,1fr)_380px]">
-          <Card padding="lg" className="overflow-hidden border-l-4 border-l-[var(--accent)]">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-              <div className="max-w-2xl">
-                <div className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-                  {isManagementDashboard ? 'Team command center' : 'Personal command center'}
+          <div className="space-y-4">
+            <Card padding="lg" className="overflow-hidden">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="max-w-2xl">
+                  <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
+                    {isManagementDashboard ? 'Team command center' : 'Personal command center'}
+                  </div>
+                  <h2 className="mt-2 max-w-xl text-2xl font-semibold leading-tight text-[var(--foreground)] md:text-3xl">
+                    {isManagementDashboard ? 'Review today before work piles up.' : 'Your day, tasks, logs, and payroll in one place.'}
+                  </h2>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+                    {isManagementDashboard
+                      ? 'Use the alerts and quick actions below to keep approvals, tasks, logs, and time entries moving.'
+                      : 'Start with the attention list, then jump straight into the next action without hunting through pages.'}
+                  </p>
                 </div>
-                <h2 className="mt-2 max-w-xl text-2xl font-semibold leading-tight text-[var(--foreground)] md:text-3xl">
-                  {isManagementDashboard ? 'Review today before work piles up.' : 'Your day, tasks, logs, and payroll in one place.'}
-                </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-                  {isManagementDashboard
-                    ? 'Use the alerts and quick actions below to keep approvals, tasks, logs, and time entries moving.'
-                    : 'Start with the attention list, then jump straight into the next action without hunting through pages.'}
-                </p>
+                <div className="hidden shrink-0 sm:block">
+                  <TimeClock />
+                </div>
               </div>
-              <div className="hidden shrink-0 sm:block">
-                <TimeClock />
-              </div>
+            </Card>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 2xl:grid-cols-3">
+              <DashboardMetric
+                label="Today's Time"
+                value={formatHours(dashboardSummary.metrics.todayMinutes)}
+                helper={dashboardSummary.metrics.activeClockIn ? 'Clock is running' : 'Tracked today'}
+                icon={Clock}
+                tone="emerald"
+              />
+              <DashboardMetric
+                label="Assigned Tasks"
+                value={dashboardSummary.metrics.assignedTasks}
+                helper={isManagementDashboard ? 'Visible to your role' : 'Assigned to you'}
+                icon={ClipboardList}
+                tone="blue"
+              />
+              <DashboardMetric
+                label="In Progress"
+                value={dashboardSummary.metrics.inProgressTasks}
+                helper="Active work items"
+                icon={TrendingUp}
+                tone="slate"
+              />
+              <DashboardMetric
+                label="Completed Today"
+                value={dashboardSummary.metrics.completedToday}
+                helper="Closed today"
+                icon={CheckCircle2}
+                tone="emerald"
+              />
+              <DashboardMetric
+                label="Overdue"
+                value={dashboardSummary.metrics.overdueTasks}
+                helper="Past due and open"
+                icon={AlertCircle}
+                tone={dashboardSummary.metrics.overdueTasks > 0 ? 'red' : 'amber'}
+              />
+              <DashboardMetric
+                label={isManagementDashboard ? 'Approvals' : 'Daily Log'}
+                value={isManagementDashboard ? dashboardSummary.metrics.pendingApprovals : (dashboardSummary.metrics.pendingDailyLog ? 'Open' : 'Done')}
+                helper={isManagementDashboard ? 'Pending employees' : 'Today status'}
+                icon={isManagementDashboard ? UserCheck : FileText}
+                tone={dashboardSummary.metrics.pendingApprovals > 0 || dashboardSummary.metrics.pendingDailyLog ? 'amber' : 'emerald'}
+              />
             </div>
-          </Card>
+          </div>
 
           <Card variant="elevated" className="overflow-hidden">
             <Card.Header className="py-4">
@@ -394,7 +443,7 @@ export default function DashboardPage() {
             </Card.Header>
             <Card.Content className="space-y-2">
               {dashboardSummary.attentionItems.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--background)] p-4 text-sm text-[var(--muted)]">
+                <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--border)] bg-[var(--card-bg)] p-4 text-sm text-[var(--muted)]">
                   Nothing needs immediate review.
                 </div>
               ) : (
@@ -404,52 +453,6 @@ export default function DashboardPage() {
               )}
             </Card.Content>
           </Card>
-        </div>
-
-        {/* Stats Overview */}
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 xl:grid-cols-6">
-          <DashboardMetric
-            label="Today's Time"
-            value={formatHours(dashboardSummary.metrics.todayMinutes)}
-            helper={dashboardSummary.metrics.activeClockIn ? 'Clock is running' : 'Tracked today'}
-            icon={Clock}
-            tone="emerald"
-          />
-          <DashboardMetric
-            label="Assigned Tasks"
-            value={dashboardSummary.metrics.assignedTasks}
-            helper={isManagementDashboard ? 'Visible to your role' : 'Assigned to you'}
-            icon={ClipboardList}
-            tone="blue"
-          />
-          <DashboardMetric
-            label="In Progress"
-            value={dashboardSummary.metrics.inProgressTasks}
-            helper="Active work items"
-            icon={TrendingUp}
-            tone="violet"
-          />
-          <DashboardMetric
-            label="Completed Today"
-            value={dashboardSummary.metrics.completedToday}
-            helper="Closed today"
-            icon={CheckCircle2}
-            tone="emerald"
-          />
-          <DashboardMetric
-            label="Overdue"
-            value={dashboardSummary.metrics.overdueTasks}
-            helper="Past due and open"
-            icon={AlertCircle}
-            tone={dashboardSummary.metrics.overdueTasks > 0 ? 'red' : 'amber'}
-          />
-          <DashboardMetric
-            label={isManagementDashboard ? 'Approvals' : 'Daily Log'}
-            value={isManagementDashboard ? dashboardSummary.metrics.pendingApprovals : (dashboardSummary.metrics.pendingDailyLog ? 'Open' : 'Done')}
-            helper={isManagementDashboard ? 'Pending employees' : 'Today status'}
-            icon={isManagementDashboard ? UserCheck : FileText}
-            tone={dashboardSummary.metrics.pendingApprovals > 0 || dashboardSummary.metrics.pendingDailyLog ? 'amber' : 'emerald'}
-          />
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6">
@@ -487,7 +490,7 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between w-full">
                   <h3 className="font-semibold text-sm">Company Chat</h3>
                   <div className="flex items-center gap-2">
-                    <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`}></span>
+                    <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-[var(--status-completed)]' : 'bg-[var(--status-blocked)]'}`}></span>
                     <span className="text-[10px] text-[var(--muted)]">{onlineCount > 0 ? `${onlineCount} online` : 'Active'}</span>
                   </div>
                 </div>
@@ -495,10 +498,10 @@ export default function DashboardPage() {
 
               <div
                 ref={chatScrollRef}
-                className="flex-1 overflow-y-auto p-4 space-y-3 bg-[var(--card-surface)] chat-scroll"
+                className="chat-scroll flex-1 space-y-3 overflow-y-auto bg-[var(--card-bg)] p-4"
               >
                 {messages.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
+                    <div className="flex h-full flex-col items-center justify-center rounded-[var(--radius-md)] border border-dashed border-[var(--border)] text-center">
                     <Send className="w-8 h-8 mx-auto text-[var(--muted)] mb-2" />
                     <div className="text-xs text-[var(--muted)]">No messages yet</div>
                   </div>
@@ -508,9 +511,9 @@ export default function DashboardPage() {
                     return (
                       <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                         {!isMe && <span className="text-[10px] text-[var(--muted)] mb-0.5 ml-1">{msg.sender.name}</span>}
-                        <div className={`px-3 py-1.5 rounded-2xl text-xs max-w-[85%] ${isMe
-                          ? 'bg-[var(--accent)] text-white rounded-tr-none'
-                          : 'bg-[var(--background)] text-[var(--foreground)] border border-[var(--border)] rounded-tl-none'
+                        <div className={`max-w-[85%] rounded-[var(--radius-md)] px-3 py-1.5 text-xs ${isMe
+                          ? 'bg-[var(--accent)] text-[var(--accent-foreground)]'
+                          : 'border border-[var(--border)] bg-[var(--card-surface)] text-[var(--foreground)]'
                           }`}>
                           {msg.content}
                         </div>
@@ -524,7 +527,7 @@ export default function DashboardPage() {
                 <form onSubmit={handleSendMessage} className="flex items-center gap-2 w-full">
                   <input
                     aria-label="Type a message"
-                    className="flex-1 p-2 text-xs rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                    className="flex-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-2 text-xs text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                     placeholder="Type a message..."
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
@@ -534,7 +537,7 @@ export default function DashboardPage() {
                     type="submit"
                     disabled={!newMessage.trim() || sending}
                     aria-label="Send message"
-                    className="p-2 rounded bg-[var(--accent)] text-white hover:opacity-90 disabled:opacity-30 transition-all active:scale-95"
+                    className="rounded-[var(--radius-md)] bg-[var(--accent)] p-2 text-[var(--accent-foreground)] transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-95 active:translate-y-px active:scale-[0.98] disabled:opacity-30"
                   >
                     <Send className="w-3.5 h-3.5" />
                   </button>
@@ -552,7 +555,7 @@ export default function DashboardPage() {
 
               {recentAnnouncements.length === 0 ? (
                 <div className="p-8 text-center bg-[var(--card-surface)]">
-                  <Megaphone className="w-12 h-12 mx-auto text-[var(--muted)] opacity-50 mb-3" />
+                  <Megaphone className="mx-auto mb-3 h-10 w-10 text-[var(--muted)] opacity-50" />
                   <div className="text-sm text-[var(--muted)]">No announcements yet</div>
                 </div>
               ) : (
@@ -560,7 +563,7 @@ export default function DashboardPage() {
                   {recentAnnouncements.map((announcement) => (
                     <div key={announcement.id} className="px-6 py-4">
                       <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-full bg-[color:var(--accent)/12] text-[var(--accent)] flex items-center justify-center text-xs font-semibold flex-shrink-0">
+                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-[var(--card-surface)] text-xs font-semibold text-[var(--accent)]">
                           {announcement.author.charAt(0)}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -590,14 +593,14 @@ export default function DashboardPage() {
                 </Card.Header>
 
                 {recentShoutouts.length === 0 ? (
-                  <div className="p-8 text-center bg-[var(--card-surface)]">
-                    <Star className="w-12 h-12 mx-auto text-[var(--muted)] opacity-50 mb-3" />
+                  <div className="bg-[var(--card-bg)] p-8 text-center">
+                    <Star className="mx-auto mb-3 h-10 w-10 text-[var(--muted)] opacity-50" />
                     <div className="text-sm text-[var(--muted)]">No shoutouts yet</div>
                   </div>
                 ) : (
                   <Card.Content className="space-y-3">
                     {recentShoutouts.map(shoutout => (
-                      <Card key={shoutout.id} padding="sm">
+                      <div key={shoutout.id} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3">
                         <div className="flex items-start gap-2 mb-1">
                           <Trophy className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
                           <div className="flex-1">
@@ -606,7 +609,7 @@ export default function DashboardPage() {
                             <div className="text-xs text-[var(--muted)] mt-2">{getTimeAgo(shoutout.timestamp)}</div>
                           </div>
                         </div>
-                      </Card>
+                      </div>
                     ))}
                   </Card.Content>
                 )}

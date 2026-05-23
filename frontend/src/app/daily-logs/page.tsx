@@ -46,6 +46,7 @@ export default function DailyLogsPage() {
   const currentUserDepartment = currentUser?.department;
   const currentUserRole = currentUser?.role;
   const canReviewTeamLogs = hasManagementAccess(currentUser);
+  const canEditLogDepartment = canReviewTeamLogs;
   const queryClient = useQueryClient();
   const { data: logs = [], isLoading: loading } = useDailyLogs();
   const currentUserId = currentUser?.id ? String(currentUser.id) : '';
@@ -85,6 +86,13 @@ export default function DailyLogsPage() {
   const [formTaskInput, setFormTaskInput] = useState('');
   const [formShiftNotes, setFormShiftNotes] = useState('');
   const [formLogType, setFormLogType] = useState<string>('daily');
+  const logDepartmentOptions = useMemo(
+    () => Array.from(new Set([
+      ...DEPARTMENTS.filter((department) => department !== 'All Departments'),
+      ...(currentUserDepartment ? [currentUserDepartment] : []),
+    ])),
+    [currentUserDepartment],
+  );
   const taskImportOptions = useMemo(
     () => getDailyLogTaskImportOptions(trackedTasks, {
       currentUserId,
@@ -236,12 +244,13 @@ export default function DailyLogsPage() {
   };
 
   const handleSubmit = async () => {
-    if (!formDepartment || formTasks.length === 0) return;
+    const effectiveDepartment = canEditLogDepartment ? formDepartment : currentUserDepartment || formDepartment;
+    if (!effectiveDepartment || formTasks.length === 0) return;
 
     try {
       if (editingLog) {
         await updateDailyLog(editingLog.id, {
-          department: formDepartment,
+          department: effectiveDepartment,
           date: formDate,
           hoursLogged: formHours,
           tasks: formTasks,
@@ -251,7 +260,7 @@ export default function DailyLogsPage() {
         });
         toast.success('Daily log updated successfully');
       } else {
-        await createDailyLog(formDepartment, formDate, formHours, formTasks, formStatus, formShiftNotes, formLogType);
+        await createDailyLog(effectiveDepartment, formDate, formHours, formTasks, formStatus, formShiftNotes, formLogType);
         toast.success('Daily log added successfully');
       }
 
@@ -282,6 +291,8 @@ export default function DailyLogsPage() {
     await toggleLogLike(logId);
     queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
   };
+
+  const effectiveFormDepartment = canEditLogDepartment ? formDepartment : currentUserDepartment || formDepartment;
 
   return (
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
@@ -630,14 +641,20 @@ export default function DailyLogsPage() {
               <select
                 value={formDepartment}
                 onChange={(e) => setFormDepartment(e.target.value)}
-                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] dark:[color-scheme:dark]"
+                disabled={!canEditLogDepartment}
+                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] disabled:cursor-not-allowed disabled:opacity-70 dark:[color-scheme:dark]"
                 aria-label="Department"
               >
                 <option value="">Select department</option>
-                {DEPARTMENTS.map(dept => (
+                {logDepartmentOptions.map(dept => (
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
               </select>
+              {!canEditLogDepartment && (
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Daily Logs use the department assigned to your account.
+                </p>
+              )}
             </div>
 
             <div>
@@ -836,7 +853,7 @@ export default function DailyLogsPage() {
               <Button
                 variant="success"
                 onClick={handleSubmit}
-                disabled={!formDepartment || formTasks.length === 0}
+                disabled={!effectiveFormDepartment || formTasks.length === 0}
                 icon={<Plus className="w-4 h-4" />}
               >
                 {editingLog ? 'Update Log' : 'Add Log'}

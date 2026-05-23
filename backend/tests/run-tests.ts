@@ -1,4 +1,5 @@
 import './tasks.permissions.test'
+import './daily-logs.department.test'
 import './signup.requests.test'
 import './payroll.permissions.test'
 import './users.security.test'

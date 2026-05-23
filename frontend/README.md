@@ -1,137 +1,47 @@
-# Frontend - Internal Company Portal
+# Frontend
 
-Modern Next.js 16 + React 19 company portal interface.
+Next.js 16 + React 19 frontend for the Internal Company Portal / MyDeskii app.
 
----
+## Quick Start
 
-## 📚 Documentation
-
-- **[FRONTEND_INIT.md](./FRONTEND_INIT.md)** - Complete status, architecture, and feature inventory
-- **[UPDATES.md](./UPDATES.md)** - Daily changelog (quick reference)
-
----
-
-## 🚀 Quick Start
-
-```bash
-# Install dependencies
+```powershell
+cd frontend
 npm install
-
-# Start development server
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Open `http://localhost:3000`.
 
----
+## Commands
 
-## 📦 Commands
-
-```bash
-npm run dev          # Development server (Turbopack)
-npm run build        # Production build
-npm run start        # Start production server
-npm run lint         # Run ESLint
+```powershell
+npm test
+npm run lint
+npm run build
+npm run dev
+npm run start
 ```
 
----
+## Main Areas
 
-## 🎯 Current Focus Areas
+- `src/app` contains authenticated app routes such as dashboard, tasks, daily logs, payroll, chat, files, operations, and auth pages.
+- `src/components` contains reusable shell, form, modal, card, button, payroll, task, chat, and file-directory UI.
+- `src/context` and `src/contexts` contain shared providers for user/session, sockets, query client, and exchange-rate state.
+- `src/lib` contains API helpers, dashboard/deep-link helpers, role helpers, design tokens, and pure workflow utilities.
+- `tests` contains focused Node-based behavior tests for frontend utility logic.
 
-1. **Component Library** - Building reusable components (Toast ✅, Card ✅, Modal ✅, Button ✅)
-2. **UX Polish** - Adding feedback systems (Toast notifications ✅)
-3. **Task Tracking** - Kanban board (needs drag-drop for column movement)
+## Project Docs
 
----
+Use the root docs as the source of truth:
 
-## 🏗️ Tech Stack
+- `PRODUCT.md` for product audience, purpose, and principles.
+- `DESIGN.md` for visual direction and component rules.
+- `docs/frontend-redesign-plan.md` for the current redesign sequence.
+- `docs/architecture.md` and `docs/features.md` for current structure and feature behavior.
+- `docs/dev-notes.md` for recent implementation decisions and verification history.
 
-- **Framework:** Next.js 16 (App Router)
-- **Runtime:** React 19
-- **Language:** TypeScript 5
-- **Styling:** Tailwind CSS 4
-- **Icons:** Lucide React
-- **Calendar:** FullCalendar v6
-- **State:** @tanstack/react-query (ready to use)
+## Notes
 
----
-
-## 📁 Key Files
-
-```
-src/
-├── app/
-│   ├── payroll-calendar/page.tsx    # ✅ Time tracking with toast feedback
-│   ├── task-tracking/page.tsx       # ✅ Kanban board with Card components
-│   ├── announcements/page.tsx       # ✅ Full CRUD with toast feedback
-│   ├── daily-logs/page.tsx          # ✅ Logging with toast feedback
-│   ├── dashboard/page.tsx           # ✅ Overview with Card components
-│   └── globals.css                  # 🎨 Theme system
-├── components/
-│   ├── Header.tsx                   # Page header
-│   ├── Sidebar.tsx                  # Navigation
-│   ├── Modal.tsx                    # ✅ Reusable modal
-│   ├── Button.tsx                   # ✅ Button variants
-│   ├── Toast.tsx                    # ✅ Toast notifications
-│   ├── ToastProvider.tsx            # ✅ Toast context
-│   └── Card.tsx                     # ✅ Card component with variants
-└── lib/
-    ├── tasks.ts                     # Task management
-    ├── announcements.ts             # Announcement system
-    ├── time-entries.ts              # Time tracking
-    └── storage.ts                   # localStorage utilities
-```
-
----
-
-## 🎨 Design System
-
-Theme switching: Light/Dark mode with persistent localStorage  
-CSS Variables: `--background`, `--foreground`, `--card-bg`, etc.  
-Icons: Lucide React components  
-
----
-
-## 🔌 Backend Integration
-
-**Status:** Not started (backend handled by partner)  
-**Plan:** Use React Query when backend APIs are ready  
-**Current:** All features use client-side state + localStorage  
-
-See [FRONTEND_INIT.md](./FRONTEND_INIT.md) for detailed backend integration plan.
-
----
-
-## ⚠️ Important Notes
-
-- All data uses **localStorage** - persists across page refreshes ✅
-- **Toast notifications** provide feedback for all user actions ✅
-- **Component library** established with Modal, Button, Toast, Card ✅
-- No authentication yet - all pages publicly accessible
-- No API integration - everything is client-side (ready for React Query)
-
----
-
-## 🤝 Development Workflow
-
-1. Check [UPDATES.md](./UPDATES.md) for recent changes
-2. Pick a task from [FRONTEND_INIT.md](./FRONTEND_INIT.md) "Next Steps"
-3. Develop and test locally
-4. Update [UPDATES.md](./UPDATES.md) with changes
-5. Commit with clear message
-
----
-
-## 📞 Questions?
-
-See [FRONTEND_INIT.md](./FRONTEND_INIT.md) for comprehensive documentation including:
-- Feature status
-- Architecture decisions
-- Known issues
-- Backend integration plan
-- Testing status
-- Performance notes
-
----
-
-**Last Updated:** February 9, 2026
+- The frontend is API-backed and authenticated; do not rely on client-side hiding for permission-sensitive behavior.
+- Keep page files readable by moving repeated UI into components and reusable behavior into `src/lib` or hooks.
+- Follow the restrained MyDeskii product direction in `PRODUCT.md` and `DESIGN.md` for new UI work.

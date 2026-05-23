@@ -54,12 +54,12 @@ export default function ThemeToggle() {
       aria-label="Toggle theme"
       aria-pressed={isDark}
       onClick={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
-      className="p-2 rounded-md bg-white/5 dark:bg-white/10 hover:bg-white/10 dark:hover:bg-white/20 transition-colors"
+      className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] text-[var(--muted)] transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] active:translate-y-px active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
     >
       {isDark ? (
-        <Moon className="w-5 h-5 text-white" />
+        <Moon className="w-5 h-5" />
       ) : (
-        <Sun className="w-5 h-5 text-yellow-400" />
+        <Sun className="w-5 h-5" />
       )}
     </button>
   );

@@ -4,17 +4,18 @@
  */
 
 /**
- * Modular Scale Typography (1.25 Major Third Ratio)
+ * Product UI Typography
  * Base: 16px (1rem)
  */
 export const TYPOGRAPHY = {
   sizes: {
-    xs: '0.8rem',      // 12.8px - helper text, captions
-    sm: '1rem',        // 16px - base, labels, button text
-    md: '1.25rem',     // 20px - input text, body emphasis
-    lg: '1.5625rem',   // 25px - subtitles, section headers
-    xl: '1.953rem',    // 31.25px - page titles
-    '2xl': '2.441rem'  // 39px - hero text, brand
+    xs: '0.75rem',    // 12px - helper text, captions
+    sm: '0.875rem',   // 14px - dense app text
+    base: '1rem',     // 16px - forms and readable body
+    md: '1.125rem',   // 18px - section emphasis
+    lg: '1.25rem',    // 20px - compact page titles
+    xl: '1.5rem',     // 24px - major page titles
+    '2xl': '1.875rem' // 30px - first-viewport dashboard copy
   },
   weights: {
     regular: 400,
@@ -51,21 +52,21 @@ export const SPACING = {
  */
 export const DIMENSIONS = {
   input: {
-    height: '40px',        // 5 units
+    height: '44px',
     paddingX: '16px',      // 2 units
     paddingY: '8px',       // 1 unit
     borderRadius: '8px'    // 1 unit
   },
   button: {
-    height: '40px',        // 5 units
-    paddingX: '32px',      // 4 units
+    height: '40px',
+    paddingX: '16px',
     paddingY: '8px',       // 1 unit
     borderRadius: '8px'    // 1 unit
   },
   card: {
     maxWidth: '400px',     // 50 units
-    padding: '32px',       // 4 units
-    borderRadius: '8px'    // 1 unit
+    padding: '24px',
+    borderRadius: '8px'
   }
 } as const;
 

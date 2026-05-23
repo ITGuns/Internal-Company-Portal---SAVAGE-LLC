@@ -37,10 +37,15 @@ Task tracking supports calendar, board, and list views for task status, assignme
 - The detail modal shows assignment, department/role, dates, progress, tracked time, estimated time, remaining or over-estimate time, and session count.
 - Work history lists recorded timer sessions with worker, start/end time, and duration.
 - Editing remains available through the detail modal's `Edit Task` action.
+- `Generate EOD Report` can post the selected period summary directly into Daily Logs, using structured linked task objects and optional shift notes.
 
 ## Daily Logs
 
 Daily logs track EOD, weekly, and monthly work summaries by date, department, status, hours, task list, and shift notes.
+
+- Employee logs use the department assigned to the employee account.
+- Managers/admins can review or override log departments when their access allows it.
+- Task Tracking report posts create real Daily Log records and refresh Daily Logs after submission.
 
 ### Task Import Behavior
 
@@ -66,6 +71,7 @@ Signup creates a pending account and preserves the requested department/role wit
 - Pending accounts cannot log in.
 - Pending accounts have no active `UserRole` records.
 - Approval deploys the employee, marks the account approved, and assigns the requested department/role.
+- Approval now requires an existing or requested role/department assignment; applications missing both are rejected with a clear error instead of creating approved users without roles.
 - Admins and authorized operations managers can approve pending employee applications.
 
 ## Operations

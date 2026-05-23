@@ -75,3 +75,20 @@ test('summarizes daily logs for manager review filters', () => {
     },
   );
 });
+
+test('ignores malformed legacy task entries when counting linked tasks', () => {
+  const { getDailyLogReviewSummary } = loadReviewHelper();
+
+  const summary = getDailyLogReviewSummary([
+    {
+      id: 'legacy-log',
+      authorId: 'user-1',
+      date: '2026-05-22',
+      status: 'completed',
+      hoursLogged: 1,
+      tasks: ['legacy-task-id', null, { id: 'task:valid-linked' }, { text: 'missing id' }],
+    },
+  ]);
+
+  assert.equal(summary.linkedTaskCount, 1);
+});

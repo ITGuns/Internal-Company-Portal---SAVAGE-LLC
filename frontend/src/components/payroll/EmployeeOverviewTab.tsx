@@ -167,7 +167,7 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
             fetchData();
         } catch (err) {
             console.error("Approval failed", err);
-            toast.error("Failed to approve employee");
+            toast.error(err instanceof Error ? err.message : "Failed to approve employee");
         }
     };
 

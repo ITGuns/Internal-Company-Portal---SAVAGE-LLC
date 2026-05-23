@@ -87,11 +87,11 @@ export default function TimeClock() {
     if (loading) return null;
 
     return (
-        <div className="flex items-center gap-4 px-4 py-2 bg-[var(--card-surface)] border border-[var(--border)] rounded-2xl shadow-sm">
+        <div className="flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 shadow-[var(--shadow-sm)]">
             <div className="flex flex-col">
                 <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${activeEntry ? 'bg-emerald-500 animate-pulse' : 'bg-[var(--muted)]'}`}></div>
-                    <span className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted)]">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
                         {activeEntry ? 'Working' : 'Not Clocked In'}
                     </span>
                 </div>
@@ -102,13 +102,13 @@ export default function TimeClock() {
                 )}
             </div>
 
-            <div className="h-8 w-px bg-[var(--border)]"></div>
+            <div className="h-8 w-px bg-[var(--border)]" />
 
             {activeEntry ? (
                 <button
                     onClick={handleClockOut}
                     disabled={actionLoading}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
+                    className="flex items-center gap-2 rounded-[var(--radius-md)] border border-red-700 bg-red-700 px-3 py-2 text-xs font-semibold text-white transition-[background-color,transform] duration-150 ease-[var(--ease-out)] hover:bg-red-800 active:translate-y-px active:scale-[0.98] disabled:opacity-50"
                 >
                     {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Square className="w-3.5 h-3.5 fill-current" />}
                     Clock Out
@@ -117,7 +117,7 @@ export default function TimeClock() {
                 <button
                     onClick={handleClockIn}
                     disabled={actionLoading}
-                    className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] hover:opacity-90 text-white rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
+                    className="flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-[var(--accent-foreground)] transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-95 active:translate-y-px active:scale-[0.98] disabled:opacity-50"
                 >
                     {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
                     Clock In
