@@ -1,5 +1,46 @@
 # Development Notes
 
+## 2026-05-24 - Client Portal Access And Ticket Polish
+
+### Completed
+
+- Split frontend client portal navigation from internal client operations navigation.
+- Added client operations gating for the Operations sidebar entry, Operations client card, and `/operations/clients` page.
+- Added a ticket detail panel on `/client/tickets` with visible conversation history and client comment submission.
+- Browser-smoked admin and client sessions across desktop and mobile viewports, including adding a client ticket reply.
+
+### Files Changed
+
+- `frontend/src/app/client/tickets/page.tsx`
+- `frontend/src/app/operations/clients/page.tsx`
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/lib/role-access.ts`
+- `frontend/tests/role-access.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Keep internal multi-client administration under Operations and keep client users scoped to `/client` and `/client/tickets`.
+- Use backend membership lookup as the sidebar signal for client workspaces when the auth role remains a generic member.
+- Keep management/admin users out of the client-facing sidebar path; they can manage clients from Operations.
+
+### How to Test
+
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd backend && npx prisma validate`
+- `cd backend && npx prisma generate`
+- Browser smoke: admin `/operations` and `/operations/clients`; client `/client`, `/operations/clients` access denial, and `/client/tickets` comment workflow at desktop and mobile sizes.
+
+### Next Steps
+
+- Add edit/status controls for client tickets and management-side replies when the client operations workflow needs full ticket handling.
+- Decide whether management users need an explicit client-preview mode instead of manually opening `/client`.
+
 ## 2026-05-24 - Client Portal UI Slice
 
 ### Completed

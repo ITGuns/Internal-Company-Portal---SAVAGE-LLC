@@ -9,6 +9,7 @@ import {
   FileText,
   LinkIcon,
   Plus,
+  ShieldCheck,
   Ticket,
   UserPlus,
   Users,
@@ -19,6 +20,7 @@ import Header from "@/components/Header";
 import EmptyState from "@/components/ui/EmptyState";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { useToast } from "@/components/ToastProvider";
+import { useUser } from "@/contexts/UserContext";
 import {
   ClientMembership,
   ClientOrganization,
@@ -34,6 +36,7 @@ import {
   fetchClientOverview,
 } from "@/lib/client-portal";
 import { buildClientPortalSummary } from "@/lib/client-portal-summary";
+import { hasClientOperationsAccess } from "@/lib/role-access";
 import { fetchUsers, User } from "@/lib/users";
 
 const selectClass = "w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
@@ -69,6 +72,7 @@ function Section({ children, icon, title, count }: { children: React.ReactNode; 
 
 export default function OperationsClientsPage() {
   const toast = useToast();
+  const { user, isLoading: userLoading } = useUser();
   const [organizations, setOrganizations] = useState<ClientOrganization[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [overview, setOverview] = useState<ClientPortalOverview | null>(null);
@@ -88,6 +92,7 @@ export default function OperationsClientsPage() {
     [organizations, overview, selectedId],
   );
   const summary = useMemo(() => buildClientPortalSummary(overview), [overview]);
+  const canManageClients = useMemo(() => hasClientOperationsAccess(user), [user]);
 
   const loadOrganizations = useCallback(async () => {
     const nextOrganizations = await fetchClientOrganizations();
@@ -110,6 +115,17 @@ export default function OperationsClientsPage() {
   }, []);
 
   useEffect(() => {
+    if (userLoading) return;
+    if (!canManageClients) {
+      setLoading(false);
+      setOrganizations([]);
+      setSelectedId("");
+      setOverview(null);
+      setMemberships([]);
+      setUsers([]);
+      return;
+    }
+
     let isMounted = true;
     async function loadInitial() {
       try {
@@ -130,14 +146,16 @@ export default function OperationsClientsPage() {
     return () => {
       isMounted = false;
     };
-  }, [loadOrganizations, toast]);
+  }, [canManageClients, loadOrganizations, toast, userLoading]);
 
   useEffect(() => {
+    if (userLoading || !canManageClients) return;
+
     loadSelected(selectedId).catch((error) => {
       console.error(error);
       toast.error("Failed to load client details");
     });
-  }, [loadSelected, selectedId, toast]);
+  }, [canManageClients, loadSelected, selectedId, toast, userLoading]);
 
   async function refreshCurrent() {
     await loadOrganizations();
@@ -182,6 +200,34 @@ export default function OperationsClientsPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (userLoading) {
+    return (
+      <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
+        <div className="p-6 pt-0">
+          <Header title="Client Operations" subtitle="Manage client accounts, portal access, work updates, metrics, and resources." />
+          <div className="mt-6 text-sm text-[var(--muted)]">Checking client operations access...</div>
+        </div>
+      </main>
+    );
+  }
+
+  if (!canManageClients) {
+    return (
+      <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
+        <div className="p-6 pt-0">
+          <Header title="Client Operations" subtitle="Manage client accounts, portal access, work updates, metrics, and resources." />
+          <div className="mt-6">
+            <EmptyState
+              icon={ShieldCheck}
+              title="Client operations access required"
+              description="Client administration is available to admins and operations managers."
+            />
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (

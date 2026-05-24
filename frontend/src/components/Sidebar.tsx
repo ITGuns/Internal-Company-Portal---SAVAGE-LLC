@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -21,6 +21,8 @@ import {
 import UserAvatar from '../assets/icons/UserAvatar';
 import { useSocket } from '@/context/SocketContext';
 import { useUser } from '@/contexts/UserContext';
+import { fetchClientOrganizations } from '@/lib/client-portal';
+import { hasClientOperationsAccess, hasClientPortalAccess } from '@/lib/role-access';
 import { cn } from '@/lib/utils';
 
 type NavItemConfig = {
@@ -79,7 +81,11 @@ export default function Sidebar() {
   const { user } = useUser();
   const { unreadChatCount } = useSocket();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [hasClientWorkspace, setHasClientWorkspace] = useState(false);
   const isAdmin = user?.role?.toLowerCase() === 'admin';
+  const canUseClientOperations = useMemo(() => hasClientOperationsAccess(user), [user]);
+  const hasRoleBasedClientPortalAccess = useMemo(() => hasClientPortalAccess(user), [user]);
+  const canUseClientPortal = hasRoleBasedClientPortalAccess || hasClientWorkspace;
 
   useEffect(() => {
     function handleToggle() {
@@ -94,9 +100,33 @@ export default function Sidebar() {
     setMobileOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    let ignore = false;
+
+    async function checkClientWorkspace() {
+      if (!user || canUseClientOperations || hasRoleBasedClientPortalAccess) {
+        if (!ignore) setHasClientWorkspace(false);
+        return;
+      }
+
+      try {
+        const organizations = await fetchClientOrganizations();
+        if (!ignore) setHasClientWorkspace(organizations.length > 0);
+      } catch {
+        if (!ignore) setHasClientWorkspace(false);
+      }
+    }
+
+    void checkClientWorkspace();
+
+    return () => {
+      ignore = true;
+    };
+  }, [canUseClientOperations, hasRoleBasedClientPortalAccess, user]);
+
   const mainItems: NavItemConfig[] = [
     { href: '/dashboard', icon: Home, label: 'Dashboard' },
-    { href: '/client', icon: BriefcaseBusiness, label: 'Client Portal' },
+    ...(canUseClientPortal ? [{ href: '/client', icon: BriefcaseBusiness, label: 'Client Portal' }] : []),
     { href: '/task-tracking', icon: Grid, label: 'Task Tracking' },
     { href: '/daily-logs', icon: Users, label: 'Daily Logs' },
     { href: '/payroll-calendar', icon: CalendarDays, label: 'Payroll Calendar' },
@@ -110,7 +140,7 @@ export default function Sidebar() {
   ];
 
   const adminItems: NavItemConfig[] = [
-    { href: '/operations', icon: ShieldCheck, label: 'Operations' },
+    ...(canUseClientOperations ? [{ href: '/operations', icon: ShieldCheck, label: 'Operations' }] : []),
     ...(isAdmin ? [{ href: '/whiteboard', icon: Grid, label: 'Whiteboard' }] : []),
   ];
 
