@@ -32,6 +32,7 @@ Mounted routes:
 - `/api/employees`
 - `/api/file-directory`
 - `/api/notifications`
+- `/api/clients`
 
 Backend responsibilities are split by feature folder:
 
@@ -39,6 +40,7 @@ Backend responsibilities are split by feature folder:
 - Services hold business logic and Prisma operations.
 - Permission helpers centralize role and admin-email checks where the feature has sensitive access rules.
 - Serializers/security helpers should be used before returning user, employee, or profile data to the frontend.
+- Client portal routes use organization-scoped access helpers and serializers so client users only see their assigned organization data.
 
 Important backend conventions:
 
@@ -89,6 +91,7 @@ Core domain groups:
 - Daily logs: `DailyLog` with structured JSON task entries.
 - Payroll: `TimeEntry`, `PayrollEvent`, `PayrollPeriod`, `Payslip`, and `PayrollItem`.
 - Collaboration: chat conversations, participants, messages, announcements, comments, reactions, notifications, uploads, and file-directory folders.
+- Client portal: `ClientOrganization`, `ClientMembership`, `ClientProject`, `ClientTicket`, `ClientTicketComment`, `ClientUpdate`, `ClientMetricSnapshot`, `ClientResourceLink`, and `ClientServiceTier`.
 
 See `docs/database.md` for current schema notes and migration behavior.
 
@@ -100,6 +103,7 @@ The portal uses JWT authentication plus feature-level role checks.
 - Some features also recognize display-style roles such as `Operations Manager` or `Chief Operations Officer`.
 - Configured admin bypass emails receive selected privileged access through centralized helpers.
 - Employee self-service routes should only expose or mutate the authenticated user's own data unless a feature-specific permission check allows broader access.
+- Client users are scoped through active `ClientMembership` records; internal managers/admins use the client portal management helper for cross-client access.
 - Chat channels and privileged conversation names such as `General` are restricted to management access.
 
 When adding sensitive behavior, update the relevant permission helper or create a small feature-local helper instead of scattering role string checks across UI and API files.

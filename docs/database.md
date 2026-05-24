@@ -8,6 +8,7 @@ Current additive migrations related to the recent release:
 
 - `202605210001_task_sessions_signup_requests`
 - `202605210002_task_creator`
+- `202605240001_client_portal_foundation`
 
 Migration SQL is now tracked. Do not ignore migration SQL files or rely on local schema drift.
 
@@ -98,6 +99,19 @@ Payroll-sensitive fields also live on `EmployeeProfile`.
 - Payslip reads are self-service by default and privileged for management review.
 
 `PayrollEvent` stores calendar-level payroll events.
+
+## Client Portal
+
+Client portal data is tenant-scoped by `ClientOrganization`.
+
+- `ClientOrganization` is the client account/workspace record and owns projects, tickets, updates, metrics, resources, and memberships.
+- `ClientMembership` links portal users to one client organization and stores client-side role/status. Active memberships are the client visibility boundary.
+- `ClientServiceTier` stores internal tier metadata used for client setup and operations prioritization.
+- `ClientProject` stores visible project status, progress, links, and internal notes. Client serializers must not expose `internalNotes`.
+- `ClientTicket` stores client support/change requests. The server sets `organizationId` from the route and `createdById` from the authenticated user; clients must not set ownership, internal notes, or assignment fields.
+- `ClientTicketComment.visibility` separates client-visible replies from internal handoff notes.
+- `ClientUpdate`, `ClientMetricSnapshot`, and `ClientResourceLink` use `visibleToClient` so internal operations can stage private records without exposing them to clients.
+- New client portal tables are additive and do not change existing employee task, payroll, chat, or file-directory records.
 
 ## Collaboration And Files
 

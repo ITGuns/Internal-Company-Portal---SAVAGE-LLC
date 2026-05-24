@@ -1,5 +1,54 @@
 # Development Notes
 
+## 2026-05-24 - Client Portal Backend Foundation
+
+### Completed
+
+- Added the additive Prisma data model for Deskii client organizations, memberships, service tiers, projects, tickets, ticket comments, updates, metric snapshots, and resource links.
+- Added client portal access helpers that scope client users to active memberships while allowing internal manager/admin access across clients.
+- Added client-safe serializers so internal notes, assignment fields, internal comments, and protected tier details are not returned to client users.
+- Added `/api/clients` backend routes for listing organizations, creating organizations, reading an organization overview, creating client tickets, and listing visible tickets.
+- Added backend regression coverage for client organization visibility, ticket creation access, protected-field parsing, and client-safe serialization.
+
+### Files Changed
+
+- `backend/prisma/schema.prisma`
+- `backend/prisma/migrations/202605240001_client_portal_foundation/migration.sql`
+- `backend/src/clients/clients.access.ts`
+- `backend/src/clients/clients.controller.ts`
+- `backend/src/clients/clients.serializers.ts`
+- `backend/src/clients/clients.service.ts`
+- `backend/src/clients/clients.validation.ts`
+- `backend/src/main.ts`
+- `backend/tests/clients.access.test.ts`
+- `backend/tests/run-tests.ts`
+- `docs/api.md`
+- `docs/architecture.md`
+- `docs/database.md`
+- `docs/dev-notes.md`
+- `docs/features.md`
+
+### Decisions Made
+
+- Keep the client portal inside the existing Deskii/internal portal backend instead of creating a separate app surface.
+- Use `ClientOrganization` as the tenant boundary and require active `ClientMembership` records for client users.
+- Keep the first checkpoint backend-only so the UI can be built against explicit API contracts.
+- Reuse existing Express/Prisma patterns and helper-level tests instead of adding a new backend test framework.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npx prisma validate`
+- `cd backend && npm run prisma:generate`
+- `cd backend && npm run build`
+- From repo root: `git diff --check`
+
+### Next Steps
+
+- Build the internal Operations client management screens under the existing Operations area.
+- Build the client-facing `/client` portal screens using the new scoped `/api/clients` endpoints.
+- Add create/update routes for projects, updates, metrics, resources, memberships, and ticket comments as the UI requires them.
+
 ## 2026-05-24 - Documentation Cleanup Before Client Portal
 
 ### Completed
