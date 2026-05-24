@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   CalendarDays,
+  BriefcaseBusiness,
   DollarSign,
   Folder,
   Grid,
@@ -95,6 +96,7 @@ export default function Sidebar() {
 
   const mainItems: NavItemConfig[] = [
     { href: '/dashboard', icon: Home, label: 'Dashboard' },
+    { href: '/client', icon: BriefcaseBusiness, label: 'Client Portal' },
     { href: '/task-tracking', icon: Grid, label: 'Task Tracking' },
     { href: '/daily-logs', icon: Users, label: 'Daily Logs' },
     { href: '/payroll-calendar', icon: CalendarDays, label: 'Payroll Calendar' },

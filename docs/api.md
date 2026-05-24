@@ -189,8 +189,15 @@ Client portal management access recognizes normalized admin, administrator, mana
 - `GET /api/clients/organizations` lists client organizations visible to the requester.
 - `POST /api/clients/organizations` creates a client organization and is restricted to client-management access.
 - `GET /api/clients/organizations/:id/overview` returns one organization with scoped projects, tickets, updates, metrics, and resources.
+- `GET /api/clients/organizations/:id/memberships` lists client memberships for internal management.
+- `POST /api/clients/organizations/:id/memberships` creates or updates a client membership for internal management.
+- `POST /api/clients/organizations/:id/projects` creates a client project for internal management.
+- `POST /api/clients/organizations/:id/updates` publishes or stages a client update for internal management.
+- `POST /api/clients/organizations/:id/metrics` creates a client-visible or internal metric snapshot for internal management.
+- `POST /api/clients/organizations/:id/resources` creates a client resource link for internal management.
 - `POST /api/clients/organizations/:id/tickets` creates a ticket for that organization. The server derives `organizationId` from the URL and `createdById` from the authenticated requester.
 - `GET /api/clients/tickets` lists visible tickets. Non-privileged users are limited to active client memberships, and `organizationId` query access is checked server-side.
+- `POST /api/clients/tickets/:id/comments` adds a ticket comment. Client users can only create client-visible comments; internal users can create internal comments.
 
 Protected fields:
 

@@ -1,5 +1,59 @@
 # Development Notes
 
+## 2026-05-24 - Client Portal UI Slice
+
+### Completed
+
+- Expanded the client portal backend API with internal management routes for memberships, projects, updates, metrics, resources, and ticket comments.
+- Added a frontend client portal API layer and summary helper with focused test coverage.
+- Added `/operations/clients` as the internal multi-client management surface under Operations.
+- Added `/client` as the client-facing overview for progress, tickets, updates, metrics, resources, and ticket submission.
+- Added `/client/tickets` as the focused client request center.
+- Added Client Portal navigation and route titles.
+- Browser-smoked `/operations/clients`, `/client`, and `/client/tickets` with temporary local data and role-scoped JWT sessions.
+
+### Files Changed
+
+- `backend/src/clients/clients.controller.ts`
+- `backend/src/clients/clients.serializers.ts`
+- `backend/src/clients/clients.service.ts`
+- `backend/src/clients/clients.validation.ts`
+- `backend/tests/clients.access.test.ts`
+- `docs/api.md`
+- `docs/architecture.md`
+- `docs/dev-notes.md`
+- `docs/features.md`
+- `frontend/src/app/client/page.tsx`
+- `frontend/src/app/client/tickets/page.tsx`
+- `frontend/src/app/operations/clients/page.tsx`
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/lib/client-portal.ts`
+- `frontend/src/lib/client-portal-summary.ts`
+- `frontend/tests/client-portal-summary.test.mjs`
+
+### Decisions Made
+
+- Keep Client Operations as a separate route under Operations so the existing department/role admin page does not become a large mixed-responsibility file.
+- Keep the first client-facing portal practical and data-driven: overview, ticket intake, visible progress, published updates, metrics, and resource links.
+- Use existing app components and visual tokens instead of introducing a new UI kit.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- Browser smoke with local backend/frontend: `/operations/clients`, `/client`, and `/client/tickets`.
+
+### Next Steps
+
+- Add edit/delete controls for client projects, updates, metrics, resources, memberships, and tickets.
+- Add richer ticket detail views with threaded comments and internal/client visibility controls.
+- Decide how Square purchase automation will create the initial client organization and membership after payment.
+
 ## 2026-05-24 - Client Portal Backend Foundation
 
 ### Completed

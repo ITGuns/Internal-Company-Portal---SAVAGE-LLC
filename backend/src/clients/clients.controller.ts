@@ -14,15 +14,26 @@ import {
 import {
   serializeClientOrganizationForClient,
   serializeClientOrganizationForManagement,
+  serializeClientMembershipForManagement,
+  serializeClientMetricSnapshotForManagement,
   serializeClientPortalOverview,
+  serializeClientProjectForManagement,
+  serializeClientResourceLinkForManagement,
   serializeClientTicketForClient,
   serializeClientTicketForManagement,
+  serializeClientUpdateForManagement,
 } from './clients.serializers'
 import { ClientsService } from './clients.service'
 import {
   ClientValidationError,
   parseCreateClientOrganizationInput,
+  parseCreateClientMembershipInput,
+  parseCreateClientMetricSnapshotInput,
+  parseCreateClientProjectInput,
+  parseCreateClientResourceLinkInput,
+  parseCreateClientTicketCommentInput,
   parseCreateClientTicketInput,
+  parseCreateClientUpdateInput,
 } from './clients.validation'
 
 export class ClientsController {
@@ -158,6 +169,159 @@ export class ClientsController {
       }
     })
 
+    router.get('/organizations/:id/memberships', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can view client memberships' })
+        }
+
+        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const memberships = await this.service.findMemberships(organizationId)
+        res.json(memberships.map(serializeClientMembershipForManagement))
+      } catch (error) {
+        console.error('[Clients] Error listing memberships:', error)
+        res.status(500).json({ error: 'Failed to fetch client memberships' })
+      }
+    })
+
+    router.post('/organizations/:id/memberships', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can manage client memberships' })
+        }
+
+        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const membership = await this.service.createMembership(
+          organizationId,
+          parseCreateClientMembershipInput(req.body || {}),
+        )
+        res.status(201).json(serializeClientMembershipForManagement(membership))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
+          return res.status(400).json({ error: 'Invalid client organization or user' })
+        }
+
+        console.error('[Clients] Error creating membership:', error)
+        res.status(500).json({ error: 'Failed to create client membership' })
+      }
+    })
+
+    router.post('/organizations/:id/projects', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can create client projects' })
+        }
+
+        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const project = await this.service.createProject(
+          organizationId,
+          parseCreateClientProjectInput(req.body || {}),
+        )
+        res.status(201).json(serializeClientProjectForManagement(project))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
+          return res.status(400).json({ error: 'Invalid client organization' })
+        }
+
+        console.error('[Clients] Error creating project:', error)
+        res.status(500).json({ error: 'Failed to create client project' })
+      }
+    })
+
+    router.post('/organizations/:id/updates', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can publish client updates' })
+        }
+
+        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const update = await this.service.createUpdate(
+          organizationId,
+          access.requesterId,
+          parseCreateClientUpdateInput(req.body || {}),
+        )
+        res.status(201).json(serializeClientUpdateForManagement(update))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
+          return res.status(400).json({ error: 'Invalid client organization or project' })
+        }
+
+        console.error('[Clients] Error creating update:', error)
+        res.status(500).json({ error: 'Failed to create client update' })
+      }
+    })
+
+    router.post('/organizations/:id/metrics', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can create client metrics' })
+        }
+
+        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const metric = await this.service.createMetricSnapshot(
+          organizationId,
+          parseCreateClientMetricSnapshotInput(req.body || {}),
+        )
+        res.status(201).json(serializeClientMetricSnapshotForManagement(metric))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
+          return res.status(400).json({ error: 'Invalid client organization' })
+        }
+
+        console.error('[Clients] Error creating metric:', error)
+        res.status(500).json({ error: 'Failed to create client metric' })
+      }
+    })
+
+    router.post('/organizations/:id/resources', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can create client resources' })
+        }
+
+        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const resource = await this.service.createResourceLink(
+          organizationId,
+          parseCreateClientResourceLinkInput(req.body || {}),
+        )
+        res.status(201).json(serializeClientResourceLinkForManagement(resource))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
+          return res.status(400).json({ error: 'Invalid client organization or project' })
+        }
+
+        console.error('[Clients] Error creating resource:', error)
+        res.status(500).json({ error: 'Failed to create client resource' })
+      }
+    })
+
     router.get('/tickets', authenticateToken, async (req: Request, res: Response) => {
       try {
         const access = await this.getAccessContext(req)
@@ -180,6 +344,42 @@ export class ClientsController {
       } catch (error) {
         console.error('[Clients] Error listing tickets:', error)
         res.status(500).json({ error: 'Failed to fetch client tickets' })
+      }
+    })
+
+    router.post('/tickets/:id/comments', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+
+        const ticketId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const ticket = await this.service.findTicketById(ticketId)
+        if (!ticket) return res.status(404).json({ error: 'Client ticket not found' })
+        if (!canReadClientOrganization(access, { id: ticket.organizationId })) {
+          return res.status(403).json({ error: 'You can only comment on tickets for your assigned client organization' })
+        }
+
+        await this.service.createTicketComment(
+          ticketId,
+          access.requesterId,
+          parseCreateClientTicketCommentInput(req.body || {}, access.isPrivileged),
+        )
+
+        const updatedTicket = await this.service.findTicketById(ticketId)
+        if (!updatedTicket) return res.status(404).json({ error: 'Client ticket not found' })
+
+        res.status(201).json(
+          access.isPrivileged
+            ? serializeClientTicketForManagement(updatedTicket)
+            : serializeClientTicketForClient(updatedTicket),
+        )
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+
+        console.error('[Clients] Error creating ticket comment:', error)
+        res.status(500).json({ error: 'Failed to create client ticket comment' })
       }
     })
 

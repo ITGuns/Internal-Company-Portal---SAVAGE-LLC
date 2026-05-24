@@ -58,11 +58,13 @@ Frontend app entry point: `frontend/src/app`.
 
 Important page areas:
 
+- `client`
 - `dashboard`
 - `task-tracking`
 - `daily-logs`
 - `payroll-calendar`
 - `operations`
+- `operations/clients`
 - `profile`
 - `chat`
 - `signup`

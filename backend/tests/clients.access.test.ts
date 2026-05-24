@@ -15,7 +15,13 @@ import {
 import {
   ClientValidationError,
   parseCreateClientOrganizationInput,
+  parseCreateClientMembershipInput,
+  parseCreateClientMetricSnapshotInput,
+  parseCreateClientProjectInput,
+  parseCreateClientResourceLinkInput,
+  parseCreateClientTicketCommentInput,
   parseCreateClientTicketInput,
+  parseCreateClientUpdateInput,
   slugifyClientOrganizationName,
 } from '../src/clients/clients.validation'
 
@@ -201,5 +207,89 @@ assert.throws(
   () => parseCreateClientTicketInput({ title: '' }),
   ClientValidationError,
 )
+
+assert.deepEqual(parseCreateClientMembershipInput({
+  userId: ' user-1 ',
+  role: ' owner ',
+  status: ' active ',
+}), {
+  userId: 'user-1',
+  role: 'owner',
+  status: 'active',
+})
+assert.throws(
+  () => parseCreateClientMembershipInput({ role: 'owner' }),
+  ClientValidationError,
+)
+
+assert.deepEqual(parseCreateClientProjectInput({
+  name: ' Website Relaunch ',
+  progress: 130,
+  liveUrl: ' https://example.com ',
+}), {
+  name: 'Website Relaunch',
+  status: 'planning',
+  summary: undefined,
+  progress: 100,
+  startedAt: undefined,
+  targetLaunchAt: undefined,
+  liveUrl: 'https://example.com',
+  previewUrl: undefined,
+  internalNotes: undefined,
+})
+
+assert.deepEqual(parseCreateClientUpdateInput({
+  title: ' SEO cleanup ',
+  body: ' Published new metadata. ',
+  visibleToClient: false,
+}), {
+  title: 'SEO cleanup',
+  body: 'Published new metadata.',
+  status: 'published',
+  visibleToClient: false,
+  projectId: undefined,
+})
+
+assert.deepEqual(parseCreateClientMetricSnapshotInput({
+  label: ' Leads ',
+  value: 42,
+  unit: ' count ',
+  visibleToClient: 'false',
+}), {
+  label: 'Leads',
+  value: '42',
+  unit: 'count',
+  periodStart: undefined,
+  periodEnd: undefined,
+  source: 'manual',
+  notes: undefined,
+  visibleToClient: false,
+})
+
+assert.deepEqual(parseCreateClientResourceLinkInput({
+  label: ' Preview ',
+  url: ' https://preview.example.com ',
+}), {
+  label: 'Preview',
+  url: 'https://preview.example.com',
+  type: 'link',
+  projectId: undefined,
+  visibleToClient: true,
+})
+
+assert.deepEqual(parseCreateClientTicketCommentInput({
+  body: ' Please confirm the new hours. ',
+  visibility: 'internal',
+}, false), {
+  body: 'Please confirm the new hours.',
+  visibility: 'client',
+})
+assert.deepEqual(parseCreateClientTicketCommentInput({
+  body: ' Assigned to fulfillment. ',
+  visibility: 'internal',
+}, true), {
+  body: 'Assigned to fulfillment.',
+  visibility: 'internal',
+})
 
 console.log('clients.access tests passed')

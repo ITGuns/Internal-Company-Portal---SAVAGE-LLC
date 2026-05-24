@@ -20,6 +20,23 @@ interface ClientOrganizationLike {
   [key: string]: unknown
 }
 
+interface ClientMembershipLike {
+  id: string
+  organizationId: string
+  userId: string
+  role: string
+  status: string
+  createdAt: SerializableDate
+  updatedAt?: SerializableDate
+  user?: {
+    id: string
+    email: string
+    name?: string | null
+    avatar?: string | null
+  } | null
+  [key: string]: unknown
+}
+
 interface ClientProjectLike {
   id: string
   organizationId: string
@@ -145,6 +162,26 @@ export function serializeClientOrganizationForManagement(organization: ClientOrg
       }
       : null,
     counts: organization._count || undefined,
+  }
+}
+
+export function serializeClientMembershipForManagement(membership: ClientMembershipLike) {
+  return {
+    id: membership.id,
+    organizationId: membership.organizationId,
+    userId: membership.userId,
+    role: membership.role,
+    status: membership.status,
+    createdAt: serializeDate(membership.createdAt),
+    updatedAt: serializeDate(membership.updatedAt),
+    user: membership.user
+      ? {
+        id: membership.user.id,
+        email: membership.user.email,
+        name: membership.user.name || null,
+        avatar: membership.user.avatar || null,
+      }
+      : null,
   }
 }
 

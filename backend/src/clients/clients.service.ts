@@ -2,7 +2,13 @@ import { Prisma, PrismaClient } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
 import {
   CreateClientOrganizationInput,
+  CreateClientMembershipInput,
+  CreateClientMetricSnapshotInput,
+  CreateClientProjectInput,
+  CreateClientResourceLinkInput,
   CreateClientTicketInput,
+  CreateClientTicketCommentInput,
+  CreateClientUpdateInput,
   ClientValidationError,
 } from './clients.validation'
 
@@ -91,6 +97,118 @@ export class ClientsService {
     })
   }
 
+  async findMemberships(organizationId: string) {
+    return this.prisma.clientMembership.findMany({
+      where: { organizationId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            avatar: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+  }
+
+  async createMembership(organizationId: string, data: CreateClientMembershipInput) {
+    return this.prisma.clientMembership.upsert({
+      where: {
+        organizationId_userId: {
+          organizationId,
+          userId: data.userId,
+        },
+      },
+      update: {
+        role: data.role,
+        status: data.status,
+      },
+      create: {
+        organizationId,
+        userId: data.userId,
+        role: data.role,
+        status: data.status,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            avatar: true,
+          },
+        },
+      },
+    })
+  }
+
+  async createProject(organizationId: string, data: CreateClientProjectInput) {
+    return this.prisma.clientProject.create({
+      data: {
+        organizationId,
+        name: data.name,
+        status: data.status,
+        summary: data.summary,
+        progress: data.progress,
+        startedAt: data.startedAt,
+        targetLaunchAt: data.targetLaunchAt,
+        liveUrl: data.liveUrl,
+        previewUrl: data.previewUrl,
+        internalNotes: data.internalNotes,
+      },
+    })
+  }
+
+  async createUpdate(organizationId: string, createdById: string, data: CreateClientUpdateInput) {
+    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
+
+    return this.prisma.clientUpdate.create({
+      data: {
+        organizationId,
+        projectId: data.projectId,
+        title: data.title,
+        body: data.body,
+        status: data.status,
+        visibleToClient: data.visibleToClient,
+        createdById,
+      },
+    })
+  }
+
+  async createMetricSnapshot(organizationId: string, data: CreateClientMetricSnapshotInput) {
+    return this.prisma.clientMetricSnapshot.create({
+      data: {
+        organizationId,
+        label: data.label,
+        value: data.value,
+        unit: data.unit,
+        periodStart: data.periodStart,
+        periodEnd: data.periodEnd,
+        source: data.source,
+        notes: data.notes,
+        visibleToClient: data.visibleToClient,
+      },
+    })
+  }
+
+  async createResourceLink(organizationId: string, data: CreateClientResourceLinkInput) {
+    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
+
+    return this.prisma.clientResourceLink.create({
+      data: {
+        organizationId,
+        projectId: data.projectId,
+        label: data.label,
+        url: data.url,
+        type: data.type,
+        visibleToClient: data.visibleToClient,
+      },
+    })
+  }
+
   async findTickets(where: Prisma.ClientTicketWhereInput = {}) {
     return this.prisma.clientTicket.findMany({
       where,
@@ -109,19 +227,7 @@ export class ClientsService {
     requesterId: string,
     data: CreateClientTicketInput,
   ) {
-    if (data.projectId) {
-      const project = await this.prisma.clientProject.findFirst({
-        where: {
-          id: data.projectId,
-          organizationId,
-        },
-        select: { id: true },
-      })
-
-      if (!project) {
-        throw new ClientValidationError('Project does not belong to this client organization')
-      }
-    }
+    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
 
     return this.prisma.clientTicket.create({
       data: {
@@ -137,5 +243,43 @@ export class ClientsService {
         comments: true,
       },
     })
+  }
+
+  async findTicketById(id: string) {
+    return this.prisma.clientTicket.findUnique({
+      where: { id },
+      include: {
+        comments: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    })
+  }
+
+  async createTicketComment(ticketId: string, authorId: string, data: CreateClientTicketCommentInput) {
+    return this.prisma.clientTicketComment.create({
+      data: {
+        ticketId,
+        authorId,
+        body: data.body,
+        visibility: data.visibility,
+      },
+    })
+  }
+
+  private async assertProjectBelongsToOrganization(organizationId: string, projectId?: string) {
+    if (!projectId) return
+
+    const project = await this.prisma.clientProject.findFirst({
+      where: {
+        id: projectId,
+        organizationId,
+      },
+      select: { id: true },
+    })
+
+    if (!project) {
+      throw new ClientValidationError('Project does not belong to this client organization')
+    }
   }
 }

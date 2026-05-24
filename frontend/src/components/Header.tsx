@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils';
 
 const routeTitles: Record<string, { title: string; subtitle?: string }> = {
   '/dashboard': { title: 'Dashboard', subtitle: 'Today, tasks, logs, and approvals' },
+  '/client': { title: 'Client Portal', subtitle: 'Progress, requests, updates, and resources' },
+  '/client/tickets': { title: 'Client Tickets', subtitle: 'Submit requests and review status' },
   '/task-tracking': { title: 'Task Tracking', subtitle: 'Plan, assign, and close work' },
   '/task-calendar': { title: 'Task Calendar', subtitle: 'Task schedule and due dates' },
   '/payroll-calendar': { title: 'Payroll Calendar', subtitle: 'Time entries, events, and day review' },
@@ -27,6 +29,7 @@ const routeTitles: Record<string, { title: string; subtitle?: string }> = {
   '/private-messages': { title: 'Private Messages', subtitle: 'Direct conversations' },
   '/file-directory': { title: 'File Directory', subtitle: 'Shared documents and folders' },
   '/operations': { title: 'Operations', subtitle: 'Departments, roles, and approvals' },
+  '/operations/clients': { title: 'Client Operations', subtitle: 'Client accounts, members, updates, metrics, and resources' },
   '/profile': { title: 'Profile', subtitle: 'Account settings' },
   '/whiteboard': { title: 'Whiteboard', subtitle: 'Collaborative workspace' },
   '/discord': { title: 'Discord', subtitle: 'External team channel' },

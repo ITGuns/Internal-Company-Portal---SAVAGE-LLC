@@ -76,11 +76,13 @@ Signup creates a pending account and preserves the requested department/role wit
 
 ## Operations
 
-Operations manages departments, role options, and the backend foundation for client account administration.
+Operations manages departments, role options, and client account administration.
 
 - Department and role deletes now require a typed confirmation modal.
 - The delete action stays disabled until the exact target name is typed.
 - Department delete confirmation displays linked task and user-role counts when provided by the API.
+- `/operations/clients` manages multiple client organizations, memberships, projects, tickets, updates, metrics, and resource links.
+- The base `/operations` page links to Client Operations without merging client-management logic into the existing departments/roles page.
 
 ## Client Portal Foundation
 
@@ -92,6 +94,8 @@ Deskii now has the backend foundation for a client-facing portal/tool inside the
 - Client overview data can include projects, tickets, updates, performance metrics, and resource links.
 - Ticket creation derives organization and requester ownership server-side, so clients cannot spoof tenant, assignment, or internal fields.
 - Internal ticket comments, project notes, tier pricing/priority, and other protected fields are stripped from client-visible responses.
+- `/client` gives assigned clients a portal overview with progress, tickets, updates, metrics, resources, and a ticket submission form.
+- `/client/tickets` gives clients a focused request center for ticket submission and status review.
 
 ## Payroll Calendar
 
