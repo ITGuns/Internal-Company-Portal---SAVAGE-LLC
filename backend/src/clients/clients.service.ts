@@ -10,6 +10,7 @@ import {
   CreateClientTicketCommentInput,
   CreateClientUpdateInput,
   ClientValidationError,
+  UpdateClientProjectInput,
 } from './clients.validation'
 
 export class ClientsService {
@@ -72,6 +73,16 @@ export class ClientsService {
         tickets: {
           include: {
             comments: {
+              include: {
+                author: {
+                  select: {
+                    id: true,
+                    email: true,
+                    name: true,
+                    avatar: true,
+                  },
+                },
+              },
               orderBy: { createdAt: 'asc' },
             },
           },
@@ -162,6 +173,19 @@ export class ClientsService {
     })
   }
 
+  async findProjectById(id: string) {
+    return this.prisma.clientProject.findUnique({
+      where: { id },
+    })
+  }
+
+  async updateProject(id: string, data: UpdateClientProjectInput) {
+    return this.prisma.clientProject.update({
+      where: { id },
+      data,
+    })
+  }
+
   async createUpdate(organizationId: string, createdById: string, data: CreateClientUpdateInput) {
     await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
 
@@ -214,6 +238,16 @@ export class ClientsService {
       where,
       include: {
         comments: {
+          include: {
+            author: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+                avatar: true,
+              },
+            },
+          },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -250,6 +284,41 @@ export class ClientsService {
       where: { id },
       include: {
         comments: {
+          include: {
+            author: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+                avatar: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    })
+  }
+
+  async updateTicketStatus(ticketId: string, status: string) {
+    return this.prisma.clientTicket.update({
+      where: { id: ticketId },
+      data: {
+        status,
+        closedAt: status === 'done' ? new Date() : null,
+      },
+      include: {
+        comments: {
+          include: {
+            author: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+                avatar: true,
+              },
+            },
+          },
           orderBy: { createdAt: 'asc' },
         },
       },

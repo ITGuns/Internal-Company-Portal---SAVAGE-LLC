@@ -22,6 +22,8 @@ import {
   parseCreateClientTicketCommentInput,
   parseCreateClientTicketInput,
   parseCreateClientUpdateInput,
+  parseUpdateClientProjectInput,
+  parseUpdateClientTicketStatusInput,
   slugifyClientOrganizationName,
 } from '../src/clients/clients.validation'
 
@@ -224,11 +226,12 @@ assert.throws(
 
 assert.deepEqual(parseCreateClientProjectInput({
   name: ' Website Relaunch ',
+  status: ' In Progress ',
   progress: 130,
   liveUrl: ' https://example.com ',
 }), {
   name: 'Website Relaunch',
-  status: 'planning',
+  status: 'in_progress',
   summary: undefined,
   progress: 100,
   startedAt: undefined,
@@ -237,6 +240,21 @@ assert.deepEqual(parseCreateClientProjectInput({
   previewUrl: undefined,
   internalNotes: undefined,
 })
+assert.deepEqual(parseUpdateClientProjectInput({
+  status: ' review ',
+  progress: '45',
+}), {
+  status: 'review',
+  progress: 45,
+})
+assert.throws(
+  () => parseUpdateClientProjectInput({}),
+  ClientValidationError,
+)
+assert.throws(
+  () => parseUpdateClientProjectInput({ status: 'unknown' }),
+  ClientValidationError,
+)
 
 assert.deepEqual(parseCreateClientUpdateInput({
   title: ' SEO cleanup ',
@@ -291,5 +309,15 @@ assert.deepEqual(parseCreateClientTicketCommentInput({
   body: 'Assigned to fulfillment.',
   visibility: 'internal',
 })
+assert.deepEqual(parseUpdateClientTicketStatusInput({ status: ' In Progress ' }), {
+  status: 'in_progress',
+})
+assert.deepEqual(parseUpdateClientTicketStatusInput({ status: 'done' }), {
+  status: 'done',
+})
+assert.throws(
+  () => parseUpdateClientTicketStatusInput({ status: 'blocked' }),
+  ClientValidationError,
+)
 
 console.log('clients.access tests passed')

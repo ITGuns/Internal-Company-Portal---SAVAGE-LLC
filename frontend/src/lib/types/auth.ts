@@ -28,6 +28,10 @@ export interface AuthUser {
   email: string;
   name: string | null;
   avatar: string | null;
+  role?: string | null;
+  roles?: string[];
+  isApproved?: boolean;
+  status?: string;
   phone?: string | null;
   address?: string | null;
   city?: string | null;

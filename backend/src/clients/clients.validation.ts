@@ -71,7 +71,23 @@ export interface CreateClientTicketCommentInput {
   visibility: string
 }
 
+export interface UpdateClientProjectInput {
+  status?: string
+  summary?: string
+  progress?: number
+  liveUrl?: string
+  previewUrl?: string
+  internalNotes?: string
+}
+
+export interface UpdateClientTicketStatusInput {
+  status: string
+}
+
 type InputRecord = Record<string, unknown>
+
+const PROJECT_STATUSES = new Set(['planning', 'in_progress', 'review', 'live', 'paused'])
+const TICKET_STATUSES = new Set(['new', 'review', 'in_progress', 'done'])
 
 function readTrimmedString(input: InputRecord, key: string): string | undefined {
   const value = input[key]
@@ -106,6 +122,15 @@ function readProgress(input: InputRecord): number {
   const numberValue = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : 0
   if (Number.isNaN(numberValue)) return 0
   return Math.min(100, Math.max(0, Math.round(numberValue)))
+}
+
+function readOptionalProgress(input: InputRecord): number | undefined {
+  if (!('progress' in input)) return undefined
+  return readProgress(input)
+}
+
+function normalizeStatus(value: string): string {
+  return value.trim().toLowerCase().replace(/[\s-]+/g, '_')
 }
 
 export function slugifyClientOrganizationName(name: string): string {
@@ -161,9 +186,12 @@ export function parseCreateClientProjectInput(input: InputRecord): CreateClientP
   const name = readTrimmedString(input, 'name')
   if (!name) throw new ClientValidationError('Project name is required')
 
+  const status = normalizeStatus(readTrimmedString(input, 'status') || 'planning')
+  if (!PROJECT_STATUSES.has(status)) throw new ClientValidationError('Project status is invalid')
+
   return {
     name,
-    status: readTrimmedString(input, 'status') || 'planning',
+    status,
     summary: readTrimmedString(input, 'summary'),
     progress: readProgress(input),
     startedAt: readDate(input, 'startedAt'),
@@ -235,4 +263,35 @@ export function parseCreateClientTicketCommentInput(
     body,
     visibility: canCreateInternalComments && requestedVisibility === 'internal' ? 'internal' : 'client',
   }
+}
+
+export function parseUpdateClientProjectInput(input: InputRecord): UpdateClientProjectInput {
+  const statusValue = readTrimmedString(input, 'status')
+  const status = statusValue ? normalizeStatus(statusValue) : undefined
+  if (status && !PROJECT_STATUSES.has(status)) throw new ClientValidationError('Project status is invalid')
+
+  const data: UpdateClientProjectInput = {
+    ...(status ? { status } : {}),
+    ...('progress' in input ? { progress: readOptionalProgress(input) } : {}),
+    ...(readTrimmedString(input, 'summary') ? { summary: readTrimmedString(input, 'summary') } : {}),
+    ...(readTrimmedString(input, 'liveUrl') ? { liveUrl: readTrimmedString(input, 'liveUrl') } : {}),
+    ...(readTrimmedString(input, 'previewUrl') ? { previewUrl: readTrimmedString(input, 'previewUrl') } : {}),
+    ...(readTrimmedString(input, 'internalNotes') ? { internalNotes: readTrimmedString(input, 'internalNotes') } : {}),
+  }
+
+  if (Object.keys(data).length === 0) {
+    throw new ClientValidationError('At least one project field is required')
+  }
+
+  return data
+}
+
+export function parseUpdateClientTicketStatusInput(input: InputRecord): UpdateClientTicketStatusInput {
+  const requestedStatus = readTrimmedString(input, 'status')
+  if (!requestedStatus) throw new ClientValidationError('Ticket status is required')
+
+  const status = normalizeStatus(requestedStatus)
+  if (!TICKET_STATUSES.has(status)) throw new ClientValidationError('Ticket status is invalid')
+
+  return { status }
 }

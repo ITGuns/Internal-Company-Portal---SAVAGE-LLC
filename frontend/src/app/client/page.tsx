@@ -13,7 +13,8 @@ import {
   Ticket,
 } from "lucide-react";
 import Button from "@/components/Button";
-import FormField from "@/components/forms/FormField";
+import ChoiceGroup from "@/components/client-portal/ChoiceGroup";
+import TicketDetailPresets from "@/components/client-portal/TicketDetailPresets";
 import Header from "@/components/Header";
 import EmptyState from "@/components/ui/EmptyState";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -25,6 +26,14 @@ import {
   fetchClientOrganizations,
   fetchClientOverview,
 } from "@/lib/client-portal";
+import {
+  buildClientTicketTitle,
+  CLIENT_PROJECT_STATUSES,
+  CLIENT_TICKET_CATEGORIES,
+  CLIENT_TICKET_PRIORITIES,
+  getClientPortalOptionLabel,
+} from "@/lib/client-portal-options";
+import { formatClientPortalDate } from "@/lib/client-portal-display";
 import { buildClientPortalSummary } from "@/lib/client-portal-summary";
 
 const textareaClass = "min-h-24 w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
@@ -51,9 +60,18 @@ export default function ClientPortalPage() {
   const [overview, setOverview] = useState<ClientPortalOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [ticketForm, setTicketForm] = useState({ title: "", description: "", category: "general", priority: "normal" });
+  const [ticketForm, setTicketForm] = useState({ description: "", category: "website", priority: "normal" });
 
   const summary = useMemo(() => buildClientPortalSummary(overview), [overview]);
+  const projectNameById = useMemo(
+    () => new Map((overview?.projects || []).map((project) => [project.id, project.name])),
+    [overview],
+  );
+  const latestUpdate = overview?.updates[0] || null;
+  const nextActionTicket = useMemo(
+    () => (overview?.tickets || []).find((ticket) => ticket.status === "review") || null,
+    [overview],
+  );
 
   const loadOrganizations = useCallback(async () => {
     const nextOrganizations = await fetchClientOrganizations();
@@ -97,15 +115,18 @@ export default function ClientPortalPage() {
 
   async function handleCreateTicket(event: React.FormEvent) {
     event.preventDefault();
-    if (!selectedId || !ticketForm.title.trim()) {
-      toast.error("Ticket title is required");
+    if (!selectedId || !ticketForm.description.trim()) {
+      toast.error("Request details are required");
       return;
     }
 
     setSaving(true);
     try {
-      await createClientTicket(selectedId, ticketForm);
-      setTicketForm({ title: "", description: "", category: "general", priority: "normal" });
+      await createClientTicket(selectedId, {
+        ...ticketForm,
+        title: buildClientTicketTitle(ticketForm.category, ticketForm.description),
+      });
+      setTicketForm({ description: "", category: "website", priority: "normal" });
       await loadOverview(selectedId);
       toast.success("Ticket submitted");
     } catch (error) {
@@ -149,7 +170,7 @@ export default function ClientPortalPage() {
                   <div className="text-xs font-medium uppercase text-[var(--muted)]">{overview.organization.slug}</div>
                   <h1 className="mt-1 text-xl font-semibold">{overview.organization.name}</h1>
                   <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">
-                    See what is moving, what needs your input, and what value is being delivered without exposing internal production work.
+                    See what moved, what needs your input, and how the work is progressing without exposing internal production details.
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
@@ -166,6 +187,26 @@ export default function ClientPortalPage() {
                   ))}
                 </div>
               </div>
+              <div className="mt-5 grid gap-4 border-t border-[var(--border)] pt-4 lg:grid-cols-2">
+                <div>
+                  <div className="text-xs font-medium uppercase text-[var(--muted)]">Latest Team Update</div>
+                  <div className="mt-1 text-sm font-semibold">{latestUpdate?.title || "No update published yet"}</div>
+                  <p className="mt-1 line-clamp-2 text-sm text-[var(--muted)]">
+                    {latestUpdate?.body || "The team will post progress notes here as work becomes visible to you."}
+                  </p>
+                </div>
+                <div>
+                  <div className="text-xs font-medium uppercase text-[var(--muted)]">Your Next Action</div>
+                  <div className="mt-1 text-sm font-semibold">
+                    {nextActionTicket ? `Review: ${nextActionTicket.title}` : "No action needed right now"}
+                  </div>
+                  <p className="mt-1 text-sm text-[var(--muted)]">
+                    {nextActionTicket
+                      ? "Open the ticket center, review the request, and reply with approval or changes."
+                      : "You can keep watching progress here. New requests or approvals will appear in Tickets."}
+                  </p>
+                </div>
+              </div>
             </section>
 
             <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
@@ -179,13 +220,16 @@ export default function ClientPortalPage() {
                         <div key={project.id} className="rounded-[var(--radius-md)] border border-[var(--border)] p-4">
                           <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0 truncate font-medium">{project.name}</div>
-                            <StatusBadge label={project.status} size="sm" />
+                            <StatusBadge label={getClientPortalOptionLabel(CLIENT_PROJECT_STATUSES, project.status)} size="sm" />
                           </div>
                           <p className="mt-2 line-clamp-2 text-sm text-[var(--muted)]">{project.summary || "Progress is being prepared."}</p>
                           <div className="mt-4 h-2 rounded-full bg-[var(--card-surface)]">
                             <div className="h-2 rounded-full bg-[var(--accent)]" style={{ width: `${Math.min(100, Math.max(0, project.progress || 0))}%` }} />
                           </div>
-                          <div className="mt-2 text-xs text-[var(--muted)]">{project.progress || 0}% complete</div>
+                          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]">
+                            <span>{project.progress || 0}% complete</span>
+                            <span>Updated {formatClientPortalDate(project.updatedAt)}</span>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -199,8 +243,18 @@ export default function ClientPortalPage() {
                     <div className="space-y-3">
                       {overview.updates.map((update) => (
                         <article key={update.id} className="rounded-[var(--radius-md)] border border-[var(--border)] p-4">
-                          <h3 className="font-medium">{update.title}</h3>
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <h3 className="font-medium">{update.title}</h3>
+                            {update.projectId && projectNameById.get(update.projectId) ? (
+                              <span className="rounded-full border border-[var(--border)] px-2 py-1 text-xs text-[var(--muted)]">
+                                {projectNameById.get(update.projectId)}
+                              </span>
+                            ) : null}
+                          </div>
                           <p className="mt-2 text-sm text-[var(--muted)]">{update.body}</p>
+                          <time className="mt-3 block text-xs text-[var(--muted)]" dateTime={update.createdAt || undefined}>
+                            {formatClientPortalDate(update.createdAt)}
+                          </time>
                         </article>
                       ))}
                     </div>
@@ -210,14 +264,40 @@ export default function ClientPortalPage() {
 
               <div className="space-y-5">
                 <Panel title="Submit Request" icon={Plus}>
-                  <form onSubmit={handleCreateTicket} className="space-y-3">
-                    <FormField id="client-ticket-title" label="Title" value={ticketForm.title} onChange={(title) => setTicketForm((form) => ({ ...form, title }))} required />
-                    <textarea className={textareaClass} value={ticketForm.description} onChange={(event) => setTicketForm((form) => ({ ...form, description: event.target.value }))} placeholder="What do you need changed or reviewed?" aria-label="Ticket description" />
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <FormField id="client-ticket-category" label="Category" value={ticketForm.category} onChange={(category) => setTicketForm((form) => ({ ...form, category }))} />
-                      <FormField id="client-ticket-priority" label="Priority" value={ticketForm.priority} onChange={(priority) => setTicketForm((form) => ({ ...form, priority }))} />
+                  <form onSubmit={handleCreateTicket} className="space-y-4">
+                    <ChoiceGroup
+                      label="Request Type"
+                      options={CLIENT_TICKET_CATEGORIES}
+                      value={ticketForm.category}
+                      onChange={(category) => setTicketForm((form) => ({ ...form, category }))}
+                      variant="pills"
+                    />
+                    <ChoiceGroup
+                      label="Priority"
+                      options={CLIENT_TICKET_PRIORITIES}
+                      value={ticketForm.priority}
+                      onChange={(priority) => setTicketForm((form) => ({ ...form, priority }))}
+                      variant="pills"
+                    />
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <label htmlFor="client-ticket-details" className="text-sm font-medium">Request Details</label>
+                        <span className="text-xs text-[var(--muted)]">Pick a starter or type your own</span>
+                      </div>
+                      <TicketDetailPresets
+                        category={ticketForm.category}
+                        onSelect={(description) => setTicketForm((form) => ({ ...form, description }))}
+                      />
+                      <textarea
+                        id="client-ticket-details"
+                        className={textareaClass}
+                        value={ticketForm.description}
+                        onChange={(event) => setTicketForm((form) => ({ ...form, description: event.target.value }))}
+                        placeholder={`${getClientPortalOptionLabel(CLIENT_TICKET_CATEGORIES, ticketForm.category)} details`}
+                        required
+                      />
                     </div>
-                    <Button type="submit" loading={saving} fullWidth>Submit Ticket</Button>
+                    <Button type="submit" loading={saving} fullWidth>Send Request</Button>
                   </form>
                 </Panel>
 

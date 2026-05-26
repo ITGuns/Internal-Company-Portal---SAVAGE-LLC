@@ -34,7 +34,49 @@ import {
   parseCreateClientTicketCommentInput,
   parseCreateClientTicketInput,
   parseCreateClientUpdateInput,
+  parseUpdateClientProjectInput,
+  parseUpdateClientTicketStatusInput,
 } from './clients.validation'
+
+function formatClientStatusLabel(status: string): string {
+  return status
+    .split('_')
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join(' ')
+}
+
+function getClientTicketStatusUpdateCopy(status: string) {
+  switch (status) {
+    case 'new':
+      return {
+        title: 'Ticket reopened',
+        bodyStatus: 'has been reopened',
+      }
+    case 'review':
+      return {
+        title: 'Ticket now in review',
+        bodyStatus: 'is now in review',
+      }
+    case 'in_progress':
+      return {
+        title: 'Ticket now in progress',
+        bodyStatus: 'is now in progress',
+      }
+    case 'done':
+      return {
+        title: 'Ticket marked done',
+        bodyStatus: 'has been marked done',
+      }
+    default: {
+      const statusLabel = formatClientStatusLabel(status)
+      return {
+        title: `Ticket moved to ${statusLabel}`,
+        bodyStatus: `is now ${statusLabel.toLowerCase()}`,
+      }
+    }
+  }
+}
 
 export class ClientsController {
   private service = new ClientsService()
@@ -240,6 +282,33 @@ export class ClientsController {
       }
     })
 
+    router.patch('/projects/:id', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can update client projects' })
+        }
+
+        const projectId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const project = await this.service.findProjectById(projectId)
+        if (!project) return res.status(404).json({ error: 'Client project not found' })
+
+        const updatedProject = await this.service.updateProject(
+          projectId,
+          parseUpdateClientProjectInput(req.body || {}),
+        )
+        res.json(serializeClientProjectForManagement(updatedProject))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+
+        console.error('[Clients] Error updating project:', error)
+        res.status(500).json({ error: 'Failed to update client project' })
+      }
+    })
+
     router.post('/organizations/:id/updates', authenticateToken, async (req: Request, res: Response) => {
       try {
         const access = await this.getAccessContext(req)
@@ -344,6 +413,43 @@ export class ClientsController {
       } catch (error) {
         console.error('[Clients] Error listing tickets:', error)
         res.status(500).json({ error: 'Failed to fetch client tickets' })
+      }
+    })
+
+    router.patch('/tickets/:id/status', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can update client tickets' })
+        }
+
+        const ticketId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const ticket = await this.service.findTicketById(ticketId)
+        if (!ticket) return res.status(404).json({ error: 'Client ticket not found' })
+
+        const { status } = parseUpdateClientTicketStatusInput(req.body || {})
+        const updatedTicket = await this.service.updateTicketStatus(ticketId, status)
+
+        if (ticket.status !== status) {
+          const updateCopy = getClientTicketStatusUpdateCopy(status)
+          await this.service.createUpdate(ticket.organizationId, access.requesterId, {
+            title: updateCopy.title,
+            body: `${ticket.title} ${updateCopy.bodyStatus}.`,
+            status: 'published',
+            visibleToClient: true,
+            projectId: ticket.projectId || undefined,
+          })
+        }
+
+        res.json(serializeClientTicketForManagement(updatedTicket))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+
+        console.error('[Clients] Error updating ticket status:', error)
+        res.status(500).json({ error: 'Failed to update client ticket status' })
       }
     })
 

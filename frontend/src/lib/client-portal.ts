@@ -49,12 +49,19 @@ export interface ClientProject {
   liveUrl?: string | null;
   previewUrl?: string | null;
   internalNotes?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface ClientTicketComment {
   id: string;
   ticketId: string;
   authorId?: string | null;
+  author?: {
+    id: string;
+    email: string;
+    name?: string | null;
+    avatar?: string | null;
+  } | null;
   body: string;
   visibility: string;
   createdAt: string | null;
@@ -167,6 +174,21 @@ export async function createClientProject(organizationId: string, data: Partial<
   return response.json();
 }
 
+export async function updateClientProject(projectId: string, data: {
+  status?: string;
+  summary?: string;
+  progress?: number;
+  liveUrl?: string;
+  previewUrl?: string;
+  internalNotes?: string;
+}): Promise<ClientProject> {
+  const response = await apiFetch(`/clients/projects/${projectId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
 export async function createClientUpdate(organizationId: string, data: {
   title: string;
   body: string;
@@ -237,6 +259,14 @@ export async function createClientTicketComment(ticketId: string, data: {
   const response = await apiFetch(`/clients/tickets/${ticketId}/comments`, {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function updateClientTicketStatus(ticketId: string, status: string): Promise<ClientTicket> {
+  const response = await apiFetch(`/clients/tickets/${ticketId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
   });
   return response.json();
 }

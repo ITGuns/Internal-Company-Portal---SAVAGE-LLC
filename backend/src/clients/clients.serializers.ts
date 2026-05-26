@@ -62,6 +62,12 @@ interface ClientTicketCommentLike {
   visibility: string
   createdAt: SerializableDate
   updatedAt: SerializableDate
+  author?: {
+    id: string
+    email: string
+    name?: string | null
+    avatar?: string | null
+  } | null
   [key: string]: unknown
 }
 
@@ -228,6 +234,14 @@ export function serializeClientTicketForClient(ticket: ClientTicketLike) {
         id: comment.id,
         ticketId: comment.ticketId,
         authorId: comment.authorId || null,
+        author: comment.author
+          ? {
+            id: comment.author.id,
+            email: comment.author.email,
+            name: comment.author.name || null,
+            avatar: comment.author.avatar || null,
+          }
+          : null,
         body: comment.body,
         visibility: comment.visibility,
         createdAt: serializeDate(comment.createdAt),
@@ -246,6 +260,14 @@ export function serializeClientTicketForManagement(ticket: ClientTicketLike) {
       id: comment.id,
       ticketId: comment.ticketId,
       authorId: comment.authorId || null,
+      author: comment.author
+        ? {
+          id: comment.author.id,
+          email: comment.author.email,
+          name: comment.author.name || null,
+          avatar: comment.author.avatar || null,
+        }
+        : null,
       body: comment.body,
       visibility: comment.visibility,
       createdAt: serializeDate(comment.createdAt),

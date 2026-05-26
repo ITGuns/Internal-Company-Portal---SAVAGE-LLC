@@ -4,11 +4,13 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, MessageSquare, Plus, Send, Ticket } from "lucide-react";
 import Button from "@/components/Button";
-import FormField from "@/components/forms/FormField";
+import ChoiceGroup from "@/components/client-portal/ChoiceGroup";
+import TicketDetailPresets from "@/components/client-portal/TicketDetailPresets";
 import Header from "@/components/Header";
 import EmptyState from "@/components/ui/EmptyState";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { useToast } from "@/components/ToastProvider";
+import { useUser } from "@/contexts/UserContext";
 import {
   ClientOrganization,
   ClientTicket,
@@ -17,24 +19,21 @@ import {
   fetchClientOrganizations,
   fetchClientTickets,
 } from "@/lib/client-portal";
+import {
+  buildClientTicketTitle,
+  CLIENT_TICKET_CATEGORIES,
+  CLIENT_TICKET_PRIORITIES,
+  CLIENT_TICKET_QUICK_REPLIES,
+  CLIENT_TICKET_STATUSES,
+  getClientPortalOptionLabel,
+} from "@/lib/client-portal-options";
+import { formatClientPortalDate, getClientCommentAuthorLabel } from "@/lib/client-portal-display";
 
 const textareaClass = "min-h-24 w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
 
-function formatCommentTime(value?: string | null): string {
-  if (!value) return "Just now";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Recently";
-
-  return date.toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 export default function ClientTicketsPage() {
   const toast = useToast();
+  const { user } = useUser();
   const [organizations, setOrganizations] = useState<ClientOrganization[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [tickets, setTickets] = useState<ClientTicket[]>([]);
@@ -42,7 +41,7 @@ export default function ClientTicketsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [commentSaving, setCommentSaving] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", category: "general", priority: "normal" });
+  const [form, setForm] = useState({ description: "", category: "website", priority: "normal" });
   const [commentBody, setCommentBody] = useState("");
   const selectedTicket = useMemo(
     () => tickets.find((ticket) => ticket.id === selectedTicketId) || tickets[0] || null,
@@ -94,15 +93,18 @@ export default function ClientTicketsPage() {
 
   async function handleCreateTicket(event: React.FormEvent) {
     event.preventDefault();
-    if (!selectedId || !form.title.trim()) {
-      toast.error("Ticket title is required");
+    if (!selectedId || !form.description.trim()) {
+      toast.error("Request details are required");
       return;
     }
 
     setSaving(true);
     try {
-      const ticket = await createClientTicket(selectedId, form);
-      setForm({ title: "", description: "", category: "general", priority: "normal" });
+      const ticket = await createClientTicket(selectedId, {
+        ...form,
+        title: buildClientTicketTitle(form.category, form.description),
+      });
+      setForm({ description: "", category: "website", priority: "normal" });
       setSelectedTicketId(ticket.id);
       await loadTickets(selectedId);
       toast.success("Ticket submitted");
@@ -168,14 +170,40 @@ export default function ClientTicketsPage() {
                 <Plus className="h-4 w-4 text-[var(--accent)]" />
                 <h2 className="text-sm font-semibold">New Ticket</h2>
               </div>
-              <form onSubmit={handleCreateTicket} className="space-y-3">
-                <FormField id="ticket-title" label="Title" value={form.title} onChange={(title) => setForm((current) => ({ ...current, title }))} required />
-                <textarea className={textareaClass} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Describe what needs attention." aria-label="Ticket description" />
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                  <FormField id="ticket-category" label="Category" value={form.category} onChange={(category) => setForm((current) => ({ ...current, category }))} />
-                  <FormField id="ticket-priority" label="Priority" value={form.priority} onChange={(priority) => setForm((current) => ({ ...current, priority }))} />
+              <form onSubmit={handleCreateTicket} className="space-y-4">
+                <ChoiceGroup
+                  label="Request Type"
+                  options={CLIENT_TICKET_CATEGORIES}
+                  value={form.category}
+                  onChange={(category) => setForm((current) => ({ ...current, category }))}
+                  variant="pills"
+                />
+                <ChoiceGroup
+                  label="Priority"
+                  options={CLIENT_TICKET_PRIORITIES}
+                  value={form.priority}
+                  onChange={(priority) => setForm((current) => ({ ...current, priority }))}
+                  variant="pills"
+                />
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label htmlFor="ticket-details" className="text-sm font-medium">Request Details</label>
+                    <span className="text-xs text-[var(--muted)]">Pick a starter or type your own</span>
+                  </div>
+                  <TicketDetailPresets
+                    category={form.category}
+                    onSelect={(description) => setForm((current) => ({ ...current, description }))}
+                  />
+                  <textarea
+                    id="ticket-details"
+                    className={textareaClass}
+                    value={form.description}
+                    onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                    placeholder={`${getClientPortalOptionLabel(CLIENT_TICKET_CATEGORIES, form.category)} details`}
+                    required
+                  />
                 </div>
-                <Button type="submit" loading={saving} fullWidth>Submit Ticket</Button>
+                <Button type="submit" loading={saving} fullWidth>Send Request</Button>
               </form>
             </section>
 
@@ -209,11 +237,11 @@ export default function ClientTicketsPage() {
                                 <h3 className="truncate font-medium">{ticket.title}</h3>
                                 <p className="mt-1 line-clamp-2 text-sm text-[var(--muted)]">{ticket.description || "No description provided."}</p>
                               </div>
-                              <StatusBadge label={ticket.status} size="sm" />
+                              <StatusBadge label={getClientPortalOptionLabel(CLIENT_TICKET_STATUSES, ticket.status)} size="sm" />
                             </div>
                             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--muted)]">
-                              <span>{ticket.category}</span>
-                              <span>{ticket.priority}</span>
+                              <span>{getClientPortalOptionLabel(CLIENT_TICKET_CATEGORIES, ticket.category)}</span>
+                              <span>{getClientPortalOptionLabel(CLIENT_TICKET_PRIORITIES, ticket.priority)}</span>
                               <span className="inline-flex items-center gap-1"><MessageSquare className="h-3.5 w-3.5" />{ticket.comments?.length || 0}</span>
                             </div>
                           </button>
@@ -230,7 +258,7 @@ export default function ClientTicketsPage() {
                     <MessageSquare className="h-4 w-4 text-[var(--accent)]" />
                     <h2 className="text-sm font-semibold">Ticket Detail</h2>
                   </div>
-                  {selectedTicket ? <StatusBadge label={selectedTicket.status} size="sm" /> : null}
+                  {selectedTicket ? <StatusBadge label={getClientPortalOptionLabel(CLIENT_TICKET_STATUSES, selectedTicket.status)} size="sm" /> : null}
                 </div>
                 <div className="space-y-5 p-4">
                   {!selectedTicket ? (
@@ -239,8 +267,8 @@ export default function ClientTicketsPage() {
                     <>
                       <div>
                         <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-                          <span>{selectedTicket.category}</span>
-                          <span>{selectedTicket.priority}</span>
+                          <span>{getClientPortalOptionLabel(CLIENT_TICKET_CATEGORIES, selectedTicket.category)}</span>
+                          <span>{getClientPortalOptionLabel(CLIENT_TICKET_PRIORITIES, selectedTicket.priority)}</span>
                           <span>{selectedTicket.comments?.length || 0} comments</span>
                         </div>
                         <h3 className="mt-2 text-lg font-semibold leading-snug">{selectedTicket.title}</h3>
@@ -256,8 +284,8 @@ export default function ClientTicketsPage() {
                             {selectedTicket.comments.map((comment) => (
                               <article key={comment.id} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-3">
                                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]">
-                                  <span>{comment.visibility}</span>
-                                  <time dateTime={comment.createdAt || undefined}>{formatCommentTime(comment.createdAt)}</time>
+                                  <span>{getClientCommentAuthorLabel(comment, user?.id)}</span>
+                                  <time dateTime={comment.createdAt || undefined}>{formatClientPortalDate(comment.createdAt)}</time>
                                 </div>
                                 <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{comment.body}</p>
                               </article>
@@ -270,6 +298,18 @@ export default function ClientTicketsPage() {
 
                       <form onSubmit={handleAddComment} className="space-y-3">
                         <label htmlFor="ticket-comment" className="text-sm font-medium">Add Comment</label>
+                        <div className="flex flex-wrap gap-2">
+                          {CLIENT_TICKET_QUICK_REPLIES.map((reply) => (
+                            <button
+                              key={reply}
+                              type="button"
+                              onClick={() => setCommentBody(reply)}
+                              className="rounded-[var(--radius-md)] border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
+                            >
+                              {reply}
+                            </button>
+                          ))}
+                        </div>
                         <textarea
                           id="ticket-comment"
                           className={textareaClass}

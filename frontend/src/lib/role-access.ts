@@ -45,3 +45,17 @@ export function hasClientPortalAccess(user?: RoleAccessUser | null): boolean {
   const roles = getUserRoleNames(user);
   return roles.some((role) => CLIENT_PORTAL_ROLES.has(role)) && !hasClientOperationsAccess(user);
 }
+
+export function hasClientWorkspaceShellAccess(
+  user?: RoleAccessUser | null,
+  hasClientWorkspace = false,
+): boolean {
+  return !hasClientOperationsAccess(user) && (hasClientPortalAccess(user) || hasClientWorkspace);
+}
+
+export function getAuthenticatedLandingPath(
+  user?: RoleAccessUser | null,
+  hasClientWorkspace = false,
+): "/client" | "/dashboard" {
+  return hasClientWorkspaceShellAccess(user, hasClientWorkspace) ? "/client" : "/dashboard";
+}

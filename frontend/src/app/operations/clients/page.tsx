@@ -9,12 +9,14 @@ import {
   FileText,
   LinkIcon,
   Plus,
+  Save,
   ShieldCheck,
   Ticket,
   UserPlus,
   Users,
 } from "lucide-react";
 import Button from "@/components/Button";
+import AdminTicketPanel from "@/components/client-portal/AdminTicketPanel";
 import FormField from "@/components/forms/FormField";
 import Header from "@/components/Header";
 import EmptyState from "@/components/ui/EmptyState";
@@ -25,16 +27,31 @@ import {
   ClientMembership,
   ClientOrganization,
   ClientPortalOverview,
+  ClientProject,
+  ClientTicket,
   createClientMembership,
   createClientMetric,
   createClientOrganization,
   createClientProject,
   createClientResource,
+  createClientTicketComment,
   createClientUpdate,
   fetchClientMemberships,
   fetchClientOrganizations,
   fetchClientOverview,
+  updateClientProject,
+  updateClientTicketStatus,
 } from "@/lib/client-portal";
+import {
+  CLIENT_MEMBER_ROLES,
+  CLIENT_MEMBER_STATUSES,
+  CLIENT_PROJECT_STATUSES,
+  CLIENT_TICKET_CATEGORIES,
+  CLIENT_TICKET_PRIORITIES,
+  CLIENT_TICKET_STATUSES,
+  CLIENT_UPDATE_PRESETS,
+  getClientPortalOptionLabel,
+} from "@/lib/client-portal-options";
 import { buildClientPortalSummary } from "@/lib/client-portal-summary";
 import { hasClientOperationsAccess } from "@/lib/role-access";
 import { fetchUsers, User } from "@/lib/users";
@@ -43,7 +60,7 @@ const selectClass = "w-full rounded-md border border-[var(--border)] bg-[var(--c
 const textareaClass = "min-h-24 w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
 
 const emptyOrg = { name: "", slug: "", websiteUrl: "", notes: "" };
-const emptyMember = { userId: "", role: "client", status: "active" };
+const emptyMember = { userId: "", role: "client_owner", status: "active" };
 const emptyProject = { name: "", status: "planning", progress: "0", summary: "", liveUrl: "", previewUrl: "", internalNotes: "" };
 const emptyUpdate = { title: "", body: "", status: "published", visibleToClient: true, projectId: "" };
 const emptyMetric = { label: "", value: "", unit: "", source: "manual", visibleToClient: true };
@@ -70,6 +87,43 @@ function Section({ children, icon, title, count }: { children: React.ReactNode; 
   );
 }
 
+function ProjectPillSelector({
+  projects,
+  value,
+  onChange,
+}: {
+  projects: ClientProject[];
+  value: string;
+  onChange: (projectId: string) => void;
+}) {
+  if (projects.length === 0) return null;
+
+  const options = [{ id: "", name: "General" }, ...projects.map((project) => ({ id: project.id, name: project.name }))];
+
+  return (
+    <div className="space-y-2">
+      <div className="text-sm font-medium">Project</div>
+      <div className="flex flex-wrap gap-2">
+        {options.map((project) => {
+          const isSelected = value === project.id;
+
+          return (
+            <button
+              key={project.id || "general"}
+              type="button"
+              onClick={() => onChange(project.id)}
+              aria-pressed={isSelected}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${isSelected ? "border-[var(--accent)] bg-[var(--card-surface)] text-[var(--foreground)]" : "border-[var(--border)] text-[var(--muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"}`}
+            >
+              {project.name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function OperationsClientsPage() {
   const toast = useToast();
   const { user, isLoading: userLoading } = useUser();
@@ -83,9 +137,12 @@ export default function OperationsClientsPage() {
   const [orgForm, setOrgForm] = useState(emptyOrg);
   const [memberForm, setMemberForm] = useState(emptyMember);
   const [projectForm, setProjectForm] = useState(emptyProject);
+  const [projectEdits, setProjectEdits] = useState<Record<string, { status: string; progress: string }>>({});
   const [updateForm, setUpdateForm] = useState(emptyUpdate);
   const [metricForm, setMetricForm] = useState(emptyMetric);
   const [resourceForm, setResourceForm] = useState(emptyResource);
+  const [selectedTicketId, setSelectedTicketId] = useState("");
+  const [ticketReplyForm, setTicketReplyForm] = useState({ body: "", visibility: "client" });
 
   const selectedOrganization = useMemo(
     () => organizations.find((organization) => organization.id === selectedId) || overview?.organization || null,
@@ -93,6 +150,10 @@ export default function OperationsClientsPage() {
   );
   const summary = useMemo(() => buildClientPortalSummary(overview), [overview]);
   const canManageClients = useMemo(() => hasClientOperationsAccess(user), [user]);
+  const selectedTicket = useMemo(
+    () => overview?.tickets.find((ticket) => ticket.id === selectedTicketId) || overview?.tickets[0] || null,
+    [overview, selectedTicketId],
+  );
 
   const loadOrganizations = useCallback(async () => {
     const nextOrganizations = await fetchClientOrganizations();
@@ -104,6 +165,7 @@ export default function OperationsClientsPage() {
     if (!organizationId) {
       setOverview(null);
       setMemberships([]);
+      setProjectEdits({});
       return;
     }
     const [nextOverview, nextMemberships] = await Promise.all([
@@ -113,6 +175,31 @@ export default function OperationsClientsPage() {
     setOverview(nextOverview);
     setMemberships(nextMemberships);
   }, []);
+
+  useEffect(() => {
+    if (!overview) {
+      setProjectEdits({});
+      return;
+    }
+
+    setProjectEdits(Object.fromEntries(
+      overview.projects.map((project) => [
+        project.id,
+        {
+          status: project.status,
+          progress: String(project.progress || 0),
+        },
+      ]),
+    ));
+  }, [overview]);
+
+  useEffect(() => {
+    setSelectedTicketId((current) => {
+      const tickets = overview?.tickets || [];
+      if (tickets.length === 0) return "";
+      return tickets.some((ticket) => ticket.id === current) ? current : tickets[0].id;
+    });
+  }, [overview]);
 
   useEffect(() => {
     if (userLoading) return;
@@ -202,6 +289,70 @@ export default function OperationsClientsPage() {
     }
   }
 
+  function getProjectEdit(project: ClientProject) {
+    return projectEdits[project.id] || {
+      status: project.status,
+      progress: String(project.progress || 0),
+    };
+  }
+
+  async function handleUpdateProject(project: ClientProject) {
+    if (!selectedId) return;
+
+    const edit = getProjectEdit(project);
+    setSaving(true);
+    try {
+      await updateClientProject(project.id, {
+        status: edit.status,
+        progress: Number(edit.progress),
+      });
+      await loadSelected(selectedId);
+      toast.success("Project progress updated");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update project");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleUpdateTicketStatus(ticket: ClientTicket, status: string) {
+    if (!selectedId || ticket.status === status) return;
+
+    setSaving(true);
+    try {
+      await updateClientTicketStatus(ticket.id, status);
+      await loadSelected(selectedId);
+      toast.success("Ticket status updated and reflected in updates");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update ticket status");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleAddTicketReply(event: React.FormEvent) {
+    event.preventDefault();
+    if (!selectedId || !selectedTicket || !ticketReplyForm.body.trim()) {
+      toast.error("Reply is required");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await createClientTicketComment(selectedTicket.id, {
+        body: ticketReplyForm.body.trim(),
+        visibility: ticketReplyForm.visibility,
+      });
+      setTicketReplyForm({ body: "", visibility: "client" });
+      await loadSelected(selectedId);
+      toast.success(ticketReplyForm.visibility === "internal" ? "Internal note saved" : "Client reply sent");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to add ticket reply");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (userLoading) {
     return (
       <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
@@ -249,7 +400,6 @@ export default function OperationsClientsPage() {
             <Section icon={BriefcaseBusiness} title="Create Client">
               <form onSubmit={handleCreateOrganization} className="space-y-3">
                 <FormField id="client-name" label="Client Name" value={orgForm.name} onChange={(name) => setOrgForm((form) => ({ ...form, name }))} placeholder="Gem Field HVAC" required />
-                <FormField id="client-slug" label="Slug" value={orgForm.slug} onChange={(slug) => setOrgForm((form) => ({ ...form, slug }))} placeholder="gem-field-hvac" />
                 <FormField id="client-website" label="Website URL" value={orgForm.websiteUrl} onChange={(websiteUrl) => setOrgForm((form) => ({ ...form, websiteUrl }))} placeholder="https://example.com" />
                 <textarea className={textareaClass} value={orgForm.notes} onChange={(event) => setOrgForm((form) => ({ ...form, notes: event.target.value }))} placeholder="Internal notes" aria-label="Internal client notes" />
                 <Button type="submit" icon={<Plus className="h-4 w-4" />} loading={saving} fullWidth>Create Client</Button>
@@ -317,16 +467,17 @@ export default function OperationsClientsPage() {
                       event.preventDefault();
                       void submitScoped(() => createClientMembership(selectedId, memberForm), "Client member saved", () => setMemberForm(emptyMember));
                     }}
-                    className="grid gap-3 md:grid-cols-[1fr_120px_120px_auto]"
+                    className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
                   >
-                    <select className={selectClass} value={memberForm.userId} onChange={(event) => setMemberForm((form) => ({ ...form, userId: event.target.value }))} aria-label="Client member user" required>
+                    <select className={`${selectClass} sm:col-span-3`} value={memberForm.userId} onChange={(event) => setMemberForm((form) => ({ ...form, userId: event.target.value }))} aria-label="Client member user" required>
                       <option value="">Select user</option>
                       {users.map((user) => <option key={user.id} value={user.id}>{user.name || user.email}</option>)}
                     </select>
-                    <input className={selectClass} value={memberForm.role} onChange={(event) => setMemberForm((form) => ({ ...form, role: event.target.value }))} aria-label="Client member role" />
+                    <select className={selectClass} value={memberForm.role} onChange={(event) => setMemberForm((form) => ({ ...form, role: event.target.value }))} aria-label="Client member role">
+                      {CLIENT_MEMBER_ROLES.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
+                    </select>
                     <select className={selectClass} value={memberForm.status} onChange={(event) => setMemberForm((form) => ({ ...form, status: event.target.value }))} aria-label="Client member status">
-                      <option value="active">active</option>
-                      <option value="inactive">inactive</option>
+                      {CLIENT_MEMBER_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
                     </select>
                     <Button type="submit" size="sm" loading={saving}>Save</Button>
                   </form>
@@ -343,7 +494,7 @@ export default function OperationsClientsPage() {
                   </div>
                 </Section>
 
-                <Section icon={Activity} title="Project">
+                <Section icon={Activity} title="Projects" count={overview.projects.length}>
                   <form
                     onSubmit={(event) => {
                       event.preventDefault();
@@ -357,8 +508,28 @@ export default function OperationsClientsPage() {
                   >
                     <FormField id="project-name" label="Project Name" value={projectForm.name} onChange={(name) => setProjectForm((form) => ({ ...form, name }))} required />
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <FormField id="project-status" label="Status" value={projectForm.status} onChange={(status) => setProjectForm((form) => ({ ...form, status }))} />
-                      <FormField id="project-progress" label="Progress" type="number" min={0} max={100} value={projectForm.progress} onChange={(progress) => setProjectForm((form) => ({ ...form, progress }))} />
+                      <div>
+                        <label htmlFor="project-status" className="mb-2 block text-sm font-medium">Status</label>
+                        <select id="project-status" className={selectClass} value={projectForm.status} onChange={(event) => setProjectForm((form) => ({ ...form, status: event.target.value }))}>
+                          {CLIENT_PROJECT_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <div className="mb-2 flex items-center justify-between gap-3 text-sm font-medium">
+                          <label htmlFor="project-progress">Progress</label>
+                          <span className="text-[var(--muted)]">{projectForm.progress}%</span>
+                        </div>
+                        <input
+                          id="project-progress"
+                          type="range"
+                          min={0}
+                          max={100}
+                          step={5}
+                          value={projectForm.progress}
+                          onChange={(event) => setProjectForm((form) => ({ ...form, progress: event.target.value }))}
+                          className="h-10 w-full accent-[var(--accent)]"
+                        />
+                      </div>
                     </div>
                     <textarea className={textareaClass} value={projectForm.summary} onChange={(event) => setProjectForm((form) => ({ ...form, summary: event.target.value }))} placeholder="Client-visible summary" aria-label="Project summary" />
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -367,6 +538,77 @@ export default function OperationsClientsPage() {
                     </div>
                     <Button type="submit" loading={saving}>Create Project</Button>
                   </form>
+
+                  <div className="mt-5 border-t border-[var(--border)] pt-4">
+                    <div className="mb-3 text-sm font-semibold">Progress Control</div>
+                    {overview.projects.length === 0 ? (
+                      <EmptyState variant="compact" icon={Activity} title="No projects yet" description="Create a project before updating progress." />
+                    ) : (
+                      <div className="space-y-3">
+                        {overview.projects.map((project) => {
+                          const edit = getProjectEdit(project);
+                          const hasChanges = edit.status !== project.status || Number(edit.progress) !== (project.progress || 0);
+
+                          return (
+                            <div key={project.id} className="rounded-[var(--radius-md)] border border-[var(--border)] p-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm font-medium">{project.name}</div>
+                                  <div className="mt-1 text-xs text-[var(--muted)]">{project.progress || 0}% current progress</div>
+                                </div>
+                                <StatusBadge label={getClientPortalOptionLabel(CLIENT_PROJECT_STATUSES, project.status)} size="sm" />
+                              </div>
+                              <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+                                <div>
+                                  <label htmlFor={`project-status-${project.id}`} className="mb-2 block text-sm font-medium">Status</label>
+                                  <select
+                                    id={`project-status-${project.id}`}
+                                    className={selectClass}
+                                    value={edit.status}
+                                    onChange={(event) => setProjectEdits((current) => ({
+                                      ...current,
+                                      [project.id]: { ...getProjectEdit(project), status: event.target.value },
+                                    }))}
+                                  >
+                                    {CLIENT_PROJECT_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+                                  </select>
+                                </div>
+                                <div>
+                                  <div className="mb-2 flex items-center justify-between gap-3 text-sm font-medium">
+                                    <label htmlFor={`project-progress-${project.id}`}>Progress</label>
+                                    <span className="text-[var(--muted)]">{edit.progress}%</span>
+                                  </div>
+                                  <input
+                                    id={`project-progress-${project.id}`}
+                                    type="range"
+                                    min={0}
+                                    max={100}
+                                    step={5}
+                                    value={edit.progress}
+                                    onChange={(event) => setProjectEdits((current) => ({
+                                      ...current,
+                                      [project.id]: { ...getProjectEdit(project), progress: event.target.value },
+                                    }))}
+                                    className="h-10 w-full accent-[var(--accent)]"
+                                  />
+                                </div>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  icon={<Save className="h-4 w-4" />}
+                                  loading={saving && hasChanges}
+                                  disabled={!hasChanges || saving}
+                                  onClick={() => void handleUpdateProject(project)}
+                                >
+                                  Save
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </Section>
 
                 <Section icon={FileText} title="Update" count={overview.updates.length}>
@@ -378,7 +620,29 @@ export default function OperationsClientsPage() {
                     className="space-y-3"
                   >
                     <FormField id="update-title" label="Title" value={updateForm.title} onChange={(title) => setUpdateForm((form) => ({ ...form, title }))} required />
+                    <div className="flex flex-wrap gap-2">
+                      {CLIENT_UPDATE_PRESETS.map((preset) => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => setUpdateForm((form) => ({
+                            ...form,
+                            title: preset.title,
+                            body: preset.body,
+                            visibleToClient: true,
+                          }))}
+                          className="rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
                     <textarea className={textareaClass} value={updateForm.body} onChange={(event) => setUpdateForm((form) => ({ ...form, body: event.target.value }))} placeholder="What changed for the client?" aria-label="Update body" required />
+                    <ProjectPillSelector
+                      projects={overview.projects}
+                      value={updateForm.projectId}
+                      onChange={(projectId) => setUpdateForm((form) => ({ ...form, projectId }))}
+                    />
                     <label className="flex items-center gap-2 text-sm">
                       <input type="checkbox" checked={updateForm.visibleToClient} onChange={(event) => setUpdateForm((form) => ({ ...form, visibleToClient: event.target.checked }))} />
                       Visible to client
@@ -433,15 +697,45 @@ export default function OperationsClientsPage() {
                     {overview.tickets.length === 0 ? (
                       <EmptyState variant="compact" icon={Ticket} title="No tickets yet" />
                     ) : overview.tickets.slice(0, 6).map((ticket) => (
-                      <div key={ticket.id} className="rounded-[var(--radius-md)] border border-[var(--border)] px-3 py-2">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0 truncate text-sm font-medium">{ticket.title}</div>
-                          <StatusBadge label={ticket.status} size="sm" />
+                      <div key={ticket.id} className="rounded-[var(--radius-md)] border border-[var(--border)] px-3 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium">{ticket.title}</div>
+                            <div className="mt-1 text-xs text-[var(--muted)]">
+                              {getClientPortalOptionLabel(CLIENT_TICKET_CATEGORIES, ticket.category)} / {getClientPortalOptionLabel(CLIENT_TICKET_PRIORITIES, ticket.priority)}
+                            </div>
+                          </div>
+                          <StatusBadge label={getClientPortalOptionLabel(CLIENT_TICKET_STATUSES, ticket.status)} size="sm" />
                         </div>
-                        <div className="mt-1 text-xs text-[var(--muted)]">{ticket.category} / {ticket.priority}</div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {CLIENT_TICKET_STATUSES.map((status) => {
+                            const isSelected = ticket.status === status.value;
+
+                            return (
+                              <button
+                                key={status.value}
+                                type="button"
+                                onClick={() => void handleUpdateTicketStatus(ticket, status.value)}
+                                disabled={isSelected || saving}
+                                aria-pressed={isSelected}
+                                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${isSelected ? "border-[var(--accent)] bg-[var(--card-surface)] text-[var(--foreground)]" : "border-[var(--border)] text-[var(--muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"}`}
+                              >
+                                {status.label}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     ))}
                   </div>
+                  <AdminTicketPanel
+                    ticket={selectedTicket}
+                    currentUserId={user?.id}
+                    replyForm={ticketReplyForm}
+                    saving={saving}
+                    onReplyFormChange={setTicketReplyForm}
+                    onSubmitReply={handleAddTicketReply}
+                  />
                 </Section>
               </div>
             </div>

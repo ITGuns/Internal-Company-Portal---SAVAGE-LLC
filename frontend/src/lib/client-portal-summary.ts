@@ -1,7 +1,7 @@
 import type { ClientPortalOverview, ClientTicket } from './client-portal';
 
 export function getOpenClientTickets(tickets: ClientTicket[]): ClientTicket[] {
-  return tickets.filter((ticket) => !['closed', 'completed', 'resolved'].includes(ticket.status));
+  return tickets.filter((ticket) => !['closed', 'completed', 'resolved', 'done'].includes(ticket.status));
 }
 
 export function buildClientPortalSummary(overview: ClientPortalOverview | null) {

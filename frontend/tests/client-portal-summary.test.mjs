@@ -35,6 +35,7 @@ test('builds client portal summary from visible portal sections', () => {
     { id: 't1', status: 'new' },
     { id: 't2', status: 'resolved' },
     { id: 't3', status: 'in_progress' },
+    { id: 't4', status: 'done' },
   ];
 
   assert.deepEqual(getOpenClientTickets(tickets).map((ticket) => ticket.id), ['t1', 't3']);
