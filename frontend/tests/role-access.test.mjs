@@ -39,4 +39,34 @@ test('normalizes management roles from primary and secondary role fields', () =>
   assert.equal(hasManagementAccess({ role: 'Manager' }), true);
   assert.equal(hasManagementAccess({ role: 'employee', roles: ['Operations Manager'] }), true);
   assert.equal(hasManagementAccess({ role: null, roles: ['administrator'] }), true);
+  assert.equal(hasManagementAccess({ role: 'Chief Operations Officer' }), true);
+});
+
+test('separates client portal and client operations navigation access', () => {
+  const {
+    getAuthenticatedLandingPath,
+    hasClientPortalAccess,
+    hasClientOperationsAccess,
+    hasClientWorkspaceShellAccess,
+  } = loadRoleAccessHelper();
+
+  assert.equal(hasClientPortalAccess({ role: 'client' }), true);
+  assert.equal(hasClientPortalAccess({ role: 'Client Owner' }), true);
+  assert.equal(hasClientPortalAccess({ role: 'employee' }), false);
+  assert.equal(hasClientPortalAccess({ role: 'admin' }), false);
+
+  assert.equal(hasClientOperationsAccess({ role: 'Operations Manager' }), true);
+  assert.equal(hasClientOperationsAccess({ role: 'admin' }), true);
+  assert.equal(hasClientOperationsAccess({ role: 'client' }), false);
+
+  assert.equal(hasClientWorkspaceShellAccess({ role: 'client' }), true);
+  assert.equal(hasClientWorkspaceShellAccess({ role: 'member' }, true), true);
+  assert.equal(hasClientWorkspaceShellAccess({ role: 'member' }, false), false);
+  assert.equal(hasClientWorkspaceShellAccess({ role: 'admin' }, true), false);
+
+  assert.equal(getAuthenticatedLandingPath({ role: 'client' }), '/client');
+  assert.equal(getAuthenticatedLandingPath({ role: 'Client Owner' }), '/client');
+  assert.equal(getAuthenticatedLandingPath({ role: 'member' }, true), '/client');
+  assert.equal(getAuthenticatedLandingPath({ role: 'admin' }, true), '/dashboard');
+  assert.equal(getAuthenticatedLandingPath({ role: 'web_developer' }), '/dashboard');
 });

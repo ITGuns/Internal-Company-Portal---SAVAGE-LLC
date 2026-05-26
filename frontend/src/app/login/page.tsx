@@ -6,6 +6,7 @@ import { Mail, Lock } from 'lucide-react';
 import LoginInput from '@/components/LoginInput';
 import { useUser } from '@/contexts/UserContext';
 import { loginWithEmail } from '@/lib/api';
+import { getAuthenticatedLandingPath } from '@/lib/role-access';
 import styles from './login.module.css';
 
 export default function LoginPage() {
@@ -19,7 +20,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user) {
-      router.push('/dashboard');
+      router.push(getAuthenticatedLandingPath(user));
     }
   }, [user, router]);
 
@@ -35,9 +36,9 @@ export default function LoginPage() {
         return;
       }
 
-      await loginWithEmail({ email, password });
+      const response = await loginWithEmail({ email, password });
       await refreshUser();
-      router.push('/dashboard');
+      router.push(getAuthenticatedLandingPath(response.user));
     } catch (err: unknown) {
       console.error('Login error:', err);
       setError(err instanceof Error ? err.message : 'Login failed. Please try again.');

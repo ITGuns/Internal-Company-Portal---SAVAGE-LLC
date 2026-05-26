@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   CalendarDays,
+  BriefcaseBusiness,
   DollarSign,
   Folder,
   Grid,
@@ -13,6 +14,7 @@ import {
   Megaphone,
   MessageSquare,
   ShieldCheck,
+  Ticket,
   UserCircle,
   Users,
   X,
@@ -20,6 +22,8 @@ import {
 import UserAvatar from '../assets/icons/UserAvatar';
 import { useSocket } from '@/context/SocketContext';
 import { useUser } from '@/contexts/UserContext';
+import { fetchClientOrganizations } from '@/lib/client-portal';
+import { hasClientOperationsAccess, hasClientPortalAccess, hasClientWorkspaceShellAccess } from '@/lib/role-access';
 import { cn } from '@/lib/utils';
 
 type NavItemConfig = {
@@ -78,7 +82,20 @@ export default function Sidebar() {
   const { user } = useUser();
   const { unreadChatCount } = useSocket();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [hasClientWorkspace, setHasClientWorkspace] = useState(false);
+  const [clientWorkspaceChecked, setClientWorkspaceChecked] = useState(false);
   const isAdmin = user?.role?.toLowerCase() === 'admin';
+  const canUseClientOperations = useMemo(() => hasClientOperationsAccess(user), [user]);
+  const hasRoleBasedClientPortalAccess = useMemo(() => hasClientPortalAccess(user), [user]);
+  const canUseClientPortal = hasRoleBasedClientPortalAccess || hasClientWorkspace;
+  const usesClientShell = useMemo(
+    () => hasClientWorkspaceShellAccess(user, hasClientWorkspace),
+    [hasClientWorkspace, user],
+  );
+  const isResolvingClientWorkspace = Boolean(user)
+    && !canUseClientOperations
+    && !hasRoleBasedClientPortalAccess
+    && !clientWorkspaceChecked;
 
   useEffect(() => {
     function handleToggle() {
@@ -93,24 +110,65 @@ export default function Sidebar() {
     setMobileOpen(false);
   }, [pathname]);
 
-  const mainItems: NavItemConfig[] = [
+  useEffect(() => {
+    let ignore = false;
+    setClientWorkspaceChecked(false);
+
+    async function checkClientWorkspace() {
+      if (!user || canUseClientOperations || hasRoleBasedClientPortalAccess) {
+        if (!ignore) {
+          setHasClientWorkspace(false);
+          setClientWorkspaceChecked(true);
+        }
+        return;
+      }
+
+      try {
+        const organizations = await fetchClientOrganizations();
+        if (!ignore) setHasClientWorkspace(organizations.length > 0);
+      } catch {
+        if (!ignore) setHasClientWorkspace(false);
+      } finally {
+        if (!ignore) setClientWorkspaceChecked(true);
+      }
+    }
+
+    void checkClientWorkspace();
+
+    return () => {
+      ignore = true;
+    };
+  }, [canUseClientOperations, hasRoleBasedClientPortalAccess, user]);
+
+  const clientItems: NavItemConfig[] = [
+    { href: '/client', icon: BriefcaseBusiness, label: 'Client Portal' },
+    { href: '/client/tickets', icon: Ticket, label: 'Tickets' },
+  ];
+
+  const employeeMainItems: NavItemConfig[] = [
     { href: '/dashboard', icon: Home, label: 'Dashboard' },
+    ...(canUseClientPortal ? [{ href: '/client', icon: BriefcaseBusiness, label: 'Client Portal' }] : []),
     { href: '/task-tracking', icon: Grid, label: 'Task Tracking' },
     { href: '/daily-logs', icon: Users, label: 'Daily Logs' },
     { href: '/payroll-calendar', icon: CalendarDays, label: 'Payroll Calendar' },
     { href: '/my-payslips', icon: DollarSign, label: 'My Payslips' },
   ];
+  const mainItems = usesClientShell ? clientItems : isResolvingClientWorkspace ? [] : employeeMainItems;
 
-  const collaborationItems: NavItemConfig[] = [
-    { href: '/announcements', icon: Megaphone, label: 'Announcements' },
-    { href: '/chat', icon: MessageSquare, label: 'Messages & Chat', badge: unreadChatCount },
-    { href: '/file-directory', icon: Folder, label: 'File Directory' },
-  ];
+  const collaborationItems: NavItemConfig[] = usesClientShell || isResolvingClientWorkspace
+    ? []
+    : [
+        { href: '/announcements', icon: Megaphone, label: 'Announcements' },
+        { href: '/chat', icon: MessageSquare, label: 'Messages & Chat', badge: unreadChatCount },
+        { href: '/file-directory', icon: Folder, label: 'File Directory' },
+      ];
 
-  const adminItems: NavItemConfig[] = [
-    { href: '/operations', icon: ShieldCheck, label: 'Operations' },
-    ...(isAdmin ? [{ href: '/whiteboard', icon: Grid, label: 'Whiteboard' }] : []),
-  ];
+  const adminItems: NavItemConfig[] = usesClientShell || isResolvingClientWorkspace
+    ? []
+    : [
+        ...(canUseClientOperations ? [{ href: '/operations', icon: ShieldCheck, label: 'Operations' }] : []),
+        ...(isAdmin ? [{ href: '/whiteboard', icon: Grid, label: 'Whiteboard' }] : []),
+      ];
 
   return (
     <>
@@ -147,8 +205,8 @@ export default function Sidebar() {
           </header>
 
           <div className="sidebar-scroll flex-1 space-y-6 overflow-y-auto px-3 py-5">
-            <NavSection title="Work" items={mainItems} />
-            <NavSection title="Company" items={collaborationItems} />
+            {mainItems.length > 0 ? <NavSection title={usesClientShell ? 'Client Workspace' : 'Work'} items={mainItems} /> : null}
+            {collaborationItems.length > 0 ? <NavSection title="Company" items={collaborationItems} /> : null}
             {adminItems.length > 0 ? <NavSection title="Admin" items={adminItems} /> : null}
           </div>
 

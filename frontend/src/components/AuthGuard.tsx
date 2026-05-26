@@ -3,6 +3,7 @@
 import { useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
+import { getAuthenticatedLandingPath } from '@/lib/role-access';
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -36,6 +37,11 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     // Redirect to login if not authenticated
     if (!user) {
       router.push('/login');
+      return;
+    }
+
+    if ((pathname === '/' || pathname === '/dashboard') && getAuthenticatedLandingPath(user) === '/client') {
+      router.replace('/client');
     }
   }, [user, isLoading, pathname, isExemptRoute, router]);
 
@@ -53,6 +59,10 @@ export default function AuthGuard({ children }: AuthGuardProps) {
 
   // Don't render protected content if not authenticated (unless exempt route)
   if (!user && !isExemptRoute) {
+    return null;
+  }
+
+  if (user && !isExemptRoute && (pathname === '/' || pathname === '/dashboard') && getAuthenticatedLandingPath(user) === '/client') {
     return null;
   }
 

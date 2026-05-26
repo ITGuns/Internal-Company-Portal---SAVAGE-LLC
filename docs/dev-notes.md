@@ -1,5 +1,222 @@
 # Development Notes
 
+## 2026-05-25 - Client Portal Communication Flow Polish
+
+### Completed
+
+- Routed client-role users to `/client` after login instead of sending them to the internal dashboard.
+- Redirected authenticated client users away from `/dashboard` and into the client portal shell.
+- Added an admin ticket conversation panel to `/operations/clients` so internal users can review ticket context and reply from the client operations workflow.
+- Added explicit reply visibility controls for client-visible replies versus internal notes.
+- Added regression coverage for authenticated landing paths, admin ticket visibility options, and mixed string/number comment author IDs.
+
+### Files Changed
+
+- `frontend/src/app/login/page.tsx`
+- `frontend/src/app/operations/clients/page.tsx`
+- `frontend/src/components/AuthGuard.tsx`
+- `frontend/src/components/client-portal/AdminTicketPanel.tsx`
+- `frontend/src/lib/client-portal-display.ts`
+- `frontend/src/lib/client-portal-options.ts`
+- `frontend/src/lib/role-access.ts`
+- `frontend/tests/client-portal-display.test.mjs`
+- `frontend/tests/client-portal-options.test.mjs`
+- `frontend/tests/role-access.test.mjs`
+- `docs/dev-notes.md`
+- `docs/features.md`
+
+### Decisions Made
+
+- Keep clients out of employee dashboard views and send them directly to the dedicated portal.
+- Keep admin ticket replies inside Client Operations so managers can act without switching to the client-facing ticket route.
+- Make reply visibility a deliberate admin choice while preserving the existing server-owned permission and serialization rules.
+
+### How to Test
+
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- Browser smoke: admin `/operations/clients` shows ticket reply visibility controls; client login lands on `/client`; client `/dashboard` redirects to `/client`.
+
+### Next Steps
+
+- Split `frontend/src/app/operations/clients/page.tsx` into smaller client-management sections as the admin workflow grows.
+- Add stronger ticket filters or a dedicated management ticket route if the Operations ticket list becomes too dense.
+
+## 2026-05-24 - Client Portal Access And Ticket Polish
+
+### Completed
+
+- Split frontend client portal navigation from internal client operations navigation.
+- Restricted client-user sidebars to Client Portal, Tickets, and Profile only.
+- Added client operations gating for the Operations sidebar entry, Operations client card, and `/operations/clients` page.
+- Added a ticket detail panel on `/client/tickets` with visible conversation history and client comment submission.
+- Replaced client ticket title/category/priority typing with request-type buttons, priority buttons, generated ticket titles, and one required details box.
+- Added quick reply buttons for client ticket comments.
+- Reduced internal client setup typing by auto-generating slugs and replacing client role, status, project status, and project progress fields with constrained controls.
+- Added internal ticket status controls for New, Review, In Progress, and Done.
+- Added automatic client-visible updates when internal users move ticket status.
+- Refined automatic ticket-update language so client-facing status updates read naturally.
+- Added internal project progress/status editing controls.
+- Added project pills to update publishing so updates can target a specific project or general account work.
+- Made client ticket forms more compact with pill-style request and priority choices.
+- Added one-click request detail starters so clients can submit common requests with less typing.
+- Improved the Operations member assignment form so the user selector does not collapse in two-column admin layouts.
+- Browser-smoked admin and client sessions across desktop and mobile viewports, including adding a client ticket reply.
+
+### Files Changed
+
+- `backend/src/clients/clients.controller.ts`
+- `backend/src/clients/clients.service.ts`
+- `backend/src/clients/clients.validation.ts`
+- `backend/tests/clients.access.test.ts`
+- `docs/api.md`
+- `frontend/src/app/client/tickets/page.tsx`
+- `frontend/src/app/operations/clients/page.tsx`
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/client-portal/ChoiceGroup.tsx`
+- `frontend/src/components/client-portal/TicketDetailPresets.tsx`
+- `frontend/src/lib/client-portal.ts`
+- `frontend/src/lib/client-portal-options.ts`
+- `frontend/src/lib/client-portal-summary.ts`
+- `frontend/src/lib/role-access.ts`
+- `frontend/tests/client-portal-summary.test.mjs`
+- `frontend/tests/client-portal-options.test.mjs`
+- `frontend/tests/role-access.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Keep internal multi-client administration under Operations and keep client users scoped to `/client` and `/client/tickets`.
+- Use backend membership lookup as the sidebar signal for client workspaces when the auth role remains a generic member.
+- Do not show employee/company/admin navigation while a non-management user's client workspace membership is still being checked.
+- Keep management/admin users out of the client-facing sidebar path; they can manage clients from Operations.
+- Generate client ticket titles from request type plus details so clients do not need to invent ticket names.
+- Treat `done` tickets as closed for portal summary counts.
+- Keep ticket status changes server-owned and publish status movement as visible client updates.
+
+### How to Test
+
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd backend && npx prisma validate`
+- `cd backend && npx prisma generate`
+- Browser smoke: admin `/operations` and `/operations/clients`; client `/client`, restricted sidebar, `/operations/clients` access denial, and `/client/tickets` comment workflow at desktop and mobile sizes.
+- Browser smoke: client request type/priority buttons, quick replies, admin constrained setup controls, project update pills, project progress edits, and ticket status updates.
+- Browser smoke: compact client ticket forms, request detail starters, and visible Operations user selector.
+
+### Next Steps
+
+- Add management-side ticket detail replies when the client operations workflow needs full ticket handling.
+- Decide whether management users need an explicit client-preview mode instead of manually opening `/client`.
+
+## 2026-05-24 - Client Portal UI Slice
+
+### Completed
+
+- Expanded the client portal backend API with internal management routes for memberships, projects, updates, metrics, resources, and ticket comments.
+- Added a frontend client portal API layer and summary helper with focused test coverage.
+- Added `/operations/clients` as the internal multi-client management surface under Operations.
+- Added `/client` as the client-facing overview for progress, tickets, updates, metrics, resources, and ticket submission.
+- Added `/client/tickets` as the focused client request center.
+- Added Client Portal navigation and route titles.
+- Browser-smoked `/operations/clients`, `/client`, and `/client/tickets` with temporary local data and role-scoped JWT sessions.
+
+### Files Changed
+
+- `backend/src/clients/clients.controller.ts`
+- `backend/src/clients/clients.serializers.ts`
+- `backend/src/clients/clients.service.ts`
+- `backend/src/clients/clients.validation.ts`
+- `backend/tests/clients.access.test.ts`
+- `docs/api.md`
+- `docs/architecture.md`
+- `docs/dev-notes.md`
+- `docs/features.md`
+- `frontend/src/app/client/page.tsx`
+- `frontend/src/app/client/tickets/page.tsx`
+- `frontend/src/app/operations/clients/page.tsx`
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/lib/client-portal.ts`
+- `frontend/src/lib/client-portal-summary.ts`
+- `frontend/tests/client-portal-summary.test.mjs`
+
+### Decisions Made
+
+- Keep Client Operations as a separate route under Operations so the existing department/role admin page does not become a large mixed-responsibility file.
+- Keep the first client-facing portal practical and data-driven: overview, ticket intake, visible progress, published updates, metrics, and resource links.
+- Use existing app components and visual tokens instead of introducing a new UI kit.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- Browser smoke with local backend/frontend: `/operations/clients`, `/client`, and `/client/tickets`.
+
+### Next Steps
+
+- Add edit/delete controls for client projects, updates, metrics, resources, memberships, and tickets.
+- Add richer ticket detail views with threaded comments and internal/client visibility controls.
+- Decide how Square purchase automation will create the initial client organization and membership after payment.
+
+## 2026-05-24 - Client Portal Backend Foundation
+
+### Completed
+
+- Added the additive Prisma data model for Deskii client organizations, memberships, service tiers, projects, tickets, ticket comments, updates, metric snapshots, and resource links.
+- Added client portal access helpers that scope client users to active memberships while allowing internal manager/admin access across clients.
+- Added client-safe serializers so internal notes, assignment fields, internal comments, and protected tier details are not returned to client users.
+- Added `/api/clients` backend routes for listing organizations, creating organizations, reading an organization overview, creating client tickets, and listing visible tickets.
+- Added backend regression coverage for client organization visibility, ticket creation access, protected-field parsing, and client-safe serialization.
+
+### Files Changed
+
+- `backend/prisma/schema.prisma`
+- `backend/prisma/migrations/202605240001_client_portal_foundation/migration.sql`
+- `backend/src/clients/clients.access.ts`
+- `backend/src/clients/clients.controller.ts`
+- `backend/src/clients/clients.serializers.ts`
+- `backend/src/clients/clients.service.ts`
+- `backend/src/clients/clients.validation.ts`
+- `backend/src/main.ts`
+- `backend/tests/clients.access.test.ts`
+- `backend/tests/run-tests.ts`
+- `docs/api.md`
+- `docs/architecture.md`
+- `docs/database.md`
+- `docs/dev-notes.md`
+- `docs/features.md`
+
+### Decisions Made
+
+- Keep the client portal inside the existing Deskii/internal portal backend instead of creating a separate app surface.
+- Use `ClientOrganization` as the tenant boundary and require active `ClientMembership` records for client users.
+- Keep the first checkpoint backend-only so the UI can be built against explicit API contracts.
+- Reuse existing Express/Prisma patterns and helper-level tests instead of adding a new backend test framework.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npx prisma validate`
+- `cd backend && npm run prisma:generate`
+- `cd backend && npm run build`
+- From repo root: `git diff --check`
+
+### Next Steps
+
+- Build the internal Operations client management screens under the existing Operations area.
+- Build the client-facing `/client` portal screens using the new scoped `/api/clients` endpoints.
+- Add create/update routes for projects, updates, metrics, resources, memberships, and ticket comments as the UI requires them.
+
 ## 2026-05-24 - Documentation Cleanup Before Client Portal
 
 ### Completed

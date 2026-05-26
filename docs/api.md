@@ -172,6 +172,41 @@ Department writes are management-only:
 - `GET /api/roles` returns role options.
 - `POST /api/roles` and `DELETE /api/roles/:id` are management routes for backend role-option maintenance.
 
+## Client Portal
+
+All client portal endpoints require authentication.
+
+Client portal management access recognizes normalized admin, administrator, manager, operations-manager, and chief-operations-officer roles. Configured admin bypass emails are also allowed.
+
+### Client Organization Access
+
+- Internal managers/admins can list and manage all client organizations.
+- Client users can only list or read organizations where they have an active `ClientMembership`.
+- Client-facing serializers omit internal organization notes, raw `tierId`, internal tier price/priority, ticket assignment fields, and internal ticket comments.
+
+### Routes
+
+- `GET /api/clients/organizations` lists client organizations visible to the requester.
+- `POST /api/clients/organizations` creates a client organization and is restricted to client-management access.
+- `GET /api/clients/organizations/:id/overview` returns one organization with scoped projects, tickets, updates, metrics, and resources.
+- `GET /api/clients/organizations/:id/memberships` lists client memberships for internal management.
+- `POST /api/clients/organizations/:id/memberships` creates or updates a client membership for internal management.
+- `POST /api/clients/organizations/:id/projects` creates a client project for internal management.
+- `PATCH /api/clients/projects/:id` updates a client project's management-controlled fields such as status and progress.
+- `POST /api/clients/organizations/:id/updates` publishes or stages a client update for internal management.
+- `POST /api/clients/organizations/:id/metrics` creates a client-visible or internal metric snapshot for internal management.
+- `POST /api/clients/organizations/:id/resources` creates a client resource link for internal management.
+- `POST /api/clients/organizations/:id/tickets` creates a ticket for that organization. The server derives `organizationId` from the URL and `createdById` from the authenticated requester.
+- `GET /api/clients/tickets` lists visible tickets. Non-privileged users are limited to active client memberships, and `organizationId` query access is checked server-side.
+- `PATCH /api/clients/tickets/:id/status` updates ticket status for internal management and creates a published client-visible update when the status changes.
+- `POST /api/clients/tickets/:id/comments` adds a ticket comment. Client users can only create client-visible comments; internal users can create internal comments.
+
+Protected fields:
+
+- Clients cannot set `organizationId`, `createdById`, `assignedToId`, or `internalNotes` through ticket creation.
+- Client-visible overview data only returns updates, metrics, and resources marked visible to the client.
+- Internal comments stay hidden from client ticket responses.
+
 ## Daily Logs
 
 All daily-log endpoints require authentication.

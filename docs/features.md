@@ -76,11 +76,28 @@ Signup creates a pending account and preserves the requested department/role wit
 
 ## Operations
 
-Operations manages departments and role options.
+Operations manages departments, role options, and client account administration.
 
 - Department and role deletes now require a typed confirmation modal.
 - The delete action stays disabled until the exact target name is typed.
 - Department delete confirmation displays linked task and user-role counts when provided by the API.
+- `/operations/clients` manages multiple client organizations, memberships, projects, tickets, updates, metrics, and resource links.
+- `/operations/clients` includes an admin ticket conversation panel with client-visible replies and internal notes.
+- The base `/operations` page links to Client Operations without merging client-management logic into the existing departments/roles page.
+
+## Client Portal Foundation
+
+Deskii now has the backend foundation for a client-facing portal/tool inside the existing internal app.
+
+- Client portal records are grouped under `ClientOrganization`.
+- Client users are scoped through active `ClientMembership` records and cannot see other client organizations.
+- Internal managers/admins can create client organizations and review cross-client portal data.
+- Client overview data can include projects, tickets, updates, performance metrics, and resource links.
+- Ticket creation derives organization and requester ownership server-side, so clients cannot spoof tenant, assignment, or internal fields.
+- Internal ticket comments, project notes, tier pricing/priority, and other protected fields are stripped from client-visible responses.
+- `/client` gives assigned clients a portal overview with progress, tickets, updates, metrics, resources, and a ticket submission form.
+- `/client/tickets` gives clients a focused request center for ticket submission and status review.
+- Client users land on `/client` after login, and authenticated client users attempting `/dashboard` are redirected back to the client portal.
 
 ## Payroll Calendar
 
