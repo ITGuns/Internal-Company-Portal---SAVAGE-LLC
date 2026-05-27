@@ -66,6 +66,7 @@ model User {
   clientApprovalsDecided ClientApproval[]    @relation("ClientApprovalDecider")
   clientReportsCreated ClientReport[]        @relation("ClientReportCreator")
   clientCalendarItemsCreated ClientCalendarItem[] @relation("ClientCalendarItemCreator")
+  clientActivities ClientActivity[]          @relation("ClientActivityActor")
 
   @@index([email])
 }
@@ -193,6 +194,7 @@ model ClientOrganization {
   assets          ClientAsset[]
   billingStatus   ClientBillingStatus?
   calendarItems   ClientCalendarItem[]
+  activities      ClientActivity[]
 
   @@index([status])
   @@index([tierId])
@@ -532,6 +534,28 @@ model ClientCalendarItem {
   @@index([visibleToClient])
   @@index([startAt])
   @@index([createdById])
+}
+
+model ClientActivity {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorId        String?
+  type           String
+  subjectType    String
+  subjectId      String?
+  visibility     String   @default("internal")
+  title          String
+  body           String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?              @relation("ClientActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, visibility, createdAt])
+  @@index([subjectType, subjectId])
+  @@index([type])
 }
 
 model UserRole {

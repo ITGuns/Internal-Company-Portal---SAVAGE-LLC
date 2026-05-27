@@ -190,6 +190,8 @@ Client portal management access recognizes normalized admin, administrator, mana
 - `POST /api/clients/organizations` creates a client organization and is restricted to client-management access.
 - `PATCH /api/clients/organizations/:id/status` updates a client organization status (`active`, `paused`, or `archived`) for internal management. Archiving removes client-facing access without deleting history.
 - `GET /api/clients/organizations/:id/overview` returns one organization with scoped memberships, projects, tickets, updates, metrics, and resources.
+- `GET /api/clients/organizations/:id/activity` returns scoped activity history for one client organization. Internal users can receive internal and client-visible events; client users only receive client-visible events for assigned active organizations.
+- `GET /api/clients/activity/queue` returns derived action queue items from tickets, approvals, work items, draft reports, and recent completions. Optional `organizationId` is authorization-checked.
 - `GET /api/clients/organizations/:id/memberships` lists client memberships for internal management.
 - `POST /api/clients/organizations/:id/memberships` creates or updates a client membership for internal management.
 - `POST /api/clients/organizations/:id/invitations` creates or updates a client user, grants the portal role, upserts the organization membership, and returns setup delivery status for internal management.
@@ -228,6 +230,7 @@ Protected fields:
 - Client-visible overview data only returns updates, metrics, and resources marked visible to the client.
 - Client-visible overview data also filters work items, approvals, reports, roadmap recommendations, assets, billing status, and calendar items through their `visibleToClient` and status flags.
 - Internal comments stay hidden from client ticket responses.
+- Client activity responses strip internal events and internal metadata from client users. Activity creation is transactional for audit-significant events such as request replies, approval decisions, billing changes, calendar deletion, and account archive/restore.
 
 ## Daily Logs
 

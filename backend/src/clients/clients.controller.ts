@@ -12,6 +12,7 @@ import {
   type ClientAccessContext,
 } from './clients.access'
 import {
+  serializeClientActivities,
   serializeClientApprovalForClient,
   serializeClientOrganizationForClient,
   serializeClientOrganizationForManagement,
@@ -36,6 +37,7 @@ import { ClientsService } from './clients.service'
 import {
   ClientValidationError,
   parseClientApprovalResponseInput,
+  parseClientActivityQuery,
   parseCreateClientApprovalInput,
   parseCreateClientAssetInput,
   parseCreateClientCalendarItemInput,
@@ -162,6 +164,35 @@ export class ClientsController {
       }
     })
 
+    router.get('/activity/queue', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+
+        const requestedOrganizationId = typeof req.query.organizationId === 'string'
+          ? req.query.organizationId.trim()
+          : undefined
+        if (requestedOrganizationId && !canReadClientOrganization(access, { id: requestedOrganizationId })) {
+          return res.status(403).json({ error: 'You can only view queue items for your assigned client organization' })
+        }
+
+        const queue = await this.service.listActionQueue({
+          organizationIds: requestedOrganizationId
+            ? [requestedOrganizationId]
+            : access.isPrivileged
+              ? undefined
+              : getActiveClientOrganizationIds(access),
+          includeInternal: access.isPrivileged,
+          audience: access.isPrivileged ? 'management' : 'client',
+        })
+
+        res.json(queue)
+      } catch (error) {
+        console.error('[Clients] Error listing activity queue:', error)
+        res.status(500).json({ error: 'Failed to fetch client action queue' })
+      }
+    })
+
     router.post('/organizations', authenticateToken, async (req: Request, res: Response) => {
       try {
         const access = await this.getAccessContext(req)
@@ -200,6 +231,7 @@ export class ClientsController {
         const organization = await this.service.updateOrganizationStatus(
           id,
           parseUpdateClientOrganizationStatusInput(req.body || {}),
+          access.requesterId,
         )
 
         res.json(serializeClientOrganizationForManagement(organization))
@@ -233,6 +265,33 @@ export class ClientsController {
       } catch (error) {
         console.error('[Clients] Error fetching organization overview:', error)
         res.status(500).json({ error: 'Failed to fetch client overview' })
+      }
+    })
+
+    router.get('/organizations/:id/activity', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+
+        const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        if (!canReadClientOrganization(access, { id })) {
+          return res.status(403).json({ error: 'You can only view activity for your assigned client organization' })
+        }
+
+        const activities = await this.service.listActivities(
+          id,
+          parseClientActivityQuery(req.query as Record<string, unknown>),
+          access.isPrivileged,
+        )
+
+        res.json(serializeClientActivities(activities, access.isPrivileged))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+
+        console.error('[Clients] Error fetching organization activity:', error)
+        res.status(500).json({ error: 'Failed to fetch client activity' })
       }
     })
 
@@ -819,6 +878,7 @@ export class ClientsController {
         const billing = await this.service.upsertBillingStatus(
           organizationId,
           parseUpsertClientBillingStatusInput(req.body || {}),
+          access.requesterId,
         )
         res.json(serializeClientBillingStatusForManagement(billing))
       } catch (error) {
@@ -902,7 +962,7 @@ export class ClientsController {
         const calendarItem = await this.service.findCalendarItemById(calendarItemId)
         if (!calendarItem) return res.status(404).json({ error: 'Calendar item not found' })
 
-        await this.service.deleteCalendarItem(calendarItemId)
+        await this.service.deleteCalendarItem(calendarItemId, access.requesterId, calendarItem)
         res.status(204).send()
       } catch (error) {
         console.error('[Clients] Error deleting calendar item:', error)
@@ -948,7 +1008,7 @@ export class ClientsController {
         if (!ticket) return res.status(404).json({ error: 'Client ticket not found' })
 
         const { status } = parseUpdateClientTicketStatusInput(req.body || {})
-        const updatedTicket = await this.service.updateTicketStatus(ticketId, status)
+        const updatedTicket = await this.service.updateTicketStatus(ticketId, status, access.requesterId)
 
         if (ticket.status !== status) {
           const updateCopy = getClientTicketStatusUpdateCopy(status)
@@ -986,8 +1046,10 @@ export class ClientsController {
 
         await this.service.createTicketComment(
           ticketId,
+          ticket.organizationId,
           access.requesterId,
           parseCreateClientTicketCommentInput(req.body || {}, access.isPrivileged),
+          ticket.title,
         )
 
         const updatedTicket = await this.service.findTicketById(ticketId)

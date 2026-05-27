@@ -9,6 +9,7 @@ Current additive migrations related to the recent release:
 - `202605210001_task_sessions_signup_requests`
 - `202605210002_task_creator`
 - `202605240001_client_portal_foundation`
+- `202605270002_client_activity`
 
 Migration SQL is now tracked. Do not ignore migration SQL files or rely on local schema drift.
 
@@ -119,6 +120,7 @@ Client portal data is tenant-scoped by `ClientOrganization`.
 - `ClientAsset` stores client file/asset links separately from general resources so assets can have lifecycle status and notes.
 - `ClientBillingStatus` stores one billing/plan status record per client organization and is hidden from clients unless explicitly marked visible.
 - `ClientCalendarItem` stores campaign and content calendar items with channel, status, schedule, and visibility.
+- `ClientActivity` stores append-only client-operations events. Each activity belongs to a `ClientOrganization`, may link to the acting `User` with `onDelete: SetNull`, and uses `visibility` (`internal` or `client`) to keep internal audit history separate from client-facing history. Indexes support organization timelines, visibility-scoped reads, subject lookups, and activity-type filtering.
 - New client portal tables are additive and do not change existing employee task, payroll, chat, or file-directory records.
 
 ## Collaboration And Files

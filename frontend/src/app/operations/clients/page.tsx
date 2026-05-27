@@ -12,6 +12,8 @@ import {
   Ticket,
   UserPlus,
 } from "lucide-react";
+import ClientActionQueue from "@/components/client-portal/ClientActionQueue";
+import ClientActivityTimeline from "@/components/client-portal/ClientActivityTimeline";
 import ClientOperationsPanel from "@/components/client-portal/ClientOperationsPanel";
 import ClientOperationsShell from "@/components/client-portal/ClientOperationsShell";
 import EmptyState from "@/components/ui/EmptyState";
@@ -104,54 +106,36 @@ export default function ClientOperationsOverviewPage() {
             </div>
 
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-              <ClientOperationsPanel icon={Clock} title="Next Attention">
-                <div className="space-y-3">
-                  {openApprovals[0] ? (
-                    <Link
-                      href={withClientOperationsClientParam("/operations/clients/approvals", workspace.selectedId)}
-                      className="block rounded-[var(--radius-md)] border border-[var(--border)] p-3 transition-colors hover:bg-[var(--surface-hover)]"
-                    >
-                      <div className="text-sm font-semibold">{openApprovals[0].title}</div>
-                      <div className="mt-1 text-xs text-[var(--muted)]">Approval waiting for client decision</div>
-                    </Link>
-                  ) : null}
-                  {overview.tickets[0] ? (
-                    <Link
-                      href={withClientOperationsClientParam("/operations/clients/requests", workspace.selectedId)}
-                      className="block rounded-[var(--radius-md)] border border-[var(--border)] p-3 transition-colors hover:bg-[var(--surface-hover)]"
-                    >
-                      <div className="text-sm font-semibold">{overview.tickets[0].title}</div>
-                      <div className="mt-1 text-xs text-[var(--muted)]">Latest client request</div>
-                    </Link>
-                  ) : null}
-                  {openApprovals.length === 0 && overview.tickets.length === 0 ? (
-                    <EmptyState variant="compact" icon={CheckCircle2} title="No urgent client actions" />
-                  ) : null}
-                </div>
+              <ClientOperationsPanel icon={Clock} title="Action Queue" count={workspace.queueItems.length}>
+                <ClientActionQueue items={workspace.queueItems} showOrganization={false} />
               </ClientOperationsPanel>
 
-              <ClientOperationsPanel icon={FileText} title="Latest Client-Facing Updates">
-                <div className="space-y-3">
-                  {latestUpdate ? (
-                    <article className="rounded-[var(--radius-md)] border border-[var(--border)] p-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="text-sm font-semibold">{latestUpdate.title}</div>
-                        <StatusBadge label={latestUpdate.visibleToClient === false ? "Internal" : "Client visible"} size="sm" />
-                      </div>
-                      <p className="mt-2 line-clamp-3 text-sm leading-6 text-[var(--muted)]">{latestUpdate.body}</p>
-                    </article>
-                  ) : (
-                    <EmptyState variant="compact" icon={FileText} title="No updates yet" />
-                  )}
-                  {latestReport ? (
-                    <article className="rounded-[var(--radius-md)] border border-[var(--border)] p-3">
-                      <div className="text-sm font-semibold">{latestReport.title}</div>
-                      <div className="mt-1 text-xs text-[var(--muted)]">Latest report period ending {formatClientPortalDate(latestReport.periodEnd)}</div>
-                    </article>
-                  ) : null}
-                </div>
+              <ClientOperationsPanel icon={Activity} title="Latest Activity" count={workspace.activities.length}>
+                <ClientActivityTimeline activities={workspace.activities} limit={6} />
               </ClientOperationsPanel>
             </div>
+
+            <ClientOperationsPanel icon={FileText} title="Latest Client-Facing Updates">
+              <div className="space-y-3">
+                {latestUpdate ? (
+                  <article className="rounded-[var(--radius-md)] border border-[var(--border)] p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-sm font-semibold">{latestUpdate.title}</div>
+                      <StatusBadge label={latestUpdate.visibleToClient === false ? "Internal" : "Client visible"} size="sm" />
+                    </div>
+                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-[var(--muted)]">{latestUpdate.body}</p>
+                  </article>
+                ) : (
+                  <EmptyState variant="compact" icon={FileText} title="No updates yet" />
+                )}
+                {latestReport ? (
+                  <article className="rounded-[var(--radius-md)] border border-[var(--border)] p-3">
+                    <div className="text-sm font-semibold">{latestReport.title}</div>
+                    <div className="mt-1 text-xs text-[var(--muted)]">Latest report period ending {formatClientPortalDate(latestReport.periodEnd)}</div>
+                  </article>
+                ) : null}
+              </div>
+            </ClientOperationsPanel>
 
             <ClientOperationsPanel icon={Activity} title="Projects">
               {overview.projects.length === 0 ? (

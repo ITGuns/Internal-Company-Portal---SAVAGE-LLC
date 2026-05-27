@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/ToastProvider";
 import {
+  fetchClientActionQueue,
+  fetchClientActivity,
+  type ClientActionQueueItem,
+  type ClientActivity,
+} from "@/lib/client-activity";
+import {
   ClientOrganization,
   ClientPortalOverview,
   fetchClientOrganizations,
@@ -13,6 +19,8 @@ export interface ClientPortalWorkspaceState {
   organizations: ClientOrganization[];
   selectedId: string;
   overview: ClientPortalOverview | null;
+  activities: ClientActivity[];
+  queueItems: ClientActionQueueItem[];
   loading: boolean;
   overviewLoading: boolean;
   setSelectedId: (organizationId: string) => void;
@@ -24,6 +32,8 @@ export function useClientPortalWorkspace(): ClientPortalWorkspaceState {
   const [organizations, setOrganizations] = useState<ClientOrganization[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [overview, setOverview] = useState<ClientPortalOverview | null>(null);
+  const [activities, setActivities] = useState<ClientActivity[]>([]);
+  const [queueItems, setQueueItems] = useState<ClientActionQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [overviewLoading, setOverviewLoading] = useState(false);
 
@@ -36,12 +46,21 @@ export function useClientPortalWorkspace(): ClientPortalWorkspaceState {
   const loadOverview = useCallback(async (organizationId: string) => {
     if (!organizationId) {
       setOverview(null);
+      setActivities([]);
+      setQueueItems([]);
       return;
     }
 
     setOverviewLoading(true);
     try {
-      setOverview(await fetchClientOverview(organizationId));
+      const [nextOverview, nextActivities, nextQueueItems] = await Promise.all([
+        fetchClientOverview(organizationId),
+        fetchClientActivity(organizationId, { limit: 30 }),
+        fetchClientActionQueue(organizationId),
+      ]);
+      setOverview(nextOverview);
+      setActivities(nextActivities);
+      setQueueItems(nextQueueItems);
     } finally {
       setOverviewLoading(false);
     }
@@ -96,6 +115,8 @@ export function useClientPortalWorkspace(): ClientPortalWorkspaceState {
     organizations,
     selectedId,
     overview,
+    activities,
+    queueItems,
     loading,
     overviewLoading,
     setSelectedId,

@@ -211,6 +211,70 @@ async function runClientRouteTests() {
         [organization.id],
       )
 
+      await prisma.clientActivity.createMany({
+        data: [
+          {
+            organizationId: organization.id,
+            actorId: admin.id,
+            type: 'ticket_internal_note_created',
+            subjectType: 'ticket',
+            subjectId: 'ticket-internal',
+            visibility: 'internal',
+            title: 'Internal note recorded',
+            body: 'Internal note should stay hidden from clients.',
+            metadata: { source: 'route-test' },
+          },
+          {
+            organizationId: organization.id,
+            actorId: admin.id,
+            type: 'ticket_client_reply_created',
+            subjectType: 'ticket',
+            subjectId: 'ticket-client-visible',
+            visibility: 'client',
+            title: 'Client-visible reply recorded',
+            body: 'Client-visible activity should be returned to clients.',
+            metadata: { source: 'route-test' },
+          },
+          {
+            organizationId: otherOrganization.id,
+            actorId: admin.id,
+            type: 'ticket_client_reply_created',
+            subjectType: 'ticket',
+            subjectId: 'ticket-other-client',
+            visibility: 'client',
+            title: 'Other client activity',
+          },
+        ],
+      })
+
+      const adminActivity = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/activity?limit=10`,
+        { token: adminToken },
+      )
+      assert.equal(adminActivity.status, 200)
+      assert.equal(adminActivity.body.some((activity: JsonRecord) => activity.visibility === 'internal'), true)
+      assert.equal(adminActivity.body.some((activity: JsonRecord) => activity.metadata?.source === 'route-test'), true)
+
+      const clientActivity = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/activity?limit=10&visibility=internal`,
+        { token: login.body.tokens.accessToken },
+      )
+      assert.equal(clientActivity.status, 200)
+      assert.deepEqual(
+        clientActivity.body.map((activity: JsonRecord) => activity.visibility),
+        ['client'],
+      )
+      assert.equal('metadata' in clientActivity.body[0], false)
+
+      const invalidActivityFilter = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/activity?visibility=private`,
+        { token: adminToken },
+      )
+      assert.equal(invalidActivityFilter.status, 400)
+
       const otherOverview = await requestJson(
         baseUrl,
         `/api/clients/organizations/${otherOrganization.id}/overview`,
@@ -244,6 +308,97 @@ async function runClientRouteTests() {
         },
       )
       assert.equal(otherTicketsList.status, 403)
+
+      const otherActivity = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${otherOrganization.id}/activity`,
+        {
+          token: clientToken,
+        },
+      )
+      assert.equal(otherActivity.status, 403)
+
+      const clientTicket = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/tickets`,
+        {
+          method: 'POST',
+          token: login.body.tokens.accessToken,
+          body: {
+            title: 'Need homepage copy reviewed',
+            description: 'Please check the homepage copy.',
+            category: 'review',
+            priority: 'high',
+          },
+        },
+      )
+      assert.equal(clientTicket.status, 201)
+
+      const adminQueue = await requestJson(
+        baseUrl,
+        `/api/clients/activity/queue?organizationId=${organization.id}`,
+        { token: adminToken },
+      )
+      assert.equal(adminQueue.status, 200)
+      assert.equal(adminQueue.body.some((item: JsonRecord) => item.category === 'team_response_needed'), true)
+
+      const clientQueueBeforeReply = await requestJson(
+        baseUrl,
+        `/api/clients/activity/queue?organizationId=${organization.id}`,
+        { token: login.body.tokens.accessToken },
+      )
+      assert.equal(clientQueueBeforeReply.status, 200)
+      assert.equal(
+        clientQueueBeforeReply.body.some((item: JsonRecord) => item.category === 'team_response_needed'),
+        false,
+      )
+
+      const ticketReply = await requestJson(
+        baseUrl,
+        `/api/clients/tickets/${clientTicket.body.id}/comments`,
+        {
+          method: 'POST',
+          token: adminToken,
+          body: {
+            body: 'This is ready for your review.',
+            visibility: 'client',
+          },
+        },
+      )
+      assert.equal(ticketReply.status, 201)
+
+      const ticketActivity = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/activity?subjectType=ticket&subjectId=${clientTicket.body.id}`,
+        { token: adminToken },
+      )
+      assert.equal(ticketActivity.status, 200)
+      assert.equal(
+        ticketActivity.body.some((activity: JsonRecord) => activity.type === 'ticket_created'),
+        true,
+      )
+      assert.equal(
+        ticketActivity.body.some((activity: JsonRecord) => activity.type === 'ticket_client_reply_created'),
+        true,
+      )
+
+      const clientQueueAfterReply = await requestJson(
+        baseUrl,
+        `/api/clients/activity/queue?organizationId=${organization.id}`,
+        { token: login.body.tokens.accessToken },
+      )
+      assert.equal(clientQueueAfterReply.status, 200)
+      assert.equal(
+        clientQueueAfterReply.body.some((item: JsonRecord) => item.category === 'client_response_needed'),
+        true,
+      )
+
+      const otherQueue = await requestJson(
+        baseUrl,
+        `/api/clients/activity/queue?organizationId=${otherOrganization.id}`,
+        { token: clientToken },
+      )
+      assert.equal(otherQueue.status, 403)
 
       const clientWorkItemAttempt = await requestJson(
         baseUrl,
@@ -288,6 +443,52 @@ async function runClientRouteTests() {
         },
       )
       assert.equal(otherApprovalResponse.status, 403)
+
+      const clientApproval = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/approvals`,
+        {
+          method: 'POST',
+          token: adminToken,
+          body: {
+            title: 'Approve homepage hero',
+            description: 'Please approve the homepage hero copy.',
+            status: 'pending',
+            visibleToClient: true,
+          },
+        },
+      )
+      assert.equal(clientApproval.status, 201)
+
+      const approvalResponse = await requestJson(
+        baseUrl,
+        `/api/clients/approvals/${clientApproval.body.id}/respond`,
+        {
+          method: 'PATCH',
+          token: login.body.tokens.accessToken,
+          body: {
+            status: 'changes_requested',
+            responseNote: 'Please adjust the headline.',
+          },
+        },
+      )
+      assert.equal(approvalResponse.status, 200)
+      assert.equal(approvalResponse.body.status, 'changes_requested')
+
+      const approvalActivity = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/activity?subjectType=approval&subjectId=${clientApproval.body.id}`,
+        { token: adminToken },
+      )
+      assert.equal(approvalActivity.status, 200)
+      assert.equal(
+        approvalActivity.body.some((activity: JsonRecord) => activity.type === 'approval_requested'),
+        true,
+      )
+      assert.equal(
+        approvalActivity.body.some((activity: JsonRecord) => activity.type === 'approval_changes_requested'),
+        true,
+      )
 
       const clientArchiveAttempt = await requestJson(
         baseUrl,
@@ -369,6 +570,49 @@ async function runClientRouteTests() {
         [organization.id],
       )
 
+      const organizationActivity = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/activity?subjectType=organization&subjectId=${organization.id}`,
+        { token: adminToken },
+      )
+      assert.equal(organizationActivity.status, 200)
+      assert.equal(
+        organizationActivity.body.some((activity: JsonRecord) => activity.type === 'organization_archived'),
+        true,
+      )
+      assert.equal(
+        organizationActivity.body.some((activity: JsonRecord) => activity.type === 'organization_restored'),
+        true,
+      )
+
+      const billing = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/billing-status`,
+        {
+          method: 'PATCH',
+          token: adminToken,
+          body: {
+            planName: 'Growth Care',
+            status: 'active',
+            monthlyAmount: 750,
+            currency: 'USD',
+            visibleToClient: true,
+          },
+        },
+      )
+      assert.equal(billing.status, 200)
+
+      const billingActivity = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/activity?subjectType=billing_status&subjectId=${billing.body.id}`,
+        { token: login.body.tokens.accessToken },
+      )
+      assert.equal(billingActivity.status, 200)
+      assert.equal(
+        billingActivity.body.some((activity: JsonRecord) => activity.type === 'billing_updated'),
+        true,
+      )
+
       const calendarItem = await requestJson(
         baseUrl,
         `/api/clients/organizations/${organization.id}/calendar-items`,
@@ -406,6 +650,21 @@ async function runClientRouteTests() {
       )
       assert.equal(deletedCalendarItem.status, 204)
       assert.deepEqual(deletedCalendarItem.body, {})
+
+      const calendarActivity = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/activity?subjectType=calendar_item&subjectId=${calendarItem.body.id}`,
+        { token: adminToken },
+      )
+      assert.equal(calendarActivity.status, 200)
+      assert.equal(
+        calendarActivity.body.some((activity: JsonRecord) => activity.type === 'calendar_scheduled'),
+        true,
+      )
+      assert.equal(
+        calendarActivity.body.some((activity: JsonRecord) => activity.type === 'calendar_deleted'),
+        true,
+      )
 
       const missingCalendarItem = await requestJson(
         baseUrl,

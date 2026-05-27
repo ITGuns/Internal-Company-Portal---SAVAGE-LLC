@@ -95,6 +95,7 @@ Operations manages departments, role options, and client account administration.
 - Client Operations can invite external client contacts, create the client user, assign organization access, and show a setup link when email delivery is not configured.
 - Client Operations ticket lists support search plus status, priority, and request-type filters.
 - Client Operations now appears under a dedicated **Client Side** sidebar section with focused route links for admins, operations managers, and web developers, while the base `/operations` page stays focused on departments and roles.
+- Client Operations now includes a shared action queue and latest-activity timeline so admins can see which client or team response is needed without opening every workspace section.
 
 ## Client Portal Foundation
 
@@ -124,6 +125,8 @@ Deskii now has the backend foundation for a client-facing portal/tool inside the
 - Client Operations includes client team access controls for inviting new external clients, adding approved existing users, editing membership roles/status, deactivating users without losing history, and reactivating access later.
 - Client Operations can archive an entire client account with typed confirmation, hiding it from client users while preserving requests, reports, files, billing notes, and history for internal review.
 - Client ticket and message views now show shared next-action signals so admins and clients can see whether the team or client is expected to respond.
+- Client and admin dashboards now consume the same activity history and derived action queue. Client users only see client-visible events; internal users see both client-visible and internal audit events.
+- Request replies, approval decisions, billing changes, calendar scheduling/deletion, account archive/restore, work changes, and report publishing create append-only activity records.
 - Client users land on `/client` after login, and authenticated client users attempting `/dashboard` are redirected back to the client portal.
 
 ## Payroll Calendar

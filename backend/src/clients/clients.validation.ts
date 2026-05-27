@@ -258,6 +258,13 @@ export interface UpdateClientCalendarItemInput {
   visibleToClient?: boolean
 }
 
+export interface ClientActivityQueryInput {
+  limit: number
+  visibility?: string
+  subjectType?: string
+  subjectId?: string
+}
+
 type InputRecord = Record<string, unknown>
 
 const CLIENT_ORGANIZATION_STATUSES = new Set(['active', 'paused', 'archived'])
@@ -279,6 +286,7 @@ const ROADMAP_STATUSES = new Set(['recommended', 'next', 'planned', 'done', 'arc
 const ASSET_STATUSES = new Set(['draft', 'requested', 'received', 'approved', 'archived'])
 const BILLING_STATUSES = new Set(['active', 'trial', 'past_due', 'paused', 'cancelled', 'archived'])
 const CALENDAR_STATUSES = new Set(['planned', 'scheduled', 'published', 'cancelled', 'archived'])
+const ACTIVITY_VISIBILITIES = new Set(['internal', 'client'])
 
 function readTrimmedString(input: InputRecord, key: string): string | undefined {
   const value = input[key]
@@ -342,6 +350,13 @@ function readNonNegativeInteger(input: InputRecord, key: string): number | undef
   const value = readOptionalInteger(input, key)
   if (value === undefined) return undefined
   if (value < 0) throw new ClientValidationError(`${key} cannot be negative`)
+  return value
+}
+
+function readLimitedInteger(input: InputRecord, key: string, defaultValue: number, min: number, max: number): number {
+  const value = readInteger(input, key, defaultValue)
+  if (value < min) return min
+  if (value > max) return max
   return value
 }
 
@@ -870,4 +885,21 @@ export function parseUpdateClientCalendarItemInput(input: InputRecord): UpdateCl
 
   assertHasUpdates(data as InputRecord)
   return data
+}
+
+export function parseClientActivityQuery(query: InputRecord): ClientActivityQueryInput {
+  const visibility = readOptionalStatus(query, 'visibility', ACTIVITY_VISIBILITIES)
+  const subjectType = readTrimmedString(query, 'subjectType')
+  const subjectId = readTrimmedString(query, 'subjectId')
+
+  if (subjectId && !subjectType) {
+    throw new ClientValidationError('Activity subjectType is required when subjectId is provided')
+  }
+
+  return {
+    limit: readLimitedInteger(query, 'limit', 30, 1, 100),
+    ...(visibility ? { visibility } : {}),
+    ...(subjectType ? { subjectType } : {}),
+    ...(subjectId ? { subjectId } : {}),
+  }
 }

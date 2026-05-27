@@ -6,19 +6,29 @@ import {
   Activity,
   BarChart3,
   BriefcaseBusiness,
+  Clock,
   ExternalLink,
   FileText,
   LinkIcon,
+  MessageSquare,
   Plus,
   Ticket,
 } from "lucide-react";
 import Button from "@/components/Button";
+import ClientActionQueue from "@/components/client-portal/ClientActionQueue";
+import ClientActivityTimeline from "@/components/client-portal/ClientActivityTimeline";
 import ChoiceGroup from "@/components/client-portal/ChoiceGroup";
 import TicketDetailPresets from "@/components/client-portal/TicketDetailPresets";
 import Header from "@/components/Header";
 import EmptyState from "@/components/ui/EmptyState";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { useToast } from "@/components/ToastProvider";
+import {
+  fetchClientActionQueue,
+  fetchClientActivity,
+  type ClientActionQueueItem,
+  type ClientActivity,
+} from "@/lib/client-activity";
 import {
   ClientOrganization,
   ClientPortalOverview,
@@ -59,6 +69,8 @@ export default function ClientPortalPage() {
   const [organizations, setOrganizations] = useState<ClientOrganization[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [overview, setOverview] = useState<ClientPortalOverview | null>(null);
+  const [activities, setActivities] = useState<ClientActivity[]>([]);
+  const [queueItems, setQueueItems] = useState<ClientActionQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [ticketForm, setTicketForm] = useState({ description: "", category: "website", priority: "normal" });
@@ -81,9 +93,18 @@ export default function ClientPortalPage() {
   const loadOverview = useCallback(async (organizationId: string) => {
     if (!organizationId) {
       setOverview(null);
+      setActivities([]);
+      setQueueItems([]);
       return;
     }
-    setOverview(await fetchClientOverview(organizationId));
+    const [nextOverview, nextActivities, nextQueueItems] = await Promise.all([
+      fetchClientOverview(organizationId),
+      fetchClientActivity(organizationId, { limit: 30 }),
+      fetchClientActionQueue(organizationId),
+    ]);
+    setOverview(nextOverview);
+    setActivities(nextActivities);
+    setQueueItems(nextQueueItems);
   }, []);
 
   useEffect(() => {
@@ -259,9 +280,17 @@ export default function ClientPortalPage() {
                     </div>
                   )}
                 </Panel>
+
+                <Panel title="Latest Activity" icon={MessageSquare} count={activities.length}>
+                  <ClientActivityTimeline activities={activities} limit={6} />
+                </Panel>
               </div>
 
               <div className="space-y-5">
+                <Panel title="Action Queue" icon={Clock} count={queueItems.length}>
+                  <ClientActionQueue items={queueItems} showOrganization={false} />
+                </Panel>
+
                 <Panel title="Submit Request" icon={Plus}>
                   <form onSubmit={handleCreateTicket} className="space-y-4">
                     <ChoiceGroup

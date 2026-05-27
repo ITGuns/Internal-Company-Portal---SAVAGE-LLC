@@ -5,6 +5,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ToastProvider";
 import { useUser } from "@/contexts/UserContext";
 import {
+  fetchClientActionQueue,
+  fetchClientActivity,
+  type ClientActionQueueItem,
+  type ClientActivity,
+} from "@/lib/client-activity";
+import {
   ClientMembership,
   ClientOrganization,
   ClientPortalOverview,
@@ -26,6 +32,8 @@ export interface ClientOperationsWorkspace {
   selectedOrganization: ClientOrganization | null;
   overview: ClientPortalOverview | null;
   memberships: ClientMembership[];
+  activities: ClientActivity[];
+  queueItems: ClientActionQueueItem[];
   users: User[];
   summary: ReturnType<typeof buildClientPortalSummary>;
   loading: boolean;
@@ -55,6 +63,8 @@ export function useClientOperationsWorkspace(): ClientOperationsWorkspace {
   const [organizations, setOrganizations] = useState<ClientOrganization[]>([]);
   const [overview, setOverview] = useState<ClientPortalOverview | null>(null);
   const [memberships, setMemberships] = useState<ClientMembership[]>([]);
+  const [activities, setActivities] = useState<ClientActivity[]>([]);
+  const [queueItems, setQueueItems] = useState<ClientActionQueueItem[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -92,15 +102,21 @@ export function useClientOperationsWorkspace(): ClientOperationsWorkspace {
     if (!organizationId) {
       setOverview(null);
       setMemberships([]);
+      setActivities([]);
+      setQueueItems([]);
       return;
     }
 
-    const [nextOverview, nextMemberships] = await Promise.all([
+    const [nextOverview, nextMemberships, nextActivities, nextQueueItems] = await Promise.all([
       fetchClientOverview(organizationId),
       fetchClientMemberships(organizationId),
+      fetchClientActivity(organizationId, { limit: 30 }),
+      fetchClientActionQueue(organizationId),
     ]);
     setOverview(nextOverview);
     setMemberships(nextMemberships);
+    setActivities(nextActivities);
+    setQueueItems(nextQueueItems);
   }, [selectedId]);
 
   const refreshCurrent = useCallback(async () => {
@@ -134,6 +150,8 @@ export function useClientOperationsWorkspace(): ClientOperationsWorkspace {
       setOrganizations([]);
       setOverview(null);
       setMemberships([]);
+      setActivities([]);
+      setQueueItems([]);
       setUsers([]);
       return;
     }
@@ -195,6 +213,8 @@ export function useClientOperationsWorkspace(): ClientOperationsWorkspace {
     selectedOrganization,
     overview,
     memberships,
+    activities,
+    queueItems,
     users,
     summary,
     loading,

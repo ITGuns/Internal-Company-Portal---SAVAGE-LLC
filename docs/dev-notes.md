@@ -1,5 +1,61 @@
 # Development Notes
 
+## 2026-05-27 - Client Activity And Action Queue Foundation
+
+### Completed
+
+- Added an additive `ClientActivity` audit table with scoped visibility for internal and client-visible client-operations events.
+- Added activity and action-queue API endpoints with tenant checks, bounded filters, explicit serialization, and route-level tests.
+- Recorded audit-significant activity in the same transaction as request replies, approval decisions, billing updates, calendar scheduling/deletion, account archive/restore, work updates, and report publishing.
+- Added shared frontend activity and queue helpers, reusable timeline/queue components, and dashboard integrations for admin Client Operations, the client command center, and client Messages.
+- Preserved client privacy by forcing client activity reads to `client` visibility and omitting internal metadata from client responses.
+- Browser-smoked admin Client Operations, client command center, and mobile client Messages against the local production build with no horizontal overflow.
+
+### Files Changed
+
+- `backend/prisma/schema.prisma`
+- `backend/prisma/migrations/202605270002_client_activity/migration.sql`
+- `backend/src/clients/clients.activity.ts`
+- `backend/src/clients/clients.controller.ts`
+- `backend/src/clients/clients.serializers.ts`
+- `backend/src/clients/clients.service.ts`
+- `backend/src/clients/clients.validation.ts`
+- `backend/tests/clients.activity.test.ts`
+- `backend/tests/clients.routes.test.ts`
+- `backend/tests/run-tests.ts`
+- `frontend/src/lib/client-activity.ts`
+- `frontend/src/hooks/useClientOperationsWorkspace.ts`
+- `frontend/src/hooks/useClientPortalWorkspace.ts`
+- `frontend/src/components/client-portal/ClientActionQueue.tsx`
+- `frontend/src/components/client-portal/ClientActivityTimeline.tsx`
+- `frontend/src/app/operations/clients/page.tsx`
+- `frontend/src/app/client/page.tsx`
+- `frontend/src/app/client/messages/page.tsx`
+- `frontend/tests/client-activity.test.mjs`
+- `docs/api.md`
+- `docs/database.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Keep the action queue derived from existing operational records instead of creating another persistent queue table.
+- Store activity events as append-only records and enforce visibility at both query and serializer layers.
+- Put the shared queue/timeline UI into reusable client-portal components so admin and client pages can stay visually consistent.
+
+### How to Test
+
+- `cd backend && npm run prisma:deploy`
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd frontend && npm test`
+- `cd frontend && npm run build`
+- Browser smoke: `/operations/clients`, `/client`, and `/client/messages` at desktop/mobile widths.
+
+### Next Steps
+
+- Consider adding notification rules on top of `ClientActivity` once the queue behavior is validated with real client workflows.
+
 ## 2026-05-27 - Client Operations Production Readiness
 
 ### Completed

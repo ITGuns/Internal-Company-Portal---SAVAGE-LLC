@@ -263,6 +263,27 @@ interface ClientCalendarItemLike {
   [key: string]: unknown
 }
 
+interface ClientActivityLike {
+  id: string
+  organizationId: string
+  actorId?: string | null
+  type: string
+  subjectType: string
+  subjectId?: string | null
+  visibility: string
+  title: string
+  body?: string | null
+  metadata?: unknown
+  createdAt: SerializableDate
+  actor?: {
+    id: string
+    email: string
+    name?: string | null
+    avatar?: string | null
+  } | null
+  [key: string]: unknown
+}
+
 function serializeDate(value: SerializableDate): string | null {
   if (!value) return null
   if (value instanceof Date) return value.toISOString()
@@ -714,6 +735,38 @@ export function serializeClientCalendarItemForManagement(item: ClientCalendarIte
     createdById: item.createdById || null,
     visibleToClient: item.visibleToClient,
   }
+}
+
+export function serializeClientActivity(activity: ClientActivityLike, includeInternal = false) {
+  if (!includeInternal && activity.visibility !== 'client') return null
+
+  return {
+    id: activity.id,
+    organizationId: activity.organizationId,
+    actorId: activity.actorId || null,
+    actor: activity.actor
+      ? {
+        id: activity.actor.id,
+        email: activity.actor.email,
+        name: activity.actor.name || null,
+        avatar: activity.actor.avatar || null,
+      }
+      : null,
+    type: activity.type,
+    subjectType: activity.subjectType,
+    subjectId: activity.subjectId || null,
+    visibility: activity.visibility,
+    title: activity.title,
+    body: activity.body || null,
+    metadata: includeInternal ? activity.metadata ?? null : undefined,
+    createdAt: serializeDate(activity.createdAt),
+  }
+}
+
+export function serializeClientActivities(activities: ClientActivityLike[], includeInternal = false) {
+  return activities
+    .map((activity) => serializeClientActivity(activity, includeInternal))
+    .filter(Boolean)
 }
 
 export function serializeClientPortalOverview(organization: any, isPrivileged: boolean) {
