@@ -90,7 +90,7 @@ export default function ClientTicketsPage() {
         await loadOrganizations();
       } catch (error) {
         console.error(error);
-        toast.error("Failed to load ticket center");
+        toast.error("Failed to load request center");
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -104,7 +104,7 @@ export default function ClientTicketsPage() {
   useEffect(() => {
     loadTickets(selectedId).catch((error) => {
       console.error(error);
-      toast.error("Failed to load tickets");
+      toast.error("Failed to load requests");
     });
   }, [loadTickets, selectedId, toast]);
 
@@ -131,9 +131,9 @@ export default function ClientTicketsPage() {
       setForm({ description: "", category: "website", priority: "normal" });
       setSelectedTicketId(ticket.id);
       await loadTickets(selectedId);
-      toast.success("Ticket submitted");
+      toast.success("Request submitted");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to submit ticket");
+      toast.error(error instanceof Error ? error.message : "Failed to submit request");
     } finally {
       setSaving(false);
     }
@@ -223,7 +223,7 @@ export default function ClientTicketsPage() {
   return (
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-6 pt-0">
-        <Header title="Client Tickets" subtitle="Submit requests and review ticket status." />
+        <Header title="Requests" subtitle="Submit requests and review status with the team." />
 
         {organizations.length > 1 ? (
           <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
@@ -234,17 +234,17 @@ export default function ClientTicketsPage() {
         ) : null}
 
         {loading ? (
-          <div className="mt-6 text-sm text-[var(--muted)]">Loading tickets...</div>
+          <div className="mt-6 text-sm text-[var(--muted)]">Loading requests...</div>
         ) : organizations.length === 0 ? (
           <div className="mt-6">
             <EmptyState icon={Ticket} title="No client workspace assigned" description="Your account is not connected to a client organization yet." />
           </div>
         ) : (
-          <div className="mt-6 grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
-            <section className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-4">
+          <div className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+            <section className="min-w-0 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-4">
               <div className="mb-4 flex items-center gap-2">
                 <Plus className="h-4 w-4 text-[var(--accent)]" />
-                <h2 className="text-sm font-semibold">New Ticket</h2>
+                <h2 className="text-sm font-semibold">New Request</h2>
               </div>
               <form onSubmit={handleCreateTicket} className="space-y-4">
                 <ChoiceGroup
@@ -283,12 +283,12 @@ export default function ClientTicketsPage() {
               </form>
             </section>
 
-            <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_420px]">
-              <section className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)]">
+            <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_420px]">
+              <section className="min-w-0 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)]">
                 <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
                   <div className="flex items-center gap-2">
                     <Ticket className="h-4 w-4 text-[var(--accent)]" />
-                    <h2 className="text-sm font-semibold">Tickets</h2>
+                    <h2 className="text-sm font-semibold">Requests</h2>
                   </div>
                   <span className="text-xs text-[var(--muted)]">{ticketFilterSummary}</span>
                 </div>
@@ -300,9 +300,9 @@ export default function ClientTicketsPage() {
                       onChange={setTicketFilters}
                     />
                     {tickets.length === 0 ? (
-                      <EmptyState variant="compact" icon={Ticket} title="No tickets yet" description="Submitted requests will appear here." />
+                      <EmptyState variant="compact" icon={Ticket} title="No requests yet" description="Submitted requests will appear here." />
                     ) : filteredTickets.length === 0 ? (
-                      <EmptyState variant="compact" icon={Ticket} title="No matching tickets" description="Adjust the filters to see more requests." />
+                      <EmptyState variant="compact" icon={Ticket} title="No matching requests" description="Adjust the filters to see more requests." />
                     ) : (
                       filteredTickets.map((ticket) => {
                         const isSelected = selectedTicket?.id === ticket.id;
@@ -337,17 +337,17 @@ export default function ClientTicketsPage() {
                 </div>
               </section>
 
-              <section className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)]">
+              <section className="min-w-0 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)]">
                 <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
                   <div className="flex items-center gap-2">
                     <MessageSquare className="h-4 w-4 text-[var(--accent)]" />
-                    <h2 className="text-sm font-semibold">Ticket Detail</h2>
+                    <h2 className="text-sm font-semibold">Request Detail</h2>
                   </div>
                   {selectedTicket ? <StatusBadge label={getClientPortalOptionLabel(CLIENT_TICKET_STATUSES, selectedTicket.status)} size="sm" /> : null}
                 </div>
                 <div className="space-y-5 p-4">
                   {!selectedTicket ? (
-                    <EmptyState variant="compact" icon={Ticket} title="Select a ticket" description="Ticket notes and replies will appear here." />
+                    <EmptyState variant="compact" icon={Ticket} title="Select a request" description="Request notes and replies will appear here." />
                   ) : (
                     <>
                       <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-3">

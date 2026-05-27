@@ -72,7 +72,7 @@ test('filters client tickets by query and option sets without mutating input', (
 test('summarizes active client ticket filters for compact UI copy', () => {
   const { DEFAULT_CLIENT_TICKET_FILTERS, getClientTicketFilterSummary } = loadClientTicketFilters();
 
-  assert.equal(getClientTicketFilterSummary(tickets, tickets, DEFAULT_CLIENT_TICKET_FILTERS), '3 tickets');
-  assert.equal(getClientTicketFilterSummary(tickets.slice(0, 1), tickets, { ...DEFAULT_CLIENT_TICKET_FILTERS, query: 'home' }), '1 of 3 tickets');
-  assert.equal(getClientTicketFilterSummary([], tickets, { ...DEFAULT_CLIENT_TICKET_FILTERS, status: 'done' }), '0 of 3 tickets');
+  assert.equal(getClientTicketFilterSummary(tickets, tickets, DEFAULT_CLIENT_TICKET_FILTERS), '3 requests');
+  assert.equal(getClientTicketFilterSummary(tickets.slice(0, 1), tickets, { ...DEFAULT_CLIENT_TICKET_FILTERS, query: 'home' }), '1 of 3 requests');
+  assert.equal(getClientTicketFilterSummary([], tickets, { ...DEFAULT_CLIENT_TICKET_FILTERS, status: 'done' }), '0 of 3 requests');
 });

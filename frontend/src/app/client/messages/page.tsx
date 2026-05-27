@@ -107,7 +107,7 @@ export default function ClientMessagesPage() {
                             href="/client/tickets"
                             className="mt-3 inline-flex text-sm font-medium text-[var(--accent)] hover:underline"
                           >
-                            Open ticket
+                            Open request
                           </Link>
                         </div>
                         <time className="text-xs text-[var(--muted)]" dateTime={message.createdAt || undefined}>

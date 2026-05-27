@@ -8,9 +8,28 @@ import { apiFetch } from '@/lib/api'
 import { getQueryClient } from '@/lib/queryClient'
 import type { SocketNotificationPayload } from '@/lib/types/api'
 
-const SOCKET_URL = APP_CONFIG.wsUrl
+const DEFAULT_SOCKET_URL = APP_CONFIG.wsUrl
     .replace('ws://', 'http://')
     .replace('wss://', 'https://');
+
+function resolveSocketUrl(): string {
+    if (typeof window === 'undefined') return DEFAULT_SOCKET_URL;
+
+    const configuredUrl = new URL(DEFAULT_SOCKET_URL, window.location.origin);
+    const configuredHost = configuredUrl.hostname;
+    const isConfiguredLoopback = configuredHost === 'localhost'
+        || configuredHost === '127.0.0.1'
+        || configuredHost === '::1'
+        || configuredHost === '[::1]';
+    const isCurrentLoopback = window.location.hostname === 'localhost'
+        || window.location.hostname === '127.0.0.1'
+        || window.location.hostname === '::1'
+        || window.location.hostname === '[::1]';
+
+    return !isCurrentLoopback && isConfiguredLoopback
+        ? window.location.origin
+        : DEFAULT_SOCKET_URL;
+}
 
 export interface Notification {
     id: string
@@ -55,7 +74,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             socketRef.current.disconnect()
         }
 
-        const newSocket = io(SOCKET_URL, {
+        const newSocket = io(resolveSocketUrl(), {
+            path: '/api/socket',
+            addTrailingSlash: false,
             withCredentials: true,
             transports: ['polling', 'websocket'],
             reconnectionAttempts: 5,

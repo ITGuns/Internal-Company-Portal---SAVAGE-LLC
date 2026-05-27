@@ -21,6 +21,8 @@ class NotificationService {
     initialize(httpServer: HttpServer) {
         console.log('🔌 Initializing Socket.io...');
         this.io = new SocketIOServer(httpServer, {
+            path: '/api/socket',
+            addTrailingSlash: false,
             cors: {
                 origin: config.corsOrigins,
                 methods: ['GET', 'POST'],

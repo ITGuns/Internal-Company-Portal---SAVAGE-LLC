@@ -18,7 +18,7 @@ export default function ClientPortalPanel({
   action,
 }: ClientPortalPanelProps) {
   return (
-    <section className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)]">
+    <section className="min-w-0 overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)]">
       <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
           <Icon className="h-4 w-4 shrink-0 text-[var(--accent)]" />
@@ -29,7 +29,7 @@ export default function ClientPortalPanel({
           {action}
         </div>
       </div>
-      <div className="p-4">{children}</div>
+      <div className="min-w-0 p-4">{children}</div>
     </section>
   );
 }

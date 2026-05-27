@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   Activity,
   BarChart3,
@@ -12,7 +11,6 @@ import {
   LinkIcon,
   MessageSquare,
   Plus,
-  Ticket,
 } from "lucide-react";
 import Button from "@/components/Button";
 import ClientActionQueue from "@/components/client-portal/ClientActionQueue";
@@ -148,9 +146,9 @@ export default function ClientPortalPage() {
       });
       setTicketForm({ description: "", category: "website", priority: "normal" });
       await loadOverview(selectedId);
-      toast.success("Ticket submitted");
+      toast.success("Request submitted");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to submit ticket");
+      toast.error(error instanceof Error ? error.message : "Failed to submit request");
     } finally {
       setSaving(false);
     }
@@ -169,21 +167,6 @@ export default function ClientPortalPage() {
           </div>
         ) : overview ? (
           <div className="mt-6 space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <select
-                className="min-h-10 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] px-3 text-sm"
-                value={selectedId}
-                onChange={(event) => setSelectedId(event.target.value)}
-                aria-label="Client organization"
-              >
-                {organizations.map((organization) => <option key={organization.id} value={organization.id}>{organization.name}</option>)}
-              </select>
-              <Link href="/client/tickets" className="inline-flex items-center gap-2 text-sm font-medium text-[var(--accent)] hover:underline">
-                <Ticket className="h-4 w-4" />
-                Ticket center
-              </Link>
-            </div>
-
             <section className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
@@ -196,7 +179,7 @@ export default function ClientPortalPage() {
                 <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
                   {[
                     ["Projects", summary.projectCount],
-                    ["Open tickets", summary.openTicketCount],
+                    ["Open requests", summary.openTicketCount],
                     ["Updates", summary.updateCount],
                     ["Progress", `${summary.averageProgress}%`],
                   ].map(([label, value]) => (
@@ -222,8 +205,8 @@ export default function ClientPortalPage() {
                   </div>
                   <p className="mt-1 text-sm text-[var(--muted)]">
                     {nextActionTicket
-                      ? "Open the ticket center, review the request, and reply with approval or changes."
-                      : "You can keep watching progress here. New requests or approvals will appear in Tickets."}
+                      ? "Open Requests, review the item, and reply with approval or changes."
+                      : "You can keep watching progress here. New requests or approvals will appear in Requests."}
                   </p>
                 </div>
               </div>

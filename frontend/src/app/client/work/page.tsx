@@ -36,8 +36,8 @@ export default function ClientWorkPage() {
         const command = buildClientCommandCenter(overview);
 
         return (
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-            <div className="space-y-5">
+          <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="min-w-0 space-y-5">
               <ClientPortalPanel title="Website Build Progress" icon={Activity} count={`${command.averageProgress}%`}>
                 {overview.projects.length === 0 ? (
                   <EmptyState variant="compact" icon={Activity} title="No active website work yet" />
@@ -88,7 +88,7 @@ export default function ClientWorkPage() {
               </ClientPortalPanel>
             </div>
 
-            <div className="space-y-5">
+            <div className="min-w-0 space-y-5">
               <ClientPortalPanel title="Open Requests" icon={Ticket} count={command.openRequests.length}>
                 {command.openRequests.length === 0 ? (
                   <EmptyState variant="compact" icon={Ticket} title="No open requests" />

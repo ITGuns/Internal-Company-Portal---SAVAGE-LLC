@@ -63,8 +63,8 @@ export function getClientTicketFilterSummary(
     || filters.category !== "all";
 
   if (!hasActiveFilters) {
-    return `${allTickets.length} ${allTickets.length === 1 ? "ticket" : "tickets"}`;
+    return `${allTickets.length} ${allTickets.length === 1 ? "request" : "requests"}`;
   }
 
-  return `${filteredTickets.length} of ${allTickets.length} tickets`;
+  return `${filteredTickets.length} of ${allTickets.length} requests`;
 }

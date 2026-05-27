@@ -1,5 +1,48 @@
 # Development Notes
 
+## 2026-05-27 - Client Portal Request Copy And Public Socket Preview
+
+### Completed
+
+- Removed the extra command-center organization selector and top `Ticket center` shortcut from the client command center.
+- Aligned client-facing request copy so the portal says `Requests` instead of exposing internal ticket terminology.
+- Fixed mobile overflow on the client Work and Requests pages by allowing grid panels to shrink inside the viewport.
+- Moved the Socket.IO client path behind the existing `/api` proxy so the Cloudflare preview no longer calls loopback backend URLs.
+
+### Files Changed
+
+- `backend/src/notifications/socket.service.ts`
+- `frontend/next.config.ts`
+- `frontend/src/app/client/messages/page.tsx`
+- `frontend/src/app/client/page.tsx`
+- `frontend/src/app/client/tickets/page.tsx`
+- `frontend/src/app/client/work/page.tsx`
+- `frontend/src/components/client-portal/ClientPortalPanel.tsx`
+- `frontend/src/components/client-portal/ClientTicketFilterControls.tsx`
+- `frontend/src/context/SocketContext.tsx`
+- `frontend/src/lib/client-ticket-filters.ts`
+- `frontend/tests/client-ticket-filters.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Keep internal route names and `ClientTicket` types unchanged; only client-visible copy was adjusted.
+- Use `/api/socket` for browser Socket.IO traffic so local and temporary public previews share the same Next proxy pattern as REST API calls.
+
+### How to Test
+
+- `cd frontend && npm run lint`
+- `cd frontend && npm test`
+- `cd frontend && npm run build`
+- `cd backend && npm run build`
+- `cd backend && npm test`
+- Browser smoke: login as the Gem Field demo client and check `/client`, `/client/work`, `/client/messages`, `/client/reports`, `/client/resources`, `/client/tickets`, `/client/calendar`, `/client/approvals`, and `/client/account` on desktop and mobile.
+- Public preview smoke: open `/client` and `/client/tickets` through the Cloudflare URL and confirm no `Ticket center`, no client organization selector on Command Center, no horizontal overflow, and no failed socket/API requests.
+
+### Next Steps
+
+- Commit the verified portal cleanup, then push only when the preview is ready to share externally.
+
 ## 2026-05-27 - Verification Pass And Calendar Patch Guard
 
 ### Completed

@@ -15,7 +15,7 @@ const selectClass = "min-h-10 rounded-[var(--radius-md)] border border-[var(--bo
 
 const statusOptions = [
   { value: "all", label: "All statuses" },
-  { value: "open", label: "Open tickets" },
+  { value: "open", label: "Open requests" },
   ...CLIENT_TICKET_STATUSES.map((status) => ({ value: status.value, label: status.label })),
 ];
 
@@ -52,7 +52,7 @@ export default function ClientTicketFilterControls({
   return (
     <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm font-semibold">Find tickets</div>
+        <div className="text-sm font-semibold">Find requests</div>
         <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
           <span>{resultSummary}</span>
           {hasActiveFilters ? (
@@ -70,7 +70,7 @@ export default function ClientTicketFilterControls({
 
       <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
         <label className="relative block sm:col-span-2">
-          <span className="sr-only">Search tickets</span>
+          <span className="sr-only">Search requests</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
           <input
             value={filters.query}
@@ -80,15 +80,15 @@ export default function ClientTicketFilterControls({
           />
         </label>
 
-        <select className={selectClass} value={filters.status} onChange={(event) => updateFilter("status", event.target.value)} aria-label="Filter tickets by status">
+        <select className={selectClass} value={filters.status} onChange={(event) => updateFilter("status", event.target.value)} aria-label="Filter requests by status">
           {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
 
-        <select className={selectClass} value={filters.priority} onChange={(event) => updateFilter("priority", event.target.value)} aria-label="Filter tickets by priority">
+        <select className={selectClass} value={filters.priority} onChange={(event) => updateFilter("priority", event.target.value)} aria-label="Filter requests by priority">
           {priorityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
 
-        <select className={selectClass} value={filters.category} onChange={(event) => updateFilter("category", event.target.value)} aria-label="Filter tickets by request type">
+        <select className={selectClass} value={filters.category} onChange={(event) => updateFilter("category", event.target.value)} aria-label="Filter requests by request type">
           {categoryOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
       </div>
