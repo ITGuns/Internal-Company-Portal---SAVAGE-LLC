@@ -12,20 +12,36 @@ import {
   type ClientAccessContext,
 } from './clients.access'
 import {
+  serializeClientApprovalForClient,
   serializeClientOrganizationForClient,
   serializeClientOrganizationForManagement,
+  serializeClientApprovalForManagement,
+  serializeClientAssetForManagement,
+  serializeClientBillingStatusForManagement,
+  serializeClientCalendarItemForManagement,
+  serializeClientInvitedUserForManagement,
   serializeClientMembershipForManagement,
   serializeClientMetricSnapshotForManagement,
   serializeClientPortalOverview,
   serializeClientProjectForManagement,
   serializeClientResourceLinkForManagement,
+  serializeClientRoadmapRecommendationForManagement,
+  serializeClientReportForManagement,
   serializeClientTicketForClient,
   serializeClientTicketForManagement,
   serializeClientUpdateForManagement,
+  serializeClientWorkItemForManagement,
 } from './clients.serializers'
 import { ClientsService } from './clients.service'
 import {
   ClientValidationError,
+  parseClientApprovalResponseInput,
+  parseCreateClientApprovalInput,
+  parseCreateClientAssetInput,
+  parseCreateClientCalendarItemInput,
+  parseCreateClientReportInput,
+  parseCreateClientRoadmapRecommendationInput,
+  parseCreateClientWorkItemInput,
   parseCreateClientOrganizationInput,
   parseCreateClientMembershipInput,
   parseCreateClientMetricSnapshotInput,
@@ -34,8 +50,18 @@ import {
   parseCreateClientTicketCommentInput,
   parseCreateClientTicketInput,
   parseCreateClientUpdateInput,
+  parseInviteClientUserInput,
+  parseUpdateClientApprovalInput,
+  parseUpdateClientAssetInput,
+  parseUpdateClientCalendarItemInput,
+  parseUpdateClientMembershipInput,
+  parseUpdateClientOrganizationStatusInput,
   parseUpdateClientProjectInput,
+  parseUpdateClientReportInput,
+  parseUpdateClientRoadmapRecommendationInput,
   parseUpdateClientTicketStatusInput,
+  parseUpdateClientWorkItemInput,
+  parseUpsertClientBillingStatusInput,
 } from './clients.validation'
 
 function formatClientStatusLabel(status: string): string {
@@ -95,6 +121,9 @@ export class ClientsController {
         where: {
           userId: requesterId,
           status: 'active',
+          organization: {
+            status: 'active',
+          },
         },
         select: {
           organizationId: true,
@@ -156,6 +185,34 @@ export class ClientsController {
 
         console.error('[Clients] Error creating organization:', error)
         res.status(500).json({ error: 'Failed to create client organization' })
+      }
+    })
+
+    router.patch('/organizations/:id/status', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can remove client access' })
+        }
+
+        const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const organization = await this.service.updateOrganizationStatus(
+          id,
+          parseUpdateClientOrganizationStatusInput(req.body || {}),
+        )
+
+        res.json(serializeClientOrganizationForManagement(organization))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2025') {
+          return res.status(404).json({ error: 'Client organization not found' })
+        }
+
+        console.error('[Clients] Error updating organization status:', error)
+        res.status(500).json({ error: 'Failed to update client organization status' })
       }
     })
 
@@ -252,6 +309,62 @@ export class ClientsController {
 
         console.error('[Clients] Error creating membership:', error)
         res.status(500).json({ error: 'Failed to create client membership' })
+      }
+    })
+
+    router.patch('/memberships/:id', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can manage client memberships' })
+        }
+
+        const membershipId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const membership = await this.service.findMembershipById(membershipId)
+        if (!membership) return res.status(404).json({ error: 'Client membership not found' })
+
+        const updatedMembership = await this.service.updateMembership(
+          membershipId,
+          parseUpdateClientMembershipInput(req.body || {}),
+        )
+        res.json(serializeClientMembershipForManagement(updatedMembership))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+
+        console.error('[Clients] Error updating membership:', error)
+        res.status(500).json({ error: 'Failed to update client membership' })
+      }
+    })
+
+    router.post('/organizations/:id/invitations', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can invite client users' })
+        }
+
+        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const invitation = await this.service.inviteClientUser(
+          organizationId,
+          parseInviteClientUserInput(req.body || {}),
+        )
+
+        res.status(201).json({
+          user: serializeClientInvitedUserForManagement(invitation.user),
+          membership: serializeClientMembershipForManagement(invitation.membership),
+          invite: invitation.invite,
+        })
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+
+        console.error('[Clients] Error inviting client user:', error)
+        res.status(500).json({ error: 'Failed to invite client user' })
       }
     })
 
@@ -388,6 +501,412 @@ export class ClientsController {
 
         console.error('[Clients] Error creating resource:', error)
         res.status(500).json({ error: 'Failed to create client resource' })
+      }
+    })
+
+    router.post('/organizations/:id/work-items', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can create client work items' })
+        }
+
+        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const workItem = await this.service.createWorkItem(
+          organizationId,
+          access.requesterId,
+          parseCreateClientWorkItemInput(req.body || {}),
+        )
+        res.status(201).json(serializeClientWorkItemForManagement(workItem))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
+          return res.status(400).json({ error: 'Invalid client organization, project, or assigned user' })
+        }
+
+        console.error('[Clients] Error creating work item:', error)
+        res.status(500).json({ error: 'Failed to create client work item' })
+      }
+    })
+
+    router.patch('/work-items/:id', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can update client work items' })
+        }
+
+        const workItemId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const workItem = await this.service.findWorkItemById(workItemId)
+        if (!workItem) return res.status(404).json({ error: 'Client work item not found' })
+
+        const updatedWorkItem = await this.service.updateWorkItem(
+          workItemId,
+          workItem.organizationId,
+          parseUpdateClientWorkItemInput(req.body || {}),
+        )
+        res.json(serializeClientWorkItemForManagement(updatedWorkItem))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
+          return res.status(400).json({ error: 'Invalid project or assigned user' })
+        }
+
+        console.error('[Clients] Error updating work item:', error)
+        res.status(500).json({ error: 'Failed to update client work item' })
+      }
+    })
+
+    router.post('/organizations/:id/approvals', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can create client approvals' })
+        }
+
+        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const approval = await this.service.createApproval(
+          organizationId,
+          access.requesterId,
+          parseCreateClientApprovalInput(req.body || {}),
+        )
+        res.status(201).json(serializeClientApprovalForManagement(approval))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
+          return res.status(400).json({ error: 'Invalid client organization or project' })
+        }
+
+        console.error('[Clients] Error creating approval:', error)
+        res.status(500).json({ error: 'Failed to create client approval' })
+      }
+    })
+
+    router.patch('/approvals/:id', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can update client approvals' })
+        }
+
+        const approvalId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const approval = await this.service.findApprovalById(approvalId)
+        if (!approval) return res.status(404).json({ error: 'Client approval not found' })
+
+        const updatedApproval = await this.service.updateApproval(
+          approvalId,
+          approval.organizationId,
+          access.requesterId,
+          parseUpdateClientApprovalInput(req.body || {}),
+        )
+        res.json(serializeClientApprovalForManagement(updatedApproval))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+
+        console.error('[Clients] Error updating approval:', error)
+        res.status(500).json({ error: 'Failed to update client approval' })
+      }
+    })
+
+    router.patch('/approvals/:id/respond', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+
+        const approvalId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const approval = await this.service.findApprovalById(approvalId)
+        if (!approval) return res.status(404).json({ error: 'Client approval not found' })
+        if (!approval.visibleToClient || !canReadClientOrganization(access, { id: approval.organizationId })) {
+          return res.status(403).json({ error: 'You can only respond to approvals for your assigned client organization' })
+        }
+
+        const updatedApproval = await this.service.updateApproval(
+          approvalId,
+          approval.organizationId,
+          access.requesterId,
+          parseClientApprovalResponseInput(req.body || {}),
+        )
+        res.json(serializeClientApprovalForClient(updatedApproval))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+
+        console.error('[Clients] Error responding to approval:', error)
+        res.status(500).json({ error: 'Failed to respond to client approval' })
+      }
+    })
+
+    router.post('/organizations/:id/reports', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can create client reports' })
+        }
+
+        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const report = await this.service.createReport(
+          organizationId,
+          access.requesterId,
+          parseCreateClientReportInput(req.body || {}),
+        )
+        res.status(201).json(serializeClientReportForManagement(report))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
+          return res.status(400).json({ error: 'Invalid client organization' })
+        }
+
+        console.error('[Clients] Error creating report:', error)
+        res.status(500).json({ error: 'Failed to create client report' })
+      }
+    })
+
+    router.patch('/reports/:id', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can update client reports' })
+        }
+
+        const reportId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const report = await this.service.findReportById(reportId)
+        if (!report) return res.status(404).json({ error: 'Client report not found' })
+
+        const updatedReport = await this.service.updateReport(reportId, parseUpdateClientReportInput(req.body || {}))
+        res.json(serializeClientReportForManagement(updatedReport))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+
+        console.error('[Clients] Error updating report:', error)
+        res.status(500).json({ error: 'Failed to update client report' })
+      }
+    })
+
+    router.post('/organizations/:id/roadmap', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can create roadmap recommendations' })
+        }
+
+        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const roadmap = await this.service.createRoadmapRecommendation(
+          organizationId,
+          parseCreateClientRoadmapRecommendationInput(req.body || {}),
+        )
+        res.status(201).json(serializeClientRoadmapRecommendationForManagement(roadmap))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
+          return res.status(400).json({ error: 'Invalid client organization' })
+        }
+
+        console.error('[Clients] Error creating roadmap recommendation:', error)
+        res.status(500).json({ error: 'Failed to create roadmap recommendation' })
+      }
+    })
+
+    router.patch('/roadmap/:id', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can update roadmap recommendations' })
+        }
+
+        const roadmapId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const roadmap = await this.service.findRoadmapRecommendationById(roadmapId)
+        if (!roadmap) return res.status(404).json({ error: 'Roadmap recommendation not found' })
+
+        const updatedRoadmap = await this.service.updateRoadmapRecommendation(
+          roadmapId,
+          parseUpdateClientRoadmapRecommendationInput(req.body || {}),
+        )
+        res.json(serializeClientRoadmapRecommendationForManagement(updatedRoadmap))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+
+        console.error('[Clients] Error updating roadmap recommendation:', error)
+        res.status(500).json({ error: 'Failed to update roadmap recommendation' })
+      }
+    })
+
+    router.post('/organizations/:id/assets', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can create client assets' })
+        }
+
+        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const asset = await this.service.createAsset(organizationId, parseCreateClientAssetInput(req.body || {}))
+        res.status(201).json(serializeClientAssetForManagement(asset))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
+          return res.status(400).json({ error: 'Invalid client organization or project' })
+        }
+
+        console.error('[Clients] Error creating asset:', error)
+        res.status(500).json({ error: 'Failed to create client asset' })
+      }
+    })
+
+    router.patch('/assets/:id', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can update client assets' })
+        }
+
+        const assetId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const asset = await this.service.findAssetById(assetId)
+        if (!asset) return res.status(404).json({ error: 'Client asset not found' })
+
+        const updatedAsset = await this.service.updateAsset(
+          assetId,
+          asset.organizationId,
+          parseUpdateClientAssetInput(req.body || {}),
+        )
+        res.json(serializeClientAssetForManagement(updatedAsset))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+
+        console.error('[Clients] Error updating asset:', error)
+        res.status(500).json({ error: 'Failed to update client asset' })
+      }
+    })
+
+    router.patch('/organizations/:id/billing-status', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can update client billing status' })
+        }
+
+        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const billing = await this.service.upsertBillingStatus(
+          organizationId,
+          parseUpsertClientBillingStatusInput(req.body || {}),
+        )
+        res.json(serializeClientBillingStatusForManagement(billing))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
+          return res.status(400).json({ error: 'Invalid client organization' })
+        }
+
+        console.error('[Clients] Error updating billing status:', error)
+        res.status(500).json({ error: 'Failed to update client billing status' })
+      }
+    })
+
+    router.post('/organizations/:id/calendar-items', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can create calendar items' })
+        }
+
+        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const calendarItem = await this.service.createCalendarItem(
+          organizationId,
+          access.requesterId,
+          parseCreateClientCalendarItemInput(req.body || {}),
+        )
+        res.status(201).json(serializeClientCalendarItemForManagement(calendarItem))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
+          return res.status(400).json({ error: 'Invalid client organization or project' })
+        }
+
+        console.error('[Clients] Error creating calendar item:', error)
+        res.status(500).json({ error: 'Failed to create calendar item' })
+      }
+    })
+
+    router.patch('/calendar-items/:id', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can update calendar items' })
+        }
+
+        const calendarItemId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const calendarItem = await this.service.findCalendarItemById(calendarItemId)
+        if (!calendarItem) return res.status(404).json({ error: 'Calendar item not found' })
+
+        const updatedCalendarItem = await this.service.updateCalendarItem(
+          calendarItemId,
+          calendarItem.organizationId,
+          parseUpdateClientCalendarItemInput(req.body || {}),
+        )
+        res.json(serializeClientCalendarItemForManagement(updatedCalendarItem))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+
+        console.error('[Clients] Error updating calendar item:', error)
+        res.status(500).json({ error: 'Failed to update calendar item' })
+      }
+    })
+
+    router.delete('/calendar-items/:id', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can delete calendar items' })
+        }
+
+        const calendarItemId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const calendarItem = await this.service.findCalendarItemById(calendarItemId)
+        if (!calendarItem) return res.status(404).json({ error: 'Calendar item not found' })
+
+        await this.service.deleteCalendarItem(calendarItemId)
+        res.status(204).send()
+      } catch (error) {
+        console.error('[Clients] Error deleting calendar item:', error)
+        res.status(500).json({ error: 'Failed to delete calendar item' })
       }
     })
 

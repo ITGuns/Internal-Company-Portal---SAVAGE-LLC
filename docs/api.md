@@ -176,26 +176,44 @@ Department writes are management-only:
 
 All client portal endpoints require authentication.
 
-Client portal management access recognizes normalized admin, administrator, manager, operations-manager, and chief-operations-officer roles. Configured admin bypass emails are also allowed.
+Client portal management access recognizes normalized admin, administrator, manager, operations-manager, chief-operations-officer, web-developer, website-developer, and webdev roles. Configured admin bypass emails are also allowed.
 
 ### Client Organization Access
 
-- Internal managers/admins can list and manage all client organizations.
-- Client users can only list or read organizations where they have an active `ClientMembership`.
-- Client-facing serializers omit internal organization notes, raw `tierId`, internal tier price/priority, ticket assignment fields, and internal ticket comments.
+- Internal managers/admins can list and manage all client organizations, including archived client accounts.
+- Client users can only list or read active organizations where they have an active `ClientMembership`.
+- Client-facing serializers omit internal organization notes, raw `tierId`, internal tier price/priority, ticket assignment fields, internal ticket comments, and inactive client memberships.
 
 ### Routes
 
 - `GET /api/clients/organizations` lists client organizations visible to the requester.
 - `POST /api/clients/organizations` creates a client organization and is restricted to client-management access.
-- `GET /api/clients/organizations/:id/overview` returns one organization with scoped projects, tickets, updates, metrics, and resources.
+- `PATCH /api/clients/organizations/:id/status` updates a client organization status (`active`, `paused`, or `archived`) for internal management. Archiving removes client-facing access without deleting history.
+- `GET /api/clients/organizations/:id/overview` returns one organization with scoped memberships, projects, tickets, updates, metrics, and resources.
 - `GET /api/clients/organizations/:id/memberships` lists client memberships for internal management.
 - `POST /api/clients/organizations/:id/memberships` creates or updates a client membership for internal management.
+- `POST /api/clients/organizations/:id/invitations` creates or updates a client user, grants the portal role, upserts the organization membership, and returns setup delivery status for internal management.
+- `PATCH /api/clients/memberships/:id` updates a client membership role/status for internal management. Deactivation uses `status: inactive` instead of destructive deletion.
 - `POST /api/clients/organizations/:id/projects` creates a client project for internal management.
 - `PATCH /api/clients/projects/:id` updates a client project's management-controlled fields such as status and progress.
 - `POST /api/clients/organizations/:id/updates` publishes or stages a client update for internal management.
 - `POST /api/clients/organizations/:id/metrics` creates a client-visible or internal metric snapshot for internal management.
 - `POST /api/clients/organizations/:id/resources` creates a client resource link for internal management.
+- `POST /api/clients/organizations/:id/work-items` creates a client-visible or internal work item for internal management.
+- `PATCH /api/clients/work-items/:id` updates or archives a client work item for internal management.
+- `POST /api/clients/organizations/:id/approvals` creates a client approval request for internal management.
+- `PATCH /api/clients/approvals/:id` updates or archives a client approval for internal management.
+- `PATCH /api/clients/approvals/:id/respond` lets an assigned client submit an approval decision or change request for a visible approval.
+- `POST /api/clients/organizations/:id/reports` creates a monthly/client report period for internal management.
+- `PATCH /api/clients/reports/:id` updates or archives a client report period for internal management.
+- `POST /api/clients/organizations/:id/roadmap` creates a roadmap recommendation for internal management.
+- `PATCH /api/clients/roadmap/:id` updates or archives a roadmap recommendation for internal management.
+- `POST /api/clients/organizations/:id/assets` creates a client asset/file link for internal management.
+- `PATCH /api/clients/assets/:id` updates or archives a client asset/file link for internal management.
+- `PATCH /api/clients/organizations/:id/billing-status` upserts client billing or plan status for internal management.
+- `POST /api/clients/organizations/:id/calendar-items` creates a campaign/content calendar item for internal management.
+- `PATCH /api/clients/calendar-items/:id` updates or archives a campaign/content calendar item for internal management.
+- `DELETE /api/clients/calendar-items/:id` permanently deletes a campaign/content calendar item for internal management.
 - `POST /api/clients/organizations/:id/tickets` creates a ticket for that organization. The server derives `organizationId` from the URL and `createdById` from the authenticated requester.
 - `GET /api/clients/tickets` lists visible tickets. Non-privileged users are limited to active client memberships, and `organizationId` query access is checked server-side.
 - `PATCH /api/clients/tickets/:id/status` updates ticket status for internal management and creates a published client-visible update when the status changes.
@@ -204,7 +222,11 @@ Client portal management access recognizes normalized admin, administrator, mana
 Protected fields:
 
 - Clients cannot set `organizationId`, `createdById`, `assignedToId`, or `internalNotes` through ticket creation.
+- Client invitations accept only email, optional name, membership role, and membership status. User approval, global `client` role, reset/setup tokens, tenant assignment, and timestamps are derived server-side.
+- Production record create/update routes derive `organizationId`, creator/requester IDs, and publish timestamps server-side.
+- Client approval response routes only accept decision fields and derive the responder and decision timestamp server-side.
 - Client-visible overview data only returns updates, metrics, and resources marked visible to the client.
+- Client-visible overview data also filters work items, approvals, reports, roadmap recommendations, assets, billing status, and calendar items through their `visibleToClient` and status flags.
 - Internal comments stay hidden from client ticket responses.
 
 ## Daily Logs

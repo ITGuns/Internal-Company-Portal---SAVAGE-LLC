@@ -10,7 +10,7 @@ import { updateUserProfile, uploadAvatar } from "@/lib/api";
 import UserAvatar from "@/assets/icons/UserAvatar";
 
 interface UserProfile {
-  id?: string;
+  id?: string | number;
   name: string;
   email: string;
   birthday?: string;

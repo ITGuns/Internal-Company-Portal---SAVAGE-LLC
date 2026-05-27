@@ -7,6 +7,7 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import {
   ClientTicket,
 } from "@/lib/client-portal";
+import { getAdminTicketNextAction } from "@/lib/client-communication";
 import {
   CLIENT_ADMIN_TICKET_REPLIES,
   CLIENT_ADMIN_TICKET_VISIBILITY_OPTIONS,
@@ -50,8 +51,21 @@ export default function AdminTicketPanel({
     );
   }
 
+  const nextAction = getAdminTicketNextAction(ticket);
+
   return (
-    <div className="space-y-5 border-t border-[var(--border)] pt-4">
+    <div className="space-y-5 border-t border-[var(--border)] pt-4 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
+      <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="text-xs font-medium uppercase text-[var(--muted)]">Next action</div>
+            <div className="mt-1 text-sm font-semibold">{nextAction.label}</div>
+          </div>
+          <StatusBadge label={nextAction.status === "client" ? "Client" : nextAction.status === "complete" ? "Done" : "Team"} size="sm" />
+        </div>
+        <p className="mt-2 text-sm leading-5 text-[var(--muted)]">{nextAction.description}</p>
+      </div>
+
       <div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
           <StatusBadge label={getClientPortalOptionLabel(CLIENT_TICKET_STATUSES, ticket.status)} size="sm" />
@@ -114,13 +128,13 @@ export default function AdminTicketPanel({
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="grid gap-2 sm:grid-cols-2">
           {CLIENT_ADMIN_TICKET_REPLIES.map((reply) => (
             <button
               key={reply}
               type="button"
               onClick={() => onReplyFormChange({ ...replyForm, body: reply })}
-              className="rounded-[var(--radius-md)] border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              className="rounded-[var(--radius-md)] border border-[var(--border)] px-3 py-2 text-left text-xs font-medium leading-5 text-[var(--muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
               {reply}
             </button>

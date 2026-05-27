@@ -40,7 +40,7 @@ Backend responsibilities are split by feature folder:
 - Services hold business logic and Prisma operations.
 - Permission helpers centralize role and admin-email checks where the feature has sensitive access rules.
 - Serializers/security helpers should be used before returning user, employee, or profile data to the frontend.
-- Client portal routes use organization-scoped access helpers and serializers so client users only see their assigned organization data.
+- Client portal routes use organization-scoped access helpers and serializers so client users only see active assigned organization data.
 
 Important backend conventions:
 
@@ -58,7 +58,18 @@ Frontend app entry point: `frontend/src/app`.
 
 Important page areas:
 
-- `client`
+- `client` command center
+- `client/work`
+- `client/approvals`
+- `client/messages`
+- `client/reports`
+- `client/resources`
+- `client/account`
+- `client/calendar`
+- `client/tickets`
+- `operations/clients` holds the Client Operations command center, while `operations/clients/accounts`, `delivery`, `requests`, `approvals`, `reports`, `assets`, `billing`, `roadmap`, and `calendar` split client administration into focused admin routes.
+- `components/client-portal/ClientOperationsShell.tsx` and `hooks/useClientOperationsWorkspace.ts` share role guards, client selection, overview loading, memberships, users, and mutation refresh behavior across Client Operations admin pages.
+- `components/client-portal/production-records` holds the focused Client Operations admin panels for work items, approvals, reports, roadmap, assets, billing, and calendar records.
 - `dashboard`
 - `task-tracking`
 - `daily-logs`
@@ -82,6 +93,9 @@ Important frontend conventions:
 - Pages should stay readable; repeated UI should move into components.
 - Reusable workflow rules should live in `src/lib` and be covered by focused tests.
 - URL query params drive deep-linked workflow states, such as dashboard quick actions, task filters, task details, daily-log creation, payroll tabs, and payroll audit filters.
+- Client portal pages share route metadata, workspace loading, and layout through `src/lib/client-portal-navigation.ts`, `src/hooks/useClientPortalWorkspace.ts`, and `src/components/client-portal`; the sidebar is the primary cross-page navigation surface.
+- Client Operations pages share route metadata through `src/lib/client-operations-navigation.ts`; sidebar and header labels come from this single route map.
+- Client invite UI keeps onboarding payload shaping in `src/lib/client-invitations.ts`, while `AdminClientMembersPanel` owns the operator workflow for invite links, existing-user memberships, and safe deactivation.
 - Management-only UI should share role helper logic, but backend permissions remain authoritative.
 
 ## Data Model
@@ -93,7 +107,7 @@ Core domain groups:
 - Daily logs: `DailyLog` with structured JSON task entries.
 - Payroll: `TimeEntry`, `PayrollEvent`, `PayrollPeriod`, `Payslip`, and `PayrollItem`.
 - Collaboration: chat conversations, participants, messages, announcements, comments, reactions, notifications, uploads, and file-directory folders.
-- Client portal: `ClientOrganization`, `ClientMembership`, `ClientProject`, `ClientTicket`, `ClientTicketComment`, `ClientUpdate`, `ClientMetricSnapshot`, `ClientResourceLink`, and `ClientServiceTier`.
+- Client portal: `ClientOrganization`, `ClientMembership`, `ClientProject`, `ClientTicket`, `ClientTicketComment`, `ClientUpdate`, `ClientMetricSnapshot`, `ClientResourceLink`, `ClientServiceTier`, `ClientWorkItem`, `ClientApproval`, `ClientReport`, `ClientRoadmapRecommendation`, `ClientAsset`, `ClientBillingStatus`, and `ClientCalendarItem`.
 
 See `docs/database.md` for current schema notes and migration behavior.
 
@@ -103,9 +117,11 @@ The portal uses JWT authentication plus feature-level role checks.
 
 - `admin`, `administrator`, `manager`, and `operations_manager` are privileged in several management flows.
 - Some features also recognize display-style roles such as `Operations Manager` or `Chief Operations Officer`.
+- Client Operations additionally recognizes `Web Developer`/`web_developer` style roles so webdevs can work in the dedicated Client Side area without becoming general Operations admins.
 - Configured admin bypass emails receive selected privileged access through centralized helpers.
 - Employee self-service routes should only expose or mutate the authenticated user's own data unless a feature-specific permission check allows broader access.
-- Client users are scoped through active `ClientMembership` records; internal managers/admins use the client portal management helper for cross-client access.
+- Client users are scoped through active `ClientMembership` records on active `ClientOrganization` records; internal managers/admins use the client portal management helper for cross-client access and deactivate memberships or archive client accounts by status rather than deleting tenant history.
+- Client invitations are management-only and derive the global `client` user role, approval state, setup token, and organization membership on the server.
 - Chat channels and privileged conversation names such as `General` are restricted to management access.
 
 When adding sensitive behavior, update the relevant permission helper or create a small feature-local helper instead of scattering role string checks across UI and API files.

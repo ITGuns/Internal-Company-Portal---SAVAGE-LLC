@@ -1,6 +1,7 @@
 "use client"
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Notification } from '@/context/SocketContext'
 import { Bell, X, Check, CheckCheck, MessageSquare, Megaphone, ClipboardList, Info, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
 import Button from './Button'
@@ -58,23 +59,31 @@ export default function NotificationSidebar({
     onMarkAllAsRead,
     onClear
 }: NotificationSidebarProps) {
-    if (!isOpen) return null
+    const [isMounted, setIsMounted] = useState(false)
+
+    useEffect(() => {
+        setIsMounted(true)
+    }, [])
+
+    if (!isOpen || !isMounted) return null
 
     const unreadCount = notifications.filter(n => !n.read).length
 
-    return (
+    return createPortal(
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-300"
+                className="fixed inset-0 z-[9997] bg-black/30 backdrop-blur-sm transition-opacity duration-300"
                 onClick={onClose}
-                style={{ zIndex: 9998 }}
             />
 
             {/* Sidebar */}
             <div
-                className="fixed top-0 right-0 h-full w-[420px] bg-[var(--card-bg)] border-l border-[var(--border)] shadow-2xl flex flex-col"
-                style={{ zIndex: 10000, isolation: 'isolate', animation: 'slideInRight 0.25s cubic-bezier(0.16,1,0.3,1)' }}
+                className="fixed inset-y-0 right-0 z-[9998] flex w-full max-w-[420px] flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--card-bg)] shadow-2xl"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="notification-sidebar-title"
+                style={{ isolation: 'isolate', animation: 'slideInRight 0.25s cubic-bezier(0.16,1,0.3,1)' }}
             >
                 {/* Header */}
                 <div className="p-5 border-b border-[var(--border)] bg-[var(--card-surface)]">
@@ -84,7 +93,7 @@ export default function NotificationSidebar({
                                 <Bell className="w-4 h-4 text-[var(--accent)]" />
                             </div>
                             <div>
-                                <h2 className="text-base font-semibold">Notifications</h2>
+                                <h2 id="notification-sidebar-title" className="text-base font-semibold">Notifications</h2>
                                 <p className="text-xs text-[var(--muted)]">
                                     {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up!'}
                                 </p>
@@ -205,6 +214,7 @@ export default function NotificationSidebar({
                     to { transform: translateX(0); opacity: 1; }
                 }
             `}</style>
-        </>
+        </>,
+        document.body,
     )
 }

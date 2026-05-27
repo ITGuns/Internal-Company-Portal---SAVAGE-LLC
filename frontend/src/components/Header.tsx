@@ -12,10 +12,11 @@ import { useSocket } from '@/context/SocketContext';
 import { useUser } from '@/contexts/UserContext';
 import TimeClock from './TimeClock';
 import { cn } from '@/lib/utils';
+import { getClientOperationsRouteTitle } from '@/lib/client-operations-navigation';
+import { getClientPortalRouteTitle } from '@/lib/client-portal-navigation';
 
 const routeTitles: Record<string, { title: string; subtitle?: string }> = {
   '/dashboard': { title: 'Dashboard', subtitle: 'Today, tasks, logs, and approvals' },
-  '/client': { title: 'Client Portal', subtitle: 'Progress, requests, updates, and resources' },
   '/client/tickets': { title: 'Client Tickets', subtitle: 'Submit requests and review status' },
   '/task-tracking': { title: 'Task Tracking', subtitle: 'Plan, assign, and close work' },
   '/task-calendar': { title: 'Task Calendar', subtitle: 'Task schedule and due dates' },
@@ -29,14 +30,23 @@ const routeTitles: Record<string, { title: string; subtitle?: string }> = {
   '/private-messages': { title: 'Private Messages', subtitle: 'Direct conversations' },
   '/file-directory': { title: 'File Directory', subtitle: 'Shared documents and folders' },
   '/operations': { title: 'Operations', subtitle: 'Departments, roles, and approvals' },
-  '/operations/clients': { title: 'Client Operations', subtitle: 'Client accounts, members, updates, metrics, and resources' },
+  '/operations/clients': { title: 'Client Operations', subtitle: 'Client workspaces, requests, approvals, reports, and delivery progress' },
   '/profile': { title: 'Profile', subtitle: 'Account settings' },
   '/whiteboard': { title: 'Whiteboard', subtitle: 'Collaborative workspace' },
   '/discord': { title: 'Discord', subtitle: 'External team channel' },
 };
 
 function getRouteTitle(pathname: string) {
-  return routeTitles[pathname] ?? Object.entries(routeTitles).find(([key]) => pathname.startsWith(`${key}/`))?.[1];
+  if (routeTitles[pathname]) return routeTitles[pathname];
+
+  if (pathname === '/operations/clients' || pathname.startsWith('/operations/clients/')) {
+    return getClientOperationsRouteTitle(pathname);
+  }
+
+  const clientRoute = getClientPortalRouteTitle(pathname);
+  if (clientRoute) return clientRoute;
+
+  return Object.entries(routeTitles).find(([key]) => pathname.startsWith(`${key}/`))?.[1];
 }
 
 export default function Header({ title, subtitle }: { title?: string; subtitle?: string }) {

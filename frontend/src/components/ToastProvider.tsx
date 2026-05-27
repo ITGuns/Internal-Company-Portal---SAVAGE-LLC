@@ -76,7 +76,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
       
       {/* Toast Container */}
       <div
-        className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"
+        className="pointer-events-none fixed right-4 top-24 z-50 flex flex-col gap-2 md:right-6 md:top-28"
         style={{ maxHeight: 'calc(100vh - 2rem)' }}
       >
         <div className="flex flex-col gap-2 pointer-events-auto overflow-y-auto chat-scroll">

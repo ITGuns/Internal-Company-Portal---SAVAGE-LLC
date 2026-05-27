@@ -45,6 +45,7 @@ test('normalizes management roles from primary and secondary role fields', () =>
 test('separates client portal and client operations navigation access', () => {
   const {
     getAuthenticatedLandingPath,
+    hasManagementAccess,
     hasClientPortalAccess,
     hasClientOperationsAccess,
     hasClientWorkspaceShellAccess,
@@ -57,7 +58,10 @@ test('separates client portal and client operations navigation access', () => {
 
   assert.equal(hasClientOperationsAccess({ role: 'Operations Manager' }), true);
   assert.equal(hasClientOperationsAccess({ role: 'admin' }), true);
+  assert.equal(hasClientOperationsAccess({ role: 'Web Developer' }), true);
+  assert.equal(hasClientOperationsAccess({ role: 'webdev' }), true);
   assert.equal(hasClientOperationsAccess({ role: 'client' }), false);
+  assert.equal(hasManagementAccess({ role: 'Web Developer' }), false);
 
   assert.equal(hasClientWorkspaceShellAccess({ role: 'client' }), true);
   assert.equal(hasClientWorkspaceShellAccess({ role: 'member' }, true), true);

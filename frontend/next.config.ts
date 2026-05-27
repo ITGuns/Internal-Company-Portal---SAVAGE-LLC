@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
     ],
   },
   // Proxy all /api/* and /auth/* requests to the backend
-  // This avoids CORS issues since the request comes from Next.js server → backend
+  // This avoids CORS issues since the request comes from the Next.js server to the backend.
   async rewrites() {
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:4000';
     return [

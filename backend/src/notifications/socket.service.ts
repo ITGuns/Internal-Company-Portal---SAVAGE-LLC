@@ -22,7 +22,7 @@ class NotificationService {
         console.log('🔌 Initializing Socket.io...');
         this.io = new SocketIOServer(httpServer, {
             cors: {
-                origin: config.corsOrigin,
+                origin: config.corsOrigins,
                 methods: ['GET', 'POST'],
                 credentials: true,
                 allowedHeaders: ['Authorization', 'Content-Type']

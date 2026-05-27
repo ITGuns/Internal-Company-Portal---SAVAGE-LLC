@@ -39,6 +39,28 @@ export interface ClientMembership {
   } | null;
 }
 
+export interface ClientManagedUser {
+  id: string;
+  email: string;
+  name?: string | null;
+  avatar?: string | null;
+  status?: string | null;
+  isApproved?: boolean;
+  role?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface ClientInviteResult {
+  user: ClientManagedUser;
+  membership: ClientMembership;
+  invite: {
+    setupRequired: boolean;
+    emailSent: boolean;
+    setupUrl?: string;
+  };
+}
+
 export interface ClientProject {
   id: string;
   organizationId: string;
@@ -116,13 +138,120 @@ export interface ClientResourceLink {
   visibleToClient?: boolean;
 }
 
+export interface ClientWorkItem {
+  id: string;
+  organizationId: string;
+  projectId?: string | null;
+  title: string;
+  description?: string | null;
+  status: string;
+  priority: string;
+  progress: number;
+  dueAt?: string | null;
+  completedAt?: string | null;
+  visibleToClient?: boolean;
+  sortOrder?: number;
+  updatedAt?: string | null;
+}
+
+export interface ClientApproval {
+  id: string;
+  organizationId: string;
+  projectId?: string | null;
+  title: string;
+  description?: string | null;
+  status: string;
+  responseNote?: string | null;
+  dueAt?: string | null;
+  decidedAt?: string | null;
+  visibleToClient?: boolean;
+  updatedAt?: string | null;
+}
+
+export interface ClientReport {
+  id: string;
+  organizationId: string;
+  title: string;
+  summary?: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  status: string;
+  visibleToClient?: boolean;
+  leadsCaptured?: number | null;
+  missedOpportunities?: number | null;
+  followUpStatus?: string | null;
+  leadSourceBreakdown?: Record<string, unknown> | null;
+  reputationSnapshot?: Record<string, unknown> | null;
+  localVisibilitySnapshot?: Record<string, unknown> | null;
+  publishedAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface ClientRoadmapRecommendation {
+  id: string;
+  organizationId: string;
+  title: string;
+  body: string;
+  priority: string;
+  status: string;
+  impact?: string | null;
+  effort?: string | null;
+  visibleToClient?: boolean;
+  sortOrder?: number;
+}
+
+export interface ClientAsset {
+  id: string;
+  organizationId: string;
+  projectId?: string | null;
+  label: string;
+  url: string;
+  type: string;
+  status: string;
+  notes?: string | null;
+  visibleToClient?: boolean;
+}
+
+export interface ClientBillingStatus {
+  id: string;
+  organizationId: string;
+  planName?: string | null;
+  status: string;
+  monthlyAmount?: number | null;
+  currency?: string | null;
+  renewalAt?: string | null;
+  notes?: string | null;
+  visibleToClient?: boolean;
+}
+
+export interface ClientCalendarItem {
+  id: string;
+  organizationId: string;
+  projectId?: string | null;
+  title: string;
+  description?: string | null;
+  channel?: string | null;
+  status: string;
+  startAt: string | null;
+  endAt?: string | null;
+  visibleToClient?: boolean;
+}
+
 export interface ClientPortalOverview {
   organization: ClientOrganization;
   projects: ClientProject[];
+  memberships?: ClientMembership[];
   tickets: ClientTicket[];
   updates: ClientUpdate[];
   metrics: ClientMetricSnapshot[];
   resources: ClientResourceLink[];
+  workItems?: ClientWorkItem[];
+  approvals?: ClientApproval[];
+  reports?: ClientReport[];
+  roadmapRecommendations?: ClientRoadmapRecommendation[];
+  assets?: ClientAsset[];
+  billingStatus?: ClientBillingStatus | null;
+  calendarItems?: ClientCalendarItem[];
 }
 
 export async function fetchClientOrganizations(): Promise<ClientOrganization[]> {
@@ -144,6 +273,17 @@ export async function createClientOrganization(data: {
   return response.json();
 }
 
+export async function updateClientOrganizationStatus(
+  organizationId: string,
+  status: string,
+): Promise<ClientOrganization> {
+  const response = await apiFetch(`/clients/organizations/${organizationId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+  return response.json();
+}
+
 export async function fetchClientOverview(organizationId: string): Promise<ClientPortalOverview> {
   const response = await apiFetch(`/clients/organizations/${organizationId}/overview`);
   return response.json();
@@ -161,6 +301,30 @@ export async function createClientMembership(organizationId: string, data: {
 }): Promise<ClientMembership> {
   const response = await apiFetch(`/clients/organizations/${organizationId}/memberships`, {
     method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function inviteClientUser(organizationId: string, data: {
+  email: string;
+  name?: string;
+  role?: string;
+  status?: string;
+}): Promise<ClientInviteResult> {
+  const response = await apiFetch(`/clients/organizations/${organizationId}/invitations`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function updateClientMembership(membershipId: string, data: {
+  role?: string;
+  status?: string;
+}): Promise<ClientMembership> {
+  const response = await apiFetch(`/clients/memberships/${membershipId}`, {
+    method: 'PATCH',
     body: JSON.stringify(data),
   });
   return response.json();
@@ -269,4 +433,188 @@ export async function updateClientTicketStatus(ticketId: string, status: string)
     body: JSON.stringify({ status }),
   });
   return response.json();
+}
+
+export async function createClientWorkItem(organizationId: string, data: {
+  title: string;
+  description?: string;
+  status?: string;
+  priority?: string;
+  progress?: number;
+  dueAt?: string;
+  projectId?: string;
+  assignedToId?: string;
+  visibleToClient?: boolean;
+}): Promise<ClientWorkItem> {
+  const response = await apiFetch(`/clients/organizations/${organizationId}/work-items`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function updateClientWorkItem(workItemId: string, data: Partial<ClientWorkItem>): Promise<ClientWorkItem> {
+  const response = await apiFetch(`/clients/work-items/${workItemId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function createClientApproval(organizationId: string, data: {
+  title: string;
+  description?: string;
+  status?: string;
+  dueAt?: string;
+  projectId?: string;
+  visibleToClient?: boolean;
+}): Promise<ClientApproval> {
+  const response = await apiFetch(`/clients/organizations/${organizationId}/approvals`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function updateClientApproval(approvalId: string, data: Partial<ClientApproval>): Promise<ClientApproval> {
+  const response = await apiFetch(`/clients/approvals/${approvalId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function respondClientApproval(approvalId: string, data: {
+  status: 'approved' | 'changes_requested';
+  responseNote?: string;
+}): Promise<ClientApproval> {
+  const response = await apiFetch(`/clients/approvals/${approvalId}/respond`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function createClientReport(organizationId: string, data: {
+  title: string;
+  summary?: string;
+  periodStart: string;
+  periodEnd: string;
+  status?: string;
+  visibleToClient?: boolean;
+  leadsCaptured?: number;
+  missedOpportunities?: number;
+  followUpStatus?: string;
+  leadSourceBreakdown?: Record<string, unknown>;
+  reputationSnapshot?: Record<string, unknown>;
+  localVisibilitySnapshot?: Record<string, unknown>;
+}): Promise<ClientReport> {
+  const response = await apiFetch(`/clients/organizations/${organizationId}/reports`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function updateClientReport(reportId: string, data: Partial<ClientReport>): Promise<ClientReport> {
+  const response = await apiFetch(`/clients/reports/${reportId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function createClientRoadmapRecommendation(organizationId: string, data: {
+  title: string;
+  body: string;
+  priority?: string;
+  status?: string;
+  impact?: string;
+  effort?: string;
+  visibleToClient?: boolean;
+  sortOrder?: number;
+}): Promise<ClientRoadmapRecommendation> {
+  const response = await apiFetch(`/clients/organizations/${organizationId}/roadmap`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function updateClientRoadmapRecommendation(roadmapId: string, data: Partial<ClientRoadmapRecommendation>): Promise<ClientRoadmapRecommendation> {
+  const response = await apiFetch(`/clients/roadmap/${roadmapId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function createClientAsset(organizationId: string, data: {
+  label: string;
+  url: string;
+  type?: string;
+  status?: string;
+  notes?: string;
+  projectId?: string;
+  visibleToClient?: boolean;
+}): Promise<ClientAsset> {
+  const response = await apiFetch(`/clients/organizations/${organizationId}/assets`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function updateClientAsset(assetId: string, data: Partial<ClientAsset>): Promise<ClientAsset> {
+  const response = await apiFetch(`/clients/assets/${assetId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function upsertClientBillingStatus(organizationId: string, data: {
+  planName?: string;
+  status: string;
+  monthlyAmount?: number;
+  currency?: string;
+  renewalAt?: string;
+  visibleToClient?: boolean;
+}): Promise<ClientBillingStatus> {
+  const response = await apiFetch(`/clients/organizations/${organizationId}/billing-status`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function createClientCalendarItem(organizationId: string, data: {
+  title: string;
+  description?: string;
+  channel?: string;
+  status?: string;
+  startAt: string;
+  endAt?: string;
+  projectId?: string;
+  visibleToClient?: boolean;
+}): Promise<ClientCalendarItem> {
+  const response = await apiFetch(`/clients/organizations/${organizationId}/calendar-items`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function updateClientCalendarItem(calendarItemId: string, data: Partial<ClientCalendarItem>): Promise<ClientCalendarItem> {
+  const response = await apiFetch(`/clients/calendar-items/${calendarItemId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function deleteClientCalendarItem(calendarItemId: string): Promise<void> {
+  await apiFetch(`/clients/calendar-items/${calendarItemId}`, {
+    method: 'DELETE',
+  });
 }

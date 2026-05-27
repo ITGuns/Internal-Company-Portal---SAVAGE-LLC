@@ -1,17 +1,14 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useMemo } from "react";
-import Link from "next/link";
+import React, { useState, useCallback, useEffect } from "react";
 import Header from "@/components/Header";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import FormField from "@/components/forms/FormField";
 import EmptyState from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ToastProvider";
-import { useUser } from "@/contexts/UserContext";
-import { Plus, Trash2, Building, BriefcaseBusiness } from "lucide-react";
+import { Plus, Trash2, Building } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import { hasClientOperationsAccess } from "@/lib/role-access";
 
 type Department = {
   id: string;
@@ -38,7 +35,6 @@ type DeleteTarget =
   | { type: 'role'; id: string; name: string; departmentName?: string };
 
 export default function OperationsPage() {
-  const { user } = useUser();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -55,7 +51,6 @@ export default function OperationsPage() {
 
   const [loading, setLoading] = useState(false);
   const toast = useToast();
-  const canManageClients = useMemo(() => hasClientOperationsAccess(user), [user]);
 
   const loadData = useCallback(async () => {
     try {
@@ -190,21 +185,6 @@ export default function OperationsPage() {
         />
 
         <div className="mt-6">
-          {canManageClients ? (
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] px-4 py-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <BriefcaseBusiness className="h-5 w-5 shrink-0 text-[var(--accent)]" />
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold">Client Operations</div>
-                  <div className="truncate text-xs text-[var(--muted)]">Manage client accounts, memberships, tickets, updates, metrics, and resources.</div>
-                </div>
-              </div>
-              <Link href="/operations/clients" className="inline-flex min-h-9 items-center rounded-[var(--radius-md)] border border-[var(--border)] px-3 text-sm font-medium hover:bg-[var(--surface-hover)]">
-                Open
-              </Link>
-            </div>
-          ) : null}
-
           <div className="flex items-center gap-4 border-b border-[var(--border)] mb-6">
             <button
               onClick={() => setActiveTab('departments')}

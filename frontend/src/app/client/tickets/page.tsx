@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, MessageSquare, Plus, Send, Ticket } from "lucide-react";
+import { MessageSquare, Plus, Send, Ticket } from "lucide-react";
 import Button from "@/components/Button";
+import ClientTicketFilterControls from "@/components/client-portal/ClientTicketFilterControls";
 import ChoiceGroup from "@/components/client-portal/ChoiceGroup";
 import TicketDetailPresets from "@/components/client-portal/TicketDetailPresets";
 import Header from "@/components/Header";
@@ -19,6 +19,12 @@ import {
   fetchClientOrganizations,
   fetchClientTickets,
 } from "@/lib/client-portal";
+import { getClientTicketNextAction } from "@/lib/client-communication";
+import {
+  DEFAULT_CLIENT_TICKET_FILTERS,
+  filterClientTickets,
+  getClientTicketFilterSummary,
+} from "@/lib/client-ticket-filters";
 import {
   buildClientTicketTitle,
   CLIENT_TICKET_CATEGORIES,
@@ -43,9 +49,22 @@ export default function ClientTicketsPage() {
   const [commentSaving, setCommentSaving] = useState(false);
   const [form, setForm] = useState({ description: "", category: "website", priority: "normal" });
   const [commentBody, setCommentBody] = useState("");
+  const [ticketFilters, setTicketFilters] = useState(DEFAULT_CLIENT_TICKET_FILTERS);
+  const filteredTickets = useMemo(
+    () => filterClientTickets(tickets, ticketFilters),
+    [tickets, ticketFilters],
+  );
+  const ticketFilterSummary = useMemo(
+    () => getClientTicketFilterSummary(filteredTickets, tickets, ticketFilters),
+    [filteredTickets, tickets, ticketFilters],
+  );
   const selectedTicket = useMemo(
-    () => tickets.find((ticket) => ticket.id === selectedTicketId) || tickets[0] || null,
-    [selectedTicketId, tickets],
+    () => filteredTickets.find((ticket) => ticket.id === selectedTicketId) || filteredTickets[0] || null,
+    [filteredTickets, selectedTicketId],
+  );
+  const selectedNextAction = useMemo(
+    () => selectedTicket ? getClientTicketNextAction(selectedTicket, user?.id) : null,
+    [selectedTicket, user?.id],
   );
 
   const loadOrganizations = useCallback(async () => {
@@ -86,10 +105,10 @@ export default function ClientTicketsPage() {
 
   useEffect(() => {
     setSelectedTicketId((current) => {
-      if (tickets.length === 0) return "";
-      return tickets.some((ticket) => ticket.id === current) ? current : tickets[0].id;
+      if (filteredTickets.length === 0) return "";
+      return filteredTickets.some((ticket) => ticket.id === current) ? current : filteredTickets[0].id;
     });
-  }, [tickets]);
+  }, [filteredTickets]);
 
   async function handleCreateTicket(event: React.FormEvent) {
     event.preventDefault();
@@ -145,17 +164,13 @@ export default function ClientTicketsPage() {
       <div className="p-6 pt-0">
         <Header title="Client Tickets" subtitle="Submit requests and review ticket status." />
 
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-          <Link href="/client" className="inline-flex items-center gap-2 text-sm text-[var(--muted)] hover:text-[var(--foreground)]">
-            <ArrowLeft className="h-4 w-4" />
-            Back to portal
-          </Link>
-          {organizations.length > 1 ? (
+        {organizations.length > 1 ? (
+          <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
             <select className="min-h-10 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] px-3 text-sm" value={selectedId} onChange={(event) => setSelectedId(event.target.value)} aria-label="Client organization">
               {organizations.map((organization) => <option key={organization.id} value={organization.id}>{organization.name}</option>)}
             </select>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         {loading ? (
           <div className="mt-6 text-sm text-[var(--muted)]">Loading tickets...</div>
@@ -214,15 +229,23 @@ export default function ClientTicketsPage() {
                     <Ticket className="h-4 w-4 text-[var(--accent)]" />
                     <h2 className="text-sm font-semibold">Tickets</h2>
                   </div>
-                  <span className="text-xs text-[var(--muted)]">{tickets.length}</span>
+                  <span className="text-xs text-[var(--muted)]">{ticketFilterSummary}</span>
                 </div>
                 <div className="p-4">
-                  {tickets.length === 0 ? (
-                    <EmptyState variant="compact" icon={Ticket} title="No tickets yet" description="Submitted requests will appear here." />
-                  ) : (
-                    <div className="space-y-3">
-                      {tickets.map((ticket) => {
+                  <div className="space-y-3">
+                    <ClientTicketFilterControls
+                      filters={ticketFilters}
+                      resultSummary={ticketFilterSummary}
+                      onChange={setTicketFilters}
+                    />
+                    {tickets.length === 0 ? (
+                      <EmptyState variant="compact" icon={Ticket} title="No tickets yet" description="Submitted requests will appear here." />
+                    ) : filteredTickets.length === 0 ? (
+                      <EmptyState variant="compact" icon={Ticket} title="No matching tickets" description="Adjust the filters to see more requests." />
+                    ) : (
+                      filteredTickets.map((ticket) => {
                         const isSelected = selectedTicket?.id === ticket.id;
+                        const nextAction = getClientTicketNextAction(ticket, user?.id);
 
                         return (
                           <button
@@ -236,6 +259,7 @@ export default function ClientTicketsPage() {
                               <div className="min-w-0">
                                 <h3 className="truncate font-medium">{ticket.title}</h3>
                                 <p className="mt-1 line-clamp-2 text-sm text-[var(--muted)]">{ticket.description || "No description provided."}</p>
+                                <p className="mt-2 text-xs font-medium text-[var(--foreground)]">{nextAction.label}</p>
                               </div>
                               <StatusBadge label={getClientPortalOptionLabel(CLIENT_TICKET_STATUSES, ticket.status)} size="sm" />
                             </div>
@@ -246,9 +270,9 @@ export default function ClientTicketsPage() {
                             </div>
                           </button>
                         );
-                      })}
-                    </div>
-                  )}
+                      })
+                    )}
+                  </div>
                 </div>
               </section>
 
@@ -265,6 +289,17 @@ export default function ClientTicketsPage() {
                     <EmptyState variant="compact" icon={Ticket} title="Select a ticket" description="Ticket notes and replies will appear here." />
                   ) : (
                     <>
+                      <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <div className="text-xs font-medium uppercase text-[var(--muted)]">Next action</div>
+                            <div className="mt-1 text-sm font-semibold">{selectedNextAction?.label}</div>
+                          </div>
+                          <StatusBadge label={selectedNextAction?.status === "client" ? "Client" : selectedNextAction?.status === "complete" ? "Done" : "Team"} size="sm" />
+                        </div>
+                        <p className="mt-2 text-sm leading-5 text-[var(--muted)]">{selectedNextAction?.description}</p>
+                      </div>
+
                       <div>
                         <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
                           <span>{getClientPortalOptionLabel(CLIENT_TICKET_CATEGORIES, selectedTicket.category)}</span>

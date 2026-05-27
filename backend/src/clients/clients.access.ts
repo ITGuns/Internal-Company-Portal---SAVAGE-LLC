@@ -16,9 +16,11 @@ export interface ClientAccessContext {
 
 export interface ReadableClientOrganization {
   id: string
+  status?: string | null
 }
 
 export interface ClientOrganizationVisibilityFilter {
+  status?: string
   memberships?: {
     some: {
       userId: string
@@ -33,6 +35,9 @@ const CLIENT_MANAGEMENT_ROLES = new Set([
   'manager',
   'operations_manager',
   'chief_operations_officer',
+  'web_developer',
+  'website_developer',
+  'webdev',
 ])
 
 export function normalizeClientRole(role: string): string {
@@ -58,6 +63,7 @@ export function getClientOrganizationVisibilityFilter(
   if (access.isPrivileged) return {}
 
   return {
+    status: 'active',
     memberships: {
       some: {
         userId: access.requesterId,
@@ -71,7 +77,9 @@ export function canReadClientOrganization(
   access: ClientAccessContext,
   organization: ReadableClientOrganization,
 ): boolean {
-  return access.isPrivileged || getActiveClientOrganizationIds(access).includes(organization.id)
+  if (access.isPrivileged) return true
+  if (organization.status && normalizeClientRole(organization.status) !== 'active') return false
+  return getActiveClientOrganizationIds(access).includes(organization.id)
 }
 
 export function canManageClientOrganization(access: ClientAccessContext): boolean {

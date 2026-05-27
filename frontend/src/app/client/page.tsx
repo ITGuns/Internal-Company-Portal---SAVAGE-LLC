@@ -34,6 +34,7 @@ import {
   getClientPortalOptionLabel,
 } from "@/lib/client-portal-options";
 import { formatClientPortalDate } from "@/lib/client-portal-display";
+import { buildClientCommandCenter } from "@/lib/client-portal-command";
 import { buildClientPortalSummary } from "@/lib/client-portal-summary";
 
 const textareaClass = "min-h-24 w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
@@ -63,15 +64,13 @@ export default function ClientPortalPage() {
   const [ticketForm, setTicketForm] = useState({ description: "", category: "website", priority: "normal" });
 
   const summary = useMemo(() => buildClientPortalSummary(overview), [overview]);
+  const commandCenter = useMemo(() => buildClientCommandCenter(overview), [overview]);
   const projectNameById = useMemo(
     () => new Map((overview?.projects || []).map((project) => [project.id, project.name])),
     [overview],
   );
-  const latestUpdate = overview?.updates[0] || null;
-  const nextActionTicket = useMemo(
-    () => (overview?.tickets || []).find((ticket) => ticket.status === "review") || null,
-    [overview],
-  );
+  const latestUpdate = commandCenter.latestUpdate;
+  const nextActionTicket = commandCenter.reviewRequests[0] || null;
 
   const loadOrganizations = useCallback(async () => {
     const nextOrganizations = await fetchClientOrganizations();

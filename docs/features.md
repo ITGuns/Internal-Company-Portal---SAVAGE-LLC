@@ -81,22 +81,49 @@ Operations manages departments, role options, and client account administration.
 - Department and role deletes now require a typed confirmation modal.
 - The delete action stays disabled until the exact target name is typed.
 - Department delete confirmation displays linked task and user-role counts when provided by the API.
-- `/operations/clients` manages multiple client organizations, memberships, projects, tickets, updates, metrics, and resource links.
-- `/operations/clients` includes an admin ticket conversation panel with client-visible replies and internal notes.
-- The base `/operations` page links to Client Operations without merging client-management logic into the existing departments/roles page.
+- `/operations/clients` is now the Client Operations command center for account health, open work, requests, approvals, latest updates, reports, and quick links into focused work areas.
+- `/operations/clients/accounts` manages client setup, external client invitations, approved existing-user access, membership status changes, account profile details, and safe client account removal through archive/restore controls.
+- Client Operations separates current client accounts from archived history so removed clients do not crowd the active working list.
+- `/operations/clients/delivery` manages projects, build progress, work items, completed work, and client-visible updates.
+- `/operations/clients/requests` manages website change requests and support tickets with client-visible replies and internal notes.
+- `/operations/clients/approvals` manages approval queue records and client decision status.
+- `/operations/clients/reports` manages monthly reports, lead/reputation/local-visibility signals, and metric snapshots.
+- `/operations/clients/assets` manages resources, files, links, and client-visible assets.
+- `/operations/clients/billing`, `/operations/clients/roadmap`, and `/operations/clients/calendar` manage billing status, next recommendations, and campaign/content schedules.
+- Client Roadmap now uses a board-style workflow with modal create/edit/archive controls instead of always-visible form fields.
+- Client Calendar now renders a month/week/day calendar with date-only scheduling; clicking a date opens a scheduling modal and clicking an event opens edit/archive/delete controls.
+- Client Operations can invite external client contacts, create the client user, assign organization access, and show a setup link when email delivery is not configured.
+- Client Operations ticket lists support search plus status, priority, and request-type filters.
+- Client Operations now appears under a dedicated **Client Side** sidebar section with focused route links for admins, operations managers, and web developers, while the base `/operations` page stays focused on departments and roles.
 
 ## Client Portal Foundation
 
 Deskii now has the backend foundation for a client-facing portal/tool inside the existing internal app.
 
 - Client portal records are grouped under `ClientOrganization`.
-- Client users are scoped through active `ClientMembership` records and cannot see other client organizations.
+- Client users are scoped through active `ClientMembership` records on active client organizations and cannot see other client organizations or archived clients.
 - Internal managers/admins can create client organizations and review cross-client portal data.
 - Client overview data can include projects, tickets, updates, performance metrics, and resource links.
 - Ticket creation derives organization and requester ownership server-side, so clients cannot spoof tenant, assignment, or internal fields.
 - Internal ticket comments, project notes, tier pricing/priority, and other protected fields are stripped from client-visible responses.
 - `/client` gives assigned clients a portal overview with progress, tickets, updates, metrics, resources, and a ticket submission form.
+- `/client` now acts as the client command center, with primary workspace navigation handled by the sidebar.
+- `/client/work` organizes website build progress, open requests, completed work, and future client-visible task checklists.
+- `/client/approvals` surfaces client approval records and lets clients approve or request changes with a response note.
+- `/client/messages` consolidates client-visible request conversation history.
+- `/client/reports` presents published metric snapshots and report notes as the client reporting dashboard.
+- `/client/resources` gives clients a focused shared resource library.
+- `/client/account` shows client account, website, status, service tier, and active team access details.
+- `/client/calendar` is reserved for the campaign and content schedule surface.
 - `/client/tickets` gives clients a focused request center for ticket submission and status review.
+- `/client/tickets` includes search plus status, priority, and request-type filters so clients can find past requests quickly.
+- The backend now supports production client records for work items, approvals, monthly reports, roadmap recommendations, assets, billing status, and calendar items.
+- Internal users can create, update, and archive those production client records through management API routes while client overview responses only expose client-visible records.
+- Client portal pages now read those production records directly: work items power open tasks and completed work, approval records power the approval queue, reports power the monthly dashboard, assets extend the resource library, billing status appears on the account page when visible, and calendar records power the campaign calendar.
+- Client Operations splits production-record panels across focused admin pages for adding, editing key details, updating status/visibility, and archiving work items, approvals, reports, roadmap recommendations, assets, billing status, and calendar items. Calendar items can also be permanently deleted when history should not retain them.
+- Client Operations includes client team access controls for inviting new external clients, adding approved existing users, editing membership roles/status, deactivating users without losing history, and reactivating access later.
+- Client Operations can archive an entire client account with typed confirmation, hiding it from client users while preserving requests, reports, files, billing notes, and history for internal review.
+- Client ticket and message views now show shared next-action signals so admins and clients can see whether the team or client is expected to respond.
 - Client users land on `/client` after login, and authenticated client users attempting `/dashboard` are redirected back to the client portal.
 
 ## Payroll Calendar

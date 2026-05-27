@@ -138,12 +138,74 @@ export const CLIENT_MEMBER_STATUSES: ClientPortalOption[] = [
   { value: "inactive", label: "Inactive" },
 ];
 
+export const CLIENT_ORGANIZATION_STATUSES: ClientPortalOption[] = [
+  { value: "active", label: "Active" },
+  { value: "paused", label: "Paused" },
+  { value: "archived", label: "Archived" },
+];
+
 export const CLIENT_PROJECT_STATUSES: ClientPortalOption[] = [
   { value: "planning", label: "Planning" },
   { value: "in_progress", label: "In Progress" },
   { value: "review", label: "Review" },
   { value: "live", label: "Live" },
   { value: "paused", label: "Paused" },
+];
+
+export const CLIENT_WORK_ITEM_STATUSES: ClientPortalOption[] = [
+  { value: "open", label: "Open" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "review", label: "Review" },
+  { value: "completed", label: "Completed" },
+  { value: "blocked", label: "Blocked" },
+  { value: "archived", label: "Archived" },
+];
+
+export const CLIENT_APPROVAL_STATUSES: ClientPortalOption[] = [
+  { value: "pending", label: "Pending" },
+  { value: "approved", label: "Approved" },
+  { value: "changes_requested", label: "Changes Requested" },
+  { value: "rejected", label: "Rejected" },
+  { value: "archived", label: "Archived" },
+];
+
+export const CLIENT_REPORT_STATUSES: ClientPortalOption[] = [
+  { value: "draft", label: "Draft" },
+  { value: "published", label: "Published" },
+  { value: "archived", label: "Archived" },
+];
+
+export const CLIENT_ROADMAP_STATUSES: ClientPortalOption[] = [
+  { value: "recommended", label: "Recommended" },
+  { value: "next", label: "Next" },
+  { value: "planned", label: "Planned" },
+  { value: "done", label: "Done" },
+  { value: "archived", label: "Archived" },
+];
+
+export const CLIENT_CALENDAR_STATUSES: ClientPortalOption[] = [
+  { value: "planned", label: "Planned" },
+  { value: "scheduled", label: "Scheduled" },
+  { value: "published", label: "Published" },
+  { value: "cancelled", label: "Cancelled" },
+  { value: "archived", label: "Archived" },
+];
+
+export const CLIENT_ASSET_STATUSES: ClientPortalOption[] = [
+  { value: "draft", label: "Draft" },
+  { value: "requested", label: "Requested" },
+  { value: "received", label: "Received" },
+  { value: "approved", label: "Approved" },
+  { value: "archived", label: "Archived" },
+];
+
+export const CLIENT_BILLING_STATUSES: ClientPortalOption[] = [
+  { value: "active", label: "Active" },
+  { value: "trial", label: "Trial" },
+  { value: "past_due", label: "Past Due" },
+  { value: "paused", label: "Paused" },
+  { value: "cancelled", label: "Cancelled" },
+  { value: "archived", label: "Archived" },
 ];
 
 export function getClientPortalOptionLabel(options: ClientPortalOption[], value?: string | null): string {

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from 'next/image';
+import { createPortal } from "react-dom";
 import { X, User, LogOut, Edit2 } from "lucide-react";
 import { getCurrentUser } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
@@ -11,7 +12,7 @@ import Button from "./Button";
 import EditProfileModal from "./EditProfileModal";
 
 interface UserProfile {
-  id?: string;
+  id?: string | number;
   name: string;
   email: string;
   birthday?: string;
@@ -30,6 +31,11 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
   const { logout } = useUser();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -57,31 +63,32 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
     router.push('/login');
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !isMounted) return null;
+  const userIdLabel = user?.id ? `${String(user.id).slice(0, 8)}...` : "Unavailable";
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop with blur */}
       <div
-        className="fixed inset-0 bg-black/20 backdrop-blur-sm transition-opacity duration-300"
+        className="fixed inset-0 z-[9997] bg-black/30 backdrop-blur-sm transition-opacity duration-300"
         onClick={onClose}
-        style={{ zIndex: 9998 }}
       />
 
       {/* Slide-in sidebar from right */}
       <div
-        className={`fixed top-0 right-0 h-full w-96 bg-[var(--card-bg)] shadow-2xl transform transition-transform duration-300 ease-out ${
+        className={`fixed inset-y-0 right-0 z-[9998] flex w-full max-w-sm transform flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--card-bg)] shadow-2xl transition-transform duration-300 ease-out ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="profile-sidebar-title"
         style={{
-          borderLeft: "1px solid var(--border)",
-          zIndex: 10000,
-          isolation: 'isolate'
+          isolation: "isolate",
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
-          <h2 className="text-lg font-semibold text-[var(--foreground)]">Profile</h2>
+        <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] p-4">
+          <h2 id="profile-sidebar-title" className="text-lg font-semibold text-[var(--foreground)]">Profile</h2>
           <button
             onClick={onClose}
             className="p-2 rounded-md hover:bg-[var(--card-surface)] transition-colors"
@@ -92,65 +99,67 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
         </div>
 
         {/* Profile Content */}
-        <div className="flex flex-col items-center p-8 space-y-6">
-          {/* Avatar */}
-          <div className="relative">
-            <div className="w-32 h-32 rounded-full overflow-hidden bg-[var(--card-surface)] border-4 border-[var(--border)] shadow-lg">
-              {user?.avatar ? (
-                <Image
-                  src={user.avatar}
-                  alt={user.name || "User"}
-                  width={128}
-                  height={128}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <UserAvatar className="w-full h-full" size={128} ariaHidden={true} />
-              )}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">
+          <div className="flex flex-col items-center space-y-5">
+            {/* Avatar */}
+            <div className="relative">
+              <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-[var(--border)] bg-[var(--card-surface)] shadow-lg sm:h-32 sm:w-32">
+                {user?.avatar ? (
+                  <Image
+                    src={user.avatar}
+                    alt={user.name || "User"}
+                    width={128}
+                    height={128}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <UserAvatar className="h-full w-full" size={128} ariaHidden={true} />
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* User Name */}
-          <div className="text-center">
-            <h3 className="text-2xl font-bold text-[var(--foreground)] mb-1">
-              {user?.name || "User"}
-            </h3>
-            {user?.roles && user.roles.length > 0 && (
-              <p className="text-sm font-medium text-[var(--accent)] mb-1">
-                {user.roles.join(", ")}
-              </p>
-            )}
-            <p className="text-sm text-[var(--muted)]">{user?.email || ""}</p>
-          </div>
+            {/* User Name */}
+            <div className="w-full min-w-0 text-center">
+              <h3 className="mb-1 truncate text-xl font-semibold text-[var(--foreground)] sm:text-2xl">
+                {user?.name || "User"}
+              </h3>
+              {user?.roles && user.roles.length > 0 && (
+                <p className="mb-1 text-sm font-medium text-[var(--accent)]">
+                  {user.roles.join(", ")}
+                </p>
+              )}
+              <p className="break-all text-sm text-[var(--muted)]">{user?.email || ""}</p>
+            </div>
 
-          {/* Action Buttons */}
-          <div className="w-full space-y-3 pt-4">
-            <Button
-              variant="primary"
-              className="w-full flex items-center justify-center gap-2"
-              onClick={() => setShowEditModal(true)}
-            >
-              <Edit2 className="w-4 h-4" />
-              Edit Profile
-            </Button>
+            {/* Action Buttons */}
+            <div className="w-full space-y-3 pt-2">
+              <Button
+                variant="primary"
+                fullWidth
+                onClick={() => setShowEditModal(true)}
+              >
+                <Edit2 className="h-4 w-4" />
+                Edit Profile
+              </Button>
 
-            <Button
-              variant="secondary"
-              className="w-full flex items-center justify-center gap-2"
-              onClick={handleSignOut}
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out
-            </Button>
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={handleSignOut}
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </Button>
+            </div>
           </div>
         </div>
 
         {/* Additional Info (Optional) */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-[var(--border)] bg-[var(--card-surface)]">
-          <div className="text-xs text-[var(--muted)] space-y-1">
-            <div className="flex items-center gap-2">
-              <User className="w-3 h-3" />
-              <span>User ID: {user?.id?.slice(0, 8)}...</span>
+        <div className="shrink-0 border-t border-[var(--border)] bg-[var(--card-surface)] p-4">
+          <div className="space-y-1 text-xs text-[var(--muted)]">
+            <div className="flex min-w-0 items-center gap-2">
+              <User className="h-3 w-3 shrink-0" />
+              <span className="truncate">User ID: {userIdLabel}</span>
             </div>
           </div>
         </div>
@@ -163,6 +172,7 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
         user={user}
         onSave={handleSaveProfile}
       />
-    </>
+    </>,
+    document.body,
   );
 }

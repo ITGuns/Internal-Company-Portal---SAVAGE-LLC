@@ -1,5 +1,6 @@
 import * as dotenv from 'dotenv'
 import * as path from 'path'
+import { buildAllowedCorsOrigins } from './cors.config'
 
 // Load environment variables from .env file only if not on Vercel
 if (!process.env.VERCEL) {
@@ -35,6 +36,7 @@ interface EnvConfig {
 
     // CORS
     corsOrigin: string
+    corsOrigins: string[]
 
     // Admin bypass emails (comma-separated in env)
     adminEmails: string[]
@@ -66,9 +68,12 @@ function getOptionalEnvVar(key: string): string | undefined {
     return process.env[key]
 }
 
+const nodeEnv = getEnvVar('NODE_ENV', 'development')
+const corsOrigin = getEnvVar('CORS_ORIGIN', 'http://localhost:3000')
+
 export const config: EnvConfig = {
     // Application
-    nodeEnv: getEnvVar('NODE_ENV', 'development'),
+    nodeEnv,
     port: parseInt(getEnvVar('PORT', '4000'), 10),
 
     // Database
@@ -94,7 +99,8 @@ export const config: EnvConfig = {
     refreshTokenExpiresIn: getEnvVar('REFRESH_TOKEN_EXPIRES_IN', '30d'),
 
     // CORS
-    corsOrigin: getEnvVar('CORS_ORIGIN', 'http://localhost:3000'),
+    corsOrigin,
+    corsOrigins: buildAllowedCorsOrigins(corsOrigin, nodeEnv),
 
     // Admin bypass emails
     adminEmails: (getOptionalEnvVar('ADMIN_EMAILS') || '')
@@ -138,5 +144,5 @@ export function validateConfig(): void {
         )
     }
 
-    console.log('✅ Environment configuration validated successfully')
+    console.log('Environment configuration validated successfully')
 }

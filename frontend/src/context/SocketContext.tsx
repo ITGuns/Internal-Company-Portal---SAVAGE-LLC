@@ -82,7 +82,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         })
 
         newSocket.on('connect_error', (err) => {
-            console.error('⚠️ Socket connection error:', err.message)
+            console.warn('[SocketContext] Socket connection warning:', err.message)
         })
 
         newSocket.on('notification', (payload: SocketNotificationPayload) => {

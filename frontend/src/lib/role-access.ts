@@ -11,6 +11,13 @@ const MANAGEMENT_ROLES = new Set([
   "chief_operations_officer",
 ]);
 
+const CLIENT_OPERATIONS_ROLES = new Set([
+  ...MANAGEMENT_ROLES,
+  "web_developer",
+  "website_developer",
+  "webdev",
+]);
+
 const CLIENT_PORTAL_ROLES = new Set([
   "client",
   "client_owner",
@@ -38,7 +45,7 @@ export function hasManagementAccess(user?: RoleAccessUser | null): boolean {
 }
 
 export function hasClientOperationsAccess(user?: RoleAccessUser | null): boolean {
-  return hasManagementAccess(user);
+  return getUserRoleNames(user).some((role) => CLIENT_OPERATIONS_ROLES.has(role));
 }
 
 export function hasClientPortalAccess(user?: RoleAccessUser | null): boolean {

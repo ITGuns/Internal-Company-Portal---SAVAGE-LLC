@@ -60,6 +60,12 @@ model User {
   clientTicketsAssigned ClientTicket[]       @relation("ClientTicketAssignee")
   clientTicketComments ClientTicketComment[] @relation("ClientTicketCommentAuthor")
   clientUpdatesCreated ClientUpdate[]        @relation("ClientUpdateCreator")
+  clientWorkItemsCreated ClientWorkItem[]    @relation("ClientWorkItemCreator")
+  clientWorkItemsAssigned ClientWorkItem[]   @relation("ClientWorkItemAssignee")
+  clientApprovalsRequested ClientApproval[]  @relation("ClientApprovalRequester")
+  clientApprovalsDecided ClientApproval[]    @relation("ClientApprovalDecider")
+  clientReportsCreated ClientReport[]        @relation("ClientReportCreator")
+  clientCalendarItemsCreated ClientCalendarItem[] @relation("ClientCalendarItemCreator")
 
   @@index([email])
 }
@@ -180,6 +186,13 @@ model ClientOrganization {
   updates         ClientUpdate[]
   metricSnapshots ClientMetricSnapshot[]
   resourceLinks   ClientResourceLink[]
+  workItems       ClientWorkItem[]
+  approvals       ClientApproval[]
+  reports         ClientReport[]
+  roadmapRecommendations ClientRoadmapRecommendation[]
+  assets          ClientAsset[]
+  billingStatus   ClientBillingStatus?
+  calendarItems   ClientCalendarItem[]
 
   @@index([status])
   @@index([tierId])
@@ -222,6 +235,10 @@ model ClientProject {
   tickets       ClientTicket[]
   updates       ClientUpdate[]
   resourceLinks ClientResourceLink[]
+  workItems     ClientWorkItem[]
+  approvals     ClientApproval[]
+  assets        ClientAsset[]
+  calendarItems ClientCalendarItem[]
 
   @@index([organizationId])
   @@index([status])
@@ -335,6 +352,186 @@ model ClientResourceLink {
   @@index([projectId])
   @@index([visibleToClient])
   @@index([type])
+}
+
+model ClientWorkItem {
+  id              String    @id @default(cuid())
+  organizationId  String
+  projectId       String?
+  title           String
+  description     String?
+  status          String    @default("open")
+  priority        String    @default("normal")
+  progress        Int       @default(0)
+  dueAt           DateTime?
+  completedAt     DateTime?
+  visibleToClient Boolean   @default(true)
+  sortOrder       Int       @default(0)
+  createdById     String?
+  assignedToId    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      ClientProject?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  creator      User?              @relation("ClientWorkItemCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  assignee     User?              @relation("ClientWorkItemAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([status])
+  @@index([visibleToClient])
+  @@index([dueAt])
+  @@index([assignedToId])
+}
+
+model ClientApproval {
+  id              String    @id @default(cuid())
+  organizationId  String
+  projectId       String?
+  title           String
+  description     String?
+  status          String    @default("pending")
+  responseNote    String?
+  requestedById   String?
+  decidedById     String?
+  dueAt           DateTime?
+  decidedAt       DateTime?
+  visibleToClient Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      ClientProject?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  requester    User?              @relation("ClientApprovalRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  decider      User?              @relation("ClientApprovalDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([status])
+  @@index([visibleToClient])
+  @@index([dueAt])
+}
+
+model ClientReport {
+  id                       String    @id @default(cuid())
+  organizationId           String
+  title                    String
+  summary                  String?
+  periodStart              DateTime
+  periodEnd                DateTime
+  status                   String    @default("draft")
+  visibleToClient          Boolean   @default(true)
+  leadsCaptured            Int?
+  missedOpportunities      Int?
+  followUpStatus           String?
+  leadSourceBreakdown      Json?
+  reputationSnapshot       Json?
+  localVisibilitySnapshot  Json?
+  createdById              String?
+  publishedAt              DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User?              @relation("ClientReportCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([visibleToClient])
+  @@index([periodStart])
+  @@index([createdById])
+}
+
+model ClientRoadmapRecommendation {
+  id              String   @id @default(cuid())
+  organizationId  String
+  title           String
+  body            String
+  priority        String   @default("normal")
+  status          String   @default("recommended")
+  impact          String?
+  effort          String?
+  visibleToClient Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([visibleToClient])
+  @@index([sortOrder])
+}
+
+model ClientAsset {
+  id              String   @id @default(cuid())
+  organizationId  String
+  projectId       String?
+  label           String
+  url             String
+  type            String   @default("link")
+  status          String   @default("received")
+  notes           String?
+  visibleToClient Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      ClientProject?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([type])
+  @@index([status])
+  @@index([visibleToClient])
+}
+
+model ClientBillingStatus {
+  id              String    @id @default(cuid())
+  organizationId  String    @unique
+  planName        String?
+  status          String    @default("active")
+  monthlyAmount   Float?
+  currency        String    @default("USD")
+  renewalAt       DateTime?
+  notes           String?
+  visibleToClient Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([visibleToClient])
+}
+
+model ClientCalendarItem {
+  id              String    @id @default(cuid())
+  organizationId  String
+  projectId       String?
+  title           String
+  description     String?
+  channel         String?
+  status          String    @default("planned")
+  startAt         DateTime
+  endAt           DateTime?
+  visibleToClient Boolean   @default(true)
+  createdById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      ClientProject?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  creator      User?              @relation("ClientCalendarItemCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([status])
+  @@index([visibleToClient])
+  @@index([startAt])
+  @@index([createdById])
 }
 
 model UserRole {

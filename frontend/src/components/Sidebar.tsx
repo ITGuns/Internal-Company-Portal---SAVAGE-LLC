@@ -5,17 +5,24 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  Activity,
   CalendarDays,
+  BarChart3,
   BriefcaseBusiness,
+  CheckCircle2,
+  CreditCard,
   DollarSign,
   Folder,
+  FolderOpen,
   Grid,
   Home,
   Megaphone,
   MessageSquare,
+  Map,
   ShieldCheck,
   Ticket,
   UserCircle,
+  UserPlus,
   Users,
   X,
 } from 'lucide-react';
@@ -23,7 +30,14 @@ import UserAvatar from '../assets/icons/UserAvatar';
 import { useSocket } from '@/context/SocketContext';
 import { useUser } from '@/contexts/UserContext';
 import { fetchClientOrganizations } from '@/lib/client-portal';
-import { hasClientOperationsAccess, hasClientPortalAccess, hasClientWorkspaceShellAccess } from '@/lib/role-access';
+import { CLIENT_OPERATIONS_NAV_ITEMS } from '@/lib/client-operations-navigation';
+import { CLIENT_PORTAL_NAV_ITEMS } from '@/lib/client-portal-navigation';
+import {
+  hasClientOperationsAccess,
+  hasClientPortalAccess,
+  hasClientWorkspaceShellAccess,
+  hasManagementAccess,
+} from '@/lib/role-access';
 import { cn } from '@/lib/utils';
 
 type NavItemConfig = {
@@ -35,7 +49,9 @@ type NavItemConfig = {
 
 function NavItem({ icon: Icon, label, badge, href }: NavItemConfig) {
   const pathname = usePathname() || '/';
-  const isActive = href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
+  const isActive = href === '/' || href === '/client' || href === '/operations' || href === '/operations/clients'
+    ? pathname === href
+    : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <Link
@@ -86,6 +102,7 @@ export default function Sidebar() {
   const [clientWorkspaceChecked, setClientWorkspaceChecked] = useState(false);
   const isAdmin = user?.role?.toLowerCase() === 'admin';
   const canUseClientOperations = useMemo(() => hasClientOperationsAccess(user), [user]);
+  const canUseOperationsAdmin = useMemo(() => hasManagementAccess(user), [user]);
   const hasRoleBasedClientPortalAccess = useMemo(() => hasClientPortalAccess(user), [user]);
   const canUseClientPortal = hasRoleBasedClientPortalAccess || hasClientWorkspace;
   const usesClientShell = useMemo(
@@ -140,9 +157,23 @@ export default function Sidebar() {
     };
   }, [canUseClientOperations, hasRoleBasedClientPortalAccess, user]);
 
+  const clientRouteIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+    '/client': BriefcaseBusiness,
+    '/client/work': Grid,
+    '/client/approvals': CheckCircle2,
+    '/client/messages': MessageSquare,
+    '/client/reports': BarChart3,
+    '/client/resources': FolderOpen,
+    '/client/account': UserCircle,
+    '/client/calendar': CalendarDays,
+  };
   const clientItems: NavItemConfig[] = [
-    { href: '/client', icon: BriefcaseBusiness, label: 'Client Portal' },
-    { href: '/client/tickets', icon: Ticket, label: 'Tickets' },
+    ...CLIENT_PORTAL_NAV_ITEMS.map((item) => ({
+      href: item.href,
+      icon: clientRouteIcons[item.href] || BriefcaseBusiness,
+      label: item.label,
+    })),
+    { href: '/client/tickets', icon: Ticket, label: 'Requests' },
   ];
 
   const employeeMainItems: NavItemConfig[] = [
@@ -163,10 +194,33 @@ export default function Sidebar() {
         { href: '/file-directory', icon: Folder, label: 'File Directory' },
       ];
 
+  const clientSideItems: NavItemConfig[] = usesClientShell || isResolvingClientWorkspace || !canUseClientOperations
+    ? []
+    : CLIENT_OPERATIONS_NAV_ITEMS.map((item) => {
+        const icons: Record<string, React.ComponentType<{ className?: string }>> = {
+          '/operations/clients': BriefcaseBusiness,
+          '/operations/clients/accounts': UserPlus,
+          '/operations/clients/delivery': Activity,
+          '/operations/clients/requests': Ticket,
+          '/operations/clients/approvals': CheckCircle2,
+          '/operations/clients/reports': BarChart3,
+          '/operations/clients/assets': FolderOpen,
+          '/operations/clients/billing': CreditCard,
+          '/operations/clients/roadmap': Map,
+          '/operations/clients/calendar': CalendarDays,
+        };
+
+        return {
+          href: item.href,
+          icon: icons[item.href] || BriefcaseBusiness,
+          label: item.label,
+        };
+      });
+
   const adminItems: NavItemConfig[] = usesClientShell || isResolvingClientWorkspace
     ? []
     : [
-        ...(canUseClientOperations ? [{ href: '/operations', icon: ShieldCheck, label: 'Operations' }] : []),
+        ...(canUseOperationsAdmin ? [{ href: '/operations', icon: ShieldCheck, label: 'Operations' }] : []),
         ...(isAdmin ? [{ href: '/whiteboard', icon: Grid, label: 'Whiteboard' }] : []),
       ];
 
@@ -182,6 +236,7 @@ export default function Sidebar() {
       ) : null}
 
       <aside
+        aria-label="Primary navigation"
         className={cn(
           'fixed inset-y-0 left-0 z-50 w-72 border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] text-[var(--sidebar-foreground)] shadow-[var(--shadow-md)]',
           'transition-transform duration-200 ease-[var(--ease-out)] md:translate-x-0 md:shadow-none',
@@ -206,6 +261,7 @@ export default function Sidebar() {
 
           <div className="sidebar-scroll flex-1 space-y-6 overflow-y-auto px-3 py-5">
             {mainItems.length > 0 ? <NavSection title={usesClientShell ? 'Client Workspace' : 'Work'} items={mainItems} /> : null}
+            {clientSideItems.length > 0 ? <NavSection title="Client Side" items={clientSideItems} /> : null}
             {collaborationItems.length > 0 ? <NavSection title="Company" items={collaborationItems} /> : null}
             {adminItems.length > 0 ? <NavSection title="Admin" items={adminItems} /> : null}
           </div>

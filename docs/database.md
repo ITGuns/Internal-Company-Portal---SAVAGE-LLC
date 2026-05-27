@@ -104,13 +104,21 @@ Payroll-sensitive fields also live on `EmployeeProfile`.
 
 Client portal data is tenant-scoped by `ClientOrganization`.
 
-- `ClientOrganization` is the client account/workspace record and owns projects, tickets, updates, metrics, resources, and memberships.
-- `ClientMembership` links portal users to one client organization and stores client-side role/status. Active memberships are the client visibility boundary.
+- `ClientOrganization` is the client account/workspace record and owns projects, tickets, updates, metrics, resources, and memberships. `status` supports safe account lifecycle states such as `active`, `paused`, and `archived`; archived organizations keep history but are excluded from client-facing access.
+- `ClientMembership` links portal users to one client organization and stores client-side role/status. Active memberships on active organizations are the client visibility boundary; inactive memberships preserve history and act as safe deactivation instead of destructive deletion.
+- Client invitations do not use a separate table yet. They create or update `User`, ensure a departmentless `UserRole` of `client`, upsert `ClientMembership`, and reuse existing password-reset token fields for first-time setup links.
 - `ClientServiceTier` stores internal tier metadata used for client setup and operations prioritization.
 - `ClientProject` stores visible project status, progress, links, and internal notes. Client serializers must not expose `internalNotes`.
 - `ClientTicket` stores client support/change requests. The server sets `organizationId` from the route and `createdById` from the authenticated user; clients must not set ownership, internal notes, or assignment fields.
 - `ClientTicketComment.visibility` separates client-visible replies from internal handoff notes.
 - `ClientUpdate`, `ClientMetricSnapshot`, and `ClientResourceLink` use `visibleToClient` so internal operations can stage private records without exposing them to clients.
+- `ClientWorkItem` stores client-facing work progress, open tasks, and completed work log entries.
+- `ClientApproval` stores approval requests, due dates, decision state, and client response notes.
+- `ClientReport` stores monthly report periods and snapshot fields for leads, source breakdowns, missed opportunities, reputation, and local visibility.
+- `ClientRoadmapRecommendation` stores next-step recommendations with priority, impact, effort, and client visibility.
+- `ClientAsset` stores client file/asset links separately from general resources so assets can have lifecycle status and notes.
+- `ClientBillingStatus` stores one billing/plan status record per client organization and is hidden from clients unless explicitly marked visible.
+- `ClientCalendarItem` stores campaign and content calendar items with channel, status, schedule, and visibility.
 - New client portal tables are additive and do not change existing employee task, payroll, chat, or file-directory records.
 
 ## Collaboration And Files

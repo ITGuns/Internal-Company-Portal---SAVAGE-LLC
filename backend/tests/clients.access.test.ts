@@ -9,6 +9,7 @@ import {
 } from '../src/clients/clients.access'
 import {
   serializeClientOrganizationForClient,
+  serializeClientMembershipForClient,
   serializeClientTicketForClient,
   serializeClientUpdateForClient,
 } from '../src/clients/clients.serializers'
@@ -22,6 +23,8 @@ import {
   parseCreateClientTicketCommentInput,
   parseCreateClientTicketInput,
   parseCreateClientUpdateInput,
+  parseUpdateClientMembershipInput,
+  parseUpdateClientOrganizationStatusInput,
   parseUpdateClientProjectInput,
   parseUpdateClientTicketStatusInput,
   slugifyClientOrganizationName,
@@ -45,11 +48,14 @@ const managerAccess = {
 assert.equal(normalizeClientRole(' Operations Manager '), 'operations_manager')
 assert.equal(normalizeClientRole('chief-operations-officer'), 'chief_operations_officer')
 assert.equal(hasClientManagementAccess(internalRoles), true)
+assert.equal(hasClientManagementAccess([{ role: 'Web Developer' }]), true)
+assert.equal(hasClientManagementAccess([{ role: 'webdev' }]), true)
 assert.equal(hasClientManagementAccess([{ role: 'client' }]), false)
 assert.equal(hasClientManagementAccess([], true), true)
 
 assert.deepEqual(getClientOrganizationVisibilityFilter(managerAccess), {})
 assert.deepEqual(getClientOrganizationVisibilityFilter(clientAccess), {
+  status: 'active',
   memberships: {
     some: {
       userId: 'user-client',
@@ -60,6 +66,7 @@ assert.deepEqual(getClientOrganizationVisibilityFilter(clientAccess), {
 
 assert.equal(canReadClientOrganization(managerAccess, { id: 'org-2' }), true)
 assert.equal(canReadClientOrganization(clientAccess, { id: 'org-1' }), true)
+assert.equal(canReadClientOrganization(clientAccess, { id: 'org-1', status: 'archived' }), false)
 assert.equal(canReadClientOrganization(clientAccess, { id: 'org-archived' }), false)
 assert.equal(canReadClientOrganization(clientAccess, { id: 'org-2' }), false)
 
@@ -185,6 +192,17 @@ assert.throws(
   () => parseCreateClientOrganizationInput({ name: ' ' }),
   ClientValidationError,
 )
+assert.deepEqual(parseUpdateClientOrganizationStatusInput({ status: ' Archived ' }), {
+  status: 'archived',
+})
+assert.deepEqual(parseUpdateClientOrganizationStatusInput({ status: 'paused' }), {
+  status: 'paused',
+})
+assert.equal('name' in parseUpdateClientOrganizationStatusInput({ status: 'active', name: 'Client rename attempt' }), false)
+assert.throws(
+  () => parseUpdateClientOrganizationStatusInput({ status: 'deleted' }),
+  ClientValidationError,
+)
 
 const ticketInput = parseCreateClientTicketInput({
   title: '  Update business hours  ',
@@ -216,13 +234,80 @@ assert.deepEqual(parseCreateClientMembershipInput({
   status: ' active ',
 }), {
   userId: 'user-1',
-  role: 'owner',
+  role: 'client_owner',
   status: 'active',
+})
+assert.deepEqual(parseCreateClientMembershipInput({
+  userId: 'user-2',
+  role: 'Client Admin',
+  status: 'inactive',
+}), {
+  userId: 'user-2',
+  role: 'client_admin',
+  status: 'inactive',
 })
 assert.throws(
   () => parseCreateClientMembershipInput({ role: 'owner' }),
   ClientValidationError,
 )
+assert.throws(
+  () => parseCreateClientMembershipInput({ userId: 'user-1', role: 'superadmin' }),
+  ClientValidationError,
+)
+assert.throws(
+  () => parseCreateClientMembershipInput({ userId: 'user-1', status: 'pending' }),
+  ClientValidationError,
+)
+assert.deepEqual(parseUpdateClientMembershipInput({
+  role: 'member',
+  status: 'inactive',
+  userId: 'user-evil',
+  organizationId: 'org-evil',
+}), {
+  role: 'client_member',
+  status: 'inactive',
+})
+assert.equal('userId' in parseUpdateClientMembershipInput({ role: 'client_member' }), false)
+assert.equal('organizationId' in parseUpdateClientMembershipInput({ status: 'active' }), false)
+assert.throws(
+  () => parseUpdateClientMembershipInput({ userId: 'user-evil' }),
+  ClientValidationError,
+)
+assert.throws(
+  () => parseUpdateClientMembershipInput({ status: 'archived' }),
+  ClientValidationError,
+)
+
+assert.equal(serializeClientMembershipForClient({
+  id: 'membership-1',
+  organizationId: 'org-1',
+  userId: 'user-client',
+  role: 'client_owner',
+  status: 'active',
+  createdAt: date,
+  updatedAt: date,
+  user: {
+    id: 'user-client',
+    email: 'owner@example.com',
+    name: 'Client Owner',
+    avatar: null,
+  },
+})?.user?.email, 'owner@example.com')
+assert.equal(serializeClientMembershipForClient({
+  id: 'membership-2',
+  organizationId: 'org-1',
+  userId: 'user-disabled',
+  role: 'client_member',
+  status: 'inactive',
+  createdAt: date,
+  updatedAt: date,
+  user: {
+    id: 'user-disabled',
+    email: 'disabled@example.com',
+    name: null,
+    avatar: null,
+  },
+}), null)
 
 assert.deepEqual(parseCreateClientProjectInput({
   name: ' Website Relaunch ',

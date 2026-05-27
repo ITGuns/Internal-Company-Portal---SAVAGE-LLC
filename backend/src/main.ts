@@ -19,6 +19,7 @@ import { EmployeesController } from './employees/employees.controller'
 import { FileDirectoryController } from './file-directory/file-directory.controller'
 import { NotificationsController } from './notifications/notifications.controller'
 import { ClientsController } from './clients/clients.controller'
+import { resolveCorsResponseOrigin } from './config/cors.config'
 import { config, validateConfig } from './config/env.config'
 import { PrismaService } from './database/prisma.service'
 import { initializePassport } from './auth/passport.config'
@@ -43,20 +44,27 @@ async function bootstrap() {
   app.use(bodyParser.json({ limit: '50mb' }))
   app.use(passport.initialize())
 
-  // Debug Logging Middleware
+  const shouldLogRequests = config.nodeEnv !== 'production' || config.logLevel.toLowerCase() === 'debug'
+
+  // Request logging is useful locally, but too noisy for normal production traffic.
   app.use((req: Request, res: Response, next: NextFunction) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    if (shouldLogRequests) {
+      console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    }
     next();
   });
 
   // Enable CORS
   app.use((req: Request, res: Response, next: NextFunction) => {
-    // STRENGTHENED SECURITY: Only allow configured origin
-    res.header('Access-Control-Allow-Origin', config.corsOrigin)
+    const responseOrigin = resolveCorsResponseOrigin(req.headers.origin, config.corsOrigins)
+    if (responseOrigin) {
+      res.header('Access-Control-Allow-Origin', responseOrigin)
+    }
 
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
     res.header('Access-Control-Allow-Credentials', 'true') // Added for Socket.io
+    res.header('Vary', 'Origin')
     if (req.method === 'OPTIONS') {
       return res.sendStatus(200)
     }
@@ -129,9 +137,9 @@ async function bootstrap() {
   // Listen on HTTP Server instead of App
   httpServer.listen(config.port, () => {
     // eslint-disable-next-line no-console
-    console.log(`🚀 Backend listening on http://localhost:${config.port}`)
-    console.log(`📡 Socket.io server initialized`)
-    console.log(`📝 Environment: ${config.nodeEnv}`)
+    console.log(`Backend listening on http://localhost:${config.port}`)
+    console.log('Socket.io server initialized')
+    console.log(`Environment: ${config.nodeEnv}`)
   })
 }
 
@@ -157,12 +165,3 @@ if (!process.env.VERCEL) {
     process.exit(1);
   });
 }
-
-
-
-
-// ts-node-dev trigger reload
-
-// ts-node-dev trigger reload 2
-
-// ts-node-dev trigger reload 3

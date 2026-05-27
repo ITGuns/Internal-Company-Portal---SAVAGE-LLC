@@ -128,6 +128,141 @@ interface ClientResourceLinkLike {
   [key: string]: unknown
 }
 
+interface ClientInvitedUserLike {
+  id: string
+  email: string
+  name?: string | null
+  avatar?: string | null
+  status?: string | null
+  isApproved?: boolean | null
+  createdAt?: SerializableDate
+  updatedAt?: SerializableDate
+  [key: string]: unknown
+}
+
+interface ClientWorkItemLike {
+  id: string
+  organizationId: string
+  projectId?: string | null
+  title: string
+  description?: string | null
+  status: string
+  priority: string
+  progress: number
+  dueAt?: SerializableDate
+  completedAt?: SerializableDate
+  visibleToClient: boolean
+  sortOrder: number
+  assignedToId?: string | null
+  createdById?: string | null
+  createdAt: SerializableDate
+  updatedAt: SerializableDate
+  [key: string]: unknown
+}
+
+interface ClientApprovalLike {
+  id: string
+  organizationId: string
+  projectId?: string | null
+  title: string
+  description?: string | null
+  status: string
+  responseNote?: string | null
+  requestedById?: string | null
+  decidedById?: string | null
+  dueAt?: SerializableDate
+  decidedAt?: SerializableDate
+  visibleToClient: boolean
+  createdAt: SerializableDate
+  updatedAt: SerializableDate
+  [key: string]: unknown
+}
+
+interface ClientReportLike {
+  id: string
+  organizationId: string
+  title: string
+  summary?: string | null
+  periodStart: SerializableDate
+  periodEnd: SerializableDate
+  status: string
+  visibleToClient: boolean
+  leadsCaptured?: number | null
+  missedOpportunities?: number | null
+  followUpStatus?: string | null
+  leadSourceBreakdown?: unknown
+  reputationSnapshot?: unknown
+  localVisibilitySnapshot?: unknown
+  createdById?: string | null
+  publishedAt?: SerializableDate
+  createdAt: SerializableDate
+  updatedAt: SerializableDate
+  [key: string]: unknown
+}
+
+interface ClientRoadmapRecommendationLike {
+  id: string
+  organizationId: string
+  title: string
+  body: string
+  priority: string
+  status: string
+  impact?: string | null
+  effort?: string | null
+  visibleToClient: boolean
+  sortOrder: number
+  createdAt: SerializableDate
+  updatedAt: SerializableDate
+  [key: string]: unknown
+}
+
+interface ClientAssetLike {
+  id: string
+  organizationId: string
+  projectId?: string | null
+  label: string
+  url: string
+  type: string
+  status: string
+  notes?: string | null
+  visibleToClient: boolean
+  createdAt: SerializableDate
+  updatedAt: SerializableDate
+  [key: string]: unknown
+}
+
+interface ClientBillingStatusLike {
+  id: string
+  organizationId: string
+  planName?: string | null
+  status: string
+  monthlyAmount?: number | null
+  currency: string
+  renewalAt?: SerializableDate
+  notes?: string | null
+  visibleToClient: boolean
+  createdAt: SerializableDate
+  updatedAt: SerializableDate
+  [key: string]: unknown
+}
+
+interface ClientCalendarItemLike {
+  id: string
+  organizationId: string
+  projectId?: string | null
+  title: string
+  description?: string | null
+  channel?: string | null
+  status: string
+  startAt: SerializableDate
+  endAt?: SerializableDate
+  visibleToClient: boolean
+  createdById?: string | null
+  createdAt: SerializableDate
+  updatedAt: SerializableDate
+  [key: string]: unknown
+}
+
 function serializeDate(value: SerializableDate): string | null {
   if (!value) return null
   if (value instanceof Date) return value.toISOString()
@@ -351,6 +486,236 @@ export function serializeClientResourceLinkForManagement(resource: ClientResourc
   }
 }
 
+export function serializeClientMembershipForClient(membership: ClientMembershipLike) {
+  if (membership.status !== 'active') return null
+
+  return {
+    id: membership.id,
+    organizationId: membership.organizationId,
+    userId: membership.userId,
+    role: membership.role,
+    status: membership.status,
+    user: membership.user
+      ? {
+        id: membership.user.id,
+        email: membership.user.email,
+        name: membership.user.name || null,
+        avatar: membership.user.avatar || null,
+      }
+      : null,
+  }
+}
+
+export function serializeClientInvitedUserForManagement(user: ClientInvitedUserLike) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name || null,
+    avatar: user.avatar || null,
+    status: user.status || null,
+    isApproved: Boolean(user.isApproved),
+    role: 'client',
+    createdAt: serializeDate(user.createdAt),
+    updatedAt: serializeDate(user.updatedAt),
+  }
+}
+
+
+export function serializeClientWorkItemForClient(item: ClientWorkItemLike) {
+  if (!item.visibleToClient) return null
+
+  return {
+    id: item.id,
+    organizationId: item.organizationId,
+    projectId: item.projectId || null,
+    title: item.title,
+    description: item.description || null,
+    status: item.status,
+    priority: item.priority,
+    progress: item.progress,
+    dueAt: serializeDate(item.dueAt),
+    completedAt: serializeDate(item.completedAt),
+    visibleToClient: item.visibleToClient,
+    sortOrder: item.sortOrder,
+    createdAt: serializeDate(item.createdAt),
+    updatedAt: serializeDate(item.updatedAt),
+  }
+}
+
+export function serializeClientWorkItemForManagement(item: ClientWorkItemLike) {
+  return {
+    ...serializeClientWorkItemForClient({ ...item, visibleToClient: true }),
+    assignedToId: item.assignedToId || null,
+    createdById: item.createdById || null,
+    visibleToClient: item.visibleToClient,
+  }
+}
+
+export function serializeClientApprovalForClient(approval: ClientApprovalLike) {
+  if (!approval.visibleToClient) return null
+
+  return {
+    id: approval.id,
+    organizationId: approval.organizationId,
+    projectId: approval.projectId || null,
+    title: approval.title,
+    description: approval.description || null,
+    status: approval.status,
+    responseNote: approval.responseNote || null,
+    dueAt: serializeDate(approval.dueAt),
+    decidedAt: serializeDate(approval.decidedAt),
+    visibleToClient: approval.visibleToClient,
+    createdAt: serializeDate(approval.createdAt),
+    updatedAt: serializeDate(approval.updatedAt),
+  }
+}
+
+export function serializeClientApprovalForManagement(approval: ClientApprovalLike) {
+  return {
+    ...serializeClientApprovalForClient({ ...approval, visibleToClient: true }),
+    responseNote: approval.responseNote || null,
+    requestedById: approval.requestedById || null,
+    decidedById: approval.decidedById || null,
+    visibleToClient: approval.visibleToClient,
+  }
+}
+
+export function serializeClientReportForClient(report: ClientReportLike) {
+  if (!report.visibleToClient || report.status !== 'published') return null
+
+  return {
+    id: report.id,
+    organizationId: report.organizationId,
+    title: report.title,
+    summary: report.summary || null,
+    periodStart: serializeDate(report.periodStart),
+    periodEnd: serializeDate(report.periodEnd),
+    status: report.status,
+    visibleToClient: report.visibleToClient,
+    leadsCaptured: report.leadsCaptured ?? null,
+    missedOpportunities: report.missedOpportunities ?? null,
+    followUpStatus: report.followUpStatus || null,
+    leadSourceBreakdown: report.leadSourceBreakdown ?? null,
+    reputationSnapshot: report.reputationSnapshot ?? null,
+    localVisibilitySnapshot: report.localVisibilitySnapshot ?? null,
+    publishedAt: serializeDate(report.publishedAt),
+    createdAt: serializeDate(report.createdAt),
+    updatedAt: serializeDate(report.updatedAt),
+  }
+}
+
+export function serializeClientReportForManagement(report: ClientReportLike) {
+  return {
+    ...serializeClientReportForClient({ ...report, visibleToClient: true, status: 'published' }),
+    status: report.status,
+    createdById: report.createdById || null,
+    visibleToClient: report.visibleToClient,
+  }
+}
+
+export function serializeClientRoadmapRecommendationForClient(roadmap: ClientRoadmapRecommendationLike) {
+  if (!roadmap.visibleToClient) return null
+
+  return {
+    id: roadmap.id,
+    organizationId: roadmap.organizationId,
+    title: roadmap.title,
+    body: roadmap.body,
+    priority: roadmap.priority,
+    status: roadmap.status,
+    impact: roadmap.impact || null,
+    effort: roadmap.effort || null,
+    visibleToClient: roadmap.visibleToClient,
+    sortOrder: roadmap.sortOrder,
+    createdAt: serializeDate(roadmap.createdAt),
+    updatedAt: serializeDate(roadmap.updatedAt),
+  }
+}
+
+export function serializeClientRoadmapRecommendationForManagement(roadmap: ClientRoadmapRecommendationLike) {
+  return {
+    ...serializeClientRoadmapRecommendationForClient({ ...roadmap, visibleToClient: true }),
+    visibleToClient: roadmap.visibleToClient,
+  }
+}
+
+export function serializeClientAssetForClient(asset: ClientAssetLike) {
+  if (!asset.visibleToClient) return null
+
+  return {
+    id: asset.id,
+    organizationId: asset.organizationId,
+    projectId: asset.projectId || null,
+    label: asset.label,
+    url: asset.url,
+    type: asset.type,
+    status: asset.status,
+    visibleToClient: asset.visibleToClient,
+    createdAt: serializeDate(asset.createdAt),
+    updatedAt: serializeDate(asset.updatedAt),
+  }
+}
+
+export function serializeClientAssetForManagement(asset: ClientAssetLike) {
+  return {
+    ...serializeClientAssetForClient({ ...asset, visibleToClient: true }),
+    notes: asset.notes || null,
+    visibleToClient: asset.visibleToClient,
+  }
+}
+
+export function serializeClientBillingStatusForClient(billing: ClientBillingStatusLike) {
+  if (!billing.visibleToClient) return null
+
+  return {
+    id: billing.id,
+    organizationId: billing.organizationId,
+    planName: billing.planName || null,
+    status: billing.status,
+    monthlyAmount: billing.monthlyAmount ?? null,
+    currency: billing.currency,
+    renewalAt: serializeDate(billing.renewalAt),
+    visibleToClient: billing.visibleToClient,
+    createdAt: serializeDate(billing.createdAt),
+    updatedAt: serializeDate(billing.updatedAt),
+  }
+}
+
+export function serializeClientBillingStatusForManagement(billing: ClientBillingStatusLike) {
+  return {
+    ...serializeClientBillingStatusForClient({ ...billing, visibleToClient: true }),
+    notes: billing.notes || null,
+    visibleToClient: billing.visibleToClient,
+  }
+}
+
+export function serializeClientCalendarItemForClient(item: ClientCalendarItemLike) {
+  if (!item.visibleToClient) return null
+
+  return {
+    id: item.id,
+    organizationId: item.organizationId,
+    projectId: item.projectId || null,
+    title: item.title,
+    description: item.description || null,
+    channel: item.channel || null,
+    status: item.status,
+    startAt: serializeDate(item.startAt),
+    endAt: serializeDate(item.endAt),
+    visibleToClient: item.visibleToClient,
+    createdAt: serializeDate(item.createdAt),
+    updatedAt: serializeDate(item.updatedAt),
+  }
+}
+
+export function serializeClientCalendarItemForManagement(item: ClientCalendarItemLike) {
+  return {
+    ...serializeClientCalendarItemForClient({ ...item, visibleToClient: true }),
+    createdById: item.createdById || null,
+    visibleToClient: item.visibleToClient,
+  }
+}
+
 export function serializeClientPortalOverview(organization: any, isPrivileged: boolean) {
   const serializeNullable = <T>(items: T[], serializer: (item: T) => unknown) =>
     items.map(serializer).filter(Boolean)
@@ -374,5 +739,31 @@ export function serializeClientPortalOverview(organization: any, isPrivileged: b
     resources: isPrivileged
       ? (organization.resourceLinks || []).map(serializeClientResourceLinkForManagement)
       : serializeNullable(organization.resourceLinks || [], serializeClientResourceLinkForClient),
+    memberships: isPrivileged
+      ? (organization.memberships || []).map(serializeClientMembershipForManagement)
+      : serializeNullable(organization.memberships || [], serializeClientMembershipForClient),
+    workItems: isPrivileged
+      ? (organization.workItems || []).map(serializeClientWorkItemForManagement)
+      : serializeNullable(organization.workItems || [], serializeClientWorkItemForClient),
+    approvals: isPrivileged
+      ? (organization.approvals || []).map(serializeClientApprovalForManagement)
+      : serializeNullable(organization.approvals || [], serializeClientApprovalForClient),
+    reports: isPrivileged
+      ? (organization.reports || []).map(serializeClientReportForManagement)
+      : serializeNullable(organization.reports || [], serializeClientReportForClient),
+    roadmapRecommendations: isPrivileged
+      ? (organization.roadmapRecommendations || []).map(serializeClientRoadmapRecommendationForManagement)
+      : serializeNullable(organization.roadmapRecommendations || [], serializeClientRoadmapRecommendationForClient),
+    assets: isPrivileged
+      ? (organization.assets || []).map(serializeClientAssetForManagement)
+      : serializeNullable(organization.assets || [], serializeClientAssetForClient),
+    billingStatus: organization.billingStatus
+      ? isPrivileged
+        ? serializeClientBillingStatusForManagement(organization.billingStatus)
+        : serializeClientBillingStatusForClient(organization.billingStatus)
+      : null,
+    calendarItems: isPrivileged
+      ? (organization.calendarItems || []).map(serializeClientCalendarItemForManagement)
+      : serializeNullable(organization.calendarItems || [], serializeClientCalendarItemForClient),
   }
 }
