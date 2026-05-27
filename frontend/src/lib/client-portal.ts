@@ -102,6 +102,7 @@ export interface ClientTicket {
   createdById?: string | null;
   assignedToId?: string | null;
   comments?: ClientTicketComment[];
+  createdAt?: string | null;
   updatedAt?: string | null;
 }
 
@@ -135,6 +136,7 @@ export interface ClientResourceLink {
   label: string;
   url: string;
   type: string;
+  createdById?: string | null;
   visibleToClient?: boolean;
 }
 
@@ -235,6 +237,7 @@ export interface ClientCalendarItem {
   startAt: string | null;
   endAt?: string | null;
   visibleToClient?: boolean;
+  createdById?: string | null;
 }
 
 export interface ClientPortalOverview {
@@ -388,12 +391,29 @@ export async function createClientResource(organizationId: string, data: {
   type?: string;
   projectId?: string;
   visibleToClient?: boolean;
-}) {
+}): Promise<ClientResourceLink> {
   const response = await apiFetch(`/clients/organizations/${organizationId}/resources`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
   return response.json();
+}
+
+export async function updateClientResource(resourceId: string, data: {
+  label?: string;
+  url?: string;
+}): Promise<ClientResourceLink> {
+  const response = await apiFetch(`/clients/resources/${resourceId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function deleteClientResource(resourceId: string): Promise<void> {
+  await apiFetch(`/clients/resources/${resourceId}`, {
+    method: 'DELETE',
+  });
 }
 
 export async function fetchClientTickets(organizationId?: string): Promise<ClientTicket[]> {
@@ -414,6 +434,25 @@ export async function createClientTicket(organizationId: string, data: {
     body: JSON.stringify(data),
   });
   return response.json();
+}
+
+export async function updateClientTicket(ticketId: string, data: {
+  title?: string;
+  description?: string;
+  category?: string;
+  priority?: string;
+}): Promise<ClientTicket> {
+  const response = await apiFetch(`/clients/tickets/${ticketId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function deleteClientTicket(ticketId: string): Promise<void> {
+  await apiFetch(`/clients/tickets/${ticketId}`, {
+    method: 'DELETE',
+  });
 }
 
 export async function createClientTicketComment(ticketId: string, data: {
@@ -510,6 +549,19 @@ export async function createClientReport(organizationId: string, data: {
   localVisibilitySnapshot?: Record<string, unknown>;
 }): Promise<ClientReport> {
   const response = await apiFetch(`/clients/organizations/${organizationId}/reports`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function generateClientReportDraft(organizationId: string, data: {
+  title?: string;
+  periodStart: string;
+  periodEnd: string;
+  visibleToClient?: boolean;
+}): Promise<ClientReport> {
+  const response = await apiFetch(`/clients/organizations/${organizationId}/reports/draft`, {
     method: 'POST',
     body: JSON.stringify(data),
   });

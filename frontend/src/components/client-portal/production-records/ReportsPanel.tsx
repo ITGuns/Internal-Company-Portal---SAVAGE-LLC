@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileText } from "lucide-react";
+import { FileText, Sparkles } from "lucide-react";
 import Button from "@/components/Button";
 import FormField from "@/components/forms/FormField";
 import type { ClientReport } from "@/lib/client-portal";
 import {
   createClientReport,
+  generateClientReportDraft,
   updateClientReport,
 } from "@/lib/client-portal";
 import {
+  buildReportDraftPayload,
   buildReportUpdatePayload,
   toDateInputValue,
   type ReportEditForm,
@@ -156,7 +158,25 @@ export default function ReportsPanel({
         </div>
         <FormField id="report-follow-up" label="Follow-up Status" value={reportForm.followUpStatus} onChange={(followUpStatus) => setReportForm((form) => ({ ...form, followUpStatus }))} />
         <VisibilityCheckbox checked={reportForm.visibleToClient} onChange={(visibleToClient) => setReportForm((form) => ({ ...form, visibleToClient }))} />
-        <Button type="submit" loading={saving}>Publish Report</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            loading={saving}
+            icon={<Sparkles className="h-4 w-4" />}
+            disabled={saving || !reportForm.periodStart || !reportForm.periodEnd}
+            onClick={() => {
+              submitScoped(
+                () => generateClientReportDraft(organizationId, buildReportDraftPayload(reportForm)),
+                "Draft report generated",
+                () => setReportForm(emptyReport),
+              );
+            }}
+          >
+            Generate Draft
+          </Button>
+          <Button type="submit" loading={saving} icon={<FileText className="h-4 w-4" />}>Publish Report</Button>
+        </div>
       </form>
 
       <div className="mt-4 space-y-2">

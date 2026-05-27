@@ -23,9 +23,11 @@ import {
   parseCreateClientTicketCommentInput,
   parseCreateClientTicketInput,
   parseCreateClientUpdateInput,
+  parseUpdateClientResourceLinkInput,
   parseUpdateClientMembershipInput,
   parseUpdateClientOrganizationStatusInput,
   parseUpdateClientProjectInput,
+  parseUpdateClientTicketInput,
   parseUpdateClientTicketStatusInput,
   slugifyClientOrganizationName,
 } from '../src/clients/clients.validation'
@@ -379,6 +381,19 @@ assert.deepEqual(parseCreateClientResourceLinkInput({
   projectId: undefined,
   visibleToClient: true,
 })
+assert.throws(
+  () => parseCreateClientResourceLinkInput({ label: 'Unsafe', url: 'javascript:alert(1)' }),
+  /Resource URL must be an http or https URL/,
+)
+assert.deepEqual(parseUpdateClientResourceLinkInput({
+  label: ' Updated preview ',
+  url: ' https://preview.example.com/v2 ',
+  visibleToClient: 'false',
+}), {
+  label: 'Updated preview',
+  url: 'https://preview.example.com/v2',
+  visibleToClient: false,
+})
 
 assert.deepEqual(parseCreateClientTicketCommentInput({
   body: ' Please confirm the new hours. ',
@@ -399,6 +414,17 @@ assert.deepEqual(parseUpdateClientTicketStatusInput({ status: ' In Progress ' })
 })
 assert.deepEqual(parseUpdateClientTicketStatusInput({ status: 'done' }), {
   status: 'done',
+})
+assert.deepEqual(parseUpdateClientTicketInput({
+  title: ' Updated request ',
+  description: ' Please use the attached reference. ',
+  category: 'review',
+  priority: 'high',
+}), {
+  title: 'Updated request',
+  description: 'Please use the attached reference.',
+  category: 'review',
+  priority: 'high',
 })
 assert.throws(
   () => parseUpdateClientTicketStatusInput({ status: 'blocked' }),

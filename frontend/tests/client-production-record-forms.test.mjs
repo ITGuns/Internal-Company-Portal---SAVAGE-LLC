@@ -112,6 +112,33 @@ test('clamps numeric edit values before submission', () => {
   });
 });
 
+test('builds report draft payloads from period inputs', () => {
+  const { buildReportDraftPayload } = loadProductionRecordForms();
+
+  assert.deepEqual(normalize(buildReportDraftPayload({
+    title: ' June draft ',
+    periodStart: '2026-06-01',
+    periodEnd: '2026-06-30',
+    visibleToClient: false,
+  })), {
+    title: 'June draft',
+    periodStart: '2026-06-01',
+    periodEnd: '2026-06-30',
+    visibleToClient: false,
+  });
+
+  assert.deepEqual(normalize(buildReportDraftPayload({
+    title: '  ',
+    periodStart: '2026-06-01',
+    periodEnd: '2026-06-30',
+    visibleToClient: true,
+  })), {
+    periodStart: '2026-06-01',
+    periodEnd: '2026-06-30',
+    visibleToClient: true,
+  });
+});
+
 test('builds date-only calendar update payloads', () => {
   const { buildCalendarUpdatePayload } = loadProductionRecordForms();
 

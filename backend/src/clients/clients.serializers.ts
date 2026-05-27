@@ -123,6 +123,7 @@ interface ClientResourceLinkLike {
   url: string
   type: string
   visibleToClient: boolean
+  createdById?: string | null
   createdAt: SerializableDate
   updatedAt: SerializableDate
   [key: string]: unknown
@@ -495,6 +496,7 @@ export function serializeClientResourceLinkForClient(resource: ClientResourceLin
     label: resource.label,
     url: resource.url,
     type: resource.type,
+    createdById: resource.createdById || null,
     createdAt: serializeDate(resource.createdAt),
     updatedAt: serializeDate(resource.updatedAt),
   }
@@ -724,6 +726,7 @@ export function serializeClientCalendarItemForClient(item: ClientCalendarItemLik
     startAt: serializeDate(item.startAt),
     endAt: serializeDate(item.endAt),
     visibleToClient: item.visibleToClient,
+    createdById: item.createdById || null,
     createdAt: serializeDate(item.createdAt),
     updatedAt: serializeDate(item.updatedAt),
   }

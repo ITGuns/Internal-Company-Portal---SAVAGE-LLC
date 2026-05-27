@@ -29,6 +29,7 @@ import {
   CreateClientAssetInput,
   CreateClientCalendarItemInput,
   ClientValidationError,
+  GenerateClientReportDraftInput,
   InviteClientUserInput,
   UpdateClientOrganizationStatusInput,
   UpdateClientApprovalInput,
@@ -36,17 +37,21 @@ import {
   UpdateClientCalendarItemInput,
   UpdateClientMembershipInput,
   UpdateClientProjectInput,
+  UpdateClientResourceLinkInput,
   UpdateClientReportInput,
   UpdateClientRoadmapRecommendationInput,
+  UpdateClientTicketInput,
   UpdateClientWorkItemInput,
   UpsertClientBillingStatusInput,
 } from './clients.validation'
+import { buildClientReportDraftData } from './clients.report-builder'
 
 const CLIENT_INVITE_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000
 const CLIENT_ACTION_QUEUE_STATUS_FILTERS = {
   ticketOpen: ['new', 'review', 'in_progress'],
   workRelevant: ['open', 'in_progress', 'review', 'blocked', 'completed'],
 }
+const CLIENT_REPORT_PERIOD_LIMIT = 100
 const CLIENT_ACTION_QUEUE_CATEGORY_RANK: Record<ClientActionQueueItem['category'], number> = {
   team_response_needed: 0,
   client_response_needed: 1,
@@ -54,6 +59,12 @@ const CLIENT_ACTION_QUEUE_CATEGORY_RANK: Record<ClientActionQueueItem['category'
   work_due_soon: 3,
   report_ready: 4,
   recently_completed: 5,
+}
+
+function addDays(date: Date, days: number): Date {
+  const nextDate = new Date(date)
+  nextDate.setUTCDate(nextDate.getUTCDate() + days)
+  return nextDate
 }
 
 export class ClientsService {
@@ -686,7 +697,29 @@ export class ClientsService {
         url: data.url,
         type: data.type,
         visibleToClient: data.visibleToClient,
+        createdById: data.createdById,
       },
+    })
+  }
+
+  async findResourceLinkById(id: string) {
+    return this.prisma.clientResourceLink.findUnique({
+      where: { id },
+    })
+  }
+
+  async updateResourceLink(resourceId: string, organizationId: string, data: UpdateClientResourceLinkInput) {
+    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
+
+    return this.prisma.clientResourceLink.update({
+      where: { id: resourceId },
+      data,
+    })
+  }
+
+  async deleteResourceLink(resourceId: string) {
+    return this.prisma.clientResourceLink.delete({
+      where: { id: resourceId },
     })
   }
 
@@ -774,6 +807,97 @@ export class ClientsService {
           orderBy: { createdAt: 'asc' },
         },
       },
+    })
+  }
+
+  async updateTicket(ticketId: string, data: UpdateClientTicketInput, actorId?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const previous = await tx.clientTicket.findUnique({
+        where: { id: ticketId },
+        select: {
+          organizationId: true,
+          title: true,
+          description: true,
+          category: true,
+          priority: true,
+        },
+      })
+
+      const ticket = await tx.clientTicket.update({
+        where: { id: ticketId },
+        data,
+        include: {
+          comments: {
+            include: {
+              author: {
+                select: {
+                  id: true,
+                  email: true,
+                  name: true,
+                  avatar: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      })
+
+      if (previous) {
+        await createClientActivity(tx, {
+          organizationId: previous.organizationId,
+          actorId,
+          type: CLIENT_ACTIVITY_TYPES.ticketUpdated,
+          subjectType: 'ticket',
+          subjectId: ticket.id,
+          visibility: 'client',
+          title: `Request updated: ${ticket.title}`,
+          body: ticket.description || null,
+          metadata: {
+            previousTitle: previous.title,
+            category: ticket.category,
+            priority: ticket.priority,
+          },
+        })
+      }
+
+      return ticket
+    })
+  }
+
+  async deleteTicket(ticketId: string, actorId?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const ticket = await tx.clientTicket.findUnique({
+        where: { id: ticketId },
+        select: {
+          id: true,
+          organizationId: true,
+          title: true,
+          description: true,
+          category: true,
+          priority: true,
+        },
+      })
+      if (!ticket) throw new ClientValidationError('Client ticket not found')
+
+      await tx.clientTicket.delete({
+        where: { id: ticketId },
+      })
+
+      await createClientActivity(tx, {
+        organizationId: ticket.organizationId,
+        actorId,
+        type: CLIENT_ACTIVITY_TYPES.ticketDeleted,
+        subjectType: 'ticket',
+        subjectId: ticket.id,
+        visibility: 'client',
+        title: `Request deleted: ${ticket.title}`,
+        body: ticket.description || null,
+        metadata: {
+          category: ticket.category,
+          priority: ticket.priority,
+        },
+      })
     })
   }
 
@@ -1039,6 +1163,202 @@ export class ClientsService {
     })
   }
 
+  async generateReportDraft(organizationId: string, createdById: string, data: GenerateClientReportDraftInput) {
+    const periodEndExclusive = addDays(data.periodEnd, 1)
+    const [
+      completedWorkItems,
+      closedTickets,
+      publishedUpdates,
+      metricSnapshots,
+      approvals,
+      roadmapRecommendations,
+      calendarItems,
+      openTickets,
+      openApprovals,
+    ] = await Promise.all([
+      this.prisma.clientWorkItem.findMany({
+        where: {
+          organizationId,
+          visibleToClient: true,
+          status: 'completed',
+          completedAt: {
+            gte: data.periodStart,
+            lt: periodEndExclusive,
+          },
+        },
+        select: { title: true, description: true, status: true },
+        orderBy: { completedAt: 'desc' },
+        take: CLIENT_REPORT_PERIOD_LIMIT,
+      }),
+      this.prisma.clientTicket.findMany({
+        where: {
+          organizationId,
+          status: 'done',
+          OR: [
+            {
+              closedAt: {
+                gte: data.periodStart,
+                lt: periodEndExclusive,
+              },
+            },
+            {
+              closedAt: null,
+              updatedAt: {
+                gte: data.periodStart,
+                lt: periodEndExclusive,
+              },
+            },
+          ],
+        },
+        select: { title: true, description: true, status: true },
+        orderBy: { closedAt: 'desc' },
+        take: CLIENT_REPORT_PERIOD_LIMIT,
+      }),
+      this.prisma.clientUpdate.findMany({
+        where: {
+          organizationId,
+          visibleToClient: true,
+          status: 'published',
+          createdAt: {
+            gte: data.periodStart,
+            lt: periodEndExclusive,
+          },
+        },
+        select: { title: true, body: true, status: true },
+        orderBy: { createdAt: 'desc' },
+        take: CLIENT_REPORT_PERIOD_LIMIT,
+      }),
+      this.prisma.clientMetricSnapshot.findMany({
+        where: {
+          organizationId,
+          visibleToClient: true,
+          OR: [
+            {
+              periodStart: {
+                gte: data.periodStart,
+                lt: periodEndExclusive,
+              },
+            },
+            {
+              periodEnd: {
+                gte: data.periodStart,
+                lt: periodEndExclusive,
+              },
+            },
+            {
+              periodStart: { lte: data.periodStart },
+              periodEnd: { gte: data.periodEnd },
+            },
+            {
+              createdAt: {
+                gte: data.periodStart,
+                lt: periodEndExclusive,
+              },
+            },
+          ],
+        },
+        select: { label: true, value: true, unit: true, source: true },
+        orderBy: { createdAt: 'desc' },
+        take: CLIENT_REPORT_PERIOD_LIMIT,
+      }),
+      this.prisma.clientApproval.findMany({
+        where: {
+          organizationId,
+          visibleToClient: true,
+          OR: [
+            {
+              createdAt: {
+                gte: data.periodStart,
+                lt: periodEndExclusive,
+              },
+            },
+            {
+              decidedAt: {
+                gte: data.periodStart,
+                lt: periodEndExclusive,
+              },
+            },
+          ],
+        },
+        select: { title: true, description: true, status: true },
+        orderBy: { updatedAt: 'desc' },
+        take: CLIENT_REPORT_PERIOD_LIMIT,
+      }),
+      this.prisma.clientRoadmapRecommendation.findMany({
+        where: {
+          organizationId,
+          visibleToClient: true,
+          status: { not: 'archived' },
+          updatedAt: {
+            gte: data.periodStart,
+            lt: periodEndExclusive,
+          },
+        },
+        select: { title: true, body: true, status: true },
+        orderBy: { updatedAt: 'desc' },
+        take: CLIENT_REPORT_PERIOD_LIMIT,
+      }),
+      this.prisma.clientCalendarItem.findMany({
+        where: {
+          organizationId,
+          visibleToClient: true,
+          startAt: {
+            gte: data.periodStart,
+            lt: periodEndExclusive,
+          },
+        },
+        select: { title: true, description: true, status: true },
+        orderBy: { startAt: 'asc' },
+        take: CLIENT_REPORT_PERIOD_LIMIT,
+      }),
+      this.prisma.clientTicket.findMany({
+        where: {
+          organizationId,
+          status: { in: CLIENT_ACTION_QUEUE_STATUS_FILTERS.ticketOpen },
+        },
+        select: { title: true, description: true, status: true },
+        orderBy: { updatedAt: 'desc' },
+        take: CLIENT_REPORT_PERIOD_LIMIT,
+      }),
+      this.prisma.clientApproval.findMany({
+        where: {
+          organizationId,
+          visibleToClient: true,
+          status: 'pending',
+        },
+        select: { title: true, description: true, status: true },
+        orderBy: { updatedAt: 'desc' },
+        take: CLIENT_REPORT_PERIOD_LIMIT,
+      }),
+    ])
+
+    const reportData = buildClientReportDraftData({
+      title: data.title,
+      periodStart: data.periodStart,
+      periodEnd: data.periodEnd,
+      visibleToClient: data.visibleToClient,
+      completedWorkItems,
+      closedTickets,
+      publishedUpdates: publishedUpdates.map((update) => ({
+        title: update.title,
+        description: update.body,
+        status: update.status,
+      })),
+      metricSnapshots,
+      approvals,
+      roadmapRecommendations: roadmapRecommendations.map((recommendation) => ({
+        title: recommendation.title,
+        description: recommendation.body,
+        status: recommendation.status,
+      })),
+      calendarItems,
+      openTickets,
+      openApprovals,
+    })
+
+    return this.createReport(organizationId, createdById, reportData)
+  }
+
   async createReport(organizationId: string, createdById: string, data: CreateClientReportInput) {
     return this.prisma.$transaction(async (tx) => {
       const report = await tx.clientReport.create({
@@ -1270,10 +1590,25 @@ export class ClientsService {
     return this.prisma.clientCalendarItem.findUnique({ where: { id } })
   }
 
-  async updateCalendarItem(id: string, organizationId: string, data: UpdateClientCalendarItemInput) {
+  async updateCalendarItem(id: string, organizationId: string, data: UpdateClientCalendarItemInput, actorId?: string) {
     await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
 
     return this.prisma.$transaction(async (tx) => {
+      const existingCalendarItem = await tx.clientCalendarItem.findUnique({
+        where: { id },
+        select: {
+          startAt: true,
+          endAt: true,
+        },
+      })
+      if (!existingCalendarItem) throw new ClientValidationError('Calendar item not found')
+
+      const nextStartAt = data.startAt || existingCalendarItem.startAt
+      const nextEndAt = data.endAt === undefined ? existingCalendarItem.endAt : data.endAt
+      if (nextEndAt && nextEndAt < nextStartAt) {
+        throw new ClientValidationError('Calendar endAt must be after startAt')
+      }
+
       const calendarItem = await tx.clientCalendarItem.update({
         where: { id },
         data,
@@ -1281,7 +1616,7 @@ export class ClientsService {
 
       await createClientActivity(tx, {
         organizationId,
-        actorId: undefined,
+        actorId,
         type: CLIENT_ACTIVITY_TYPES.calendarUpdated,
         subjectType: 'calendar_item',
         subjectId: calendarItem.id,
@@ -1357,7 +1692,7 @@ export class ClientsService {
     })
   }
 
-  private async assertProjectBelongsToOrganization(organizationId: string, projectId?: string) {
+  private async assertProjectBelongsToOrganization(organizationId: string, projectId?: string | null) {
     if (!projectId) return
 
     const project = await this.prisma.clientProject.findFirst({

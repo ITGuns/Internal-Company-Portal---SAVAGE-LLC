@@ -80,11 +80,20 @@ export interface CreateClientResourceLinkInput {
   type: string
   projectId?: string
   visibleToClient: boolean
+  createdById?: string
 }
 
 export interface CreateClientTicketCommentInput {
   body: string
   visibility: string
+}
+
+export interface UpdateClientResourceLinkInput {
+  label?: string
+  url?: string
+  type?: string
+  projectId?: string
+  visibleToClient?: boolean
 }
 
 export interface UpdateClientProjectInput {
@@ -98,6 +107,13 @@ export interface UpdateClientProjectInput {
 
 export interface UpdateClientTicketStatusInput {
   status: string
+}
+
+export interface UpdateClientTicketInput {
+  title?: string
+  description?: string
+  category?: string
+  priority?: string
 }
 
 export interface CreateClientWorkItemInput {
@@ -166,6 +182,13 @@ export interface CreateClientReportInput {
   leadSourceBreakdown?: unknown
   reputationSnapshot?: unknown
   localVisibilitySnapshot?: unknown
+}
+
+export interface GenerateClientReportDraftInput {
+  title?: string
+  periodStart: Date
+  periodEnd: Date
+  visibleToClient: boolean
 }
 
 export interface UpdateClientReportInput {
@@ -249,12 +272,12 @@ export interface CreateClientCalendarItemInput {
 
 export interface UpdateClientCalendarItemInput {
   title?: string
-  description?: string
-  channel?: string
+  description?: string | null
+  channel?: string | null
   status?: string
   startAt?: Date
-  endAt?: Date
-  projectId?: string
+  endAt?: Date | null
+  projectId?: string | null
   visibleToClient?: boolean
 }
 
@@ -314,6 +337,40 @@ function readDate(input: InputRecord, key: string): Date | undefined {
     throw new ClientValidationError(`${key} must be a valid date`)
   }
   return date
+}
+
+function readNullableDate(input: InputRecord, key: string): Date | null | undefined {
+  if (!(key in input)) return undefined
+  const value = input[key]
+  if (value === null) return null
+  if (typeof value === 'string' && value.trim() === '') return null
+  return readDate(input, key)
+}
+
+function readNullableTrimmedString(input: InputRecord, key: string): string | null | undefined {
+  if (!(key in input)) return undefined
+  const value = input[key]
+  if (value === null) return null
+  if (typeof value !== 'string') return undefined
+  return value.trim() || null
+}
+
+function readHttpUrl(input: InputRecord, key: string, label: string): string | undefined {
+  const value = readTrimmedString(input, key)
+  if (!value) return undefined
+
+  let parsed: URL
+  try {
+    parsed = new URL(value)
+  } catch {
+    throw new ClientValidationError(`${label} must be a valid URL`)
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new ClientValidationError(`${label} must be an http or https URL`)
+  }
+
+  return value
 }
 
 function readRequiredDate(input: InputRecord, key: string): Date {
@@ -578,7 +635,7 @@ export function parseCreateClientMetricSnapshotInput(input: InputRecord): Create
 
 export function parseCreateClientResourceLinkInput(input: InputRecord): CreateClientResourceLinkInput {
   const label = readTrimmedString(input, 'label')
-  const url = readTrimmedString(input, 'url')
+  const url = readHttpUrl(input, 'url', 'Resource URL')
   if (!label) throw new ClientValidationError('Resource label is required')
   if (!url) throw new ClientValidationError('Resource URL is required')
 
@@ -589,6 +646,20 @@ export function parseCreateClientResourceLinkInput(input: InputRecord): CreateCl
     projectId: readTrimmedString(input, 'projectId'),
     visibleToClient: readBoolean(input, 'visibleToClient', true),
   }
+}
+
+export function parseUpdateClientResourceLinkInput(input: InputRecord): UpdateClientResourceLinkInput {
+  const url = 'url' in input ? readHttpUrl(input, 'url', 'Resource URL') : undefined
+  const data: UpdateClientResourceLinkInput = {
+    ...(readTrimmedString(input, 'label') ? { label: readTrimmedString(input, 'label') } : {}),
+    ...(url ? { url } : {}),
+    ...(readTrimmedString(input, 'type') ? { type: readTrimmedString(input, 'type') } : {}),
+    ...(readTrimmedString(input, 'projectId') ? { projectId: readTrimmedString(input, 'projectId') } : {}),
+    ...('visibleToClient' in input ? { visibleToClient: readBoolean(input, 'visibleToClient', true) } : {}),
+  }
+
+  assertHasUpdates(data as InputRecord)
+  return data
 }
 
 export function parseCreateClientTicketCommentInput(
@@ -634,6 +705,18 @@ export function parseUpdateClientTicketStatusInput(input: InputRecord): UpdateCl
   if (!TICKET_STATUSES.has(status)) throw new ClientValidationError('Ticket status is invalid')
 
   return { status }
+}
+
+export function parseUpdateClientTicketInput(input: InputRecord): UpdateClientTicketInput {
+  const data: UpdateClientTicketInput = {
+    ...(readTrimmedString(input, 'title') ? { title: readTrimmedString(input, 'title') } : {}),
+    ...(readTrimmedString(input, 'description') ? { description: readTrimmedString(input, 'description') } : {}),
+    ...(readTrimmedString(input, 'category') ? { category: readTrimmedString(input, 'category') } : {}),
+    ...(readOptionalPriority(input, 'priority') ? { priority: readOptionalPriority(input, 'priority') } : {}),
+  }
+
+  assertHasUpdates(data as InputRecord)
+  return data
 }
 
 export function parseCreateClientWorkItemInput(input: InputRecord): CreateClientWorkItemInput {
@@ -743,6 +826,19 @@ export function parseCreateClientReportInput(input: InputRecord): CreateClientRe
     leadSourceBreakdown: readSnapshot(input, 'leadSourceBreakdown'),
     reputationSnapshot: readSnapshot(input, 'reputationSnapshot'),
     localVisibilitySnapshot: readSnapshot(input, 'localVisibilitySnapshot'),
+  }
+}
+
+export function parseGenerateClientReportDraftInput(input: InputRecord): GenerateClientReportDraftInput {
+  const periodStart = readRequiredDate(input, 'periodStart')
+  const periodEnd = readRequiredDate(input, 'periodEnd')
+  if (periodEnd < periodStart) throw new ClientValidationError('Report periodEnd must be after periodStart')
+
+  return {
+    title: readTrimmedString(input, 'title'),
+    periodStart,
+    periodEnd,
+    visibleToClient: readBoolean(input, 'visibleToClient', true),
   }
 }
 
@@ -869,17 +965,22 @@ export function parseCreateClientCalendarItemInput(input: InputRecord): CreateCl
 
 export function parseUpdateClientCalendarItemInput(input: InputRecord): UpdateClientCalendarItemInput {
   const startAt = readDate(input, 'startAt')
-  const endAt = readDate(input, 'endAt')
+  const endAt = readNullableDate(input, 'endAt')
   if (startAt && endAt && endAt < startAt) throw new ClientValidationError('Calendar endAt must be after startAt')
+  const title = readTrimmedString(input, 'title')
+  const description = readNullableTrimmedString(input, 'description')
+  const channel = readNullableTrimmedString(input, 'channel')
+  const status = readOptionalStatus(input, 'status', CALENDAR_STATUSES)
+  const projectId = readNullableTrimmedString(input, 'projectId')
 
   const data: UpdateClientCalendarItemInput = {
-    ...(readTrimmedString(input, 'title') ? { title: readTrimmedString(input, 'title') } : {}),
-    ...(readTrimmedString(input, 'description') ? { description: readTrimmedString(input, 'description') } : {}),
-    ...(readTrimmedString(input, 'channel') ? { channel: readTrimmedString(input, 'channel') } : {}),
-    ...(readOptionalStatus(input, 'status', CALENDAR_STATUSES) ? { status: readOptionalStatus(input, 'status', CALENDAR_STATUSES) } : {}),
+    ...(title ? { title } : {}),
+    ...(description !== undefined ? { description } : {}),
+    ...(channel !== undefined ? { channel } : {}),
+    ...(status ? { status } : {}),
     ...(startAt ? { startAt } : {}),
-    ...(endAt ? { endAt } : {}),
-    ...(readTrimmedString(input, 'projectId') ? { projectId: readTrimmedString(input, 'projectId') } : {}),
+    ...(endAt !== undefined ? { endAt } : {}),
+    ...(projectId !== undefined ? { projectId } : {}),
     ...('visibleToClient' in input ? { visibleToClient: readBoolean(input, 'visibleToClient', true) } : {}),
   }
 

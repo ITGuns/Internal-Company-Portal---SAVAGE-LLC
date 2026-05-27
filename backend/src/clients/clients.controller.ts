@@ -19,12 +19,14 @@ import {
   serializeClientApprovalForManagement,
   serializeClientAssetForManagement,
   serializeClientBillingStatusForManagement,
+  serializeClientCalendarItemForClient,
   serializeClientCalendarItemForManagement,
   serializeClientInvitedUserForManagement,
   serializeClientMembershipForManagement,
   serializeClientMetricSnapshotForManagement,
   serializeClientPortalOverview,
   serializeClientProjectForManagement,
+  serializeClientResourceLinkForClient,
   serializeClientResourceLinkForManagement,
   serializeClientRoadmapRecommendationForManagement,
   serializeClientReportForManagement,
@@ -52,6 +54,7 @@ import {
   parseCreateClientTicketCommentInput,
   parseCreateClientTicketInput,
   parseCreateClientUpdateInput,
+  parseGenerateClientReportDraftInput,
   parseInviteClientUserInput,
   parseUpdateClientApprovalInput,
   parseUpdateClientAssetInput,
@@ -60,11 +63,36 @@ import {
   parseUpdateClientOrganizationStatusInput,
   parseUpdateClientProjectInput,
   parseUpdateClientReportInput,
+  parseUpdateClientResourceLinkInput,
   parseUpdateClientRoadmapRecommendationInput,
+  parseUpdateClientTicketInput,
   parseUpdateClientTicketStatusInput,
   parseUpdateClientWorkItemInput,
   parseUpsertClientBillingStatusInput,
 } from './clients.validation'
+
+interface ClientOwnedResourceAccessRecord {
+  organizationId: string
+  createdById?: string | null
+  type: string
+}
+
+function canMutateClientOwnedResource(access: ClientAccessContext, resource: ClientOwnedResourceAccessRecord): boolean {
+  if (access.isPrivileged) return true
+  if (!canReadClientOrganization(access, { id: resource.organizationId })) return false
+  return resource.type === 'client_link' && resource.createdById === access.requesterId
+}
+
+interface ClientOwnedCalendarItemAccessRecord {
+  organizationId: string
+  createdById?: string | null
+}
+
+function canMutateClientOwnedCalendarItem(access: ClientAccessContext, item: ClientOwnedCalendarItemAccessRecord): boolean {
+  if (access.isPrivileged) return true
+  if (!canReadClientOrganization(access, { id: item.organizationId })) return false
+  return item.createdById === access.requesterId
+}
 
 function formatClientStatusLabel(status: string): string {
   return status
@@ -540,16 +568,29 @@ export class ClientsController {
       try {
         const access = await this.getAccessContext(req)
         if (!access) return res.status(401).json({ error: 'Authentication required' })
-        if (!canManageClientOrganization(access)) {
-          return res.status(403).json({ error: 'Only operations managers and admins can create client resources' })
+        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        if (!canManageClientOrganization(access) && !canReadClientOrganization(access, { id: organizationId })) {
+          return res.status(403).json({ error: 'You can only share resources for your assigned client organization' })
         }
 
-        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const input = parseCreateClientResourceLinkInput(req.body || {})
         const resource = await this.service.createResourceLink(
           organizationId,
-          parseCreateClientResourceLinkInput(req.body || {}),
+          access.isPrivileged
+            ? { ...input, createdById: access.requesterId }
+            : {
+              label: input.label,
+              url: input.url,
+              type: 'client_link',
+              visibleToClient: true,
+              createdById: access.requesterId,
+            },
         )
-        res.status(201).json(serializeClientResourceLinkForManagement(resource))
+        res.status(201).json(
+          access.isPrivileged
+            ? serializeClientResourceLinkForManagement(resource)
+            : serializeClientResourceLinkForClient(resource),
+        )
       } catch (error) {
         if (error instanceof ClientValidationError) {
           return res.status(400).json({ error: error.message })
@@ -560,6 +601,70 @@ export class ClientsController {
 
         console.error('[Clients] Error creating resource:', error)
         res.status(500).json({ error: 'Failed to create client resource' })
+      }
+    })
+
+    router.patch('/resources/:id', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+
+        const resourceId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const resource = await this.service.findResourceLinkById(resourceId)
+        if (!resource) return res.status(404).json({ error: 'Client resource not found' })
+        if (!canMutateClientOwnedResource(access, resource)) {
+          return res.status(403).json({ error: 'You can only edit resources you shared in your client workspace' })
+        }
+
+        const input = parseUpdateClientResourceLinkInput(req.body || {})
+        const updatedResource = await this.service.updateResourceLink(
+          resourceId,
+          resource.organizationId,
+          access.isPrivileged
+            ? input
+            : {
+              ...(input.label ? { label: input.label } : {}),
+              ...(input.url ? { url: input.url } : {}),
+              type: 'client_link',
+              visibleToClient: true,
+            },
+        )
+
+        res.json(
+          access.isPrivileged
+            ? serializeClientResourceLinkForManagement(updatedResource)
+            : serializeClientResourceLinkForClient(updatedResource),
+        )
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
+          return res.status(400).json({ error: 'Invalid project' })
+        }
+
+        console.error('[Clients] Error updating resource:', error)
+        res.status(500).json({ error: 'Failed to update client resource' })
+      }
+    })
+
+    router.delete('/resources/:id', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+
+        const resourceId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const resource = await this.service.findResourceLinkById(resourceId)
+        if (!resource) return res.status(404).json({ error: 'Client resource not found' })
+        if (!canMutateClientOwnedResource(access, resource)) {
+          return res.status(403).json({ error: 'You can only delete resources you shared in your client workspace' })
+        }
+
+        await this.service.deleteResourceLink(resourceId)
+        res.status(204).send()
+      } catch (error) {
+        console.error('[Clients] Error deleting resource:', error)
+        res.status(500).json({ error: 'Failed to delete client resource' })
       }
     })
 
@@ -705,6 +810,34 @@ export class ClientsController {
 
         console.error('[Clients] Error responding to approval:', error)
         res.status(500).json({ error: 'Failed to respond to client approval' })
+      }
+    })
+
+    router.post('/organizations/:id/reports/draft', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can generate client report drafts' })
+        }
+
+        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const report = await this.service.generateReportDraft(
+          organizationId,
+          access.requesterId,
+          parseGenerateClientReportDraftInput(req.body || {}),
+        )
+        res.status(201).json(serializeClientReportForManagement(report))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
+          return res.status(400).json({ error: 'Invalid client organization' })
+        }
+
+        console.error('[Clients] Error generating report draft:', error)
+        res.status(500).json({ error: 'Failed to generate client report draft' })
       }
     })
 
@@ -898,17 +1031,32 @@ export class ClientsController {
       try {
         const access = await this.getAccessContext(req)
         if (!access) return res.status(401).json({ error: 'Authentication required' })
-        if (!canManageClientOrganization(access)) {
-          return res.status(403).json({ error: 'Only operations managers and admins can create calendar items' })
+        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        if (!canManageClientOrganization(access) && !canReadClientOrganization(access, { id: organizationId })) {
+          return res.status(403).json({ error: 'You can only add calendar items for your assigned client organization' })
         }
 
-        const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const input = parseCreateClientCalendarItemInput(req.body || {})
         const calendarItem = await this.service.createCalendarItem(
           organizationId,
           access.requesterId,
-          parseCreateClientCalendarItemInput(req.body || {}),
+          access.isPrivileged
+            ? input
+            : {
+              title: input.title,
+              description: input.description,
+              channel: input.channel,
+              status: 'planned',
+              startAt: input.startAt,
+              endAt: input.endAt,
+              visibleToClient: true,
+            },
         )
-        res.status(201).json(serializeClientCalendarItemForManagement(calendarItem))
+        res.status(201).json(
+          access.isPrivileged
+            ? serializeClientCalendarItemForManagement(calendarItem)
+            : serializeClientCalendarItemForClient(calendarItem),
+        )
       } catch (error) {
         if (error instanceof ClientValidationError) {
           return res.status(400).json({ error: error.message })
@@ -926,20 +1074,36 @@ export class ClientsController {
       try {
         const access = await this.getAccessContext(req)
         if (!access) return res.status(401).json({ error: 'Authentication required' })
-        if (!canManageClientOrganization(access)) {
-          return res.status(403).json({ error: 'Only operations managers and admins can update calendar items' })
-        }
 
         const calendarItemId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
         const calendarItem = await this.service.findCalendarItemById(calendarItemId)
         if (!calendarItem) return res.status(404).json({ error: 'Calendar item not found' })
+        if (!canMutateClientOwnedCalendarItem(access, calendarItem)) {
+          return res.status(403).json({ error: 'You can only edit calendar items you added in your client workspace' })
+        }
 
+        const input = parseUpdateClientCalendarItemInput(req.body || {})
         const updatedCalendarItem = await this.service.updateCalendarItem(
           calendarItemId,
           calendarItem.organizationId,
-          parseUpdateClientCalendarItemInput(req.body || {}),
+          access.isPrivileged
+            ? input
+            : {
+              ...(input.title !== undefined ? { title: input.title } : {}),
+              ...(input.description !== undefined ? { description: input.description } : {}),
+              ...(input.channel !== undefined ? { channel: input.channel } : {}),
+              ...(input.startAt !== undefined ? { startAt: input.startAt } : {}),
+              ...(input.endAt !== undefined ? { endAt: input.endAt } : {}),
+              status: 'planned',
+              visibleToClient: true,
+            },
+          access.requesterId,
         )
-        res.json(serializeClientCalendarItemForManagement(updatedCalendarItem))
+        res.json(
+          access.isPrivileged
+            ? serializeClientCalendarItemForManagement(updatedCalendarItem)
+            : serializeClientCalendarItemForClient(updatedCalendarItem),
+        )
       } catch (error) {
         if (error instanceof ClientValidationError) {
           return res.status(400).json({ error: error.message })
@@ -954,13 +1118,13 @@ export class ClientsController {
       try {
         const access = await this.getAccessContext(req)
         if (!access) return res.status(401).json({ error: 'Authentication required' })
-        if (!canManageClientOrganization(access)) {
-          return res.status(403).json({ error: 'Only operations managers and admins can delete calendar items' })
-        }
 
         const calendarItemId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
         const calendarItem = await this.service.findCalendarItemById(calendarItemId)
         if (!calendarItem) return res.status(404).json({ error: 'Calendar item not found' })
+        if (!canMutateClientOwnedCalendarItem(access, calendarItem)) {
+          return res.status(403).json({ error: 'You can only delete calendar items you added in your client workspace' })
+        }
 
         await this.service.deleteCalendarItem(calendarItemId, access.requesterId, calendarItem)
         res.status(204).send()
@@ -992,6 +1156,72 @@ export class ClientsController {
       } catch (error) {
         console.error('[Clients] Error listing tickets:', error)
         res.status(500).json({ error: 'Failed to fetch client tickets' })
+      }
+    })
+
+    router.patch('/tickets/:id', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+
+        const ticketId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const ticket = await this.service.findTicketById(ticketId)
+        if (!ticket) return res.status(404).json({ error: 'Client ticket not found' })
+        if (!canReadClientOrganization(access, { id: ticket.organizationId })) {
+          return res.status(403).json({ error: 'You can only edit tickets for your assigned client organization' })
+        }
+        if (!access.isPrivileged && ticket.status === 'done') {
+          return res.status(409).json({ error: 'Completed requests cannot be edited from the client workspace' })
+        }
+
+        const updatedTicket = await this.service.updateTicket(
+          ticketId,
+          parseUpdateClientTicketInput(req.body || {}),
+          access.requesterId,
+        )
+
+        res.json(
+          access.isPrivileged
+            ? serializeClientTicketForManagement(updatedTicket)
+            : serializeClientTicketForClient(updatedTicket),
+        )
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+
+        console.error('[Clients] Error updating ticket:', error)
+        res.status(500).json({ error: 'Failed to update client ticket' })
+      }
+    })
+
+    router.delete('/tickets/:id', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+
+        const ticketId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const ticket = await this.service.findTicketById(ticketId)
+        if (!ticket) return res.status(404).json({ error: 'Client ticket not found' })
+        if (!canReadClientOrganization(access, { id: ticket.organizationId })) {
+          return res.status(403).json({ error: 'You can only delete tickets for your assigned client organization' })
+        }
+        if ((ticket.comments || []).length > 0) {
+          return res.status(409).json({ error: 'Requests with conversation history cannot be deleted. Add a reply or ask the team to close it instead.' })
+        }
+        if (!access.isPrivileged && ticket.status === 'done') {
+          return res.status(409).json({ error: 'Completed requests cannot be deleted from the client workspace' })
+        }
+
+        await this.service.deleteTicket(ticketId, access.requesterId)
+        res.status(204).send()
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(404).json({ error: error.message })
+        }
+
+        console.error('[Clients] Error deleting ticket:', error)
+        res.status(500).json({ error: 'Failed to delete client ticket' })
       }
     })
 

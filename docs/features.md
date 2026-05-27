@@ -87,7 +87,7 @@ Operations manages departments, role options, and client account administration.
 - `/operations/clients/delivery` manages projects, build progress, work items, completed work, and client-visible updates.
 - `/operations/clients/requests` manages website change requests and support tickets with client-visible replies and internal notes.
 - `/operations/clients/approvals` manages approval queue records and client decision status.
-- `/operations/clients/reports` manages monthly reports, lead/reputation/local-visibility signals, and metric snapshots.
+- `/operations/clients/reports` manages monthly reports, lead/reputation/local-visibility signals, and metric snapshots. Admins can generate an editable draft report from existing client operations records before publishing it.
 - `/operations/clients/assets` manages resources, files, links, and client-visible assets.
 - `/operations/clients/billing`, `/operations/clients/roadmap`, and `/operations/clients/calendar` manage billing status, next recommendations, and campaign/content schedules.
 - Client Roadmap now uses a board-style workflow with modal create/edit/archive controls instead of always-visible form fields.
@@ -111,12 +111,12 @@ Deskii now has the backend foundation for a client-facing portal/tool inside the
 - `/client` now acts as the client command center, with primary workspace navigation handled by the sidebar.
 - `/client/work` organizes website build progress, open requests, completed work, and future client-visible task checklists.
 - `/client/approvals` surfaces client approval records and lets clients approve or request changes with a response note.
-- `/client/messages` consolidates client-visible request conversation history.
-- `/client/reports` presents published metric snapshots and report notes as the client reporting dashboard.
-- `/client/resources` gives clients a focused shared resource library.
+- `/client/messages` consolidates client-visible request conversation history, including the original request details even before team replies are added.
+- `/client/reports` presents published metric snapshots and report notes as the client reporting dashboard. Draft reports stay internal until a manager publishes them.
+- `/client/resources` gives clients a focused shared resource library plus client-safe create, edit, and delete controls for links they personally shared.
 - `/client/account` shows client account, website, status, service tier, and active team access details.
-- `/client/calendar` is reserved for the campaign and content schedule surface.
-- `/client/tickets` gives clients a focused request center for ticket submission and status review.
+- `/client/calendar` uses the same planning-calendar view style as admin Client Operations. Clients can add calendar items for their own workspace and edit/delete only items they personally added, while admin-published schedule items remain protected.
+- `/client/tickets` gives clients a focused request center for ticket submission, status review, client-safe request editing, and deletion before conversation history starts.
 - `/client/tickets` includes search plus status, priority, and request-type filters so clients can find past requests quickly.
 - The backend now supports production client records for work items, approvals, monthly reports, roadmap recommendations, assets, billing status, and calendar items.
 - Internal users can create, update, and archive those production client records through management API routes while client overview responses only expose client-visible records.

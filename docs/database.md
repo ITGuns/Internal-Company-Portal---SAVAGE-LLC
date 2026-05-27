@@ -113,13 +113,14 @@ Client portal data is tenant-scoped by `ClientOrganization`.
 - `ClientTicket` stores client support/change requests. The server sets `organizationId` from the route and `createdById` from the authenticated user; clients must not set ownership, internal notes, or assignment fields.
 - `ClientTicketComment.visibility` separates client-visible replies from internal handoff notes.
 - `ClientUpdate`, `ClientMetricSnapshot`, and `ClientResourceLink` use `visibleToClient` so internal operations can stage private records without exposing them to clients.
+- `ClientResourceLink.createdById` records who created a shared link. Client users can only edit/delete their own `client_link` resources; internal users retain management access.
 - `ClientWorkItem` stores client-facing work progress, open tasks, and completed work log entries.
 - `ClientApproval` stores approval requests, due dates, decision state, and client response notes.
 - `ClientReport` stores monthly report periods and snapshot fields for leads, source breakdowns, missed opportunities, reputation, and local visibility.
 - `ClientRoadmapRecommendation` stores next-step recommendations with priority, impact, effort, and client visibility.
 - `ClientAsset` stores client file/asset links separately from general resources so assets can have lifecycle status and notes.
 - `ClientBillingStatus` stores one billing/plan status record per client organization and is hidden from clients unless explicitly marked visible.
-- `ClientCalendarItem` stores campaign and content calendar items with channel, status, schedule, and visibility.
+- `ClientCalendarItem` stores campaign and content calendar items with channel, status, schedule, visibility, and optional creator ownership. Client users can only mutate items where `createdById` matches their user ID.
 - `ClientActivity` stores append-only client-operations events. Each activity belongs to a `ClientOrganization`, may link to the acting `User` with `onDelete: SetNull`, and uses `visibility` (`internal` or `client`) to keep internal audit history separate from client-facing history. Indexes support organization timelines, visibility-scoped reads, subject lookups, and activity-type filtering.
 - New client portal tables are additive and do not change existing employee task, payroll, chat, or file-directory records.
 

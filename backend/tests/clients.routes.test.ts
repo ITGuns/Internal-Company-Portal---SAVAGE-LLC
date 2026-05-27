@@ -334,6 +334,52 @@ async function runClientRouteTests() {
       )
       assert.equal(clientTicket.status, 201)
 
+      const updatedClientTicket = await requestJson(
+        baseUrl,
+        `/api/clients/tickets/${clientTicket.body.id}`,
+        {
+          method: 'PATCH',
+          token: login.body.tokens.accessToken,
+          body: {
+            title: 'Need homepage copy and hours reviewed',
+            description: 'Please check the homepage copy and service hours.',
+            category: 'review',
+            priority: 'normal',
+            internalNotes: 'should not be accepted',
+          },
+        },
+      )
+      assert.equal(updatedClientTicket.status, 200)
+      assert.equal(updatedClientTicket.body.title, 'Need homepage copy and hours reviewed')
+      assert.equal(updatedClientTicket.body.priority, 'normal')
+      assert.equal('internalNotes' in updatedClientTicket.body, false)
+
+      const temporaryTicket = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/tickets`,
+        {
+          method: 'POST',
+          token: login.body.tokens.accessToken,
+          body: {
+            title: 'Temporary request',
+            description: 'This request can be removed before conversation starts.',
+            category: 'support',
+            priority: 'low',
+          },
+        },
+      )
+      assert.equal(temporaryTicket.status, 201)
+
+      const deletedTemporaryTicket = await requestJson(
+        baseUrl,
+        `/api/clients/tickets/${temporaryTicket.body.id}`,
+        {
+          method: 'DELETE',
+          token: login.body.tokens.accessToken,
+        },
+      )
+      assert.equal(deletedTemporaryTicket.status, 204)
+
       const adminQueue = await requestJson(
         baseUrl,
         `/api/clients/activity/queue?organizationId=${organization.id}`,
@@ -367,6 +413,16 @@ async function runClientRouteTests() {
       )
       assert.equal(ticketReply.status, 201)
 
+      const deleteTicketWithConversation = await requestJson(
+        baseUrl,
+        `/api/clients/tickets/${clientTicket.body.id}`,
+        {
+          method: 'DELETE',
+          token: login.body.tokens.accessToken,
+        },
+      )
+      assert.equal(deleteTicketWithConversation.status, 409)
+
       const ticketActivity = await requestJson(
         baseUrl,
         `/api/clients/organizations/${organization.id}/activity?subjectType=ticket&subjectId=${clientTicket.body.id}`,
@@ -379,6 +435,10 @@ async function runClientRouteTests() {
       )
       assert.equal(
         ticketActivity.body.some((activity: JsonRecord) => activity.type === 'ticket_client_reply_created'),
+        true,
+      )
+      assert.equal(
+        ticketActivity.body.some((activity: JsonRecord) => activity.type === 'ticket_updated'),
         true,
       )
 
@@ -413,6 +473,101 @@ async function runClientRouteTests() {
         },
       )
       assert.equal(clientWorkItemAttempt.status, 403)
+
+      const clientResource = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/resources`,
+        {
+          method: 'POST',
+          token: login.body.tokens.accessToken,
+          body: {
+            label: 'Client shared brief',
+            url: 'https://client.example.com/brief',
+            type: 'internal_reference',
+            projectId: 'project-should-not-be-trusted',
+            visibleToClient: false,
+          },
+        },
+      )
+      assert.equal(clientResource.status, 201)
+      assert.equal(clientResource.body.label, 'Client shared brief')
+      assert.equal(clientResource.body.type, 'client_link')
+      assert.equal(clientResource.body.projectId, null)
+      assert.equal(clientResource.body.createdById, login.body.user.id)
+      assert.equal('visibleToClient' in clientResource.body, false)
+
+      const storedClientResource = await prisma.clientResourceLink.findUnique({
+        where: { id: clientResource.body.id },
+      })
+      assert.ok(storedClientResource)
+      assert.equal(storedClientResource.organizationId, organization.id)
+      assert.equal(storedClientResource.projectId, null)
+      assert.equal(storedClientResource.type, 'client_link')
+      assert.equal(storedClientResource.visibleToClient, true)
+      assert.equal(storedClientResource.createdById, login.body.user.id)
+
+      const updatedClientResource = await requestJson(
+        baseUrl,
+        `/api/clients/resources/${clientResource.body.id}`,
+        {
+          method: 'PATCH',
+          token: login.body.tokens.accessToken,
+          body: {
+            label: 'Updated client shared brief',
+            url: 'https://client.example.com/brief-v2',
+            type: 'admin_only',
+            visibleToClient: false,
+          },
+        },
+      )
+      assert.equal(updatedClientResource.status, 200)
+      assert.equal(updatedClientResource.body.label, 'Updated client shared brief')
+      assert.equal(updatedClientResource.body.url, 'https://client.example.com/brief-v2')
+      assert.equal(updatedClientResource.body.type, 'client_link')
+
+      const updatedStoredClientResource = await prisma.clientResourceLink.findUnique({
+        where: { id: clientResource.body.id },
+      })
+      assert.ok(updatedStoredClientResource)
+      assert.equal(updatedStoredClientResource.visibleToClient, true)
+
+      const deletedClientResource = await requestJson(
+        baseUrl,
+        `/api/clients/resources/${clientResource.body.id}`,
+        {
+          method: 'DELETE',
+          token: login.body.tokens.accessToken,
+        },
+      )
+      assert.equal(deletedClientResource.status, 204)
+
+      const unsafeClientResource = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/resources`,
+        {
+          method: 'POST',
+          token: login.body.tokens.accessToken,
+          body: {
+            label: 'Unsafe resource',
+            url: 'javascript:alert(1)',
+          },
+        },
+      )
+      assert.equal(unsafeClientResource.status, 400)
+
+      const otherClientResource = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${otherOrganization.id}/resources`,
+        {
+          method: 'POST',
+          token: login.body.tokens.accessToken,
+          body: {
+            label: 'Other client link',
+            url: 'https://client.example.com/other',
+          },
+        },
+      )
+      assert.equal(otherClientResource.status, 403)
 
       const otherApproval = await requestJson(
         baseUrl,
@@ -487,6 +642,139 @@ async function runClientRouteTests() {
       )
       assert.equal(
         approvalActivity.body.some((activity: JsonRecord) => activity.type === 'approval_changes_requested'),
+        true,
+      )
+
+      await prisma.clientWorkItem.create({
+        data: {
+          organizationId: organization.id,
+          title: 'Published homepage refresh',
+          description: 'Launched revised hero, copy, and contact CTA.',
+          status: 'completed',
+          priority: 'high',
+          progress: 100,
+          completedAt: new Date('2026-05-20T12:00:00.000Z'),
+          visibleToClient: true,
+        },
+      })
+      await prisma.clientTicket.create({
+        data: {
+          organizationId: organization.id,
+          title: 'Contact form issue resolved',
+          description: 'Lead capture form was tested and confirmed.',
+          category: 'website',
+          priority: 'normal',
+          status: 'done',
+          closedAt: new Date('2026-05-21T12:00:00.000Z'),
+        },
+      })
+      await prisma.clientUpdate.create({
+        data: {
+          organizationId: organization.id,
+          title: 'Launch progress posted',
+          body: 'Homepage improvements are live and being monitored.',
+          status: 'published',
+          visibleToClient: true,
+          createdAt: new Date('2026-05-22T12:00:00.000Z'),
+        },
+      })
+      await prisma.clientMetricSnapshot.createMany({
+        data: [
+          {
+            organizationId: organization.id,
+            label: 'Organic leads',
+            value: '12',
+            unit: 'leads',
+            source: 'organic',
+            periodStart: new Date('2026-05-01T00:00:00.000Z'),
+            periodEnd: new Date('2026-05-31T23:59:59.000Z'),
+            visibleToClient: true,
+          },
+          {
+            organizationId: organization.id,
+            label: 'Missed opportunities',
+            value: '2',
+            source: 'lead_review',
+            periodStart: new Date('2026-05-01T00:00:00.000Z'),
+            periodEnd: new Date('2026-05-31T23:59:59.000Z'),
+            visibleToClient: true,
+          },
+          {
+            organizationId: organization.id,
+            label: 'Google rating',
+            value: '4.8',
+            source: 'reviews',
+            periodStart: new Date('2026-05-01T00:00:00.000Z'),
+            periodEnd: new Date('2026-05-31T23:59:59.000Z'),
+            visibleToClient: true,
+          },
+          {
+            organizationId: organization.id,
+            label: 'Maps ranking',
+            value: '3',
+            source: 'local_visibility',
+            periodStart: new Date('2026-05-01T00:00:00.000Z'),
+            periodEnd: new Date('2026-05-31T23:59:59.000Z'),
+            visibleToClient: true,
+          },
+        ],
+      })
+
+      const clientDraftAttempt = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/reports/draft`,
+        {
+          method: 'POST',
+          token: login.body.tokens.accessToken,
+          body: {
+            periodStart: '2026-05-01',
+            periodEnd: '2026-05-31',
+          },
+        },
+      )
+      assert.equal(clientDraftAttempt.status, 403)
+
+      const generatedDraft = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/reports/draft`,
+        {
+          method: 'POST',
+          token: adminToken,
+          body: {
+            periodStart: '2026-05-01',
+            periodEnd: '2026-05-31',
+          },
+        },
+      )
+      assert.equal(generatedDraft.status, 201)
+      assert.equal(generatedDraft.body.status, 'draft')
+      assert.equal(generatedDraft.body.visibleToClient, true)
+      assert.equal(generatedDraft.body.leadsCaptured, 12)
+      assert.equal(generatedDraft.body.missedOpportunities, 2)
+      assert.match(generatedDraft.body.summary, /Published homepage refresh/)
+      assert.deepEqual(generatedDraft.body.leadSourceBreakdown, { organic: 12 })
+      assert.deepEqual(generatedDraft.body.reputationSnapshot, { google_rating: '4.8' })
+      assert.deepEqual(generatedDraft.body.localVisibilitySnapshot, { maps_ranking: '3' })
+
+      const clientOverviewWithDraft = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/overview`,
+        { token: login.body.tokens.accessToken },
+      )
+      assert.equal(clientOverviewWithDraft.status, 200)
+      assert.equal(
+        clientOverviewWithDraft.body.reports.some((report: JsonRecord) => report.id === generatedDraft.body.id),
+        false,
+      )
+
+      const adminOverviewWithDraft = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/overview`,
+        { token: adminToken },
+      )
+      assert.equal(adminOverviewWithDraft.status, 200)
+      assert.equal(
+        adminOverviewWithDraft.body.reports.some((report: JsonRecord) => report.id === generatedDraft.body.id),
         true,
       )
 
@@ -612,6 +900,105 @@ async function runClientRouteTests() {
         billingActivity.body.some((activity: JsonRecord) => activity.type === 'billing_updated'),
         true,
       )
+
+      const clientCalendarItem = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/calendar-items`,
+        {
+          method: 'POST',
+          token: login.body.tokens.accessToken,
+          body: {
+            title: 'Client planning note',
+            description: 'Client wants to discuss launch timing.',
+            channel: 'review',
+            status: 'archived',
+            startAt: '2026-06-10',
+            endAt: '2026-06-11',
+            projectId: 'project-should-not-be-trusted',
+            visibleToClient: false,
+          },
+        },
+      )
+      assert.equal(clientCalendarItem.status, 201)
+      assert.equal(clientCalendarItem.body.title, 'Client planning note')
+      assert.equal(clientCalendarItem.body.status, 'planned')
+      assert.equal(clientCalendarItem.body.projectId, null)
+      assert.equal(clientCalendarItem.body.visibleToClient, true)
+      assert.equal(clientCalendarItem.body.createdById, login.body.user.id)
+
+      const storedClientCalendarItem = await prisma.clientCalendarItem.findUnique({
+        where: { id: clientCalendarItem.body.id },
+      })
+      assert.ok(storedClientCalendarItem)
+      assert.equal(storedClientCalendarItem.organizationId, organization.id)
+      assert.equal(storedClientCalendarItem.projectId, null)
+      assert.equal(storedClientCalendarItem.status, 'planned')
+      assert.equal(storedClientCalendarItem.visibleToClient, true)
+      assert.equal(storedClientCalendarItem.createdById, login.body.user.id)
+
+      const invalidEndOnlyCalendarUpdate = await requestJson(
+        baseUrl,
+        `/api/clients/calendar-items/${clientCalendarItem.body.id}`,
+        {
+          method: 'PATCH',
+          token: login.body.tokens.accessToken,
+          body: {
+            endAt: '2026-06-09',
+          },
+        },
+      )
+      assert.equal(invalidEndOnlyCalendarUpdate.status, 400)
+      assert.equal(invalidEndOnlyCalendarUpdate.body.error, 'Calendar endAt must be after startAt')
+
+      const updatedClientCalendarItem = await requestJson(
+        baseUrl,
+        `/api/clients/calendar-items/${clientCalendarItem.body.id}`,
+        {
+          method: 'PATCH',
+          token: login.body.tokens.accessToken,
+          body: {
+            title: 'Updated client planning note',
+            description: '',
+            channel: '',
+            status: 'archived',
+            startAt: '2026-06-12',
+            endAt: '',
+            projectId: 'project-should-not-be-trusted',
+            visibleToClient: false,
+          },
+        },
+      )
+      assert.equal(updatedClientCalendarItem.status, 200)
+      assert.equal(updatedClientCalendarItem.body.title, 'Updated client planning note')
+      assert.equal(updatedClientCalendarItem.body.description, null)
+      assert.equal(updatedClientCalendarItem.body.channel, null)
+      assert.equal(updatedClientCalendarItem.body.status, 'planned')
+      assert.equal(updatedClientCalendarItem.body.endAt, null)
+      assert.equal(updatedClientCalendarItem.body.visibleToClient, true)
+
+      const otherClientCalendarItem = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${otherOrganization.id}/calendar-items`,
+        {
+          method: 'POST',
+          token: login.body.tokens.accessToken,
+          body: {
+            title: 'Other client planning note',
+            startAt: '2026-06-13',
+          },
+        },
+      )
+      assert.equal(otherClientCalendarItem.status, 403)
+
+      const deletedClientCalendarItem = await requestJson(
+        baseUrl,
+        `/api/clients/calendar-items/${clientCalendarItem.body.id}`,
+        {
+          method: 'DELETE',
+          token: login.body.tokens.accessToken,
+        },
+      )
+      assert.equal(deletedClientCalendarItem.status, 204)
 
       const calendarItem = await requestJson(
         baseUrl,

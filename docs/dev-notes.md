@@ -1,5 +1,219 @@
 # Development Notes
 
+## 2026-05-27 - Verification Pass And Calendar Patch Guard
+
+### Completed
+
+- Ran the backend/frontend readiness checks, Prisma validation/generation, dependency audit checks, Compose config validation, and git diff hygiene checks against the current client portal worktree.
+- Smoke-tested the local app through a temporary current-source stack on backend `4100` and frontend `3001`, including login, client organization reads, overview reads, ticket reads, action queue reads, and key client/admin pages at desktop and mobile widths.
+- Added a backend regression guard so calendar PATCH requests cannot move `endAt` before the existing `startAt` when only `endAt` is submitted.
+
+### Files Changed
+
+- `backend/src/clients/clients.service.ts`
+- `backend/tests/clients.routes.test.ts`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Keep the date-order guard in the service update path so admin and client calendar updates share the same server-side rule.
+- Preserve the existing date-only frontend payload behavior; the fix protects direct API callers and future partial-update clients.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- `cd backend && npx prisma validate`
+- `cd backend && npm run prisma:generate`
+- `cd backend && npx prisma migrate status`
+- `cd backend && npm audit --audit-level=high`
+- `cd frontend && npm audit --audit-level=high`
+- `cd backend && npm ci --dry-run`
+- `cd frontend && npm ci --dry-run`
+- `docker compose config` with local `JWT_SECRET` and `REFRESH_TOKEN_SECRET`
+- `git diff --check`
+- Browser smoke: login and open `/operations/clients`, `/operations/clients/reports`, `/operations/clients/calendar`, `/client`, `/client/calendar`, `/client/resources`, `/client/tickets`, and `/client/messages` at desktop and mobile widths.
+
+### Next Steps
+
+- Run the same verification suite once more immediately before commit, push, or deployment.
+
+## 2026-05-27 - Client Report Draft Builder
+
+### Completed
+
+- Added an internal-only report draft endpoint that generates `ClientReport` drafts from visible client operations records for a selected period.
+- Derived draft summaries from completed work, resolved requests, published updates, approvals, roadmap items, calendar activity, and metric snapshots.
+- Added admin `/operations/clients/reports` support for generating an editable draft before publishing.
+- Kept client `/client/reports` visibility unchanged: clients only receive reports that are both published and client-visible.
+
+### Files Changed
+
+- `backend/src/clients/clients.report-builder.ts`
+- `backend/src/clients/clients.controller.ts`
+- `backend/src/clients/clients.service.ts`
+- `backend/src/clients/clients.validation.ts`
+- `backend/tests/clients.production-records.test.ts`
+- `backend/tests/clients.routes.test.ts`
+- `frontend/src/components/client-portal/production-records/ReportsPanel.tsx`
+- `frontend/src/lib/client-portal.ts`
+- `frontend/src/lib/client-production-record-forms.ts`
+- `frontend/tests/client-production-record-forms.test.mjs`
+- `docs/api.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Use draft `ClientReport` records instead of adding a new report-builder table.
+- Keep generated drafts editable through the existing report edit/publish controls.
+- Derive leads, missed opportunities, reputation, and local visibility from client-visible metric snapshots only.
+
+### How to Test
+
+- `cd backend && npx ts-node tests/clients.production-records.test.ts`
+- `cd backend && npx ts-node tests/clients.routes.test.ts`
+- `cd frontend && npm test -- client-production-record-forms.test.mjs`
+- Browser smoke: open `/operations/clients/reports`, select a client, enter a period, click `Generate Draft`, edit the generated draft, publish it, then confirm it appears on `/client/reports`.
+
+### Next Steps
+
+- Add richer source-specific report sections if operations wants separate editable narrative blocks instead of one generated summary.
+
+## 2026-05-27 - Client Calendar Owned CRUD
+
+### Completed
+
+- Added client-safe calendar create, edit, and delete access for assigned client users.
+- Scoped client calendar mutations to records created by the same client user, while internal management keeps full calendar access.
+- Forced client-created and client-edited calendar items to stay `planned`, client-visible, organization-scoped, and creator-owned from server context.
+- Added `/client/calendar` add/edit/delete controls and date-click creation against the same FullCalendar surface as admin Client Operations.
+
+### Files Changed
+
+- `backend/src/clients/clients.controller.ts`
+- `backend/src/clients/clients.serializers.ts`
+- `backend/src/clients/clients.service.ts`
+- `backend/src/clients/clients.validation.ts`
+- `backend/tests/clients.routes.test.ts`
+- `frontend/src/app/client/calendar/page.tsx`
+- `frontend/src/lib/client-portal.ts`
+- `docs/api.md`
+- `docs/database.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Use existing `ClientCalendarItem.createdById` ownership instead of adding a new table or route family.
+- Keep admin-created schedule items read-only for clients so clients cannot accidentally change the team's production calendar.
+- Keep client calendar items simple and visible by default instead of exposing admin workflow status or visibility controls.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- Browser smoke: sign in as a client, open `/client/calendar`, add an item, edit it, delete it, and confirm admin-created calendar items do not show client edit/delete controls.
+
+## 2026-05-27 - Client Workspace Safe CRUD
+
+### Completed
+
+- Added client-owned resource ownership with an additive `ClientResourceLink.createdById` field and migration.
+- Added client-safe update/delete API routes for resources, scoped so clients can only edit or delete links they personally shared.
+- Added client-safe ticket update/delete API routes. Clients can edit request details for tickets in their assigned organization, and delete requests only before conversation history exists.
+- Added edit/delete controls on `/client/resources` and `/client/tickets` with server-side authorization as the source of truth.
+
+### Files Changed
+
+- `backend/prisma/schema.prisma`
+- `backend/prisma/migrations/202605270003_client_resource_ownership/migration.sql`
+- `backend/src/clients/clients.activity.ts`
+- `backend/src/clients/clients.controller.ts`
+- `backend/src/clients/clients.serializers.ts`
+- `backend/src/clients/clients.service.ts`
+- `backend/src/clients/clients.validation.ts`
+- `backend/tests/clients.access.test.ts`
+- `backend/tests/clients.routes.test.ts`
+- `frontend/src/app/client/resources/page.tsx`
+- `frontend/src/app/client/tickets/page.tsx`
+- `frontend/src/lib/client-portal.ts`
+- `docs/api.md`
+- `docs/database.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Do not give clients admin-style CRUD over reports, billing, delivery tasks, approvals, roadmap, or published calendar records.
+- Make client resource mutation ownership explicit with `createdById` instead of relying on frontend filtering or resource type alone.
+- Keep destructive ticket deletion limited to requests with no comments so conversation history stays intact.
+
+### How to Test
+
+- `cd backend && npm run prisma:deploy`
+- `cd backend && npm run prisma:generate`
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- Browser smoke: `/client/resources` and `/client/tickets`.
+
+### Next Steps
+
+- Add optional activity/notification rules for client-shared resource edits if operations wants them in the action queue.
+
+## 2026-05-27 - Client Portal Calendar, Resources, And Messages Polish
+
+### Completed
+
+- Reworked `/client/calendar` to use the same FullCalendar month/week/day schedule surface as admin Client Operations, with client-readable detail and item list panels.
+- Added a client-safe resource sharing form on `/client/resources` for title and link submission.
+- Allowed assigned client users to create resource links for their own active organization while forcing client-safe `client_link` type, visible resource status, and http/https URLs.
+- Updated `/client/messages` so ticket request details appear in conversation history even before replies exist.
+- Suppressed the employee time clock on client portal routes to keep client pages focused and avoid payroll fetch noise for external client users.
+
+### Files Changed
+
+- `backend/src/clients/clients.controller.ts`
+- `backend/src/clients/clients.validation.ts`
+- `backend/tests/clients.access.test.ts`
+- `backend/tests/clients.routes.test.ts`
+- `frontend/src/app/client/calendar/page.tsx`
+- `frontend/src/app/client/resources/page.tsx`
+- `frontend/src/app/client/messages/page.tsx`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/lib/client-portal.ts`
+- `docs/api.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Keep client calendar read-only, but visually aligned with the admin planning calendar.
+- Reuse the existing resource endpoint with stricter client-side authorization and server-derived client-visible fields instead of adding a duplicate route.
+- Treat the original ticket description as the first client-visible conversation entry.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- Browser smoke: `/client/calendar`, `/client/resources`, and `/client/messages`.
+
+### Next Steps
+
+- Consider adding activity events for client-shared resources if the team wants resource uploads to appear in the action queue.
+
 ## 2026-05-27 - Client Activity And Action Queue Foundation
 
 ### Completed

@@ -7,6 +7,8 @@ export const CLIENT_ACTIVITY_TYPES = {
   ticketCreated: 'ticket_created',
   ticketClientReplyCreated: 'ticket_client_reply_created',
   ticketInternalNoteCreated: 'ticket_internal_note_created',
+  ticketUpdated: 'ticket_updated',
+  ticketDeleted: 'ticket_deleted',
   ticketStatusChanged: 'ticket_status_changed',
   workItemCreated: 'work_item_created',
   workItemUpdated: 'work_item_updated',

@@ -141,6 +141,15 @@ export function buildReportUpdatePayload(form: ReportEditForm) {
   };
 }
 
+export function buildReportDraftPayload(form: Pick<ReportEditForm, "title" | "periodStart" | "periodEnd" | "visibleToClient">) {
+  return {
+    ...(optionalString(form.title) ? { title: optionalString(form.title) } : {}),
+    periodStart: requiredString(form.periodStart || ""),
+    periodEnd: requiredString(form.periodEnd || ""),
+    visibleToClient: form.visibleToClient,
+  };
+}
+
 export function buildRoadmapUpdatePayload(form: RoadmapEditForm) {
   return {
     title: requiredString(form.title),

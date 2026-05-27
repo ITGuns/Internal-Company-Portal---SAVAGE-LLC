@@ -60,6 +60,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
   const autoTitle = getRouteTitle(pathname);
   const resolvedTitle = title ?? (isDashboard ? `Welcome back, ${user?.name || 'Guest'}` : autoTitle?.title);
   const resolvedSubtitle = subtitle ?? (isDashboard ? 'Your work status and next actions for today' : autoTitle?.subtitle);
+  const shouldShowTimeClock = Boolean(user) && !pathname.startsWith('/client');
 
   const iconButtonClass = cn(
     'inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] text-[var(--muted)]',
@@ -106,7 +107,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
           </kbd>
         </button>
 
-        {user ? (
+        {shouldShowTimeClock ? (
           <div className="hidden xl:block">
             <TimeClock />
           </div>

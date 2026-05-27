@@ -200,12 +200,15 @@ Client portal management access recognizes normalized admin, administrator, mana
 - `PATCH /api/clients/projects/:id` updates a client project's management-controlled fields such as status and progress.
 - `POST /api/clients/organizations/:id/updates` publishes or stages a client update for internal management.
 - `POST /api/clients/organizations/:id/metrics` creates a client-visible or internal metric snapshot for internal management.
-- `POST /api/clients/organizations/:id/resources` creates a client resource link for internal management.
+- `POST /api/clients/organizations/:id/resources` creates a client resource link. Internal management can attach normal resource metadata; assigned client users can share an http/https title and link for their own active client organization, with `type` forced to `client_link` and `visibleToClient` forced to `true`.
+- `PATCH /api/clients/resources/:id` updates a resource link. Internal management can update managed resource metadata; client users can only edit links they personally shared in their active client organization.
+- `DELETE /api/clients/resources/:id` deletes a resource link. Client users can only delete links they personally shared.
 - `POST /api/clients/organizations/:id/work-items` creates a client-visible or internal work item for internal management.
 - `PATCH /api/clients/work-items/:id` updates or archives a client work item for internal management.
 - `POST /api/clients/organizations/:id/approvals` creates a client approval request for internal management.
 - `PATCH /api/clients/approvals/:id` updates or archives a client approval for internal management.
 - `PATCH /api/clients/approvals/:id/respond` lets an assigned client submit an approval decision or change request for a visible approval.
+- `POST /api/clients/organizations/:id/reports/draft` generates a draft client report from visible work, requests, updates, metric snapshots, approvals, roadmap items, and calendar records for the requested period. Internal management can edit and publish the draft before clients see it.
 - `POST /api/clients/organizations/:id/reports` creates a monthly/client report period for internal management.
 - `PATCH /api/clients/reports/:id` updates or archives a client report period for internal management.
 - `POST /api/clients/organizations/:id/roadmap` creates a roadmap recommendation for internal management.
@@ -213,17 +216,22 @@ Client portal management access recognizes normalized admin, administrator, mana
 - `POST /api/clients/organizations/:id/assets` creates a client asset/file link for internal management.
 - `PATCH /api/clients/assets/:id` updates or archives a client asset/file link for internal management.
 - `PATCH /api/clients/organizations/:id/billing-status` upserts client billing or plan status for internal management.
-- `POST /api/clients/organizations/:id/calendar-items` creates a campaign/content calendar item for internal management.
-- `PATCH /api/clients/calendar-items/:id` updates or archives a campaign/content calendar item for internal management.
-- `DELETE /api/clients/calendar-items/:id` permanently deletes a campaign/content calendar item for internal management.
+- `POST /api/clients/organizations/:id/calendar-items` creates a campaign/content calendar item. Internal management can attach normal calendar metadata; assigned client users can add date-only items for their own active client organization, with `status` forced to `planned` and `visibleToClient` forced to `true`.
+- `PATCH /api/clients/calendar-items/:id` updates or archives a campaign/content calendar item. Client users can only edit items they personally added, and client edits keep the item client-visible and planned.
+- `DELETE /api/clients/calendar-items/:id` permanently deletes a campaign/content calendar item. Client users can only delete items they personally added.
 - `POST /api/clients/organizations/:id/tickets` creates a ticket for that organization. The server derives `organizationId` from the URL and `createdById` from the authenticated requester.
 - `GET /api/clients/tickets` lists visible tickets. Non-privileged users are limited to active client memberships, and `organizationId` query access is checked server-side.
+- `PATCH /api/clients/tickets/:id` updates client-safe ticket fields (`title`, `description`, `category`, `priority`) for tickets in the requester's assigned client organization.
+- `DELETE /api/clients/tickets/:id` deletes a ticket only when the requester can access the client organization and the ticket has no conversation history.
 - `PATCH /api/clients/tickets/:id/status` updates ticket status for internal management and creates a published client-visible update when the status changes.
 - `POST /api/clients/tickets/:id/comments` adds a ticket comment. Client users can only create client-visible comments; internal users can create internal comments.
 
 Protected fields:
 
 - Clients cannot set `organizationId`, `createdById`, `assignedToId`, or `internalNotes` through ticket creation.
+- Client-created resources cannot set `projectId`, internal-only visibility, creator ownership, or custom protected metadata; the server derives safe client-visible resource fields.
+- Client-created calendar items cannot set `projectId`, internal-only visibility, creator ownership, or admin workflow status; the server derives safe client-visible calendar fields.
+- Client ticket updates cannot set organization, creator, assignment, status, project, comments, or internal notes.
 - Client invitations accept only email, optional name, membership role, and membership status. User approval, global `client` role, reset/setup tokens, tenant assignment, and timestamps are derived server-side.
 - Production record create/update routes derive `organizationId`, creator/requester IDs, and publish timestamps server-side.
 - Client approval response routes only accept decision fields and derive the responder and decision timestamp server-side.

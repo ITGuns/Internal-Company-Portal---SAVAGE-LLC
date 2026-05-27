@@ -60,6 +60,7 @@ model User {
   clientTicketsAssigned ClientTicket[]       @relation("ClientTicketAssignee")
   clientTicketComments ClientTicketComment[] @relation("ClientTicketCommentAuthor")
   clientUpdatesCreated ClientUpdate[]        @relation("ClientUpdateCreator")
+  clientResourceLinksCreated ClientResourceLink[] @relation("ClientResourceLinkCreator")
   clientWorkItemsCreated ClientWorkItem[]    @relation("ClientWorkItemCreator")
   clientWorkItemsAssigned ClientWorkItem[]   @relation("ClientWorkItemAssignee")
   clientApprovalsRequested ClientApproval[]  @relation("ClientApprovalRequester")
@@ -344,14 +345,17 @@ model ClientResourceLink {
   url             String
   type            String   @default("link")
   visibleToClient Boolean  @default(true)
+  createdById     String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   project      ClientProject?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  creator      User?              @relation("ClientResourceLinkCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([projectId])
+  @@index([createdById])
   @@index([visibleToClient])
   @@index([type])
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { MessageSquare, Plus, Send, Ticket } from "lucide-react";
+import { MessageSquare, Pencil, Plus, Save, Send, Ticket, Trash2, X } from "lucide-react";
 import Button from "@/components/Button";
 import ClientTicketFilterControls from "@/components/client-portal/ClientTicketFilterControls";
 import ChoiceGroup from "@/components/client-portal/ChoiceGroup";
@@ -16,8 +16,10 @@ import {
   ClientTicket,
   createClientTicket,
   createClientTicketComment,
+  deleteClientTicket,
   fetchClientOrganizations,
   fetchClientTickets,
+  updateClientTicket,
 } from "@/lib/client-portal";
 import { getClientTicketNextAction } from "@/lib/client-communication";
 import {
@@ -47,7 +49,10 @@ export default function ClientTicketsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [commentSaving, setCommentSaving] = useState(false);
+  const [ticketActionSaving, setTicketActionSaving] = useState(false);
   const [form, setForm] = useState({ description: "", category: "website", priority: "normal" });
+  const [editForm, setEditForm] = useState({ description: "", category: "website", priority: "normal" });
+  const [editingTicketId, setEditingTicketId] = useState("");
   const [commentBody, setCommentBody] = useState("");
   const [ticketFilters, setTicketFilters] = useState(DEFAULT_CLIENT_TICKET_FILTERS);
   const filteredTickets = useMemo(
@@ -156,6 +161,62 @@ export default function ClientTicketsPage() {
       toast.error(error instanceof Error ? error.message : "Failed to add comment");
     } finally {
       setCommentSaving(false);
+    }
+  }
+
+  function openEditTicket(ticket: ClientTicket) {
+    setEditingTicketId(ticket.id);
+    setEditForm({
+      description: ticket.description || "",
+      category: ticket.category || "website",
+      priority: ticket.priority || "normal",
+    });
+  }
+
+  function closeEditTicket() {
+    setEditingTicketId("");
+    setEditForm({ description: "", category: "website", priority: "normal" });
+  }
+
+  async function handleUpdateTicket(event: React.FormEvent) {
+    event.preventDefault();
+    if (!selectedTicket || !editForm.description.trim()) {
+      toast.error("Request details are required");
+      return;
+    }
+
+    setTicketActionSaving(true);
+    try {
+      const updatedTicket = await updateClientTicket(selectedTicket.id, {
+        ...editForm,
+        title: buildClientTicketTitle(editForm.category, editForm.description),
+      });
+      setTickets((current) => current.map((ticket) => (ticket.id === updatedTicket.id ? updatedTicket : ticket)));
+      setSelectedTicketId(updatedTicket.id);
+      closeEditTicket();
+      toast.success("Request updated");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update request");
+    } finally {
+      setTicketActionSaving(false);
+    }
+  }
+
+  async function handleDeleteTicket(ticket: ClientTicket) {
+    if (typeof window !== "undefined" && !window.confirm(`Delete "${ticket.title}" from your requests?`)) {
+      return;
+    }
+
+    setTicketActionSaving(true);
+    try {
+      await deleteClientTicket(ticket.id);
+      setTickets((current) => current.filter((item) => item.id !== ticket.id));
+      setSelectedTicketId("");
+      toast.success("Request deleted");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete request");
+    } finally {
+      setTicketActionSaving(false);
     }
   }
 
@@ -306,10 +367,61 @@ export default function ClientTicketsPage() {
                           <span>{getClientPortalOptionLabel(CLIENT_TICKET_PRIORITIES, selectedTicket.priority)}</span>
                           <span>{selectedTicket.comments?.length || 0} comments</span>
                         </div>
-                        <h3 className="mt-2 text-lg font-semibold leading-snug">{selectedTicket.title}</h3>
-                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--muted)]">
-                          {selectedTicket.description || "No description provided."}
-                        </p>
+                        {editingTicketId === selectedTicket.id ? (
+                          <form onSubmit={handleUpdateTicket} className="mt-3 space-y-4 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--card-surface)] p-3">
+                            <ChoiceGroup
+                              label="Request Type"
+                              options={CLIENT_TICKET_CATEGORIES}
+                              value={editForm.category}
+                              onChange={(category) => setEditForm((current) => ({ ...current, category }))}
+                              variant="pills"
+                            />
+                            <ChoiceGroup
+                              label="Priority"
+                              options={CLIENT_TICKET_PRIORITIES}
+                              value={editForm.priority}
+                              onChange={(priority) => setEditForm((current) => ({ ...current, priority }))}
+                              variant="pills"
+                            />
+                            <div className="space-y-2">
+                              <label htmlFor="ticket-edit-details" className="text-sm font-medium">Request Details</label>
+                              <textarea
+                                id="ticket-edit-details"
+                                className={textareaClass}
+                                value={editForm.description}
+                                onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))}
+                                required
+                              />
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Button type="submit" size="sm" icon={<Save className="h-4 w-4" />} loading={ticketActionSaving}>
+                                Save
+                              </Button>
+                              <Button type="button" size="sm" variant="ghost" icon={<X className="h-4 w-4" />} disabled={ticketActionSaving} onClick={closeEditTicket}>
+                                Cancel
+                              </Button>
+                            </div>
+                          </form>
+                        ) : (
+                          <>
+                            <h3 className="mt-2 text-lg font-semibold leading-snug">{selectedTicket.title}</h3>
+                            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--muted)]">
+                              {selectedTicket.description || "No description provided."}
+                            </p>
+                            {selectedTicket.status !== "done" ? (
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                <Button type="button" size="sm" variant="secondary" icon={<Pencil className="h-4 w-4" />} disabled={ticketActionSaving} onClick={() => openEditTicket(selectedTicket)}>
+                                  Edit
+                                </Button>
+                                {(selectedTicket.comments?.length || 0) === 0 ? (
+                                  <Button type="button" size="sm" variant="danger" icon={<Trash2 className="h-4 w-4" />} loading={ticketActionSaving} onClick={() => handleDeleteTicket(selectedTicket)}>
+                                    Delete
+                                  </Button>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </>
+                        )}
                       </div>
 
                       <div>

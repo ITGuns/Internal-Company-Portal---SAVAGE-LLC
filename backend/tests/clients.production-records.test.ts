@@ -16,6 +16,7 @@ import {
   parseCreateClientReportInput,
   parseCreateClientRoadmapRecommendationInput,
   parseCreateClientWorkItemInput,
+  parseGenerateClientReportDraftInput,
   parseClientApprovalResponseInput,
   parseUpdateClientApprovalInput,
   parseUpdateClientWorkItemInput,
@@ -127,6 +128,20 @@ assert.throws(() => parseCreateClientReportInput({
   periodStart: '2026-05-01',
   periodEnd: '2026-05-31',
   leadsCaptured: -1,
+}), ClientValidationError)
+assert.deepEqual(parseGenerateClientReportDraftInput({
+  title: ' May draft ',
+  periodStart: '2026-05-01',
+  periodEnd: '2026-05-31',
+}), {
+  title: 'May draft',
+  periodStart: new Date('2026-05-01'),
+  periodEnd: new Date('2026-05-31'),
+  visibleToClient: true,
+})
+assert.throws(() => parseGenerateClientReportDraftInput({
+  periodStart: '2026-05-31',
+  periodEnd: '2026-05-01',
 }), ClientValidationError)
 
 assert.deepEqual(parseCreateClientRoadmapRecommendationInput({
@@ -364,6 +379,6 @@ const clientCalendarItem = serializeClientCalendarItemForClient({
   updatedAt: date,
 })
 assert.equal(clientCalendarItem?.title, 'June blog post')
-assert.equal('createdById' in (clientCalendarItem || {}), false)
+assert.equal(clientCalendarItem?.createdById, 'user-internal')
 
 console.log('clients.production-records tests passed')
