@@ -17,6 +17,17 @@ import NewChatModal from '@/components/chat/NewChatModal'
 import CreateChannelModal from '@/components/chat/CreateChannelModal'
 import { useToast } from '@/components/ToastProvider'
 
+const getAvatarInitials = (name: string) => {
+    const initials = name
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map(part => part[0]?.toUpperCase())
+        .join('')
+
+    return initials || '?'
+}
+
 export default function UnifiedChatPage() {
     const { socket, isConnected, clearChatBadge } = useSocket()
     const { user: currentUser } = useUser()
@@ -403,10 +414,10 @@ export default function UnifiedChatPage() {
     // Emit typing events with debounce
     const handleTypingEmit = useCallback(() => {
         if (!socket || !selectedId || !currentUser) return
-        socket.emit('typing:start', { conversationId: selectedId, userId: String(currentUser.id), userName: currentUser.name })
+        socket.emit('typing:start', { conversationId: selectedId })
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
         typingTimeoutRef.current = setTimeout(() => {
-            socket.emit('typing:stop', { conversationId: selectedId, userId: String(currentUser.id) })
+            socket.emit('typing:stop', { conversationId: selectedId })
         }, 2000)
     }, [socket, selectedId, currentUser])
 
@@ -594,7 +605,13 @@ export default function UnifiedChatPage() {
                                             <div className="flex items-center max-w-[85%] md:max-w-[70%]">
                                                 {!isMe && showHeader && (
                                                     <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 mr-2 border border-[var(--border)] self-end mb-1">
-                                                        <Image src={msg.sender.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.sender.name)}`} alt={msg.sender.name} width={32} height={32} className="w-full h-full object-cover" />
+                                                        {msg.sender.avatar ? (
+                                                            <Image src={msg.sender.avatar} alt={msg.sender.name} width={32} height={32} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <div className="flex h-full w-full items-center justify-center bg-[var(--card-surface)] text-[11px] font-semibold text-[var(--foreground)]">
+                                                                {getAvatarInitials(msg.sender.name)}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
                                                 {!isMe && !showHeader && <div className="w-10 flex-shrink-0" />}

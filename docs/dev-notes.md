@@ -1,5 +1,145 @@
 # Development Notes
 
+## 2026-05-28 - P3 Socket Event Authorization
+
+### Completed
+
+- Added reusable Socket.IO conversation authorization helpers for safe conversation id parsing, participant checks, and server-derived typing payloads.
+- Hardened `join:conversation` so invalid conversation ids are rejected before database lookup and room names use normalized ids.
+- Hardened `typing:start` and `typing:stop` so typing relays require conversation membership and no longer trust client-provided `userId` or `userName`.
+- Updated the chat frontend to emit only the conversation id for typing events.
+- Added focused backend tests for spoofed typing identity, invalid conversation ids, participant authorization, and missing participant denial.
+
+### Files Changed
+
+- `backend/src/notifications/socket.authorization.ts`
+- `backend/src/notifications/socket.service.ts`
+- `backend/tests/socket.authorization.test.ts`
+- `backend/tests/run-tests.ts`
+- `frontend/src/app/chat/page.tsx`
+- `.github/copilot-instructions.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Treat the JWT payload as the identity source for socket events.
+- Keep authorization close to each conversation-scoped socket action instead of relying on prior room joins.
+- Ignore invalid/unauthorized typing events without broadcasting them to other clients.
+
+### How to Test
+
+- `cd backend && npx ts-node tests/socket.authorization.test.ts`
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+
+### Next Steps
+
+- Add upload magic-byte validation and avatar storage hardening.
+- Add a structured logger to replace production `console.log` usage.
+
+## 2026-05-28 - P2 Auth Rate Limiting And Security Headers
+
+### Completed
+
+- Added Helmet-based backend security headers with strict API-safe CSP, frame blocking, no-sniff, referrer policy, and production-only HSTS.
+- Added auth route rate limiting for login, signup, forgot-password, and reset-password flows.
+- Added Redis-backed auth rate-limit storage for production/distributed deployments, with memory mode for local development and tests.
+- Added a Redis service to Docker Compose and wired the backend to use it for distributed auth limits.
+- Added focused backend middleware tests for 429 throttling, endpoint isolation, rate-limit headers, store-mode resolution, and security headers.
+
+### Files Changed
+
+- `backend/src/security/rate-limit-config.ts`
+- `backend/src/security/rate-limits.ts`
+- `backend/src/security/redis-rate-limit.store.ts`
+- `backend/src/security/security-headers.ts`
+- `backend/src/auth/auth.controller.ts`
+- `backend/src/config/env.config.ts`
+- `backend/src/main.ts`
+- `backend/tests/security.middleware.test.ts`
+- `backend/tests/run-tests.ts`
+- `backend/package.json`
+- `backend/package-lock.json`
+- `backend/.env.example`
+- `docker-compose.yml`
+- `.github/copilot-instructions.md`
+- `docs/architecture.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Use Redis for production auth limiter state so multiple backend instances share the same counters.
+- Keep local/test default storage in memory to avoid requiring Redis for fast developer checks.
+- Apply rate limits at the auth route boundary before controller logic runs.
+- Keep HSTS production-only so local HTTP development is not affected.
+
+### How to Test
+
+- `cd backend && npx ts-node tests/security.middleware.test.ts`
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `docker compose config` with local `POSTGRES_PASSWORD`, `JWT_SECRET`, and `REFRESH_TOKEN_SECRET`
+
+### Next Steps
+
+- Add upload magic-byte validation.
+- Evaluate CSRF strategy for any browser-cookie-authenticated flows.
+- Continue controller input validation work with a dedicated validation library.
+
+## 2026-05-28 - P1 Repository Hardening Cleanup
+
+### Completed
+
+- Added backend and frontend Docker ignore files so local env files, build output, uploads, debug outputs, logs, backups, and caches are not sent into image build contexts.
+- Switched the backend Docker build from `npm install` to lockfile-based `npm ci`.
+- Removed tracked one-off backend check/fix/list/debug/cleanup/test scripts, old manual seed scripts, seed logs, frontend throwaway test helpers, and `.bak` page files.
+- Replaced the Prisma seed data with synthetic demo accounts and required `SEED_DEFAULT_PASSWORD` instead of a checked-in shared password.
+- Replaced the chat avatar fallback with local initials so missing avatars do not send names to a third-party image service.
+- Removed the Docker Compose `POSTGRES_PASSWORD` fallback so Compose requires an explicit local database password, matching the existing JWT secret behavior.
+
+### Files Changed
+
+- `backend/.dockerignore`
+- `frontend/.dockerignore`
+- `backend/Dockerfile`
+- `docker-compose.yml`
+- `backend/package.json`
+- `backend/.env.example`
+- `backend/prisma/seed.ts`
+- `frontend/src/app/chat/page.tsx`
+- `frontend/next.config.ts`
+- `.github/copilot-instructions.md`
+- `docs/architecture.md`
+- Removed obsolete tracked scripts and throwaway files from `backend/`, `backend/src/final_sync.ts`, and root-level frontend helper/backup files.
+
+### Decisions Made
+
+- Keep durable seed behavior in `backend/prisma/seed.ts`, but make it synthetic and local-password driven.
+- Do not preserve one-off database mutation/debug scripts in tracked source; recreate deliberate admin tooling later under a documented tools area if needed.
+- Treat Docker build context contents as part of security posture, not just deployment convenience.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd backend && npx prisma validate`
+- `cd backend && npx prisma generate`
+- `cd backend && npm ci --dry-run`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- `cd frontend && npm ci --dry-run`
+- `docker compose config` with local `POSTGRES_PASSWORD`, `JWT_SECRET`, and `REFRESH_TOKEN_SECRET`
+- `git diff --check`
+- Search tracked files for removed sensitive fixture strings and password-hash logging.
+
+### Next Steps
+
+- Auth rate limiting and security headers were completed in the 2026-05-28 P2 hardening pass.
+- Consider creating a small, documented `backend/tools/` area only for reusable operator tooling with no real user data.
+
 ## 2026-05-27 - Client Portal Request Copy And Public Socket Preview
 
 ### Completed

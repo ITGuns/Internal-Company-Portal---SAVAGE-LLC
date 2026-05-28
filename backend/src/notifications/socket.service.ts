@@ -1,25 +1,29 @@
-import { Server as SocketIOServer, Socket } from 'socket.io';
-import { Server as HttpServer } from 'http';
-import { config } from '../config/env.config';
-import { JwtPayload, JwtService } from '../auth/jwt.service';
-import { prisma } from '../database/prisma.service';
+import { Server as HttpServer } from 'http'
+import { Server as SocketIOServer, Socket } from 'socket.io'
+import { JwtPayload, JwtService } from '../auth/jwt.service'
+import { config } from '../config/env.config'
+import { prisma } from '../database/prisma.service'
+import {
+    buildAuthorizedTypingPayload,
+    isAuthorizedConversationParticipant,
+    normalizeSocketConversationId,
+} from './socket.authorization'
 
 export interface NotificationPayload {
-    type: 'info' | 'success' | 'warning' | 'error';
-    title: string;
-    message: string;
-    link?: string;
-    createdAt?: string;
-    id?: string;
+    type: 'info' | 'success' | 'warning' | 'error'
+    title: string
+    message: string
+    link?: string
+    createdAt?: string
+    id?: string
 }
 
 class NotificationService {
-    private io: SocketIOServer | null = null;
-    // Map userId -> Set<socketId>
-    private userSockets: Map<string, Set<string>> = new Map();
+    private io: SocketIOServer | null = null
+    private userSockets: Map<string, Set<string>> = new Map()
 
     initialize(httpServer: HttpServer) {
-        console.log('🔌 Initializing Socket.io...');
+        console.log('Initializing Socket.io...')
         this.io = new SocketIOServer(httpServer, {
             path: '/api/socket',
             addTrailingSlash: false,
@@ -27,195 +31,199 @@ class NotificationService {
                 origin: config.corsOrigins,
                 methods: ['GET', 'POST'],
                 credentials: true,
-                allowedHeaders: ['Authorization', 'Content-Type']
+                allowedHeaders: ['Authorization', 'Content-Type'],
             },
-            allowEIO3: true // Support older clients just in case
-        });
+            allowEIO3: true,
+        })
 
         this.io.use((socket, next) => {
-            const authToken = socket.handshake.auth?.token;
-            const authHeader = socket.handshake.headers.authorization;
+            const authToken = socket.handshake.auth?.token
+            const authHeader = socket.handshake.headers.authorization
             const bearerToken = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
                 ? authHeader.slice('Bearer '.length)
-                : undefined;
-            const token = typeof authToken === 'string' ? authToken : bearerToken;
+                : undefined
+            const token = typeof authToken === 'string' ? authToken : bearerToken
 
             if (!token) {
-                next(new Error('Unauthorized socket connection'));
-                return;
+                next(new Error('Unauthorized socket connection'))
+                return
             }
 
             try {
-                socket.data.user = JwtService.verifyAccessToken(token);
-                next();
+                socket.data.user = JwtService.verifyAccessToken(token)
+                next()
             } catch {
-                next(new Error('Invalid socket token'));
+                next(new Error('Invalid socket token'))
             }
-        });
+        })
 
         this.io.on('connection', (socket: Socket) => {
-            const socketUser = socket.data.user as JwtPayload | undefined;
+            const socketUser = socket.data.user as JwtPayload | undefined
 
             if (!socketUser?.userId) {
-                socket.disconnect(true);
-                return;
+                socket.disconnect(true)
+                return
             }
-            console.log(`🔌 Client connected: ${socket.id}`);
 
-            // Handle authentication/user identification
+            console.log(`Client connected: ${socket.id}`)
+
             socket.on('authenticate', () => {
-                this.registerUserSocket(socketUser.userId, socket.id);
-                console.log(`👤 User authenticated on socket: ${socketUser.userId}`);
-            });
+                this.registerUserSocket(socketUser.userId, socket.id)
+                console.log(`User authenticated on socket: ${socketUser.userId}`)
+            })
 
             socket.on('join:conversation', async (conversationId: string) => {
-                const participant = await prisma.participant.findUnique({
-                    where: {
-                        conversationId_userId: {
-                            conversationId,
-                            userId: socketUser.userId,
-                        },
-                    },
-                });
+                const normalizedConversationId = normalizeSocketConversationId(conversationId)
 
-                if (!participant) {
-                    socket.emit('error', { message: 'Not authorized to join this conversation' });
-                    return;
+                try {
+                    const isAuthorized = await isAuthorizedConversationParticipant(
+                        prisma.participant,
+                        normalizedConversationId,
+                        socketUser.userId,
+                    )
+
+                    if (!normalizedConversationId || !isAuthorized) {
+                        socket.emit('error', { message: 'Not authorized to join this conversation' })
+                        return
+                    }
+
+                    socket.join(`conversation:${normalizedConversationId}`)
+                    console.log(`Socket ${socket.id} joined conversation room: ${normalizedConversationId}`)
+                } catch (error) {
+                    console.error('Socket conversation join failed:', error)
+                    socket.emit('error', { message: 'Unable to join conversation' })
                 }
+            })
 
-                socket.join(`conversation:${conversationId}`);
-                console.log(`💬 Socket ${socket.id} joined conversation room: ${conversationId}`);
-            });
+            socket.on('typing:start', async (data: { conversationId?: unknown }) => {
+                const payload = buildAuthorizedTypingPayload(data, socketUser)
+                if (!payload) return
 
-            // Typing indicator relay — broadcast to other participants in the room
-            socket.on('typing:start', (data: { conversationId: string; userId: string; userName: string }) => {
-                socket.to(`conversation:${data.conversationId}`).emit('typing:start', {
-                    conversationId: data.conversationId,
-                    userId: socketUser.userId,
-                    userName: data.userName,
-                });
-            });
+                try {
+                    const isAuthorized = await isAuthorizedConversationParticipant(
+                        prisma.participant,
+                        payload.conversationId,
+                        socketUser.userId,
+                    )
 
-            socket.on('typing:stop', (data: { conversationId: string; userId: string }) => {
-                socket.to(`conversation:${data.conversationId}`).emit('typing:stop', {
-                    conversationId: data.conversationId,
-                    userId: socketUser.userId,
-                });
-            });
+                    if (!isAuthorized) return
+
+                    socket.to(`conversation:${payload.conversationId}`).emit('typing:start', payload)
+                } catch (error) {
+                    console.error('Socket typing:start authorization failed:', error)
+                }
+            })
+
+            socket.on('typing:stop', async (data: { conversationId?: unknown }) => {
+                const conversationId = normalizeSocketConversationId(data?.conversationId)
+                if (!conversationId) return
+
+                try {
+                    const isAuthorized = await isAuthorizedConversationParticipant(
+                        prisma.participant,
+                        conversationId,
+                        socketUser.userId,
+                    )
+
+                    if (!isAuthorized) return
+
+                    socket.to(`conversation:${conversationId}`).emit('typing:stop', {
+                        conversationId,
+                        userId: socketUser.userId,
+                    })
+                } catch (error) {
+                    console.error('Socket typing:stop authorization failed:', error)
+                }
+            })
 
             socket.on('disconnect', () => {
-                console.log(`❌ Client disconnected: ${socket.id}`);
-                this.removeSocket(socket.id);
-            });
-        });
+                console.log(`Client disconnected: ${socket.id}`)
+                this.removeSocket(socket.id)
+            })
+        })
 
-        console.log('✅ Notification Service (Socket.io) initialized');
+        console.log('Notification Service (Socket.io) initialized')
     }
 
     private registerUserSocket(userId: string, socketId: string) {
-        const isNewUser = !this.userSockets.has(userId) || this.userSockets.get(userId)!.size === 0;
+        const isNewUser = !this.userSockets.has(userId) || this.userSockets.get(userId)!.size === 0
         if (!this.userSockets.has(userId)) {
-            this.userSockets.set(userId, new Set());
+            this.userSockets.set(userId, new Set())
         }
-        this.userSockets.get(userId)?.add(socketId);
+        this.userSockets.get(userId)?.add(socketId)
 
-        // Join a room specifically for this user
-        this.io?.sockets.sockets.get(socketId)?.join(`user:${userId}`);
+        this.io?.sockets.sockets.get(socketId)?.join(`user:${userId}`)
 
-        // Broadcast online status if this is their first socket
         if (isNewUser) {
-            this.io?.emit('presence:online', { userId });
+            this.io?.emit('presence:online', { userId })
         }
     }
 
     private removeSocket(socketId: string) {
-        // Iterate through maps to remove socketId (inefficient but safe for now)
         this.userSockets.forEach((sockets, userId) => {
             if (sockets.has(socketId)) {
-                sockets.delete(socketId);
+                sockets.delete(socketId)
                 if (sockets.size === 0) {
-                    this.userSockets.delete(userId);
-                    // Broadcast offline status
-                    this.io?.emit('presence:offline', { userId });
+                    this.userSockets.delete(userId)
+                    this.io?.emit('presence:offline', { userId })
                 }
             }
-        });
+        })
     }
 
-    /**
-     * Get all currently online user IDs
-     */
     getOnlineUserIds(): string[] {
-        return Array.from(this.userSockets.keys());
+        return Array.from(this.userSockets.keys())
     }
 
-    /**
-     * Send a notification to a specific user
-     */
     notifyUser(userId: string, payload: NotificationPayload) {
         if (!this.io) {
-            console.warn('⚠️ Cannot send notification: Socket.io not initialized');
-            return;
+            console.warn('Cannot send notification: Socket.io not initialized')
+            return
         }
 
         const notification = {
             ...payload,
             id: crypto.randomUUID(),
-            createdAt: new Date().toISOString()
-        };
+            createdAt: new Date().toISOString(),
+        }
 
-        // Emit to the user's room
-        this.io.to(`user:${userId}`).emit('notification', notification);
-        console.log(`📨 Notification sent to user ${userId}: ${payload.title}`);
+        this.io.to(`user:${userId}`).emit('notification', notification)
+        console.log(`Notification sent to user ${userId}: ${payload.title}`)
     }
 
-    /**
-     * Broadcast a notification to all connected users
-     */
     broadcast(payload: NotificationPayload) {
-        if (!this.io) return;
+        if (!this.io) return
 
         const notification = {
             ...payload,
             id: crypto.randomUUID(),
-            createdAt: new Date().toISOString()
-        };
+            createdAt: new Date().toISOString(),
+        }
 
-        this.io.emit('notification', notification);
-        console.log(`📢 Broadcast sent: ${payload.title}`);
+        this.io.emit('notification', notification)
+        console.log(`Broadcast sent: ${payload.title}`)
     }
 
-    /**
-     * Emit an event to a specific room (e.g. conversation room)
-     */
     emitToRoom(room: string, event: string, payload: unknown) {
-        if (!this.io) return;
-        this.io.to(room).emit(event, payload);
+        if (!this.io) return
+        this.io.to(room).emit(event, payload)
     }
 
-    /**
-     * Broadcast a data-change event so connected clients can refetch.
-     * This is separate from user-visible notifications — it's a silent cache-bust signal.
-     * @param resource - The resource type that changed (e.g. 'announcements', 'tasks', 'daily-logs')
-     */
     broadcastDataChange(resource: string) {
-        if (!this.io) return;
-        this.io.emit('data:changed', { resource, timestamp: Date.now() });
+        if (!this.io) return
+        this.io.emit('data:changed', { resource, timestamp: Date.now() })
     }
 
-    /**
-     * Make a user join a room
-     */
     joinRoom(userId: string, room: string) {
-        if (!this.io) return;
-        // Find sockets for this user
-        const sockets = this.userSockets.get(userId);
+        if (!this.io) return
+
+        const sockets = this.userSockets.get(userId)
         if (sockets) {
             sockets.forEach(socketId => {
-                this.io?.sockets.sockets.get(socketId)?.join(room);
-            });
+                this.io?.sockets.sockets.get(socketId)?.join(room)
+            })
         }
     }
 }
 
-export const notificationService = new NotificationService();
+export const notificationService = new NotificationService()

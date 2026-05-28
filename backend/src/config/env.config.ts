@@ -1,6 +1,12 @@
 import * as dotenv from 'dotenv'
 import * as path from 'path'
 import { buildAllowedCorsOrigins } from './cors.config'
+import {
+    DEFAULT_AUTH_RATE_LIMIT_SETTINGS,
+    resolveAuthRateLimitStoreMode,
+    type AuthRateLimitSettings,
+    type AuthRateLimitStoreMode,
+} from '../security/rate-limit-config'
 
 // Load environment variables from .env file only if not on Vercel
 if (!process.env.VERCEL) {
@@ -17,6 +23,9 @@ interface EnvConfig {
 
     // Redis
     redisUrl: string
+
+    // Reverse proxy
+    trustProxyHops: number
 
     // OAuth - Google
     googleClientId?: string
@@ -37,6 +46,11 @@ interface EnvConfig {
     // CORS
     corsOrigin: string
     corsOrigins: string[]
+
+    // Auth rate limiting
+    authRateLimitStore: AuthRateLimitStoreMode
+    authRateLimitRedisPrefix: string
+    authRateLimits: AuthRateLimitSettings
 
     // Admin bypass emails (comma-separated in env)
     adminEmails: string[]
@@ -68,6 +82,28 @@ function getOptionalEnvVar(key: string): string | undefined {
     return process.env[key]
 }
 
+function getPositiveIntegerEnvVar(key: string, defaultValue: number): number {
+    const rawValue = getEnvVar(key, String(defaultValue))
+    const parsed = Number.parseInt(rawValue, 10)
+
+    if (!Number.isFinite(parsed) || parsed < 1) {
+        throw new Error(`${key} must be a positive integer`)
+    }
+
+    return parsed
+}
+
+function getNonNegativeIntegerEnvVar(key: string, defaultValue: number): number {
+    const rawValue = getEnvVar(key, String(defaultValue))
+    const parsed = Number.parseInt(rawValue, 10)
+
+    if (!Number.isFinite(parsed) || parsed < 0) {
+        throw new Error(`${key} must be a non-negative integer`)
+    }
+
+    return parsed
+}
+
 const nodeEnv = getEnvVar('NODE_ENV', 'development')
 const corsOrigin = getEnvVar('CORS_ORIGIN', 'http://localhost:3000')
 
@@ -81,6 +117,9 @@ export const config: EnvConfig = {
 
     // Redis
     redisUrl: getEnvVar('REDIS_URL', 'redis://localhost:6379'),
+
+    // Reverse proxy
+    trustProxyHops: getNonNegativeIntegerEnvVar('TRUST_PROXY_HOPS', 0),
 
     // OAuth - Google
     googleClientId: getOptionalEnvVar('GOOGLE_CLIENT_ID'),
@@ -101,6 +140,28 @@ export const config: EnvConfig = {
     // CORS
     corsOrigin,
     corsOrigins: buildAllowedCorsOrigins(corsOrigin, nodeEnv),
+
+    // Auth rate limiting
+    authRateLimitStore: resolveAuthRateLimitStoreMode(nodeEnv, getOptionalEnvVar('AUTH_RATE_LIMIT_STORE')),
+    authRateLimitRedisPrefix: getEnvVar('AUTH_RATE_LIMIT_REDIS_PREFIX', 'portal:auth-rate-limit'),
+    authRateLimits: {
+        login: {
+            limit: getPositiveIntegerEnvVar('AUTH_RATE_LIMIT_LOGIN_LIMIT', DEFAULT_AUTH_RATE_LIMIT_SETTINGS.login.limit),
+            windowMs: getPositiveIntegerEnvVar('AUTH_RATE_LIMIT_LOGIN_WINDOW_MS', DEFAULT_AUTH_RATE_LIMIT_SETTINGS.login.windowMs),
+        },
+        signup: {
+            limit: getPositiveIntegerEnvVar('AUTH_RATE_LIMIT_SIGNUP_LIMIT', DEFAULT_AUTH_RATE_LIMIT_SETTINGS.signup.limit),
+            windowMs: getPositiveIntegerEnvVar('AUTH_RATE_LIMIT_SIGNUP_WINDOW_MS', DEFAULT_AUTH_RATE_LIMIT_SETTINGS.signup.windowMs),
+        },
+        forgotPassword: {
+            limit: getPositiveIntegerEnvVar('AUTH_RATE_LIMIT_FORGOT_PASSWORD_LIMIT', DEFAULT_AUTH_RATE_LIMIT_SETTINGS.forgotPassword.limit),
+            windowMs: getPositiveIntegerEnvVar('AUTH_RATE_LIMIT_FORGOT_PASSWORD_WINDOW_MS', DEFAULT_AUTH_RATE_LIMIT_SETTINGS.forgotPassword.windowMs),
+        },
+        resetPassword: {
+            limit: getPositiveIntegerEnvVar('AUTH_RATE_LIMIT_RESET_PASSWORD_LIMIT', DEFAULT_AUTH_RATE_LIMIT_SETTINGS.resetPassword.limit),
+            windowMs: getPositiveIntegerEnvVar('AUTH_RATE_LIMIT_RESET_PASSWORD_WINDOW_MS', DEFAULT_AUTH_RATE_LIMIT_SETTINGS.resetPassword.windowMs),
+        },
+    },
 
     // Admin bypass emails
     adminEmails: (getOptionalEnvVar('ADMIN_EMAILS') || '')

@@ -5,54 +5,63 @@ import 'dotenv/config'
 import * as bcrypt from 'bcrypt'
 
 const connectionString = (process.env.DATABASE_URL || '').trim()
+const seedPassword = (process.env.SEED_DEFAULT_PASSWORD || '').trim()
 
 if (!connectionString || connectionString.length < 10) {
-    console.error('❌ Error: DATABASE_URL is not defined or too short in your environment!')
+    console.error('Error: DATABASE_URL is not defined or too short in your environment.')
     process.exit(1)
 }
 
-// Log a safe version of the URL for debugging
+if (!seedPassword || seedPassword.length < 12) {
+    console.error('Error: SEED_DEFAULT_PASSWORD must be set to a local-only password with at least 12 characters.')
+    process.exit(1)
+}
+
 const maskedUrl = connectionString.replace(/:([^@]+)@/, ':****@')
-console.log(`📡 Connecting to: ${maskedUrl}`)
+console.log(`Connecting to: ${maskedUrl}`)
 
 const pool = new Pool({ connectionString })
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
-async function main() {
-    console.log('🌱 Starting refined database seed...')
+const DEMO_DEPARTMENTS = {
+    engineering: {
+        name: 'Engineering',
+        driveId: 'sample-drive-id-engineering',
+    },
+    marketing: {
+        name: 'Marketing',
+        driveId: 'sample-drive-id-marketing',
+    },
+    operations: {
+        name: 'Operations',
+        driveId: 'sample-drive-id-operations',
+    },
+}
 
-    // Create departments
+async function main() {
+    console.log('Starting synthetic local database seed...')
+
     const engineering = await prisma.department.upsert({
-        where: { name: 'Engineering' },
+        where: { name: DEMO_DEPARTMENTS.engineering.name },
         update: {},
-        create: {
-            name: 'Engineering',
-            driveId: 'sample-drive-id-engineering',
-        },
+        create: DEMO_DEPARTMENTS.engineering,
     })
 
     const marketing = await prisma.department.upsert({
-        where: { name: 'Marketing' },
+        where: { name: DEMO_DEPARTMENTS.marketing.name },
         update: {},
-        create: {
-            name: 'Marketing',
-            driveId: 'sample-drive-id-marketing',
-        },
+        create: DEMO_DEPARTMENTS.marketing,
     })
 
     const operations = await prisma.department.upsert({
-        where: { name: 'Operations' },
+        where: { name: DEMO_DEPARTMENTS.operations.name },
         update: {},
-        create: {
-            name: 'Operations',
-            driveId: 'sample-drive-id-operations',
-        },
+        create: DEMO_DEPARTMENTS.operations,
     })
 
-    console.log('✅ Created departments')
+    console.log('Created departments')
 
-    // Seed available roles for signup dropdown
     const availableRoles = [
         { name: 'Web Developer', departmentId: engineering.id },
         { name: 'Head of 3D Modeling', departmentId: engineering.id },
@@ -60,25 +69,26 @@ async function main() {
         { name: 'Operations Assistant', departmentId: operations.id },
         { name: 'Project Manager', departmentId: marketing.id },
     ]
-    for (const r of availableRoles) {
+
+    for (const role of availableRoles) {
         await prisma.availableRole.upsert({
-            where: { name_departmentId: { name: r.name, departmentId: r.departmentId } },
+            where: { name_departmentId: { name: role.name, departmentId: role.departmentId } },
             update: {},
-            create: { name: r.name, departmentId: r.departmentId },
+            create: { name: role.name, departmentId: role.departmentId },
         })
     }
-    console.log('✅ Created available roles')
 
-    // Helper to create users with hashing and roles
-    const passwordHash = await bcrypt.hash('Savage2025!', 10)
+    console.log('Created available roles')
+
+    const passwordHash = await bcrypt.hash(seedPassword, 10)
 
     const createUser = async (
         email: string,
         name: string,
         roleName: string,
         deptId: string,
-        status: string = 'active',
-        isApproved: boolean = false
+        status = 'active',
+        isApproved = false,
     ) => {
         const user = await prisma.user.upsert({
             where: { email },
@@ -86,13 +96,13 @@ async function main() {
                 status,
                 name,
                 isApproved,
-                password: passwordHash
+                password: passwordHash,
             },
             create: {
                 email,
                 name,
                 password: passwordHash,
-                avatar: `https://i.pravatar.cc/150?u=${email}`,
+                avatar: null,
                 status,
                 isApproved,
                 appliedDate: status === 'pending' ? new Date() : null,
@@ -121,92 +131,34 @@ async function main() {
             create: {
                 userId: user.id,
                 jobTitle: roleName,
-                baseSalary: 50000 + Math.random() * 50000,
-            }
+                baseSalary: 50000,
+            },
         })
 
         return user
     }
 
-    // 🧹 Purge existing user data for a clean slate
-    console.log('🧹 Purging existing user data...')
+    console.log('Purging existing local user data before seeding synthetic users...')
     await prisma.userRole.deleteMany({})
     await prisma.employeeProfile.deleteMany({})
     await prisma.user.deleteMany({})
 
-    // 👥 Seed Real Employees from provided list
-    console.log('👥 Seeding real employees...')
+    console.log('Seeding synthetic users...')
+    await createUser('ops.manager@example.test', 'Demo Operations Manager', 'Operations Manager', operations.id, 'active', true)
+    await createUser('ops.assistant@example.test', 'Demo Operations Assistant', 'Operations Assistant', operations.id, 'pending', false)
+    await createUser('modeling.lead@example.test', 'Demo Modeling Lead', 'Head of 3D Modeling', engineering.id, 'pending', false)
+    await createUser('web.developer@example.test', 'Demo Web Developer', 'Web Developer', engineering.id, 'pending', false)
+    await createUser('project.manager@example.test', 'Demo Project Manager', 'Project Manager', marketing.id, 'pending', false)
+    await createUser('admin@example.test', 'Demo Admin', 'admin', operations.id, 'active', true)
 
-    // 1. Genrou Josh Catacutan (Operations Manager - Approved)
-    await createUser(
-        'genroujoshcatacutan25@gmail.com',
-        'Genrou Josh Catacutan',
-        'Operations Manager',
-        operations.id,
-        'active',
-        true
-    )
-
-    // 2. Daryl Dave Caña (Operations Assistant - Not yet approved/Pending)
-    await createUser(
-        'daryldave018@gmail.com',
-        'Daryl Dave Caña',
-        'Operations Assistant',
-        operations.id,
-        'pending',
-        false
-    )
-
-    // 3. Peter John Singalivo (Head of 3D Modeling)
-    await createUser(
-        'petersingalivo.prof@gmail.com',
-        'Peter John Singalivo',
-        'Head of 3D Modeling',
-        engineering.id,
-        'pending',
-        false
-    )
-
-    // 4. Pol Danyael H. Villorente (Web Developer)
-    await createUser(
-        'pdvillorente12@gmail.com',
-        'Pol Danyael H. Villorente',
-        'Web Developer',
-        engineering.id,
-        'pending',
-        false
-    )
-
-    // 5. Caetanya Arcipe (Project Manager)
-    await createUser(
-        'caetanya1@gmail.com',
-        'Caetanya Arcipe',
-        'Project Manager',
-        marketing.id,
-        'pending',
-        false
-    )
-
-    // 7. Admin Account (Admin)
-    await createUser(
-        'admin@savage.com',
-        'Admin',
-        'admin',
-        operations.id,
-        'active',
-        true
-    )
-
-    console.log('🎉 Database seeded successfully with real employees and Admin!')
-    console.log('👉 Default password for all: Savage2025!')
+    console.log('Database seeded successfully with synthetic demo users.')
 }
 
 main()
-    .catch((e) => {
-        console.error('❌ Seed failed!')
-        console.error('Error Name:', e.name)
-        console.error('Error Message:', e.message)
-        console.error('Full Error:', JSON.stringify(e, null, 2))
+    .catch((error) => {
+        console.error('Seed failed.')
+        console.error('Error Name:', error.name)
+        console.error('Error Message:', error.message)
         process.exit(1)
     })
     .finally(async () => {

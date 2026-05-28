@@ -11,8 +11,19 @@ import {
     isDefaultSignupRoleAllowed,
     normalizeSignupOption,
 } from './signup-role-options'
+import { createAuthRateLimiters, type AuthRateLimiters } from '../security/rate-limits'
+
+interface AuthControllerOptions {
+    rateLimiters?: AuthRateLimiters
+}
 
 export class AuthController {
+    private readonly rateLimiters: AuthRateLimiters
+
+    constructor(options: AuthControllerOptions = {}) {
+        this.rateLimiters = options.rateLimiters || createAuthRateLimiters()
+    }
+
     router(): Router {
         const router = express.Router()
 
@@ -75,7 +86,7 @@ export class AuthController {
         )
 
         // Standard Email/Password Signup
-        router.post('/signup', async (req: Request, res: Response) => {
+        router.post('/signup', this.rateLimiters.signup, async (req: Request, res: Response) => {
             const { name, email, password, departmentId, role } = req.body
 
             if (!email || !password || !name) {
@@ -173,7 +184,7 @@ export class AuthController {
         })
 
         // Standard Email/Password Login
-        router.post('/login', async (req: Request, res: Response) => {
+        router.post('/login', this.rateLimiters.login, async (req: Request, res: Response) => {
             const { email, password } = req.body
 
             if (!email || !password) {
@@ -298,7 +309,7 @@ export class AuthController {
         })
 
         // Forgot Password — generate reset token and email it
-        router.post('/forgot-password', async (req: Request, res: Response) => {
+        router.post('/forgot-password', this.rateLimiters.forgotPassword, async (req: Request, res: Response) => {
             const { email } = req.body
 
             if (!email) {
@@ -358,7 +369,7 @@ export class AuthController {
         })
 
         // Reset Password — verify token and update password
-        router.post('/reset-password', async (req: Request, res: Response) => {
+        router.post('/reset-password', this.rateLimiters.resetPassword, async (req: Request, res: Response) => {
             const { token, email, password } = req.body
 
             if (!token || !email || !password) {

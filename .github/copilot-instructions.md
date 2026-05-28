@@ -127,24 +127,26 @@ Real-time:        SocketContext → socket.service.ts → Socket.io rooms
 
 ---
 
-## Open Issues (as of March 11, 2026 Audit)
+## Historical Audit Notes (March 11, 2026)
 
-### Critical (Unresolved — Next Priority)
-1. **SEC-01** — Socket.io accepts connections with raw userId, no JWT verification
-2. **SEC-02** — `docker-compose.yml` has hardcoded secret fallbacks (`admin123`, `supersecretkey`)
-3. **SEC-03** — `tmp/` scripts have hardcoded DB credentials (should be deleted)
-4. **SEC-04** — No rate limiting on `/auth/login`, `/auth/signup`, `/auth/forgot-password`
-5. **SEC-05** — `AuthGuard` renders children even when user is pending (DOM-bypassable)
+Current status as of May 28, 2026: later hardening passes resolved the Socket.io JWT gap, Docker Compose auth/database secret fallbacks, tracked one-off debug scripts, pending-user access issue, Docker build-context env leakage, auth rate limiting, baseline Helmet security headers, and conversation-scoped Socket.IO event authorization. The remaining high-priority security work starts with upload magic-byte validation, CSRF evaluation, controller input validation, and production logging.
+
+### Historical Critical Findings
+1. **SEC-01** — Resolved: Socket.io now verifies JWTs before accepting connections.
+2. **SEC-02** — Resolved: Docker Compose requires explicit auth/database secrets.
+3. **SEC-03** — Resolved: tracked one-off credential/debug scripts were removed.
+4. **SEC-04** — Resolved: auth route rate limiting covers login, signup, forgot-password, and reset-password.
+5. **SEC-05** — Resolved: pending users are blocked from authenticated UI access.
 
 ### High (Unresolved)
-- Missing security headers (helmet: CSP, HSTS, X-Frame-Options)
+- Baseline Helmet security headers are in place; future passes should tune CSP if backend HTML/browser-rendered responses are added.
 - File upload validates MIME string only, not magic bytes
 - Avatars stored as base64 in DB (performance)
 - No CSRF protection
-- `backend/Dockerfile` copies `.env` files into image
+- Docker build contexts must keep `.env*`, uploads, debug outputs, and generated artifacts excluded through `.dockerignore`
 - Missing input validation library (Zod/class-validator) on controllers
 - Excessive `console.log` in production (should use Winston/Pino)
-- No socket event authorization (`join:conversation` open to any socket)
+- Conversation-scoped Socket.IO events require participant authorization; keep this pattern for future socket events.
 
 ### Medium (Unresolved)
 - Hydration mismatch on every page (theme `data-theme` attribute)

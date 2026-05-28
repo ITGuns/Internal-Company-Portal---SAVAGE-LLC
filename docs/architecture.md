@@ -156,4 +156,12 @@ docker compose config
 git diff --check
 ```
 
-`docker compose config` currently reports that the top-level Compose `version` field is obsolete. That warning does not block config validation, but it should be cleaned in a future deployment polish pass.
+`docker compose config` requires explicit local values for `POSTGRES_PASSWORD`, `JWT_SECRET`, and `REFRESH_TOKEN_SECRET`. Use temporary local placeholders for config validation only; production must use real deployment secrets.
+
+Security hardening:
+
+- Backend security headers are centralized in `backend/src/security/security-headers.ts` and applied early in `backend/src/main.ts`.
+- Auth abuse protection is centralized in `backend/src/security/rate-limits.ts` and applied to `/auth/login`, `/auth/signup`, `/auth/forgot-password`, and `/auth/reset-password`.
+- Socket conversation authorization is centralized in `backend/src/notifications/socket.authorization.ts` and reused by conversation room joins and typing relays.
+- Production auth rate limiting defaults to Redis-backed storage via `REDIS_URL`; local development and tests default to in-memory storage unless `AUTH_RATE_LIMIT_STORE=redis` is set.
+- Docker Compose includes Redis for distributed auth limits. Keep `TRUST_PROXY_HOPS=0` unless the backend is behind a trusted reverse proxy, then set the exact number of trusted hops.

@@ -24,6 +24,9 @@ import { config, validateConfig } from './config/env.config'
 import { PrismaService } from './database/prisma.service'
 import { initializePassport } from './auth/passport.config'
 import { notificationService } from './notifications/socket.service' // Service for real-time updates
+import { createAuthRateLimiters } from './security/rate-limits'
+import { connectAuthRateLimitStoreFactory } from './security/redis-rate-limit.store'
+import { createSecurityHeadersMiddleware } from './security/security-headers'
 
 async function bootstrap() {
   // Validate environment configuration
@@ -38,8 +41,21 @@ async function bootstrap() {
   const app = express()
   const httpServer = createServer(app) // Create HTTP server
 
+  if (config.trustProxyHops > 0) {
+    app.set('trust proxy', config.trustProxyHops)
+  }
+
+  app.use(createSecurityHeadersMiddleware({ nodeEnv: config.nodeEnv }))
+
   // Initialize Notification Service (Socket.io)
   notificationService.initialize(httpServer)
+
+  const authRateLimitStoreFactory = await connectAuthRateLimitStoreFactory({
+    nodeEnv: config.nodeEnv,
+    prefix: config.authRateLimitRedisPrefix,
+    redisUrl: config.redisUrl,
+    storeMode: config.authRateLimitStore,
+  })
 
   app.use(bodyParser.json({ limit: '50mb' }))
   app.use(passport.initialize())
@@ -82,7 +98,12 @@ async function bootstrap() {
   })
 
   // Authentication routes
-  const authController = new AuthController()
+  const authController = new AuthController({
+    rateLimiters: createAuthRateLimiters({
+      settings: config.authRateLimits,
+      storeFactory: authRateLimitStoreFactory,
+    }),
+  })
   app.use('/auth', authController.router())
 
   // API routes
