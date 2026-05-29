@@ -1,5 +1,114 @@
 # Development Notes
 
+## 2026-05-29 - Admin Client Operations Route Remodel Pass
+
+### Completed
+
+- Added route-specific production control summaries to `ClientOperationsShell` so every Client Operations admin route shows the right operational metrics for its workflow.
+- Applied the shared production panel shell to production-record mini panels used by work items, approvals, reports, assets, billing, roadmap, and calendar.
+- Preserved existing admin route behavior, client selection, role checks, mutation refresh flow, and API contracts.
+
+### Files Changed
+
+- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
+- `frontend/src/components/client-portal/production-records/shared.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Upgrade all admin client routes through shared shell composition instead of copying summary widgets into each route page.
+- Keep admin routes denser than the client portal while making the control state more obvious: open work, requests, approvals, reports, assets, billing, roadmap, and calendar.
+- Keep this pass frontend-only; no backend routes, schema, permission helpers, or client visibility rules changed.
+
+### How to Test
+
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- `cd frontend && npm test`
+- Playwright/Chrome smoke on `/operations/clients` and all focused Client Operations routes with mocked client API data.
+
+### Next Steps
+
+- Run the final review and git sequence after all verification gates pass.
+- In a later pass, bring the same production density to broader internal routes: dashboard, task tracking, daily logs, payroll, chat, file directory, and operations.
+
+## 2026-05-29 - Client Route Production Remodel Pass
+
+### Completed
+
+- Added a shared production route summary to `ClientPortalWorkspaceFrame` so work, approvals, messages, reports, resources, account, and calendar inherit the same live client status band.
+- Upgraded `/client/tickets` with the production metric strip and reusable production panel system while preserving request creation, filtering, editing, deletion, comments, quick replies, and next-action signals.
+- Kept this pass frontend-only; no API contracts, backend permissions, ownership gates, or database behavior changed.
+
+### Files Changed
+
+- `frontend/src/components/client-portal/ClientPortalWorkspaceFrame.tsx`
+- `frontend/src/app/client/tickets/page.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Prefer the shared frame for client route consistency instead of duplicating a hero/header implementation in every client page.
+- Keep client-owned edit/delete rules and existing request-center state management intact.
+- Treat the command center remodel as the design source for the remaining client route polish.
+
+### How to Test
+
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- `cd frontend && npm test`
+- Playwright/Chrome smoke on `/client/work`, `/client/approvals`, `/client/messages`, `/client/reports`, `/client/resources`, `/client/account`, `/client/calendar`, and `/client/tickets` with mocked client API data.
+
+### Next Steps
+
+- Start the admin Client Operations route pass for accounts, delivery, requests, approvals, reports, assets, billing, roadmap, and calendar.
+- After admin routes, run a broader app-shell/dashboard/task/log/payroll polish pass.
+
+## 2026-05-29 - Client And Admin UI Remodel Slice
+
+### Completed
+
+- Added shared production workspace components for hero summaries, metric strips, stat grids, and reusable panels.
+- Remodeled the client command center around live workspace status, next client action, visible delivery progress, updates, communication, request submission, metrics, and resources.
+- Remodeled the admin client-operations overview with the same production structure while preserving client scoping, role access, and existing API contracts.
+- Polished the global header/sidebar shell for a more coherent production app frame.
+- Updated the product/design direction docs to capture the client/admin command-center remodel principles.
+
+### Files Changed
+
+- `PRODUCT.md`
+- `DESIGN.md`
+- `frontend/src/app/client/page.tsx`
+- `frontend/src/app/globals.css`
+- `frontend/src/app/operations/clients/page.tsx`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/client-portal/ClientOperationsPanel.tsx`
+- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
+- `frontend/src/components/client-portal/ClientPortalPanel.tsx`
+- `frontend/src/components/workspace/ProductionWorkspace.tsx`
+- `reports/client-portal-ui-remodel.html`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Keep this as a frontend-only remodel slice; no backend routes, database schema, auth behavior, or client organization scoping changed.
+- Use the reference website patterns as production app architecture, not a 1:1 marketing clone.
+- Use existing Tailwind, shadcn setup, lucide icons, and local data builders instead of adding a new animation or component dependency.
+
+### How to Test
+
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- `cd frontend && npm test`
+- Playwright/Chrome smoke on `/client` and `/operations/clients` at desktop and mobile widths with mocked client API data.
+
+### Next Steps
+
+- Carry the same shared production component system into the remaining client routes: work, approvals, messages, reports, resources, account, and calendar.
+- Then apply the admin-side pattern across accounts, delivery, requests, approvals, reports, assets, billing, roadmap, and calendar.
+- Add focused visual regression coverage once the remaining remodel slices settle.
+
 ## 2026-05-28 - P3 Socket Event Authorization
 
 ### Completed

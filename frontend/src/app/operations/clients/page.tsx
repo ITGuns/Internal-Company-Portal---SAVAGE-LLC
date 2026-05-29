@@ -9,6 +9,7 @@ import {
   Clock,
   FileText,
   FolderOpen,
+  Gauge,
   Ticket,
   UserPlus,
 } from "lucide-react";
@@ -18,9 +19,11 @@ import ClientOperationsPanel from "@/components/client-portal/ClientOperationsPa
 import ClientOperationsShell from "@/components/client-portal/ClientOperationsShell";
 import EmptyState from "@/components/ui/EmptyState";
 import StatusBadge from "@/components/ui/StatusBadge";
+import { ProductionMetricStrip, type ProductionMetricItem } from "@/components/workspace/ProductionWorkspace";
 import { withClientOperationsClientParam } from "@/lib/client-operations-navigation";
 import { getClientPortalOptionLabel, CLIENT_PROJECT_STATUSES } from "@/lib/client-portal-options";
 import { formatClientPortalDate } from "@/lib/client-portal-display";
+import { buildClientCommandCenter } from "@/lib/client-portal-command";
 
 const quickLinks = [
   {
@@ -74,36 +77,27 @@ export default function ClientOperationsOverviewPage() {
         }
 
         const overview = workspace.overview;
+        const commandCenter = buildClientCommandCenter(overview);
         const openApprovals = (overview.approvals || []).filter((approval) => approval.status === "pending");
         const openWork = (overview.workItems || []).filter((item) => !["completed", "archived"].includes(item.status));
         const latestUpdate = overview.updates[0] || null;
         const latestReport = overview.reports?.[0] || null;
         const billingStatus = overview.billingStatus;
+        const operationsMetrics: ProductionMetricItem[] = [
+          { label: "Open work", value: openWork.length, caption: "Client-visible production items", icon: Activity, tone: "info" },
+          { label: "Open requests", value: workspace.summary.openTicketCount, caption: "Client asks needing handling", icon: Ticket, tone: "warning" },
+          { label: "Approvals", value: openApprovals.length, caption: "Waiting on client decisions", icon: CheckCircle2, tone: "success" },
+          { label: "Progress", value: `${commandCenter.averageProgress}%`, caption: "Average project completion", icon: Gauge, tone: "accent" },
+        ];
 
         return (
           <div className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {[
-                { label: "Open work", value: openWork.length, icon: Activity },
-                { label: "Open requests", value: workspace.summary.openTicketCount, icon: Ticket },
-                { label: "Approvals", value: openApprovals.length, icon: CheckCircle2 },
-                { label: "Reports", value: overview.reports?.length || 0, icon: FileText },
-              ].map((item) => {
-                const Icon = item.icon;
-
-                return (
-                <section key={item.label} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-sm text-[var(--muted)]">{item.label}</div>
-                      <div className="mt-1 text-2xl font-semibold">{item.value}</div>
-                    </div>
-                    <Icon className="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
-                  </div>
-                </section>
-                );
-              })}
-            </div>
+            <ProductionMetricStrip
+              eyebrow="Operations signal"
+              title="Team-facing client command picture"
+              description="Route the next admin action from real requests, approvals, work items, reports, and progress instead of a disconnected dashboard."
+              metrics={operationsMetrics}
+            />
 
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
               <ClientOperationsPanel icon={Clock} title="Action Queue" count={workspace.queueItems.length}>

@@ -70,7 +70,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
   );
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-30 flex h-20 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--background)]/95 px-4 backdrop-blur md:left-72 md:h-24 md:px-6">
+    <header className="fixed left-0 right-0 top-0 z-30 flex h-20 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-raised)]/95 px-4 shadow-[var(--shadow-sm)] backdrop-blur-xl md:left-72 md:h-24 md:px-6">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <button
           type="button"

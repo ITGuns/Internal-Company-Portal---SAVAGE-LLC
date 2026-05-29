@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { ProductionPanel } from "@/components/workspace/ProductionWorkspace";
 
 export const clientOperationsSelectClass = "w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
 export const clientOperationsTextareaClass = "min-h-24 w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
@@ -19,19 +20,9 @@ export default function ClientOperationsPanel({
   action?: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)]">
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <Icon className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden="true" />
-          <h2 className="truncate text-sm font-semibold">{title}</h2>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {typeof count !== "undefined" ? <span className="text-xs text-[var(--muted)]">{count}</span> : null}
-          {action}
-        </div>
-      </div>
-      <div className="p-4">{children}</div>
-    </section>
+    <ProductionPanel title={title} icon={Icon} count={count} action={action}>
+      {children}
+    </ProductionPanel>
   );
 }
 

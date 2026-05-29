@@ -3,16 +3,36 @@
 import type React from "react";
 import { usePathname } from "next/navigation";
 import {
+  Activity,
   Archive,
+  BarChart3,
   BriefcaseBusiness,
+  CalendarDays,
+  CheckCircle2,
+  CreditCard,
+  ExternalLink,
+  FileText,
+  FolderOpen,
+  Gauge,
+  Map,
+  MessageSquare,
   ShieldCheck,
+  Ticket,
+  UserPlus,
 } from "lucide-react";
 import Header from "@/components/Header";
 import EmptyState from "@/components/ui/EmptyState";
 import StatusBadge from "@/components/ui/StatusBadge";
+import {
+  ProductionMetricStrip,
+  ProductionPanel,
+  ProductionStatusHero,
+  type ProductionMetricItem,
+} from "@/components/workspace/ProductionWorkspace";
 import { useClientOperationsWorkspace, type ClientOperationsWorkspace } from "@/hooks/useClientOperationsWorkspace";
 import { splitClientOrganizationsByHistory } from "@/lib/client-organization-history";
 import { getClientOperationsRouteTitle } from "@/lib/client-operations-navigation";
+import { buildClientCommandCenter } from "@/lib/client-portal-command";
 import { cn } from "@/lib/utils";
 
 function ClientOrganizationButton({
@@ -52,12 +72,7 @@ function ClientOperationsClientPicker({ workspace }: { workspace: ClientOperatio
 
   return (
     <aside className="space-y-4" aria-label="Client account selector">
-      <section className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-4">
-        <div className="flex items-center gap-2">
-          <BriefcaseBusiness className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" />
-          <h2 className="text-sm font-semibold">Clients</h2>
-        </div>
-
+      <ProductionPanel title="Clients" icon={BriefcaseBusiness} bodyClassName="p-4">
         {workspace.organizations.length === 0 ? (
           <EmptyState
             variant="compact"
@@ -130,7 +145,7 @@ function ClientOperationsClientPicker({ workspace }: { workspace: ClientOperatio
             </div>
           </div>
         )}
-      </section>
+      </ProductionPanel>
     </aside>
   );
 }
@@ -139,40 +154,179 @@ function ClientOperationsClientHeader({ workspace }: { workspace: ClientOperatio
   const organization = workspace.selectedOrganization;
   if (!organization || !workspace.overview) return null;
 
-  const summaryItems = [
-    ["Projects", workspace.summary.projectCount],
-    ["Open requests", workspace.summary.openTicketCount],
-    ["Updates", workspace.summary.updateCount],
-    ["Progress", `${workspace.summary.averageProgress}%`],
+  const summaryItems: ProductionMetricItem[] = [
+    { label: "Projects", value: workspace.summary.projectCount, caption: "Delivery tracks", icon: Activity, tone: "info" },
+    { label: "Requests", value: workspace.summary.openTicketCount, caption: "Open client asks", icon: Ticket, tone: "warning" },
+    { label: "Updates", value: workspace.summary.updateCount, caption: "Published notes", icon: FileText, tone: "success" },
+    { label: "Progress", value: `${workspace.summary.averageProgress}%`, caption: "Average visible progress", icon: Gauge, tone: "accent" },
   ];
 
   return (
-    <section className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <ProductionStatusHero
+      eyebrow="Client operations"
+      title={organization.name}
+      description="Admin control for the client-facing communication loop: delivery progress, requests, approvals, reports, assets, billing, and scheduled work."
+      icon={BriefcaseBusiness}
+      status={<StatusBadge label={organization.status} size="sm" className="border border-cyan-300/25 bg-cyan-300/10 text-cyan-50" />}
+      metrics={summaryItems}
+    >
+      <div className="space-y-4">
         <div>
-          <div className="text-xs font-medium uppercase text-[var(--muted)]">{organization.slug}</div>
-          <h1 className="mt-1 text-xl font-semibold">{organization.name}</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
-            <StatusBadge label={organization.status} size="sm" />
+          <div className="text-xs font-semibold uppercase tracking-[0.08em] text-cyan-100/70">Client slug</div>
+          <div className="mt-1 truncate text-sm font-semibold text-cyan-50">{organization.slug}</div>
+        </div>
+
+        <div className="border-t border-[var(--workspace-ink-border)] pt-4">
+          <div className="text-xs font-semibold uppercase tracking-[0.08em] text-cyan-100/70">Website</div>
+          <div className="mt-2">
             {organization.websiteUrl ? (
-              <a className="hover:text-[var(--foreground)]" href={organization.websiteUrl} target="_blank" rel="noreferrer">
-                {organization.websiteUrl}
+              <a className="inline-flex min-w-0 items-center gap-2 text-sm font-medium text-cyan-50 hover:text-cyan-200" href={organization.websiteUrl} target="_blank" rel="noreferrer">
+                <span className="truncate">{organization.websiteUrl}</span>
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               </a>
             ) : (
-              <span>No website URL</span>
+              <span className="text-sm text-[var(--workspace-ink-muted)]">No website URL</span>
             )}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
-          {summaryItems.map(([label, value]) => (
-            <div key={label} className="rounded-[var(--radius-md)] border border-[var(--border)] px-4 py-3">
-              <div className="text-lg font-semibold">{value}</div>
-              <div className="text-xs text-[var(--muted)]">{label}</div>
-            </div>
-          ))}
+
+        <div className="grid gap-3 border-t border-[var(--workspace-ink-border)] pt-4 sm:grid-cols-2">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.08em] text-cyan-100/70">Service tier</div>
+            <div className="mt-1 text-sm font-semibold text-cyan-50">{organization.tier?.name || "No tier set"}</div>
+          </div>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.08em] text-cyan-100/70">Members</div>
+            <div className="mt-1 text-sm font-semibold text-cyan-50">{organization.counts?.memberships || workspace.memberships.length || 0}</div>
+          </div>
         </div>
       </div>
-    </section>
+    </ProductionStatusHero>
+  );
+}
+
+function ClientOperationsRouteSummary({
+  pathname,
+  routeTitle,
+  workspace,
+}: {
+  pathname: string;
+  routeTitle: { title: string; subtitle?: string };
+  workspace: ClientOperationsWorkspace;
+}) {
+  const currentOverview = workspace.overview;
+  if (!currentOverview) return null;
+
+  const command = buildClientCommandCenter(currentOverview);
+  const approvals = currentOverview.approvals || [];
+  const reports = currentOverview.reports || [];
+  const assets = currentOverview.assets || [];
+  const calendarItems = currentOverview.calendarItems || [];
+  const roadmapItems = currentOverview.roadmapRecommendations || [];
+  const openApprovals = approvals.filter((approval) => approval.status === "pending");
+  const openWork = command.openWorkItems;
+  const completedWorkItems = (currentOverview.workItems || []).filter((item) => ["completed", "done"].includes(item.status));
+  const resources = currentOverview.resources || [];
+  const ticketComments = currentOverview.tickets.reduce((total, ticket) => total + (ticket.comments?.length || 0), 0);
+
+  function metricsForRoute(overview: NonNullable<ClientOperationsWorkspace["overview"]>): ProductionMetricItem[] {
+    if (pathname.includes("/accounts")) {
+      return [
+        { label: "Members", value: workspace.memberships.length, caption: "Assigned client users", icon: UserPlus, tone: "accent" },
+        { label: "Account status", value: workspace.selectedOrganization?.status || "Unknown", caption: "Current access state", icon: ShieldCheck, tone: "success" },
+        { label: "Requests", value: workspace.summary.openTicketCount, caption: "Open client asks", icon: Ticket, tone: "warning" },
+        { label: "Projects", value: workspace.summary.projectCount, caption: "Delivery tracks", icon: Activity, tone: "info" },
+      ];
+    }
+
+    if (pathname.includes("/delivery")) {
+      return [
+        { label: "Projects", value: overview.projects.length, caption: "Tracked delivery areas", icon: Activity, tone: "info" },
+        { label: "Open work", value: openWork.length, caption: "Active client-visible tasks", icon: Gauge, tone: "accent" },
+        { label: "Completed", value: completedWorkItems.length, caption: "Published completion records", icon: CheckCircle2, tone: "success" },
+        { label: "Updates", value: overview.updates.length, caption: "Progress notes", icon: FileText, tone: "warning" },
+      ];
+    }
+
+    if (pathname.includes("/requests")) {
+      return [
+        { label: "Tickets", value: overview.tickets.length, caption: "All client requests", icon: Ticket, tone: "accent" },
+        { label: "Open", value: command.openRequests.length, caption: "Not closed yet", icon: Activity, tone: "warning" },
+        { label: "Replies", value: ticketComments, caption: "Visible and internal notes", icon: MessageSquare, tone: "info" },
+        { label: "Queue", value: workspace.queueItems.length, caption: "Derived next actions", icon: Gauge, tone: "success" },
+      ];
+    }
+
+    if (pathname.includes("/approvals")) {
+      return [
+        { label: "Pending", value: openApprovals.length, caption: "Waiting on decision", icon: CheckCircle2, tone: "warning" },
+        { label: "Total approvals", value: approvals.length, caption: "Approval records", icon: FileText, tone: "accent" },
+        { label: "Client-visible", value: approvals.filter((approval) => approval.visibleToClient !== false).length, caption: "Shown in portal", icon: ShieldCheck, tone: "success" },
+        { label: "Queue", value: command.reviewRequests.length, caption: "Actionable reviews", icon: Gauge, tone: "info" },
+      ];
+    }
+
+    if (pathname.includes("/reports")) {
+      return [
+        { label: "Reports", value: reports.length, caption: "Monthly records", icon: BarChart3, tone: "accent" },
+        { label: "Metrics", value: overview.metrics.length, caption: "Published snapshots", icon: Gauge, tone: "info" },
+        { label: "Leads", value: reports[0]?.leadsCaptured ?? 0, caption: "Latest report signal", icon: Activity, tone: "success" },
+        { label: "Follow-up", value: reports[0]?.followUpStatus || "Not set", caption: "Latest report state", icon: CheckCircle2, tone: "warning" },
+      ];
+    }
+
+    if (pathname.includes("/assets")) {
+      return [
+        { label: "Resources", value: resources.length, caption: "Shared links", icon: FolderOpen, tone: "accent" },
+        { label: "Assets", value: assets.length, caption: "Production files", icon: FileText, tone: "info" },
+        { label: "Client-visible", value: assets.filter((asset) => asset.visibleToClient !== false).length, caption: "Shown in portal", icon: ShieldCheck, tone: "success" },
+        { label: "Requested", value: assets.filter((asset) => asset.status === "requested").length, caption: "Needs client asset", icon: Ticket, tone: "warning" },
+      ];
+    }
+
+    if (pathname.includes("/billing")) {
+      const billing = overview.billingStatus;
+      return [
+        { label: "Status", value: billing?.status || "Not set", caption: "Client billing state", icon: CreditCard, tone: "accent" },
+        { label: "Plan", value: billing?.planName || workspace.selectedOrganization?.tier?.name || "Pending", caption: "Service level", icon: BriefcaseBusiness, tone: "info" },
+        { label: "Visible", value: billing ? (billing.visibleToClient === false ? "No" : "Yes") : "Not set", caption: "Client portal exposure", icon: ShieldCheck, tone: "success" },
+        { label: "Renewal", value: billing?.renewalAt ? "Scheduled" : "Not set", caption: "Renewal date state", icon: CalendarDays, tone: "warning" },
+      ];
+    }
+
+    if (pathname.includes("/roadmap")) {
+      return [
+        { label: "Ideas", value: roadmapItems.length, caption: "Recommendations", icon: Map, tone: "accent" },
+        { label: "Next", value: roadmapItems.filter((item) => item.status === "next").length, caption: "Near-term priorities", icon: Activity, tone: "warning" },
+        { label: "Planned", value: roadmapItems.filter((item) => item.status === "planned").length, caption: "Committed roadmap", icon: CalendarDays, tone: "info" },
+        { label: "Client-visible", value: roadmapItems.filter((item) => item.visibleToClient !== false).length, caption: "Shown in portal", icon: ShieldCheck, tone: "success" },
+      ];
+    }
+
+    if (pathname.includes("/calendar")) {
+      return [
+        { label: "Items", value: calendarItems.length, caption: "Scheduled records", icon: CalendarDays, tone: "accent" },
+        { label: "Scheduled", value: calendarItems.filter((item) => item.status === "scheduled").length, caption: "Ready on calendar", icon: CheckCircle2, tone: "success" },
+        { label: "Planned", value: calendarItems.filter((item) => item.status === "planned").length, caption: "Draft schedule", icon: Activity, tone: "info" },
+        { label: "Client-visible", value: calendarItems.filter((item) => item.visibleToClient !== false).length, caption: "Shown in portal", icon: ShieldCheck, tone: "warning" },
+      ];
+    }
+
+    return [
+      { label: "Open work", value: openWork.length, caption: "Client-visible production items", icon: Activity, tone: "info" },
+      { label: "Open requests", value: workspace.summary.openTicketCount, caption: "Client asks needing handling", icon: Ticket, tone: "warning" },
+      { label: "Approvals", value: openApprovals.length, caption: "Waiting on decisions", icon: CheckCircle2, tone: "success" },
+      { label: "Reports", value: reports.length, caption: "Client performance records", icon: BarChart3, tone: "accent" },
+    ];
+  }
+
+  return (
+    <ProductionMetricStrip
+      eyebrow="Control surface"
+      title={`${routeTitle.title} for ${currentOverview.organization.name}`}
+      description={routeTitle.subtitle || "Client operations control route."}
+      metrics={metricsForRoute(currentOverview)}
+    />
   );
 }
 
@@ -226,6 +380,7 @@ export default function ClientOperationsShell({
               <ClientOperationsClientPicker workspace={workspace} />
               <div className="space-y-5">
                 <ClientOperationsClientHeader workspace={workspace} />
+                <ClientOperationsRouteSummary pathname={pathname} routeTitle={routeTitle} workspace={workspace} />
                 {children(workspace)}
               </div>
             </div>

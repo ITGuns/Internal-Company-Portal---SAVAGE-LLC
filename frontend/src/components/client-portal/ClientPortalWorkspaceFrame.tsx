@@ -1,13 +1,16 @@
 "use client";
 
 import React from "react";
-import { BriefcaseBusiness } from "lucide-react";
+import { Activity, BriefcaseBusiness, CheckCircle2, FileText, Gauge } from "lucide-react";
 import Header from "@/components/Header";
 import EmptyState from "@/components/ui/EmptyState";
+import { ProductionMetricStrip, type ProductionMetricItem } from "@/components/workspace/ProductionWorkspace";
 import {
   ClientPortalWorkspaceState,
   useClientPortalWorkspace,
 } from "@/hooks/useClientPortalWorkspace";
+import { buildClientCommandCenter } from "@/lib/client-portal-command";
+import { buildClientPortalSummary } from "@/lib/client-portal-summary";
 
 interface ClientPortalWorkspaceFrameProps {
   title: string;
@@ -54,10 +57,50 @@ export default function ClientPortalWorkspaceFrame({
               description="Your account is not connected to a client organization yet."
             />
           ) : (
-            children(workspace)
+            <>
+              {workspace.overview ? (
+                <ClientRouteSummary
+                  title={title}
+                  subtitle={subtitle}
+                  workspace={workspace}
+                />
+              ) : null}
+              {children(workspace)}
+            </>
           )}
         </div>
       </div>
     </main>
+  );
+}
+
+function ClientRouteSummary({
+  title,
+  subtitle,
+  workspace,
+}: {
+  title: string;
+  subtitle: string;
+  workspace: ClientPortalWorkspaceState;
+}) {
+  const overview = workspace.overview;
+  if (!overview) return null;
+
+  const summary = buildClientPortalSummary(overview);
+  const command = buildClientCommandCenter(overview);
+  const metrics: ProductionMetricItem[] = [
+    { label: "Progress", value: `${summary.averageProgress}%`, caption: "Average project completion", icon: Gauge, tone: "accent" },
+    { label: "Requests", value: summary.openTicketCount, caption: "Open workspace requests", icon: Activity, tone: "warning" },
+    { label: "Actions", value: command.reviewRequests.length, caption: "Waiting for review", icon: CheckCircle2, tone: "success" },
+    { label: "Updates", value: summary.updateCount, caption: "Client-visible notes", icon: FileText, tone: "info" },
+  ];
+
+  return (
+    <ProductionMetricStrip
+      eyebrow={overview.organization.slug}
+      title={`${title} for ${overview.organization.name}`}
+      description={subtitle}
+      metrics={metrics}
+    />
   );
 }

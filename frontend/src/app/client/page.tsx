@@ -1,16 +1,22 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Activity,
   BarChart3,
   BriefcaseBusiness,
+  CheckCircle2,
   Clock,
   ExternalLink,
   FileText,
+  Gauge,
   LinkIcon,
   MessageSquare,
   Plus,
+  Send,
+  Ticket,
+  TrendingUp,
 } from "lucide-react";
 import Button from "@/components/Button";
 import ClientActionQueue from "@/components/client-portal/ClientActionQueue";
@@ -20,6 +26,12 @@ import TicketDetailPresets from "@/components/client-portal/TicketDetailPresets"
 import Header from "@/components/Header";
 import EmptyState from "@/components/ui/EmptyState";
 import StatusBadge from "@/components/ui/StatusBadge";
+import {
+  ProductionMetricStrip,
+  ProductionPanel,
+  ProductionStatusHero,
+  type ProductionMetricItem,
+} from "@/components/workspace/ProductionWorkspace";
 import { useToast } from "@/components/ToastProvider";
 import {
   fetchClientActionQueue,
@@ -45,21 +57,11 @@ import { formatClientPortalDate } from "@/lib/client-portal-display";
 import { buildClientCommandCenter } from "@/lib/client-portal-command";
 import { buildClientPortalSummary } from "@/lib/client-portal-summary";
 
-const textareaClass = "min-h-24 w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
+const textareaClass = "min-h-28 w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
+const heroActionClass = "inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] border px-4 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-cyan-200";
 
-function Panel({ title, icon: Icon, children, count }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode; count?: number }) {
-  return (
-    <section className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)]">
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-[var(--accent)]" />
-          <h2 className="text-sm font-semibold">{title}</h2>
-        </div>
-        {typeof count === "number" ? <span className="text-xs text-[var(--muted)]">{count}</span> : null}
-      </div>
-      <div className="p-4">{children}</div>
-    </section>
-  );
+function clampPercent(value?: number | null) {
+  return Math.min(100, Math.max(0, value || 0));
 }
 
 export default function ClientPortalPage() {
@@ -80,7 +82,37 @@ export default function ClientPortalPage() {
     [overview],
   );
   const latestUpdate = commandCenter.latestUpdate;
-  const nextActionTicket = commandCenter.reviewRequests[0] || null;
+  const latestMessage = commandCenter.latestMessage;
+  const nextActionItem = commandCenter.reviewRequests[0] || commandCenter.openRequests[0] || null;
+  const visibleResources = useMemo(() => {
+    const resources = (overview?.resources || []).map((resource) => ({
+      id: resource.id,
+      label: resource.label,
+      url: resource.url,
+      meta: getClientPortalOptionLabel(CLIENT_TICKET_CATEGORIES, resource.type),
+    }));
+    const assets = commandCenter.assets.map((asset) => ({
+      id: asset.id,
+      label: asset.label,
+      url: asset.url,
+      meta: asset.status,
+    }));
+    return [...resources, ...assets];
+  }, [commandCenter.assets, overview?.resources]);
+
+  const heroMetrics: ProductionMetricItem[] = [
+    { label: "Average progress", value: `${summary.averageProgress}%`, caption: "Across visible client projects" },
+    { label: "Client actions", value: commandCenter.reviewRequests.length, caption: "Approvals or reviews waiting" },
+    { label: "Open work", value: commandCenter.openWorkItems.length, caption: "Visible production items" },
+    { label: "Reports", value: overview?.reports?.length || 0, caption: "Published or drafted summaries" },
+  ];
+
+  const stripMetrics: ProductionMetricItem[] = [
+    { label: "Projects", value: summary.projectCount, caption: "Active delivery tracks", icon: Activity, tone: "info" },
+    { label: "Requests", value: summary.openTicketCount, caption: "Open client requests", icon: Ticket, tone: "warning" },
+    { label: "Updates", value: summary.updateCount, caption: "Team progress notes", icon: FileText, tone: "success" },
+    { label: "Resources", value: summary.resourceCount + commandCenter.assets.length, caption: "Links, assets, and files", icon: LinkIcon, tone: "accent" },
+  ];
 
   const loadOrganizations = useCallback(async () => {
     const nextOrganizations = await fetchClientOrganizations();
@@ -156,8 +188,8 @@ export default function ClientPortalPage() {
 
   return (
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
-      <div className="p-6 pt-0">
-        <Header title="Client Portal" subtitle="Project progress, requests, updates, performance, and resources." />
+      <div className="p-4 pt-0 sm:p-6 sm:pt-0">
+        <Header title="Client Portal" subtitle="Progress, requests, approvals, reports, resources, and next actions." />
 
         {loading ? (
           <div className="mt-6 text-sm text-[var(--muted)]">Loading client workspace...</div>
@@ -167,79 +199,132 @@ export default function ClientPortalPage() {
           </div>
         ) : overview ? (
           <div className="mt-6 space-y-5">
-            <section className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <div className="text-xs font-medium uppercase text-[var(--muted)]">{overview.organization.slug}</div>
-                  <h1 className="mt-1 text-xl font-semibold">{overview.organization.name}</h1>
-                  <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">
-                    See what moved, what needs your input, and how the work is progressing without exposing internal production details.
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
-                  {[
-                    ["Projects", summary.projectCount],
-                    ["Open requests", summary.openTicketCount],
-                    ["Updates", summary.updateCount],
-                    ["Progress", `${summary.averageProgress}%`],
-                  ].map(([label, value]) => (
-                    <div key={label} className="rounded-[var(--radius-md)] border border-[var(--border)] px-4 py-3">
-                      <div className="text-lg font-semibold">{value}</div>
-                      <div className="text-xs text-[var(--muted)]">{label}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="mt-5 grid gap-4 border-t border-[var(--border)] pt-4 lg:grid-cols-2">
-                <div>
-                  <div className="text-xs font-medium uppercase text-[var(--muted)]">Latest Team Update</div>
-                  <div className="mt-1 text-sm font-semibold">{latestUpdate?.title || "No update published yet"}</div>
-                  <p className="mt-1 line-clamp-2 text-sm text-[var(--muted)]">
-                    {latestUpdate?.body || "The team will post progress notes here as work becomes visible to you."}
-                  </p>
-                </div>
-                <div>
-                  <div className="text-xs font-medium uppercase text-[var(--muted)]">Your Next Action</div>
-                  <div className="mt-1 text-sm font-semibold">
-                    {nextActionTicket ? `Review: ${nextActionTicket.title}` : "No action needed right now"}
-                  </div>
-                  <p className="mt-1 text-sm text-[var(--muted)]">
-                    {nextActionTicket
-                      ? "Open Requests, review the item, and reply with approval or changes."
-                      : "You can keep watching progress here. New requests or approvals will appear in Requests."}
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
+            <ProductionStatusHero
+              eyebrow="Client command center"
+              title={`${overview.organization.name} delivery cockpit`}
+              description="A single place to see what moved, what needs your input, and what the team is preparing next without exposing internal production notes."
+              icon={BriefcaseBusiness}
+              status={<StatusBadge label={overview.organization.status} size="sm" className="border border-cyan-300/25 bg-cyan-300/10 text-cyan-50" />}
+              metrics={heroMetrics}
+              actions={(
+                <>
+                  <a href="#submit-request" className={`${heroActionClass} border-cyan-300/40 bg-cyan-300 text-slate-950 hover:bg-cyan-200`}>
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    Submit Request
+                  </a>
+                  <Link href="/client/reports" className={`${heroActionClass} border-cyan-300/30 bg-transparent text-cyan-50 hover:bg-cyan-300/10`}>
+                    <BarChart3 className="h-4 w-4" aria-hidden="true" />
+                    View Reports
+                  </Link>
+                </>
+              )}
+            >
               <div className="space-y-5">
-                <Panel title="Projects" icon={Activity} count={overview.projects.length}>
+                <div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-[0.08em] text-cyan-100/70">Delivery progress</div>
+                      <div className="mt-1 text-3xl font-semibold tabular-nums text-cyan-50">{summary.averageProgress}%</div>
+                    </div>
+                    <Gauge className="h-9 w-9 text-cyan-200" aria-hidden="true" />
+                  </div>
+                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-700/70">
+                    <div className="h-full rounded-full bg-cyan-300" style={{ width: `${clampPercent(summary.averageProgress)}%` }} />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 border-t border-[var(--workspace-ink-border)] pt-4 sm:grid-cols-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-cyan-100/70">
+                      <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                      Latest update
+                    </div>
+                    <div className="mt-2 line-clamp-1 text-sm font-semibold text-cyan-50">{latestUpdate?.title || "No update published yet"}</div>
+                    <p className="mt-1 line-clamp-3 text-sm leading-6 text-[var(--workspace-ink-muted)]">
+                      {latestUpdate?.body || "Progress notes will appear here when the team publishes client-visible updates."}
+                    </p>
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-cyan-100/70">
+                      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      Your next action
+                    </div>
+                    <div className="mt-2 line-clamp-1 text-sm font-semibold text-cyan-50">
+                      {nextActionItem ? nextActionItem.title : "No action needed right now"}
+                    </div>
+                    <p className="mt-1 line-clamp-3 text-sm leading-6 text-[var(--workspace-ink-muted)]">
+                      {nextActionItem
+                        ? "Open requests or approvals, review the item, and reply with approval or needed changes."
+                        : "Keep watching progress here. New reviews, approvals, and replies will be queued automatically."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </ProductionStatusHero>
+
+            <ProductionMetricStrip
+              eyebrow="Workspace signal"
+              title="The live client delivery picture"
+              description="These numbers come from your current workspace data, so the page stays useful without fake executive metrics."
+              metrics={stripMetrics}
+            />
+
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
+              <div className="space-y-5">
+                <ProductionPanel title="Delivery Progress" icon={Activity} count={overview.projects.length}>
                   {overview.projects.length === 0 ? (
                     <EmptyState variant="compact" icon={Activity} title="No active projects yet" />
                   ) : (
                     <div className="grid gap-3 md:grid-cols-2">
                       {overview.projects.map((project) => (
-                        <div key={project.id} className="rounded-[var(--radius-md)] border border-[var(--border)] p-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0 truncate font-medium">{project.name}</div>
+                        <article key={project.id} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <h3 className="truncate text-sm font-semibold">{project.name}</h3>
+                              <p className="mt-2 line-clamp-2 text-sm leading-6 text-[var(--muted)]">{project.summary || "Progress is being prepared."}</p>
+                            </div>
                             <StatusBadge label={getClientPortalOptionLabel(CLIENT_PROJECT_STATUSES, project.status)} size="sm" />
                           </div>
-                          <p className="mt-2 line-clamp-2 text-sm text-[var(--muted)]">{project.summary || "Progress is being prepared."}</p>
-                          <div className="mt-4 h-2 rounded-full bg-[var(--card-surface)]">
-                            <div className="h-2 rounded-full bg-[var(--accent)]" style={{ width: `${Math.min(100, Math.max(0, project.progress || 0))}%` }} />
+                          <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--card-bg)]">
+                            <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${clampPercent(project.progress)}%` }} />
                           </div>
                           <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]">
                             <span>{project.progress || 0}% complete</span>
                             <span>Updated {formatClientPortalDate(project.updatedAt)}</span>
                           </div>
-                        </div>
+                        </article>
                       ))}
                     </div>
                   )}
-                </Panel>
 
-                <Panel title="Updates" icon={FileText} count={overview.updates.length}>
+                  {commandCenter.openWorkItems.length > 0 ? (
+                    <div className="mt-5 border-t border-[var(--border)] pt-4">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <h3 className="text-sm font-semibold">Current visible work</h3>
+                        <span className="text-xs text-[var(--muted)]">{commandCenter.openWorkItems.length} open</span>
+                      </div>
+                      <div className="grid gap-2">
+                        {commandCenter.openWorkItems.slice(0, 4).map((item) => (
+                          <div key={item.id} className="grid gap-3 rounded-[var(--radius-md)] border border-[var(--border)] px-3 py-3 sm:grid-cols-[minmax(0,1fr)_120px]">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-medium">{item.title}</div>
+                              <div className="mt-1 text-xs text-[var(--muted)]">{item.dueAt ? `Due ${formatClientPortalDate(item.dueAt)}` : "No due date set"}</div>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="h-2 overflow-hidden rounded-full bg-[var(--card-surface)]">
+                                <div className="h-full rounded-full bg-cyan-500" style={{ width: `${clampPercent(item.progress)}%` }} />
+                              </div>
+                              <div className="mt-1 text-right text-xs text-[var(--muted)]">{item.progress || 0}%</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </ProductionPanel>
+
+                <ProductionPanel title="Progress Updates" icon={FileText} count={overview.updates.length}>
                   {overview.updates.length === 0 ? (
                     <EmptyState variant="compact" icon={FileText} title="No updates published yet" />
                   ) : (
@@ -254,7 +339,7 @@ export default function ClientPortalPage() {
                               </span>
                             ) : null}
                           </div>
-                          <p className="mt-2 text-sm text-[var(--muted)]">{update.body}</p>
+                          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{update.body}</p>
                           <time className="mt-3 block text-xs text-[var(--muted)]" dateTime={update.createdAt || undefined}>
                             {formatClientPortalDate(update.createdAt)}
                           </time>
@@ -262,20 +347,27 @@ export default function ClientPortalPage() {
                       ))}
                     </div>
                   )}
-                </Panel>
+                </ProductionPanel>
 
-                <Panel title="Latest Activity" icon={MessageSquare} count={activities.length}>
+                <ProductionPanel title="Communication Log" icon={MessageSquare} count={activities.length}>
+                  {latestMessage ? (
+                    <div className="mb-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-3">
+                      <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">Latest message</div>
+                      <div className="mt-1 text-sm font-semibold">{latestMessage.ticket.title}</div>
+                      <p className="mt-1 line-clamp-2 text-sm leading-6 text-[var(--muted)]">{latestMessage.comment.body}</p>
+                    </div>
+                  ) : null}
                   <ClientActivityTimeline activities={activities} limit={6} />
-                </Panel>
+                </ProductionPanel>
               </div>
 
               <div className="space-y-5">
-                <Panel title="Action Queue" icon={Clock} count={queueItems.length}>
+                <ProductionPanel title="Action Queue" icon={Clock} count={queueItems.length} variant="subtle">
                   <ClientActionQueue items={queueItems} showOrganization={false} />
-                </Panel>
+                </ProductionPanel>
 
-                <Panel title="Submit Request" icon={Plus}>
-                  <form onSubmit={handleCreateTicket} className="space-y-4">
+                <ProductionPanel title="Submit Request" icon={Send} eyebrow="Client to team" variant="subtle">
+                  <form id="submit-request" onSubmit={handleCreateTicket} className="space-y-4">
                     <ChoiceGroup
                       label="Request Type"
                       options={CLIENT_TICKET_CATEGORIES}
@@ -308,39 +400,42 @@ export default function ClientPortalPage() {
                         required
                       />
                     </div>
-                    <Button type="submit" loading={saving} fullWidth>Send Request</Button>
+                    <Button type="submit" loading={saving} fullWidth icon={<Send className="h-4 w-4" />} iconPosition="right">Send Request</Button>
                   </form>
-                </Panel>
+                </ProductionPanel>
 
-                <Panel title="Performance" icon={BarChart3} count={overview.metrics.length}>
-                  {overview.metrics.length === 0 ? (
+                <ProductionPanel title="Performance Snapshot" icon={TrendingUp} count={commandCenter.reportMetrics.length}>
+                  {commandCenter.reportMetrics.length === 0 ? (
                     <EmptyState variant="compact" icon={BarChart3} title="No metrics published yet" />
                   ) : (
                     <div className="grid gap-2">
-                      {overview.metrics.map((metric) => (
+                      {commandCenter.reportMetrics.map((metric) => (
                         <div key={metric.id} className="rounded-[var(--radius-md)] border border-[var(--border)] px-3 py-2">
-                          <div className="text-lg font-semibold">{metric.value}{metric.unit ? ` ${metric.unit}` : ""}</div>
+                          <div className="text-lg font-semibold tabular-nums">{metric.value}{metric.unit ? ` ${metric.unit}` : ""}</div>
                           <div className="text-xs text-[var(--muted)]">{metric.label}</div>
                         </div>
                       ))}
                     </div>
                   )}
-                </Panel>
+                </ProductionPanel>
 
-                <Panel title="Resources" icon={LinkIcon} count={overview.resources.length}>
-                  {overview.resources.length === 0 ? (
+                <ProductionPanel title="Resources & Assets" icon={LinkIcon} count={visibleResources.length}>
+                  {visibleResources.length === 0 ? (
                     <EmptyState variant="compact" icon={LinkIcon} title="No resources yet" />
                   ) : (
                     <div className="space-y-2">
-                      {overview.resources.map((resource) => (
+                      {visibleResources.map((resource) => (
                         <a key={resource.id} href={resource.url} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--border)] px-3 py-2 text-sm hover:bg-[var(--surface-hover)]">
-                          <span className="min-w-0 truncate">{resource.label}</span>
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium">{resource.label}</span>
+                            <span className="block truncate text-xs text-[var(--muted)]">{resource.meta}</span>
+                          </span>
                           <ExternalLink className="h-4 w-4 shrink-0 text-[var(--muted)]" />
                         </a>
                       ))}
                     </div>
                   )}
-                </Panel>
+                </ProductionPanel>
               </div>
             </div>
           </div>

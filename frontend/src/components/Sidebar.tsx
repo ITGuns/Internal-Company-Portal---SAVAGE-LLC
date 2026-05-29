@@ -63,7 +63,7 @@ function NavItem({ icon: Icon, label, badge, href }: NavItemConfig) {
         'transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-out)]',
         'focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--sidebar)]',
         isActive
-          ? 'border-[var(--accent)] bg-[var(--card-surface)] font-semibold text-[var(--foreground)]'
+          ? 'border-[var(--accent)] bg-[var(--card-surface)] font-semibold text-[var(--foreground)] shadow-[inset_3px_0_0_var(--accent)]'
           : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]',
       )}
     >
@@ -245,9 +245,14 @@ export default function Sidebar() {
       >
         <div className="flex h-full flex-col">
           <header className="flex h-24 items-center justify-between border-b border-[var(--sidebar-border)] px-5">
-            <div>
-              <div className="text-base font-semibold tracking-tight">MyDeskii</div>
-              <div className="mt-0.5 text-xs text-[var(--muted)]">SAVAGE LLC workspace</div>
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]">
+                <div className="h-4 w-4 rotate-45 rounded-[3px] border-2 border-[var(--accent)]" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-base font-semibold tracking-tight">MyDeskii</div>
+                <div className="mt-0.5 truncate text-xs text-[var(--muted)]">SAVAGE LLC workspace</div>
+              </div>
             </div>
             <button
               type="button"
@@ -286,7 +291,7 @@ export default function Sidebar() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-semibold">{user?.name || 'User'}</div>
-                <div className="truncate text-xs text-[var(--muted)]">{user?.email || 'Guest'}</div>
+                <div className="truncate text-xs text-[var(--muted)]">{user?.role || user?.email || 'Guest'}</div>
               </div>
               <UserCircle className="h-4 w-4 text-[var(--muted)]" />
             </Link>

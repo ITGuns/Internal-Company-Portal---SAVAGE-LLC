@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Archive, Pencil, Save, X } from "lucide-react";
 import Button from "@/components/Button";
+import { ProductionPanel } from "@/components/workspace/ProductionWorkspace";
 import type { ClientPortalOption } from "@/lib/client-portal-options";
 
 export const selectClass = "w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
@@ -20,16 +21,9 @@ export function MiniPanel({
   count?: number;
 }) {
   return (
-    <section className="rounded-[var(--radius-md)] border border-[var(--border)] p-4">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <Icon className="h-4 w-4 shrink-0 text-[var(--accent)]" />
-          <h3 className="truncate text-sm font-semibold">{title}</h3>
-        </div>
-        {typeof count === "number" ? <span className="text-xs text-[var(--muted)]">{count}</span> : null}
-      </div>
+    <ProductionPanel title={title} icon={Icon} count={count} bodyClassName="p-4">
       {children}
-    </section>
+    </ProductionPanel>
   );
 }
 

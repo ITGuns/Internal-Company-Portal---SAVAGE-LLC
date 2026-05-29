@@ -1,14 +1,16 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { MessageSquare, Pencil, Plus, Save, Send, Ticket, Trash2, X } from "lucide-react";
+import { CheckCircle2, Filter, MessageSquare, Pencil, Plus, Save, Send, Ticket, Trash2, X } from "lucide-react";
 import Button from "@/components/Button";
+import ClientPortalPanel from "@/components/client-portal/ClientPortalPanel";
 import ClientTicketFilterControls from "@/components/client-portal/ClientTicketFilterControls";
 import ChoiceGroup from "@/components/client-portal/ChoiceGroup";
 import TicketDetailPresets from "@/components/client-portal/TicketDetailPresets";
 import Header from "@/components/Header";
 import EmptyState from "@/components/ui/EmptyState";
 import StatusBadge from "@/components/ui/StatusBadge";
+import { ProductionMetricStrip, type ProductionMetricItem } from "@/components/workspace/ProductionWorkspace";
 import { useToast } from "@/components/ToastProvider";
 import { useUser } from "@/contexts/UserContext";
 import {
@@ -63,6 +65,10 @@ export default function ClientTicketsPage() {
     () => getClientTicketFilterSummary(filteredTickets, tickets, ticketFilters),
     [filteredTickets, tickets, ticketFilters],
   );
+  const selectedOrganization = useMemo(
+    () => organizations.find((organization) => organization.id === selectedId) || null,
+    [organizations, selectedId],
+  );
   const selectedTicket = useMemo(
     () => filteredTickets.find((ticket) => ticket.id === selectedTicketId) || filteredTickets[0] || null,
     [filteredTickets, selectedTicketId],
@@ -71,6 +77,18 @@ export default function ClientTicketsPage() {
     () => selectedTicket ? getClientTicketNextAction(selectedTicket, user?.id) : null,
     [selectedTicket, user?.id],
   );
+  const ticketMetrics: ProductionMetricItem[] = useMemo(() => {
+    const nextActions = tickets.map((ticket) => getClientTicketNextAction(ticket, user?.id));
+    const clientReviewCount = nextActions.filter((action) => action.status === "client").length;
+    const commentCount = tickets.reduce((total, ticket) => total + (ticket.comments?.length || 0), 0);
+
+    return [
+      { label: "Requests", value: tickets.length, caption: "Total workspace requests", icon: Ticket, tone: "accent" },
+      { label: "Filtered", value: filteredTickets.length, caption: "Shown in the current view", icon: Filter, tone: "info" },
+      { label: "Client review", value: clientReviewCount, caption: "Waiting on your response", icon: CheckCircle2, tone: "success" },
+      { label: "Conversation", value: commentCount, caption: "Visible request replies", icon: MessageSquare, tone: "warning" },
+    ];
+  }, [filteredTickets.length, tickets, user?.id]);
 
   const loadOrganizations = useCallback(async () => {
     const nextOrganizations = await fetchClientOrganizations();
@@ -240,59 +258,55 @@ export default function ClientTicketsPage() {
             <EmptyState icon={Ticket} title="No client workspace assigned" description="Your account is not connected to a client organization yet." />
           </div>
         ) : (
-          <div className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
-            <section className="min-w-0 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-4">
-              <div className="mb-4 flex items-center gap-2">
-                <Plus className="h-4 w-4 text-[var(--accent)]" />
-                <h2 className="text-sm font-semibold">New Request</h2>
-              </div>
-              <form onSubmit={handleCreateTicket} className="space-y-4">
-                <ChoiceGroup
-                  label="Request Type"
-                  options={CLIENT_TICKET_CATEGORIES}
-                  value={form.category}
-                  onChange={(category) => setForm((current) => ({ ...current, category }))}
-                  variant="pills"
-                />
-                <ChoiceGroup
-                  label="Priority"
-                  options={CLIENT_TICKET_PRIORITIES}
-                  value={form.priority}
-                  onChange={(priority) => setForm((current) => ({ ...current, priority }))}
-                  variant="pills"
-                />
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <label htmlFor="ticket-details" className="text-sm font-medium">Request Details</label>
-                    <span className="text-xs text-[var(--muted)]">Pick a starter or type your own</span>
-                  </div>
-                  <TicketDetailPresets
-                    category={form.category}
-                    onSelect={(description) => setForm((current) => ({ ...current, description }))}
-                  />
-                  <textarea
-                    id="ticket-details"
-                    className={textareaClass}
-                    value={form.description}
-                    onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-                    placeholder={`${getClientPortalOptionLabel(CLIENT_TICKET_CATEGORIES, form.category)} details`}
-                    required
-                  />
-                </div>
-                <Button type="submit" loading={saving} fullWidth>Send Request</Button>
-              </form>
-            </section>
+          <div className="mt-6 space-y-5">
+            <ProductionMetricStrip
+              eyebrow={selectedOrganization?.slug || "Request center"}
+              title={`Requests${selectedOrganization ? ` for ${selectedOrganization.name}` : ""}`}
+              description="Submit a request, track the team response, and keep every reply attached to the original ask."
+              metrics={ticketMetrics}
+            />
 
-            <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_420px]">
-              <section className="min-w-0 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)]">
-                <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Ticket className="h-4 w-4 text-[var(--accent)]" />
-                    <h2 className="text-sm font-semibold">Requests</h2>
+            <div className="grid min-w-0 gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+              <ClientPortalPanel title="New Request" icon={Plus}>
+                <form onSubmit={handleCreateTicket} className="space-y-4">
+                  <ChoiceGroup
+                    label="Request Type"
+                    options={CLIENT_TICKET_CATEGORIES}
+                    value={form.category}
+                    onChange={(category) => setForm((current) => ({ ...current, category }))}
+                    variant="pills"
+                  />
+                  <ChoiceGroup
+                    label="Priority"
+                    options={CLIENT_TICKET_PRIORITIES}
+                    value={form.priority}
+                    onChange={(priority) => setForm((current) => ({ ...current, priority }))}
+                    variant="pills"
+                  />
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <label htmlFor="ticket-details" className="text-sm font-medium">Request Details</label>
+                      <span className="text-xs text-[var(--muted)]">Pick a starter or type your own</span>
+                    </div>
+                    <TicketDetailPresets
+                      category={form.category}
+                      onSelect={(description) => setForm((current) => ({ ...current, description }))}
+                    />
+                    <textarea
+                      id="ticket-details"
+                      className={textareaClass}
+                      value={form.description}
+                      onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                      placeholder={`${getClientPortalOptionLabel(CLIENT_TICKET_CATEGORIES, form.category)} details`}
+                      required
+                    />
                   </div>
-                  <span className="text-xs text-[var(--muted)]">{ticketFilterSummary}</span>
-                </div>
-                <div className="p-4">
+                  <Button type="submit" loading={saving} fullWidth>Send Request</Button>
+                </form>
+              </ClientPortalPanel>
+
+              <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_420px]">
+                <ClientPortalPanel title="Requests" icon={Ticket} count={ticketFilterSummary}>
                   <div className="space-y-3">
                     <ClientTicketFilterControls
                       filters={ticketFilters}
@@ -334,149 +348,146 @@ export default function ClientTicketsPage() {
                       })
                     )}
                   </div>
-                </div>
-              </section>
+                </ClientPortalPanel>
 
-              <section className="min-w-0 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)]">
-                <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-[var(--accent)]" />
-                    <h2 className="text-sm font-semibold">Request Detail</h2>
-                  </div>
-                  {selectedTicket ? <StatusBadge label={getClientPortalOptionLabel(CLIENT_TICKET_STATUSES, selectedTicket.status)} size="sm" /> : null}
-                </div>
-                <div className="space-y-5 p-4">
-                  {!selectedTicket ? (
-                    <EmptyState variant="compact" icon={Ticket} title="Select a request" description="Request notes and replies will appear here." />
-                  ) : (
-                    <>
-                      <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <div className="text-xs font-medium uppercase text-[var(--muted)]">Next action</div>
-                            <div className="mt-1 text-sm font-semibold">{selectedNextAction?.label}</div>
+                <ClientPortalPanel
+                  title="Request Detail"
+                  icon={MessageSquare}
+                  action={selectedTicket ? <StatusBadge label={getClientPortalOptionLabel(CLIENT_TICKET_STATUSES, selectedTicket.status)} size="sm" /> : null}
+                >
+                  <div className="space-y-5">
+                    {!selectedTicket ? (
+                      <EmptyState variant="compact" icon={Ticket} title="Select a request" description="Request notes and replies will appear here." />
+                    ) : (
+                      <>
+                        <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <div className="text-xs font-medium uppercase text-[var(--muted)]">Next action</div>
+                              <div className="mt-1 text-sm font-semibold">{selectedNextAction?.label}</div>
+                            </div>
+                            <StatusBadge label={selectedNextAction?.status === "client" ? "Client" : selectedNextAction?.status === "complete" ? "Done" : "Team"} size="sm" />
                           </div>
-                          <StatusBadge label={selectedNextAction?.status === "client" ? "Client" : selectedNextAction?.status === "complete" ? "Done" : "Team"} size="sm" />
+                          <p className="mt-2 text-sm leading-5 text-[var(--muted)]">{selectedNextAction?.description}</p>
                         </div>
-                        <p className="mt-2 text-sm leading-5 text-[var(--muted)]">{selectedNextAction?.description}</p>
-                      </div>
 
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-                          <span>{getClientPortalOptionLabel(CLIENT_TICKET_CATEGORIES, selectedTicket.category)}</span>
-                          <span>{getClientPortalOptionLabel(CLIENT_TICKET_PRIORITIES, selectedTicket.priority)}</span>
-                          <span>{selectedTicket.comments?.length || 0} comments</span>
-                        </div>
-                        {editingTicketId === selectedTicket.id ? (
-                          <form onSubmit={handleUpdateTicket} className="mt-3 space-y-4 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--card-surface)] p-3">
-                            <ChoiceGroup
-                              label="Request Type"
-                              options={CLIENT_TICKET_CATEGORIES}
-                              value={editForm.category}
-                              onChange={(category) => setEditForm((current) => ({ ...current, category }))}
-                              variant="pills"
-                            />
-                            <ChoiceGroup
-                              label="Priority"
-                              options={CLIENT_TICKET_PRIORITIES}
-                              value={editForm.priority}
-                              onChange={(priority) => setEditForm((current) => ({ ...current, priority }))}
-                              variant="pills"
-                            />
-                            <div className="space-y-2">
-                              <label htmlFor="ticket-edit-details" className="text-sm font-medium">Request Details</label>
-                              <textarea
-                                id="ticket-edit-details"
-                                className={textareaClass}
-                                value={editForm.description}
-                                onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))}
-                                required
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                            <span>{getClientPortalOptionLabel(CLIENT_TICKET_CATEGORIES, selectedTicket.category)}</span>
+                            <span>{getClientPortalOptionLabel(CLIENT_TICKET_PRIORITIES, selectedTicket.priority)}</span>
+                            <span>{selectedTicket.comments?.length || 0} comments</span>
+                          </div>
+                          {editingTicketId === selectedTicket.id ? (
+                            <form onSubmit={handleUpdateTicket} className="mt-3 space-y-4 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--card-surface)] p-3">
+                              <ChoiceGroup
+                                label="Request Type"
+                                options={CLIENT_TICKET_CATEGORIES}
+                                value={editForm.category}
+                                onChange={(category) => setEditForm((current) => ({ ...current, category }))}
+                                variant="pills"
                               />
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              <Button type="submit" size="sm" icon={<Save className="h-4 w-4" />} loading={ticketActionSaving}>
-                                Save
-                              </Button>
-                              <Button type="button" size="sm" variant="ghost" icon={<X className="h-4 w-4" />} disabled={ticketActionSaving} onClick={closeEditTicket}>
-                                Cancel
-                              </Button>
-                            </div>
-                          </form>
-                        ) : (
-                          <>
-                            <h3 className="mt-2 text-lg font-semibold leading-snug">{selectedTicket.title}</h3>
-                            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--muted)]">
-                              {selectedTicket.description || "No description provided."}
-                            </p>
-                            {selectedTicket.status !== "done" ? (
-                              <div className="mt-4 flex flex-wrap gap-2">
-                                <Button type="button" size="sm" variant="secondary" icon={<Pencil className="h-4 w-4" />} disabled={ticketActionSaving} onClick={() => openEditTicket(selectedTicket)}>
-                                  Edit
-                                </Button>
-                                {(selectedTicket.comments?.length || 0) === 0 ? (
-                                  <Button type="button" size="sm" variant="danger" icon={<Trash2 className="h-4 w-4" />} loading={ticketActionSaving} onClick={() => handleDeleteTicket(selectedTicket)}>
-                                    Delete
-                                  </Button>
-                                ) : null}
+                              <ChoiceGroup
+                                label="Priority"
+                                options={CLIENT_TICKET_PRIORITIES}
+                                value={editForm.priority}
+                                onChange={(priority) => setEditForm((current) => ({ ...current, priority }))}
+                                variant="pills"
+                              />
+                              <div className="space-y-2">
+                                <label htmlFor="ticket-edit-details" className="text-sm font-medium">Request Details</label>
+                                <textarea
+                                  id="ticket-edit-details"
+                                  className={textareaClass}
+                                  value={editForm.description}
+                                  onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))}
+                                  required
+                                />
                               </div>
-                            ) : null}
-                          </>
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="mb-3 text-sm font-semibold">Conversation</div>
-                        {selectedTicket.comments?.length ? (
-                          <div className="space-y-3">
-                            {selectedTicket.comments.map((comment) => (
-                              <article key={comment.id} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-3">
-                                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]">
-                                  <span>{getClientCommentAuthorLabel(comment, user?.id)}</span>
-                                  <time dateTime={comment.createdAt || undefined}>{formatClientPortalDate(comment.createdAt)}</time>
+                              <div className="flex flex-wrap gap-2">
+                                <Button type="submit" size="sm" icon={<Save className="h-4 w-4" />} loading={ticketActionSaving}>
+                                  Save
+                                </Button>
+                                <Button type="button" size="sm" variant="ghost" icon={<X className="h-4 w-4" />} disabled={ticketActionSaving} onClick={closeEditTicket}>
+                                  Cancel
+                                </Button>
+                              </div>
+                            </form>
+                          ) : (
+                            <>
+                              <h3 className="mt-2 text-lg font-semibold leading-snug">{selectedTicket.title}</h3>
+                              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--muted)]">
+                                {selectedTicket.description || "No description provided."}
+                              </p>
+                              {selectedTicket.status !== "done" ? (
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                  <Button type="button" size="sm" variant="secondary" icon={<Pencil className="h-4 w-4" />} disabled={ticketActionSaving} onClick={() => openEditTicket(selectedTicket)}>
+                                    Edit
+                                  </Button>
+                                  {(selectedTicket.comments?.length || 0) === 0 ? (
+                                    <Button type="button" size="sm" variant="danger" icon={<Trash2 className="h-4 w-4" />} loading={ticketActionSaving} onClick={() => handleDeleteTicket(selectedTicket)}>
+                                      Delete
+                                    </Button>
+                                  ) : null}
                                 </div>
-                                <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{comment.body}</p>
-                              </article>
+                              ) : null}
+                            </>
+                          )}
+                        </div>
+
+                        <div>
+                          <div className="mb-3 text-sm font-semibold">Conversation</div>
+                          {selectedTicket.comments?.length ? (
+                            <div className="space-y-3">
+                              {selectedTicket.comments.map((comment) => (
+                                <article key={comment.id} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-3">
+                                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]">
+                                    <span>{getClientCommentAuthorLabel(comment, user?.id)}</span>
+                                    <time dateTime={comment.createdAt || undefined}>{formatClientPortalDate(comment.createdAt)}</time>
+                                  </div>
+                                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{comment.body}</p>
+                                </article>
+                              ))}
+                            </div>
+                          ) : (
+                            <EmptyState variant="compact" icon={MessageSquare} title="No comments yet" description="Use the reply box to add the next update." />
+                          )}
+                        </div>
+
+                        <form onSubmit={handleAddComment} className="space-y-3">
+                          <label htmlFor="ticket-comment" className="text-sm font-medium">Add Comment</label>
+                          <div className="flex flex-wrap gap-2">
+                            {CLIENT_TICKET_QUICK_REPLIES.map((reply) => (
+                              <button
+                                key={reply}
+                                type="button"
+                                onClick={() => setCommentBody(reply)}
+                                className="rounded-[var(--radius-md)] border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
+                              >
+                                {reply}
+                              </button>
                             ))}
                           </div>
-                        ) : (
-                          <EmptyState variant="compact" icon={MessageSquare} title="No comments yet" description="Use the reply box to add the next update." />
-                        )}
-                      </div>
-
-                      <form onSubmit={handleAddComment} className="space-y-3">
-                        <label htmlFor="ticket-comment" className="text-sm font-medium">Add Comment</label>
-                        <div className="flex flex-wrap gap-2">
-                          {CLIENT_TICKET_QUICK_REPLIES.map((reply) => (
-                            <button
-                              key={reply}
-                              type="button"
-                              onClick={() => setCommentBody(reply)}
-                              className="rounded-[var(--radius-md)] border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
-                            >
-                              {reply}
-                            </button>
-                          ))}
-                        </div>
-                        <textarea
-                          id="ticket-comment"
-                          className={textareaClass}
-                          value={commentBody}
-                          onChange={(event) => setCommentBody(event.target.value)}
-                          placeholder="Add an update or clarification."
-                        />
-                        <Button
-                          type="submit"
-                          icon={<Send className="h-4 w-4" />}
-                          loading={commentSaving}
-                          disabled={!commentBody.trim()}
-                        >
-                          Add Comment
-                        </Button>
-                      </form>
-                    </>
-                  )}
-                </div>
-              </section>
+                          <textarea
+                            id="ticket-comment"
+                            className={textareaClass}
+                            value={commentBody}
+                            onChange={(event) => setCommentBody(event.target.value)}
+                            placeholder="Add an update or clarification."
+                          />
+                          <Button
+                            type="submit"
+                            icon={<Send className="h-4 w-4" />}
+                            loading={commentSaving}
+                            disabled={!commentBody.trim()}
+                          >
+                            Add Comment
+                          </Button>
+                        </form>
+                      </>
+                    )}
+                  </div>
+                </ClientPortalPanel>
+              </div>
             </div>
           </div>
         )}
