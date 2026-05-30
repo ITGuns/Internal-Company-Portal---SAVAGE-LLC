@@ -22,7 +22,7 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import { ProductionMetricStrip, type ProductionMetricItem } from "@/components/workspace/ProductionWorkspace";
 import { withClientOperationsClientParam } from "@/lib/client-operations-navigation";
 import { getClientPortalOptionLabel, CLIENT_PROJECT_STATUSES } from "@/lib/client-portal-options";
-import { formatClientPortalDate } from "@/lib/client-portal-display";
+import { formatClientPortalDate, getClientBillingTierLabel } from "@/lib/client-portal-display";
 import { buildClientCommandCenter } from "@/lib/client-portal-command";
 
 const quickLinks = [
@@ -177,7 +177,7 @@ export default function ClientOperationsOverviewPage() {
               <ClientOperationsPanel icon={BriefcaseBusiness} title="Billing Snapshot">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm font-semibold">{billingStatus.planName || "Client plan"}</div>
+                    <div className="text-sm font-semibold">{getClientBillingTierLabel(overview.organization, billingStatus)}</div>
                     <div className="mt-1 text-xs text-[var(--muted)]">Renewal {formatClientPortalDate(billingStatus.renewalAt)}</div>
                   </div>
                   <StatusBadge label={billingStatus.status} size="sm" />

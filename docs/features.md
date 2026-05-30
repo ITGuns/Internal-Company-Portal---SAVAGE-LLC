@@ -104,6 +104,7 @@ Deskii now has the backend foundation for a client-facing portal/tool inside the
 - Client portal records are grouped under `ClientOrganization`.
 - Client users are scoped through active `ClientMembership` records on active client organizations and cannot see other client organizations or archived clients.
 - Internal managers/admins can create client organizations and review cross-client portal data.
+- Internal managers/admins can add/edit service tiers and assign or clear a tier from the Client Operations account profile.
 - Client overview data can include projects, tickets, updates, performance metrics, and resource links.
 - Ticket creation derives organization and requester ownership server-side, so clients cannot spoof tenant, assignment, or internal fields.
 - Internal ticket comments, project notes, tier pricing/priority, and other protected fields are stripped from client-visible responses.
@@ -123,10 +124,11 @@ Deskii now has the backend foundation for a client-facing portal/tool inside the
 - Client portal pages now read those production records directly: work items power open tasks and completed work, approval records power the approval queue, reports power the monthly dashboard, assets extend the resource library, billing status appears on the account page when visible, and calendar records power the campaign calendar.
 - Client Operations splits production-record panels across focused admin pages for adding, editing key details, updating status/visibility, and archiving work items, approvals, reports, roadmap recommendations, assets, billing status, and calendar items. Calendar items can also be permanently deleted when history should not retain them.
 - Client Operations includes client team access controls for inviting new external clients, adding approved existing users, editing membership roles/status, deactivating users without losing history, and reactivating access later.
+- Client Operations uses the assigned service tier as the billing tier label across account, billing, overview, and client-facing account screens; billing status tracks payment state, amount, renewal, and visibility.
 - Client Operations can archive an entire client account with typed confirmation, hiding it from client users while preserving requests, reports, files, billing notes, and history for internal review.
 - Client ticket and message views now show shared next-action signals so admins and clients can see whether the team or client is expected to respond.
 - Client and admin dashboards now consume the same activity history and derived action queue. Client users only see client-visible events; internal users see both client-visible and internal audit events.
-- Request replies, approval decisions, billing changes, calendar scheduling/deletion, account archive/restore, work changes, and report publishing create append-only activity records.
+- Request replies, approval decisions, billing changes, service tier assignment changes, calendar scheduling/deletion, account archive/restore, work changes, and report publishing create append-only activity records.
 - Client users land on `/client` after login, and authenticated client users attempting `/dashboard` are redirected back to the client portal.
 
 ## Payroll Calendar

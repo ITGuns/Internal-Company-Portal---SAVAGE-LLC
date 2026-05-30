@@ -33,6 +33,7 @@ import { useClientOperationsWorkspace, type ClientOperationsWorkspace } from "@/
 import { splitClientOrganizationsByHistory } from "@/lib/client-organization-history";
 import { getClientOperationsRouteTitle } from "@/lib/client-operations-navigation";
 import { buildClientCommandCenter } from "@/lib/client-portal-command";
+import { getClientBillingTierLabel } from "@/lib/client-portal-display";
 import { cn } from "@/lib/utils";
 
 function ClientOrganizationButton({
@@ -288,7 +289,7 @@ function ClientOperationsRouteSummary({
       const billing = overview.billingStatus;
       return [
         { label: "Status", value: billing?.status || "Not set", caption: "Client billing state", icon: CreditCard, tone: "accent" },
-        { label: "Plan", value: billing?.planName || workspace.selectedOrganization?.tier?.name || "Pending", caption: "Service level", icon: BriefcaseBusiness, tone: "info" },
+        { label: "Tier", value: getClientBillingTierLabel(workspace.selectedOrganization, billing), caption: "Service level", icon: BriefcaseBusiness, tone: "info" },
         { label: "Visible", value: billing ? (billing.visibleToClient === false ? "No" : "Yes") : "Not set", caption: "Client portal exposure", icon: ShieldCheck, tone: "success" },
         { label: "Renewal", value: billing?.renewalAt ? "Scheduled" : "Not set", caption: "Renewal date state", icon: CalendarDays, tone: "warning" },
       ];

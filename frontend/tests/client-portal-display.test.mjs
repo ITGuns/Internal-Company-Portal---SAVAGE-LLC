@@ -41,3 +41,17 @@ test('labels current user comments when user ids are strings or numbers', () => 
   assert.equal(getClientCommentAuthorLabel({ ...comment, visibility: 'internal' }, 42), 'Internal note');
   assert.equal(getClientCommentAuthorLabel({ ...comment, authorId: '7' }, 42), 'Client User');
 });
+
+test('uses assigned service tier as the billing tier label', () => {
+  const { getClientBillingTierLabel } = loadClientPortalDisplay();
+
+  assert.equal(
+    getClientBillingTierLabel(
+      { tier: { name: 'Premium Care' } },
+      { planName: 'Legacy Billing Plan' },
+    ),
+    'Premium Care',
+  );
+  assert.equal(getClientBillingTierLabel({ tier: null }, { planName: 'Legacy Billing Plan' }), 'Legacy Billing Plan');
+  assert.equal(getClientBillingTierLabel({ tier: null }, null), 'Current plan');
+});

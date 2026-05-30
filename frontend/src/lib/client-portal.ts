@@ -6,6 +6,8 @@ export interface ClientServiceTier {
   description?: string | null;
   monthlyPrice?: number | null;
   priorityRank?: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface ClientOrganization {
@@ -262,6 +264,40 @@ export async function fetchClientOrganizations(): Promise<ClientOrganization[]> 
   return response.json();
 }
 
+export async function fetchClientServiceTiers(): Promise<ClientServiceTier[]> {
+  const response = await apiFetch('/clients/service-tiers');
+  return response.json();
+}
+
+export async function createClientServiceTier(data: {
+  name: string;
+  description?: string;
+  monthlyPrice?: number;
+  priorityRank?: number;
+}): Promise<ClientServiceTier> {
+  const response = await apiFetch('/clients/service-tiers', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function updateClientServiceTier(
+  tierId: string,
+  data: {
+    name?: string;
+    description?: string | null;
+    monthlyPrice?: number | null;
+    priorityRank?: number;
+  },
+): Promise<ClientServiceTier> {
+  const response = await apiFetch(`/clients/service-tiers/${tierId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
 export async function createClientOrganization(data: {
   name: string;
   slug?: string;
@@ -272,6 +308,17 @@ export async function createClientOrganization(data: {
   const response = await apiFetch('/clients/organizations', {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function updateClientOrganizationServiceTier(
+  organizationId: string,
+  tierId: string | null,
+): Promise<ClientOrganization> {
+  const response = await apiFetch(`/clients/organizations/${organizationId}/service-tier`, {
+    method: 'PATCH',
+    body: JSON.stringify({ tierId }),
   });
   return response.json();
 }
@@ -626,7 +673,6 @@ export async function updateClientAsset(assetId: string, data: Partial<ClientAss
 }
 
 export async function upsertClientBillingStatus(organizationId: string, data: {
-  planName?: string;
   status: string;
   monthlyAmount?: number;
   currency?: string;

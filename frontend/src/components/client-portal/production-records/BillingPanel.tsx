@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { CreditCard } from "lucide-react";
 import Button from "@/components/Button";
 import FormField from "@/components/forms/FormField";
+import type { ClientServiceTier } from "@/lib/client-portal";
 import { upsertClientBillingStatus } from "@/lib/client-portal";
+import { getClientBillingTierLabel } from "@/lib/client-portal-display";
 import {
   buildBillingPayload,
   toDateInputValue,
@@ -18,12 +20,11 @@ import {
   VisibilityCheckbox,
 } from "./shared";
 
-const emptyBilling = { planName: "", status: "active", monthlyAmount: "", currency: "USD", renewalAt: "", visibleToClient: false };
+const emptyBilling = { status: "active", monthlyAmount: "", currency: "USD", renewalAt: "", visibleToClient: false };
 
 function toBillingForm(overview: ProductionRecordPanelProps["overview"]): BillingEditForm {
   return {
     ...emptyBilling,
-    planName: overview.billingStatus?.planName || "",
     status: overview.billingStatus?.status || "active",
     monthlyAmount: overview.billingStatus?.monthlyAmount ? String(overview.billingStatus.monthlyAmount) : "",
     currency: overview.billingStatus?.currency || "USD",
@@ -37,8 +38,14 @@ export default function BillingPanel({
   overview,
   saving,
   submitScoped,
-}: ProductionRecordPanelProps) {
+  serviceTiers = [],
+  onServiceTierChange,
+}: ProductionRecordPanelProps & {
+  serviceTiers?: ClientServiceTier[];
+  onServiceTierChange?: (tierId: string) => void | Promise<void>;
+}) {
   const [billingForm, setBillingForm] = useState<BillingEditForm>(() => toBillingForm(overview));
+  const assignedTierId = overview.organization.tierId || "";
 
   useEffect(() => {
     setBillingForm(toBillingForm(overview));
@@ -58,7 +65,28 @@ export default function BillingPanel({
         className="space-y-3"
       >
         <div className="grid gap-3 sm:grid-cols-2">
-          <FormField id="billing-plan" label="Plan" value={billingForm.planName || ""} onChange={(planName) => setBillingForm((form) => ({ ...form, planName }))} />
+          <label className="grid gap-1 text-sm">
+            <span className="font-medium">Service Tier</span>
+            {serviceTiers.length > 0 && onServiceTierChange ? (
+              <select
+                className={selectClass}
+                value={assignedTierId}
+                onChange={(event) => void onServiceTierChange(event.target.value)}
+                disabled={saving}
+              >
+                <option value="">Not assigned</option>
+                {serviceTiers.map((tier) => (
+                  <option key={tier.id} value={tier.id}>
+                    {tier.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)]">
+                {getClientBillingTierLabel(overview.organization, overview.billingStatus)}
+              </span>
+            )}
+          </label>
           <label className="grid gap-1 text-sm">
             <span className="font-medium">Status</span>
             <select className={selectClass} value={billingForm.status} onChange={(event) => setBillingForm((form) => ({ ...form, status: event.target.value }))}>

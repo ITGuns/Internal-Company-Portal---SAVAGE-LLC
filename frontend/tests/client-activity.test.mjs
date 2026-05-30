@@ -54,4 +54,5 @@ test('maps activity types to dashboard tones', () => {
   assert.equal(getClientActivityTone('report_published'), 'report');
   assert.equal(getClientActivityTone('calendar_deleted'), 'calendar');
   assert.equal(getClientActivityTone('billing_updated'), 'account');
+  assert.equal(getClientActivityTone('organization_service_tier_updated'), 'account');
 });

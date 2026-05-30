@@ -103,7 +103,6 @@ test('clamps numeric edit values before submission', () => {
     renewalAt: '2026-07-01',
     visibleToClient: true,
   })), {
-    planName: 'Growth',
     status: 'active',
     monthlyAmount: 2500,
     currency: 'USD',

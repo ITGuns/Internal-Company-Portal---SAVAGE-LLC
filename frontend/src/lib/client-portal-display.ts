@@ -1,4 +1,4 @@
-import type { ClientTicketComment } from "./client-portal";
+import type { ClientBillingStatus, ClientOrganization, ClientTicketComment } from "./client-portal";
 
 export function formatClientPortalDate(value?: string | null): string {
   if (!value) return "Recently";
@@ -18,4 +18,11 @@ export function getClientCommentAuthorLabel(comment: ClientTicketComment, curren
   if (comment.visibility === "internal") return "Internal note";
   if (currentUserId !== undefined && currentUserId !== null && comment.authorId === String(currentUserId)) return "You";
   return comment.author?.name || comment.author?.email || "Team";
+}
+
+export function getClientBillingTierLabel(
+  organization?: Pick<ClientOrganization, "tier"> | null,
+  billing?: Pick<ClientBillingStatus, "planName"> | null,
+): string {
+  return organization?.tier?.name || billing?.planName || "Current plan";
 }

@@ -52,7 +52,7 @@ export const CLIENT_OPERATIONS_NAV_ITEMS: ClientOperationsNavItem[] = [
     href: "/operations/clients/billing",
     label: "Billing",
     title: "Billing Status",
-    subtitle: "Client plan, payment status, renewal details, and visibility",
+    subtitle: "Service tier, payment status, renewal details, and visibility",
   },
   {
     href: "/operations/clients/roadmap",

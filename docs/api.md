@@ -188,6 +188,10 @@ Client portal management access recognizes normalized admin, administrator, mana
 
 - `GET /api/clients/organizations` lists client organizations visible to the requester.
 - `POST /api/clients/organizations` creates a client organization and is restricted to client-management access.
+- `GET /api/clients/service-tiers` lists service tiers for internal client-management users.
+- `POST /api/clients/service-tiers` creates a service tier for internal client-management users.
+- `PATCH /api/clients/service-tiers/:id` updates service tier name, description, monthly price, or priority rank for internal client-management users.
+- `PATCH /api/clients/organizations/:id/service-tier` assigns or clears a service tier on a client organization for internal client-management users.
 - `PATCH /api/clients/organizations/:id/status` updates a client organization status (`active`, `paused`, or `archived`) for internal management. Archiving removes client-facing access without deleting history.
 - `GET /api/clients/organizations/:id/overview` returns one organization with scoped memberships, projects, tickets, updates, metrics, and resources.
 - `GET /api/clients/organizations/:id/activity` returns scoped activity history for one client organization. Internal users can receive internal and client-visible events; client users only receive client-visible events for assigned active organizations.
@@ -215,7 +219,7 @@ Client portal management access recognizes normalized admin, administrator, mana
 - `PATCH /api/clients/roadmap/:id` updates or archives a roadmap recommendation for internal management.
 - `POST /api/clients/organizations/:id/assets` creates a client asset/file link for internal management.
 - `PATCH /api/clients/assets/:id` updates or archives a client asset/file link for internal management.
-- `PATCH /api/clients/organizations/:id/billing-status` upserts client billing or plan status for internal management.
+- `PATCH /api/clients/organizations/:id/billing-status` upserts client billing/payment status for internal management. Service tier assignment stays on the client organization.
 - `POST /api/clients/organizations/:id/calendar-items` creates a campaign/content calendar item. Internal management can attach normal calendar metadata; assigned client users can add date-only items for their own active client organization, with `status` forced to `planned` and `visibleToClient` forced to `true`.
 - `PATCH /api/clients/calendar-items/:id` updates or archives a campaign/content calendar item. Client users can only edit items they personally added, and client edits keep the item client-visible and planned.
 - `DELETE /api/clients/calendar-items/:id` permanently deletes a campaign/content calendar item. Client users can only delete items they personally added.
@@ -238,7 +242,7 @@ Protected fields:
 - Client-visible overview data only returns updates, metrics, and resources marked visible to the client.
 - Client-visible overview data also filters work items, approvals, reports, roadmap recommendations, assets, billing status, and calendar items through their `visibleToClient` and status flags.
 - Internal comments stay hidden from client ticket responses.
-- Client activity responses strip internal events and internal metadata from client users. Activity creation is transactional for audit-significant events such as request replies, approval decisions, billing changes, calendar deletion, and account archive/restore.
+- Client activity responses strip internal events and internal metadata from client users. Activity creation is transactional for audit-significant events such as request replies, approval decisions, billing changes, service tier assignment changes, calendar deletion, and account archive/restore.
 
 ## Daily Logs
 

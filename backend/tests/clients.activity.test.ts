@@ -13,6 +13,7 @@ assert.equal(normalizeClientActivityVisibility('internal'), 'internal')
 assert.equal(normalizeClientActivityVisibility('unknown'), 'internal')
 assert.equal(CLIENT_ACTIVITY_TYPES.ticketClientReplyCreated, 'ticket_client_reply_created')
 assert.equal(CLIENT_ACTIVITY_TYPES.approvalApproved, 'approval_approved')
+assert.equal(CLIENT_ACTIVITY_TYPES.organizationServiceTierUpdated, 'organization_service_tier_updated')
 
 const teamQueue = buildTicketQueueItems({
   id: 'ticket-1',

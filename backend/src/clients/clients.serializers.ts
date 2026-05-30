@@ -4,6 +4,10 @@ interface ClientServiceTierLike {
   id: string
   name: string
   description?: string | null
+  monthlyPrice?: number | null
+  priorityRank?: number | null
+  createdAt?: SerializableDate
+  updatedAt?: SerializableDate
   [key: string]: unknown
 }
 
@@ -291,6 +295,24 @@ function serializeDate(value: SerializableDate): string | null {
   return new Date(value).toISOString()
 }
 
+export function serializeClientServiceTierForClient(tier: ClientServiceTierLike) {
+  return {
+    id: tier.id,
+    name: tier.name,
+    description: tier.description || null,
+  }
+}
+
+export function serializeClientServiceTierForManagement(tier: ClientServiceTierLike) {
+  return {
+    ...serializeClientServiceTierForClient(tier),
+    monthlyPrice: typeof tier.monthlyPrice === 'number' ? tier.monthlyPrice : null,
+    priorityRank: typeof tier.priorityRank === 'number' ? tier.priorityRank : 0,
+    createdAt: serializeDate(tier.createdAt),
+    updatedAt: serializeDate(tier.updatedAt),
+  }
+}
+
 export function serializeClientOrganizationForClient(organization: ClientOrganizationLike) {
   return {
     id: organization.id,
@@ -300,13 +322,7 @@ export function serializeClientOrganizationForClient(organization: ClientOrganiz
     websiteUrl: organization.websiteUrl || null,
     createdAt: serializeDate(organization.createdAt),
     updatedAt: serializeDate(organization.updatedAt),
-    tier: organization.tier
-      ? {
-        id: organization.tier.id,
-        name: organization.tier.name,
-        description: organization.tier.description || null,
-      }
-      : null,
+    tier: organization.tier ? serializeClientServiceTierForClient(organization.tier) : null,
   }
 }
 
@@ -315,15 +331,7 @@ export function serializeClientOrganizationForManagement(organization: ClientOrg
     ...serializeClientOrganizationForClient(organization),
     tierId: typeof organization.tierId === 'string' ? organization.tierId : null,
     notes: typeof organization.notes === 'string' ? organization.notes : null,
-    tier: organization.tier
-      ? {
-        id: organization.tier.id,
-        name: organization.tier.name,
-        description: organization.tier.description || null,
-        monthlyPrice: typeof organization.tier.monthlyPrice === 'number' ? organization.tier.monthlyPrice : null,
-        priorityRank: typeof organization.tier.priorityRank === 'number' ? organization.tier.priorityRank : 0,
-      }
-      : null,
+    tier: organization.tier ? serializeClientServiceTierForManagement(organization.tier) : null,
     counts: organization._count || undefined,
   }
 }

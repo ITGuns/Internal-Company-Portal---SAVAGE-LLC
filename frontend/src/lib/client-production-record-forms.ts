@@ -50,7 +50,6 @@ export interface AssetEditForm {
 }
 
 export interface BillingEditForm {
-  planName?: string;
   status: string;
   monthlyAmount?: NumericInput;
   currency?: string;
@@ -175,7 +174,6 @@ export function buildAssetUpdatePayload(form: AssetEditForm) {
 
 export function buildBillingPayload(form: BillingEditForm) {
   return {
-    ...(optionalString(form.planName) ? { planName: optionalString(form.planName) } : {}),
     status: form.status,
     ...(optionalNumber(form.monthlyAmount) !== undefined ? { monthlyAmount: optionalNumber(form.monthlyAmount) } : {}),
     currency: (optionalString(form.currency) || "USD").toUpperCase(),

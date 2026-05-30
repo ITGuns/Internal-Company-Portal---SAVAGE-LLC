@@ -24,6 +24,7 @@ export const CLIENT_ACTIVITY_TYPES = {
   calendarScheduled: 'calendar_scheduled',
   calendarUpdated: 'calendar_updated',
   calendarDeleted: 'calendar_deleted',
+  organizationServiceTierUpdated: 'organization_service_tier_updated',
   organizationArchived: 'organization_archived',
   organizationRestored: 'organization_restored',
   membershipUpdated: 'membership_updated',

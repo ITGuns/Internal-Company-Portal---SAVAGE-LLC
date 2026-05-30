@@ -46,7 +46,7 @@ export const CLIENT_PORTAL_NAV_ITEMS: ClientPortalNavItem[] = [
     href: "/client/account",
     label: "Account",
     title: "Account",
-    subtitle: "Plan, team, access, and account status",
+    subtitle: "Service tier, team, access, and account status",
   },
   {
     href: "/client/calendar",

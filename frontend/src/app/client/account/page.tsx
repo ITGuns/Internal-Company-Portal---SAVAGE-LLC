@@ -5,7 +5,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import StatusBadge from "@/components/ui/StatusBadge";
 import ClientPortalPanel from "@/components/client-portal/ClientPortalPanel";
 import ClientPortalWorkspaceFrame from "@/components/client-portal/ClientPortalWorkspaceFrame";
-import { formatClientPortalDate } from "@/lib/client-portal-display";
+import { formatClientPortalDate, getClientBillingTierLabel } from "@/lib/client-portal-display";
 import {
   getActiveClientMemberships,
   getClientMembershipDisplayName,
@@ -28,7 +28,7 @@ export default function ClientAccountPage() {
   return (
     <ClientPortalWorkspaceFrame
       title="Account"
-      subtitle="Plan, team, access, and account status."
+      subtitle="Service tier, team, access, and account status."
     >
       {({ overview }) => {
         if (!overview) return null;
@@ -59,7 +59,7 @@ export default function ClientAccountPage() {
                 </div>
                 <div className="rounded-[var(--radius-md)] border border-[var(--border)] p-3">
                   <div className="text-xs font-medium uppercase text-[var(--muted)]">Service Tier</div>
-                  <div className="mt-1 font-medium">{organization.tier?.name || "Plan pending"}</div>
+                  <div className="mt-1 font-medium">{organization.tier?.name || "Tier pending"}</div>
                   {organization.tier?.description ? (
                     <p className="mt-1 text-sm text-[var(--muted)]">{organization.tier.description}</p>
                   ) : null}
@@ -69,7 +69,7 @@ export default function ClientAccountPage() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <div className="text-xs font-medium uppercase text-[var(--muted)]">Billing Status</div>
-                        <div className="mt-1 font-medium">{billing.planName || organization.tier?.name || "Current plan"}</div>
+                        <div className="mt-1 font-medium">{getClientBillingTierLabel(organization, billing)}</div>
                       </div>
                       <StatusBadge label={billing.status.replace(/_/g, " ")} size="sm" />
                     </div>

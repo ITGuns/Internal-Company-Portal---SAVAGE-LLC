@@ -1,5 +1,67 @@
 # Development Notes
 
+## 2026-05-31 - Client Service Tier Management
+
+### Completed
+
+- Added manager-only API routes to list, create, and update client service tiers.
+- Added a manager-only client organization route to assign or clear a service tier.
+- Added Client Operations account controls for assigning tiers during client creation, changing a selected client's tier, and adding/editing tier records.
+- Preserved client-safe serialization so client users can see tier name/description but not internal monthly price or priority rank.
+- Replaced the Billing screen's free-text plan field with service tier assignment so billing reflects the same tier used elsewhere.
+- Updated account, billing, operations overview, and client account displays to prefer the assigned service tier over legacy billing plan text.
+- Added internal activity/audit records when a manager assigns or clears a client's service tier.
+
+### Files Changed
+
+- `backend/src/clients/clients.controller.ts`
+- `backend/src/clients/clients.activity.ts`
+- `backend/src/clients/clients.serializers.ts`
+- `backend/src/clients/clients.service.ts`
+- `backend/src/clients/clients.validation.ts`
+- `backend/tests/clients.activity.test.ts`
+- `backend/tests/clients.routes.test.ts`
+- `frontend/scripts/visual-smoke.mjs`
+- `frontend/src/app/client/account/page.tsx`
+- `frontend/src/app/operations/clients/accounts/page.tsx`
+- `frontend/src/app/operations/clients/billing/page.tsx`
+- `frontend/src/app/operations/clients/page.tsx`
+- `frontend/src/components/client-portal/AdminClientAccountProfilePanel.tsx`
+- `frontend/src/components/client-portal/AdminClientServiceTiersPanel.tsx`
+- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
+- `frontend/src/components/client-portal/production-records/BillingPanel.tsx`
+- `frontend/src/lib/client-operations-navigation.ts`
+- `frontend/src/lib/client-portal-navigation.ts`
+- `frontend/src/lib/client-portal-display.ts`
+- `frontend/src/lib/client-portal.ts`
+- `frontend/src/lib/client-production-record-forms.ts`
+- `frontend/src/lib/client-service-tiers.ts`
+- `frontend/tests/client-activity.test.mjs`
+- `frontend/tests/client-portal-display.test.mjs`
+- `frontend/tests/client-production-record-forms.test.mjs`
+- `docs/api.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Reused the existing `ClientServiceTier` and `ClientOrganization.tierId` schema instead of adding a migration.
+- Kept service tier management restricted to existing client-management access.
+- Made service tier the billing tier source of truth; billing status now stays focused on payment status, amount, renewal date, and client visibility.
+- Kept backend `billingStatus.planName` as a legacy-compatible field for existing records, but the billing UI no longer edits or submits it.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+
+### Next Steps
+
+- Consider a later migration or cleanup path for legacy billing `planName` values after production data is reviewed.
+
 ## 2026-05-30 - Internal Route Visual Smoke and Touch Target Pass
 
 ### Completed

@@ -14,6 +14,7 @@ import {
 } from './clients.activity'
 import {
   ClientActivityQueryInput,
+  CreateClientServiceTierInput,
   CreateClientOrganizationInput,
   CreateClientMembershipInput,
   CreateClientMetricSnapshotInput,
@@ -31,7 +32,9 @@ import {
   ClientValidationError,
   GenerateClientReportDraftInput,
   InviteClientUserInput,
+  UpdateClientOrganizationServiceTierInput,
   UpdateClientOrganizationStatusInput,
+  UpdateClientServiceTierInput,
   UpdateClientApprovalInput,
   UpdateClientAssetInput,
   UpdateClientCalendarItemInput,
@@ -74,6 +77,31 @@ export class ClientsService {
     this.prisma = prisma
   }
 
+  async findServiceTiers() {
+    return this.prisma.clientServiceTier.findMany({
+      orderBy: [{ priorityRank: 'desc' }, { name: 'asc' }],
+      take: 100,
+    })
+  }
+
+  async createServiceTier(data: CreateClientServiceTierInput) {
+    return this.prisma.clientServiceTier.create({
+      data: {
+        name: data.name,
+        description: data.description,
+        monthlyPrice: data.monthlyPrice,
+        priorityRank: data.priorityRank,
+      },
+    })
+  }
+
+  async updateServiceTier(id: string, data: UpdateClientServiceTierInput) {
+    return this.prisma.clientServiceTier.update({
+      where: { id },
+      data,
+    })
+  }
+
   async findOrganizations(where: Prisma.ClientOrganizationWhereInput = {}) {
     return this.prisma.clientOrganization.findMany({
       where,
@@ -113,6 +141,65 @@ export class ClientsService {
           },
         },
       },
+    })
+  }
+
+  async updateOrganizationServiceTier(id: string, data: UpdateClientOrganizationServiceTierInput, actorId?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const previous = await tx.clientOrganization.findUnique({
+        where: { id },
+        select: {
+          tierId: true,
+          tier: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      })
+
+      const organization = await tx.clientOrganization.update({
+        where: { id },
+        data: {
+          tierId: data.tierId,
+        },
+        include: {
+          tier: true,
+          _count: {
+            select: {
+              memberships: true,
+              projects: true,
+              tickets: true,
+              updates: true,
+            },
+          },
+        },
+      })
+
+      if (previous?.tierId !== organization.tierId) {
+        await createClientActivity(tx, {
+          organizationId: organization.id,
+          actorId,
+          type: CLIENT_ACTIVITY_TYPES.organizationServiceTierUpdated,
+          subjectType: 'organization',
+          subjectId: organization.id,
+          visibility: 'internal',
+          title: organization.tier
+            ? `Service tier assigned: ${organization.tier.name}`
+            : 'Service tier cleared',
+          body: previous?.tier?.name
+            ? `Previous tier: ${previous.tier.name}`
+            : null,
+          metadata: {
+            previousTierId: previous?.tierId || null,
+            previousTierName: previous?.tier?.name || null,
+            tierId: organization.tierId || null,
+            tierName: organization.tier?.name || null,
+          },
+        })
+      }
+
+      return organization
     })
   }
 

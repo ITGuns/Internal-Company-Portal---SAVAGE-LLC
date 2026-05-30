@@ -207,8 +207,21 @@ const clientOrganization = {
   status: "active",
   websiteUrl: "https://example.test",
   counts: { memberships: 2, projects: 1, tickets: 2, updates: 1 },
-  tier: { id: "tier-1", name: "Growth" },
+  tierId: "tier-1",
+  tier: { id: "tier-1", name: "Growth", description: "Lead generation support" },
 };
+
+const clientServiceTiers = [
+  {
+    id: "tier-1",
+    name: "Growth",
+    description: "Lead generation support",
+    monthlyPrice: 1750,
+    priorityRank: 20,
+    createdAt: now,
+    updatedAt: now,
+  },
+];
 
 const clientTickets = [
   {
@@ -553,6 +566,10 @@ async function installMocks(page) {
     }
     if (path === "/api/clients/organizations") {
       await route.fulfill(jsonResponse([clientOrganization]));
+      return;
+    }
+    if (path === "/api/clients/service-tiers") {
+      await route.fulfill(jsonResponse(clientServiceTiers));
       return;
     }
     if (path === "/api/clients/tickets") {

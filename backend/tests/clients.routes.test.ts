@@ -284,6 +284,147 @@ async function runClientRouteTests() {
       )
       assert.equal(otherOverview.status, 403)
 
+      const clientTierCreateAttempt = await requestJson(baseUrl, '/api/clients/service-tiers', {
+        method: 'POST',
+        token: clientToken,
+        body: {
+          name: `Client Tier Attempt ${suffix}`,
+        },
+      })
+      assert.equal(clientTierCreateAttempt.status, 403)
+
+      const tier = await requestJson(baseUrl, '/api/clients/service-tiers', {
+        method: 'POST',
+        token: adminToken,
+        body: {
+          name: `Growth Care ${suffix}`,
+          description: 'Lead generation, reporting, and priority request support.',
+          monthlyPrice: 1750,
+          priorityRank: 20,
+        },
+      })
+      assert.equal(tier.status, 201)
+      assert.equal(tier.body.name, `Growth Care ${suffix}`)
+      assert.equal(tier.body.description, 'Lead generation, reporting, and priority request support.')
+      assert.equal(tier.body.monthlyPrice, 1750)
+      assert.equal(tier.body.priorityRank, 20)
+
+      const updatedTier = await requestJson(baseUrl, `/api/clients/service-tiers/${tier.body.id}`, {
+        method: 'PATCH',
+        token: adminToken,
+        body: {
+          name: `Premium Care ${suffix}`,
+          description: '',
+          monthlyPrice: '',
+          priorityRank: 30,
+        },
+      })
+      assert.equal(updatedTier.status, 200)
+      assert.equal(updatedTier.body.name, `Premium Care ${suffix}`)
+      assert.equal(updatedTier.body.description, null)
+      assert.equal(updatedTier.body.monthlyPrice, null)
+      assert.equal(updatedTier.body.priorityRank, 30)
+
+      const tiers = await requestJson(baseUrl, '/api/clients/service-tiers', {
+        token: adminToken,
+      })
+      assert.equal(tiers.status, 200)
+      assert.equal(
+        tiers.body.some((item: JsonRecord) => item.id === tier.body.id && item.name === `Premium Care ${suffix}`),
+        true,
+      )
+
+      const clientTierListAttempt = await requestJson(baseUrl, '/api/clients/service-tiers', {
+        token: clientToken,
+      })
+      assert.equal(clientTierListAttempt.status, 403)
+
+      const clientTierAssignAttempt = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/service-tier`,
+        {
+          method: 'PATCH',
+          token: clientToken,
+          body: { tierId: tier.body.id },
+        },
+      )
+      assert.equal(clientTierAssignAttempt.status, 403)
+
+      const assignedTier = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/service-tier`,
+        {
+          method: 'PATCH',
+          token: adminToken,
+          body: { tierId: tier.body.id },
+        },
+      )
+      assert.equal(assignedTier.status, 200)
+      assert.equal(assignedTier.body.id, organization.id)
+      assert.equal(assignedTier.body.tierId, tier.body.id)
+      assert.equal(assignedTier.body.tier.name, `Premium Care ${suffix}`)
+
+      const clientOrganizationsWithTier = await requestJson(baseUrl, '/api/clients/organizations', {
+        token: clientToken,
+      })
+      assert.equal(clientOrganizationsWithTier.status, 200)
+      assert.equal(clientOrganizationsWithTier.body[0].tier.name, `Premium Care ${suffix}`)
+      assert.equal('monthlyPrice' in clientOrganizationsWithTier.body[0].tier, false)
+      assert.equal('priorityRank' in clientOrganizationsWithTier.body[0].tier, false)
+
+      const clearedTier = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/service-tier`,
+        {
+          method: 'PATCH',
+          token: adminToken,
+          body: { tierId: null },
+        },
+      )
+      assert.equal(clearedTier.status, 200)
+      assert.equal(clearedTier.body.tierId, null)
+      assert.equal(clearedTier.body.tier, null)
+
+      const serviceTierActivity = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/activity?subjectType=organization&subjectId=${organization.id}`,
+        { token: adminToken },
+      )
+      assert.equal(serviceTierActivity.status, 200)
+      const serviceTierEvents = serviceTierActivity.body.filter(
+        (activity: JsonRecord) => activity.type === 'organization_service_tier_updated',
+      )
+      assert.equal(serviceTierEvents.length, 2)
+      assert.equal(
+        serviceTierEvents.some((activity: JsonRecord) => activity.metadata?.tierName === `Premium Care ${suffix}`),
+        true,
+      )
+      assert.equal(
+        serviceTierEvents.some((activity: JsonRecord) => activity.metadata?.previousTierName === `Premium Care ${suffix}`),
+        true,
+      )
+
+      const clientServiceTierActivity = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/activity?subjectType=organization&subjectId=${organization.id}`,
+        { token: login.body.tokens.accessToken },
+      )
+      assert.equal(clientServiceTierActivity.status, 200)
+      assert.equal(
+        clientServiceTierActivity.body.some((activity: JsonRecord) => activity.type === 'organization_service_tier_updated'),
+        false,
+      )
+
+      const invalidTier = await requestJson(baseUrl, '/api/clients/service-tiers', {
+        method: 'POST',
+        token: adminToken,
+        body: {
+          name: 'Invalid price tier',
+          monthlyPrice: -1,
+        },
+      })
+      assert.equal(invalidTier.status, 400)
+
       const otherTicket = await requestJson(
         baseUrl,
         `/api/clients/organizations/${otherOrganization.id}/tickets`,
@@ -1082,6 +1223,9 @@ async function runClientRouteTests() {
     })
     await prisma.clientOrganization.deleteMany({
       where: { id: { in: [organization.id, otherOrganization.id] } },
+    })
+    await prisma.clientServiceTier.deleteMany({
+      where: { name: { in: [`Growth Care ${suffix}`, `Premium Care ${suffix}`] } },
     })
     await prisma.user.deleteMany({
       where: {

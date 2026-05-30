@@ -30,6 +30,7 @@ import {
   serializeClientResourceLinkForManagement,
   serializeClientRoadmapRecommendationForManagement,
   serializeClientReportForManagement,
+  serializeClientServiceTierForManagement,
   serializeClientTicketForClient,
   serializeClientTicketForManagement,
   serializeClientUpdateForManagement,
@@ -45,6 +46,7 @@ import {
   parseCreateClientCalendarItemInput,
   parseCreateClientReportInput,
   parseCreateClientRoadmapRecommendationInput,
+  parseCreateClientServiceTierInput,
   parseCreateClientWorkItemInput,
   parseCreateClientOrganizationInput,
   parseCreateClientMembershipInput,
@@ -60,11 +62,13 @@ import {
   parseUpdateClientAssetInput,
   parseUpdateClientCalendarItemInput,
   parseUpdateClientMembershipInput,
+  parseUpdateClientOrganizationServiceTierInput,
   parseUpdateClientOrganizationStatusInput,
   parseUpdateClientProjectInput,
   parseUpdateClientReportInput,
   parseUpdateClientResourceLinkInput,
   parseUpdateClientRoadmapRecommendationInput,
+  parseUpdateClientServiceTierInput,
   parseUpdateClientTicketInput,
   parseUpdateClientTicketStatusInput,
   parseUpdateClientWorkItemInput,
@@ -221,6 +225,72 @@ export class ClientsController {
       }
     })
 
+    router.get('/service-tiers', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can manage service tiers' })
+        }
+
+        const tiers = await this.service.findServiceTiers()
+        res.json(tiers.map((tier) => serializeClientServiceTierForManagement(tier)))
+      } catch (error) {
+        console.error('[Clients] Error listing service tiers:', error)
+        res.status(500).json({ error: 'Failed to fetch service tiers' })
+      }
+    })
+
+    router.post('/service-tiers', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can manage service tiers' })
+        }
+
+        const tier = await this.service.createServiceTier(parseCreateClientServiceTierInput(req.body || {}))
+        res.status(201).json(serializeClientServiceTierForManagement(tier))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2002') {
+          return res.status(409).json({ error: 'Service tier name already exists' })
+        }
+
+        console.error('[Clients] Error creating service tier:', error)
+        res.status(500).json({ error: 'Failed to create service tier' })
+      }
+    })
+
+    router.patch('/service-tiers/:id', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can manage service tiers' })
+        }
+
+        const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const tier = await this.service.updateServiceTier(id, parseUpdateClientServiceTierInput(req.body || {}))
+        res.json(serializeClientServiceTierForManagement(tier))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2025') {
+          return res.status(404).json({ error: 'Service tier not found' })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2002') {
+          return res.status(409).json({ error: 'Service tier name already exists' })
+        }
+
+        console.error('[Clients] Error updating service tier:', error)
+        res.status(500).json({ error: 'Failed to update service tier' })
+      }
+    })
+
     router.post('/organizations', authenticateToken, async (req: Request, res: Response) => {
       try {
         const access = await this.getAccessContext(req)
@@ -244,6 +314,38 @@ export class ClientsController {
 
         console.error('[Clients] Error creating organization:', error)
         res.status(500).json({ error: 'Failed to create client organization' })
+      }
+    })
+
+    router.patch('/organizations/:id/service-tier', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can update client service tiers' })
+        }
+
+        const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const organization = await this.service.updateOrganizationServiceTier(
+          id,
+          parseUpdateClientOrganizationServiceTierInput(req.body || {}),
+          access.requesterId,
+        )
+
+        res.json(serializeClientOrganizationForManagement(organization))
+      } catch (error) {
+        if (error instanceof ClientValidationError) {
+          return res.status(400).json({ error: error.message })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2025') {
+          return res.status(404).json({ error: 'Client organization not found' })
+        }
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
+          return res.status(400).json({ error: 'Invalid service tier' })
+        }
+
+        console.error('[Clients] Error updating organization service tier:', error)
+        res.status(500).json({ error: 'Failed to update client service tier' })
       }
     })
 

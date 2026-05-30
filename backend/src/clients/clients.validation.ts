@@ -13,6 +13,24 @@ export interface CreateClientOrganizationInput {
   notes?: string
 }
 
+export interface CreateClientServiceTierInput {
+  name: string
+  description?: string
+  monthlyPrice?: number
+  priorityRank: number
+}
+
+export interface UpdateClientServiceTierInput {
+  name?: string
+  description?: string | null
+  monthlyPrice?: number | null
+  priorityRank?: number
+}
+
+export interface UpdateClientOrganizationServiceTierInput {
+  tierId: string | null
+}
+
 export interface UpdateClientOrganizationStatusInput {
   status: string
 }
@@ -434,6 +452,18 @@ function readNonNegativeNumber(input: InputRecord, key: string): number | undefi
   return value
 }
 
+function readNullableNonNegativeNumber(input: InputRecord, key: string): number | null | undefined {
+  if (!(key in input)) return undefined
+  const value = input[key]
+  if (value === null) return null
+  if (typeof value === 'string' && value.trim() === '') return null
+
+  const numberValue = readNumber(input, key)
+  if (numberValue === undefined) return undefined
+  if (numberValue < 0) throw new ClientValidationError(`${key} cannot be negative`)
+  return numberValue
+}
+
 function readSnapshot(input: InputRecord, key: string): unknown {
   if (!(key in input)) return undefined
   const value = input[key]
@@ -528,6 +558,44 @@ export function parseCreateClientOrganizationInput(input: InputRecord): CreateCl
     tierId: readTrimmedString(input, 'tierId'),
     notes: readTrimmedString(input, 'notes'),
   }
+}
+
+export function parseCreateClientServiceTierInput(input: InputRecord): CreateClientServiceTierInput {
+  const name = readTrimmedString(input, 'name')
+  if (!name) throw new ClientValidationError('Service tier name is required')
+
+  return {
+    name,
+    description: readTrimmedString(input, 'description'),
+    monthlyPrice: readNonNegativeNumber(input, 'monthlyPrice'),
+    priorityRank: readNonNegativeInteger(input, 'priorityRank') ?? 0,
+  }
+}
+
+export function parseUpdateClientServiceTierInput(input: InputRecord): UpdateClientServiceTierInput {
+  const data: UpdateClientServiceTierInput = {}
+  const name = readTrimmedString(input, 'name')
+  if (name) data.name = name
+
+  const description = readNullableTrimmedString(input, 'description')
+  if (description !== undefined) data.description = description
+
+  const monthlyPrice = readNullableNonNegativeNumber(input, 'monthlyPrice')
+  if (monthlyPrice !== undefined) data.monthlyPrice = monthlyPrice
+
+  const priorityRank = readNonNegativeInteger(input, 'priorityRank')
+  if (priorityRank !== undefined) data.priorityRank = priorityRank
+
+  assertHasUpdates(data as InputRecord)
+  return data
+}
+
+export function parseUpdateClientOrganizationServiceTierInput(
+  input: InputRecord,
+): UpdateClientOrganizationServiceTierInput {
+  const tierId = readNullableTrimmedString(input, 'tierId')
+  if (tierId === undefined) throw new ClientValidationError('tierId is required')
+  return { tierId }
 }
 
 export function parseUpdateClientOrganizationStatusInput(input: InputRecord): UpdateClientOrganizationStatusInput {
