@@ -185,17 +185,19 @@ export default function OperationsPage() {
         />
 
         <div className="mt-6">
-          <div className="flex items-center gap-4 border-b border-[var(--border)] mb-6">
+          <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-[var(--border)]">
             <button
+              type="button"
               onClick={() => setActiveTab('departments')}
-              className={`pb-2 px-1 text-sm font-medium transition-colors relative ${activeTab === 'departments' ? 'text-[var(--accent)]' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
+              className={`relative min-h-10 rounded-t-[var(--radius-md)] px-3 text-sm font-medium transition-colors ${activeTab === 'departments' ? 'text-[var(--accent)]' : 'text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]'}`}
             >
               Departments
               {activeTab === 'departments' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent)]" />}
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('roles')}
-              className={`pb-2 px-1 text-sm font-medium transition-colors relative ${activeTab === 'roles' ? 'text-[var(--accent)]' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
+              className={`relative min-h-10 rounded-t-[var(--radius-md)] px-3 text-sm font-medium transition-colors ${activeTab === 'roles' ? 'text-[var(--accent)]' : 'text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]'}`}
             >
               Roles
               {activeTab === 'roles' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent)]" />}
@@ -256,8 +258,9 @@ export default function OperationsPage() {
                         )}
                       </div>
                       <button
+                        type="button"
                         onClick={() => openDepartmentDelete(dept)}
-                        className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-500"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30"
                         aria-label={`Delete ${dept.name}`}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -288,8 +291,9 @@ export default function OperationsPage() {
                     </div>
                     <div className="flex justify-end">
                       <button
+                        type="button"
                         onClick={() => openRoleDelete(role)}
-                        className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-500"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30"
                         aria-label={`Delete role ${role.name}`}
                       >
                         <Trash2 className="w-4 h-4" />

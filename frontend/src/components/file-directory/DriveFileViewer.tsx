@@ -148,8 +148,9 @@ export default function DriveFileViewer({
                 {/* Breadcrumbs */}
                 <div className="flex items-center gap-1 flex-1 min-w-0 flex-wrap">
                     <button
+                        type="button"
                         onClick={onExit}
-                        className="flex items-center gap-1 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                        className="flex min-h-10 items-center gap-1 rounded-[var(--radius-md)] px-2 text-sm text-[var(--muted)] transition-colors hover:bg-[var(--card-bg)] hover:text-[var(--foreground)]"
                     >
                         <Home className="w-3.5 h-3.5" />
                         <span className="hidden sm:inline">Directory</span>
@@ -159,8 +160,9 @@ export default function DriveFileViewer({
                         <React.Fragment key={entry.id}>
                             <ChevronRight className="w-3.5 h-3.5 text-[var(--muted)] flex-shrink-0" />
                             <button
+                                type="button"
                                 onClick={() => navigateTo(i)}
-                                className={`text-sm truncate max-w-[140px] transition-colors ${i === stack.length - 1
+                                className={`min-h-10 max-w-[140px] truncate rounded-[var(--radius-md)] px-2 text-sm transition-colors hover:bg-[var(--card-bg)] ${i === stack.length - 1
                                     ? 'text-[var(--foreground)] font-medium'
                                     : 'text-[var(--muted)] hover:text-[var(--foreground)]'
                                     }`}
@@ -175,9 +177,10 @@ export default function DriveFileViewer({
                 {/* Actions */}
                 <div className="flex items-center gap-2 flex-shrink-0">
                     <button
+                        type="button"
                         onClick={refresh}
                         disabled={loading}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--border)] hover:bg-[var(--card-bg)] transition-colors disabled:opacity-50"
+                        className="flex min-h-10 items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-medium transition-colors hover:bg-[var(--card-bg)] disabled:opacity-50"
                         title="Refresh from Drive"
                     >
                         <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -185,8 +188,9 @@ export default function DriveFileViewer({
                     </button>
 
                     <button
+                        type="button"
                         onClick={openInDrive}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--border)] hover:bg-[var(--card-bg)] transition-colors text-blue-600 dark:text-blue-400"
+                        className="flex min-h-10 items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-medium text-blue-600 transition-colors hover:bg-[var(--card-bg)] dark:text-blue-400"
                         title="Open in Google Drive (to upload files)"
                     >
                         <UploadCloud className="w-3.5 h-3.5" />
@@ -196,8 +200,9 @@ export default function DriveFileViewer({
                     {/* View toggle */}
                     <div className="flex rounded-lg border border-[var(--border)] overflow-hidden">
                         <button
+                            type="button"
                             onClick={() => setViewMode('grid')}
-                            className={`px-2.5 py-1.5 text-xs transition-colors ${viewMode === 'grid' ? 'bg-[var(--card-bg)] font-semibold' : 'hover:bg-[var(--card-bg)]'}`}
+                            className={`min-h-10 min-w-10 px-2.5 py-2 text-xs transition-colors ${viewMode === 'grid' ? 'bg-[var(--card-bg)] font-semibold' : 'hover:bg-[var(--card-bg)]'}`}
                             title="Grid view"
                             aria-label="Grid view"
                             aria-pressed={viewMode === 'grid'}
@@ -205,8 +210,9 @@ export default function DriveFileViewer({
                             ▦
                         </button>
                         <button
+                            type="button"
                             onClick={() => setViewMode('list')}
-                            className={`px-2.5 py-1.5 text-xs border-l border-[var(--border)] transition-colors ${viewMode === 'list' ? 'bg-[var(--card-bg)] font-semibold' : 'hover:bg-[var(--card-bg)]'}`}
+                            className={`min-h-10 min-w-10 border-l border-[var(--border)] px-2.5 py-2 text-xs transition-colors ${viewMode === 'list' ? 'bg-[var(--card-bg)] font-semibold' : 'hover:bg-[var(--card-bg)]'}`}
                             title="List view"
                             aria-label="List view"
                             aria-pressed={viewMode === 'list'}

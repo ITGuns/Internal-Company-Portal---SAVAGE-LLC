@@ -502,8 +502,9 @@ export default function UnifiedChatPage() {
             {/* Search Panel Toggle + Panel */}
             <div className="flex items-center justify-end px-4 py-1 border-b border-[var(--border)] bg-[var(--card-surface)]">
                 <button
+                    type="button"
                     onClick={() => setSearchOpen(prev => !prev)}
-                    className={`p-1.5 rounded-lg transition-colors text-sm flex items-center gap-1.5 ${searchOpen ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--background)]'}`}
+                    className={`flex min-h-10 items-center gap-1.5 rounded-[var(--radius-md)] px-3 text-sm transition-colors ${searchOpen ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'}`}
                     aria-label="Search messages"
                 >
                     <Search className="w-4 h-4" />
@@ -630,8 +631,8 @@ export default function UnifiedChatPage() {
                                                                 autoFocus
                                                                 aria-label="Edit message"
                                                             />
-                                                            <button onClick={handleSaveEdit} className="p-1 hover:bg-white/20 rounded" aria-label="Save edit"><Check className="w-3.5 h-3.5" /></button>
-                                                            <button onClick={handleCancelEdit} className="p-1 hover:bg-white/20 rounded" aria-label="Cancel edit"><X className="w-3.5 h-3.5" /></button>
+                                                            <button type="button" onClick={handleSaveEdit} className="inline-flex h-10 w-10 items-center justify-center rounded-full hover:bg-white/20" aria-label="Save edit"><Check className="w-4 h-4" /></button>
+                                                            <button type="button" onClick={handleCancelEdit} className="inline-flex h-10 w-10 items-center justify-center rounded-full hover:bg-white/20" aria-label="Cancel edit"><X className="w-4 h-4" /></button>
                                                         </div>
                                                     ) : (
                                                         <>
@@ -666,20 +667,22 @@ export default function UnifiedChatPage() {
 
                                                     {/* Message Actions (Edit + Delete) */}
                                                     {isMe && !editingMessageId && (
-                                                        <div className="absolute -left-16 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-all">
+                                                        <div className="absolute -left-24 top-1/2 flex -translate-y-1/2 items-center gap-1 opacity-0 transition-all group-hover:opacity-100">
                                                             <button
+                                                                type="button"
                                                                 onClick={() => handleStartEdit(msg)}
-                                                                className="p-1.5 text-[var(--muted)] hover:text-[var(--accent)] hover:bg-[var(--background)] rounded-full transition-all"
+                                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[var(--muted)] transition-all hover:bg-[var(--background)] hover:text-[var(--accent)]"
                                                                 aria-label="Edit message"
                                                             >
-                                                                <Pencil className="w-3 h-3" />
+                                                                <Pencil className="w-4 h-4" />
                                                             </button>
                                                             <button
+                                                                type="button"
                                                                 onClick={() => handleDeleteMessage(msg.id)}
-                                                                className="p-1.5 text-red-500 hover:bg-red-50 rounded-full transition-all"
+                                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-red-500 transition-all hover:bg-red-50"
                                                                 aria-label="Delete message"
                                                             >
-                                                                <Trash2 className="w-3 h-3" />
+                                                                <Trash2 className="w-4 h-4" />
                                                             </button>
                                                         </div>
                                                     )}

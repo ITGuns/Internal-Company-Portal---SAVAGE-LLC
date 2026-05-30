@@ -59,7 +59,7 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
               href={folder.driveLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-2 hover:bg-[var(--card-bg)] rounded-lg transition-colors"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg transition-colors hover:bg-[var(--card-bg)]"
               onClick={(e) => e.stopPropagation()}
               title="Open in Drive"
             >
@@ -69,11 +69,12 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
 
           {hasAction && (
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onClick?.();
               }}
-              className="px-4 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--card-bg)] rounded-lg transition-colors"
+              className="min-h-10 rounded-lg px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--card-bg)]"
             >
               Open
             </button>
@@ -81,11 +82,12 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
 
           {onDelete && (
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete();
               }}
-              className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg opacity-0 transition-colors hover:bg-red-50 group-hover:opacity-100 dark:hover:bg-red-900/20"
               title="Delete folder"
             >
               <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
@@ -113,11 +115,12 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
 
         {onDelete && (
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               onDelete();
             }}
-            className="absolute top-3 right-3 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-30"
+            className="absolute right-3 top-3 z-30 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-red-900/20"
             title="Delete folder"
           >
             <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />

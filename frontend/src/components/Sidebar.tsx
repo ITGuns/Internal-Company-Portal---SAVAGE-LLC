@@ -256,11 +256,11 @@ export default function Sidebar() {
             </div>
             <button
               type="button"
-              className="nav-animated inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)] md:hidden"
+              className="nav-animated inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)] md:hidden"
               onClick={() => setMobileOpen(false)}
               aria-label="Close navigation"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </button>
           </header>
 

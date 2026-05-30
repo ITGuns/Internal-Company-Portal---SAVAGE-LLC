@@ -18,10 +18,10 @@ interface CardSubComponentProps {
 }
 
 const variantClasses: Record<CardVariant, string> = {
-  default: 'rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--shadow-sm)] transition-[background-color,border-color,box-shadow] duration-150 ease-[var(--ease-out)]',
-  elevated: 'rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-raised)] shadow-[var(--shadow-md)] transition-[background-color,border-color,box-shadow] duration-150 ease-[var(--ease-out)]',
-  outlined: 'rounded-[var(--radius-md)] border border-[var(--border)] bg-transparent transition-[background-color,border-color] duration-150 ease-[var(--ease-out)]',
-  interactive: 'rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--shadow-sm)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--muted)] hover:bg-[var(--surface-hover)] active:translate-y-px active:scale-[0.995] cursor-pointer'
+  default: 'min-w-0 overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--shadow-sm)] transition-[background-color,border-color,box-shadow] duration-150 ease-[var(--ease-out)]',
+  elevated: 'min-w-0 overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-raised)] shadow-[var(--shadow-md)] transition-[background-color,border-color,box-shadow] duration-150 ease-[var(--ease-out)]',
+  outlined: 'min-w-0 overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-transparent transition-[background-color,border-color] duration-150 ease-[var(--ease-out)]',
+  interactive: 'min-w-0 overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] shadow-[var(--shadow-sm)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--muted)] hover:bg-[var(--surface-hover)] active:translate-y-px active:scale-[0.995] cursor-pointer'
 };
 
 const paddingClasses = {

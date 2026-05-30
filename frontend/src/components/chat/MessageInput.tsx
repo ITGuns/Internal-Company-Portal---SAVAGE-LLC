@@ -66,7 +66,7 @@ export default function MessageInput({
                 <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-2 text-[var(--muted)] hover:text-[var(--accent)] transition-colors rounded-full hover:bg-[var(--background)]"
+                    className="inline-flex h-10 w-10 min-w-10 shrink-0 items-center justify-center rounded-full text-[var(--muted)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)]"
                     aria-label="Attach file"
                 >
                     <Paperclip className="w-5 h-5" />

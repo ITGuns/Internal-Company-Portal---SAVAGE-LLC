@@ -1,5 +1,55 @@
 # Development Notes
 
+## 2026-05-30 - Internal Route Visual Smoke and Touch Target Pass
+
+### Completed
+
+- Increased shared button, card, icon-button, pagination, sidebar, and time-clock touch targets used across internal routes.
+- Fixed Daily Logs mobile layout overflow by switching the filter/content layout to a responsive grid and wrapping log metadata/actions.
+- Tightened compact controls in Chat, File Directory, Operations, and Task Tracking so desktop and mobile controls meet the visual-smoke target baseline.
+- Added a reusable Playwright-powered visual smoke script covering client, client-operations, and core internal routes at desktop and mobile viewports.
+
+### Files Changed
+
+- `frontend/package.json`
+- `frontend/scripts/visual-smoke.mjs`
+- `frontend/src/app/chat/page.tsx`
+- `frontend/src/app/daily-logs/page.tsx`
+- `frontend/src/app/file-directory/page.tsx`
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/Button.tsx`
+- `frontend/src/components/Card.tsx`
+- `frontend/src/components/IconButton.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/TimeClock.tsx`
+- `frontend/src/components/chat/ChatSidebar.tsx`
+- `frontend/src/components/chat/MessageInput.tsx`
+- `frontend/src/components/file-directory/DriveFileViewer.tsx`
+- `frontend/src/components/file-directory/FolderCard.tsx`
+- `frontend/src/components/ui/Pagination.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Keep the broader internal polish pass frontend-only; no backend routes, database schema, permission rules, or API contracts changed.
+- Use one mocked visual-smoke script for the route matrix so future touch-target, redirect, page-error, and horizontal-overflow regressions are repeatable.
+- Patch shared controls where possible, then only patch route-specific controls when the visual smoke identified a concrete issue.
+
+### How to Test
+
+- `cd frontend && npm run test:visual`
+- `cd frontend && npm run lint`
+- `cd frontend && npm test`
+- `cd frontend && npm run build`
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `git diff --check`
+
+### Next Steps
+
+- Run `npm run test:visual` before future release pushes that touch route layouts or shared controls.
+
 ## 2026-05-30 - Client Portal Touch Target Polish
 
 ### Completed

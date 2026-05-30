@@ -106,18 +106,20 @@ export default function TimeClock() {
 
             {activeEntry ? (
                 <button
+                    type="button"
                     onClick={handleClockOut}
                     disabled={actionLoading}
-                    className="flex items-center gap-2 rounded-[var(--radius-md)] border border-red-700 bg-red-700 px-3 py-2 text-xs font-semibold text-white transition-[background-color,transform] duration-150 ease-[var(--ease-out)] hover:bg-red-800 active:translate-y-px active:scale-[0.98] disabled:opacity-50"
+                    className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] border border-red-700 bg-red-700 px-3 py-2 text-sm font-semibold text-white transition-[background-color,transform] duration-150 ease-[var(--ease-out)] hover:bg-red-800 active:translate-y-px active:scale-[0.98] disabled:opacity-50"
                 >
                     {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Square className="w-3.5 h-3.5 fill-current" />}
                     Clock Out
                 </button>
             ) : (
                 <button
+                    type="button"
                     onClick={handleClockIn}
                     disabled={actionLoading}
-                    className="flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-[var(--accent-foreground)] transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-95 active:translate-y-px active:scale-[0.98] disabled:opacity-50"
+                    className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-[var(--accent-foreground)] transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-95 active:translate-y-px active:scale-[0.98] disabled:opacity-50"
                 >
                     {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
                     Clock In

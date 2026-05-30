@@ -196,8 +196,9 @@ export default function FileDirectoryPage() {
         {/* Breadcrumbs */}
         <div className="flex items-center gap-2 py-4 text-sm flex-wrap">
           <button
+            type="button"
             onClick={() => handleBreadcrumbClick(null)}
-            className="flex items-center gap-1 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            className="flex min-h-10 items-center gap-1 rounded-[var(--radius-md)] px-2 text-[var(--muted)] transition-colors hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]"
           >
             <Home className="w-4 h-4" />
             Home
@@ -207,8 +208,9 @@ export default function FileDirectoryPage() {
             <React.Fragment key={folder.id}>
               <ChevronRight className="w-4 h-4 text-[var(--muted)]" />
               <button
+                type="button"
                 onClick={() => handleBreadcrumbClick(folder.id)}
-                className={`hover:text-[var(--foreground)] transition-colors ${index === breadcrumbs.length - 1 && !driveMode
+                className={`min-h-10 rounded-[var(--radius-md)] px-2 transition-colors hover:bg-[var(--card-surface)] hover:text-[var(--foreground)] ${index === breadcrumbs.length - 1 && !driveMode
                   ? 'text-[var(--foreground)] font-medium'
                   : 'text-[var(--muted)]'
                   }`}

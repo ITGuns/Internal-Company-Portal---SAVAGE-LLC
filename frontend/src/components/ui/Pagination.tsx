@@ -28,15 +28,15 @@ export default function Pagination({ page, totalPages, onPageChange, total, clas
   }
 
   return (
-    <div className={`flex items-center justify-between gap-4 ${className}`}>
+    <div className={`flex flex-wrap items-center justify-between gap-4 ${className}`}>
       {total !== undefined && (
         <span className="text-xs text-[var(--muted)]">{total} total</span>
       )}
-      <div className="flex items-center gap-1 ml-auto">
+      <div className="ml-auto flex items-center gap-1">
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
-          className="p-1.5 rounded-lg hover:bg-[var(--card-surface)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] hover:bg-[var(--card-surface)] disabled:cursor-not-allowed disabled:opacity-30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           aria-label="Previous page"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -48,7 +48,7 @@ export default function Pagination({ page, totalPages, onPageChange, total, clas
             <button
               key={p}
               onClick={() => onPageChange(p)}
-              className={`min-w-[28px] h-7 rounded-lg text-xs font-medium transition-colors ${
+              className={`h-10 min-w-10 rounded-[var(--radius-md)] px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
                 p === page
                   ? "bg-[var(--accent)] text-white"
                   : "hover:bg-[var(--card-surface)] text-[var(--foreground)]"
@@ -61,7 +61,7 @@ export default function Pagination({ page, totalPages, onPageChange, total, clas
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
-          className="p-1.5 rounded-lg hover:bg-[var(--card-surface)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] hover:bg-[var(--card-surface)] disabled:cursor-not-allowed disabled:opacity-30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           aria-label="Next page"
         >
           <ChevronRight className="w-4 h-4" />
