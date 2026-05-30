@@ -11,6 +11,8 @@ import {
 } from "@/lib/client-portal";
 import { CLIENT_UPDATE_PRESETS } from "@/lib/client-portal-options";
 import ClientOperationsPanel, {
+  clientOperationsCheckboxClass,
+  clientOperationsCheckboxLabelClass,
   clientOperationsTextareaClass,
   ProjectPillSelector,
 } from "./ClientOperationsPanel";
@@ -63,7 +65,7 @@ export default function AdminClientUpdatesPanel({
                 body: preset.body,
                 visibleToClient: true,
               }))}
-              className="rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-[var(--border)] px-3 py-2 text-xs font-medium text-[var(--muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
               {preset.label}
             </button>
@@ -82,8 +84,8 @@ export default function AdminClientUpdatesPanel({
           value={updateForm.projectId}
           onChange={(projectId) => setUpdateForm((form) => ({ ...form, projectId }))}
         />
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={updateForm.visibleToClient} onChange={(event) => setUpdateForm((form) => ({ ...form, visibleToClient: event.target.checked }))} />
+        <label className={clientOperationsCheckboxLabelClass}>
+          <input className={clientOperationsCheckboxClass} type="checkbox" checked={updateForm.visibleToClient} onChange={(event) => setUpdateForm((form) => ({ ...form, visibleToClient: event.target.checked }))} />
           Visible to client
         </label>
         <Button type="submit" loading={saving}>Publish Update</Button>

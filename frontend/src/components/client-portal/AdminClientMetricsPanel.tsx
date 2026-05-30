@@ -8,7 +8,10 @@ import {
   ClientMetricSnapshot,
   createClientMetric,
 } from "@/lib/client-portal";
-import ClientOperationsPanel from "./ClientOperationsPanel";
+import ClientOperationsPanel, {
+  clientOperationsCheckboxClass,
+  clientOperationsCheckboxLabelClass,
+} from "./ClientOperationsPanel";
 
 const emptyMetric = { label: "", value: "", unit: "", source: "manual", visibleToClient: true };
 
@@ -49,8 +52,8 @@ export default function AdminClientMetricsPanel({
           <FormField id="metric-value" label="Value" value={metricForm.value} onChange={(value) => setMetricForm((form) => ({ ...form, value }))} required />
           <FormField id="metric-unit" label="Unit" value={metricForm.unit} onChange={(unit) => setMetricForm((form) => ({ ...form, unit }))} />
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={metricForm.visibleToClient} onChange={(event) => setMetricForm((form) => ({ ...form, visibleToClient: event.target.checked }))} />
+        <label className={clientOperationsCheckboxLabelClass}>
+          <input className={clientOperationsCheckboxClass} type="checkbox" checked={metricForm.visibleToClient} onChange={(event) => setMetricForm((form) => ({ ...form, visibleToClient: event.target.checked }))} />
           Visible to client
         </label>
         <Button type="submit" loading={saving}>Add Metric</Button>

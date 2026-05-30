@@ -8,6 +8,8 @@ import type { ClientPortalOption } from "@/lib/client-portal-options";
 
 export const selectClass = "w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
 export const textareaClass = "min-h-20 w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
+const visibilityCheckboxLabelClass = "inline-flex min-h-10 items-center gap-2 rounded-md border border-[var(--border)] px-3 text-sm text-[var(--foreground)]";
+const visibilityCheckboxClass = "h-4 w-4 shrink-0 accent-[var(--accent)]";
 
 export function MiniPanel({
   title,
@@ -35,8 +37,8 @@ export function VisibilityCheckbox({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex items-center gap-2 text-sm">
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+    <label className={visibilityCheckboxLabelClass}>
+      <input className={visibilityCheckboxClass} type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
       Visible to client
     </label>
   );
@@ -97,7 +99,7 @@ export function InlineRecordControls({
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2">
       <select
-        className="min-h-9 rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-2 text-xs text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+        className="min-h-10 rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-2 text-xs text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
         value={nextStatus}
         onChange={(event) => setNextStatus(event.target.value)}
         aria-label="Record status"
@@ -106,9 +108,10 @@ export function InlineRecordControls({
           <option key={option.value} value={option.value}>{option.label}</option>
         ))}
       </select>
-      <label className="flex min-h-9 items-center gap-2 rounded-md border border-[var(--border)] px-2 text-xs">
+      <label className="inline-flex min-h-10 items-center gap-2 rounded-md border border-[var(--border)] px-2 text-xs">
         <input
           type="checkbox"
+          className={visibilityCheckboxClass}
           checked={nextVisible}
           onChange={(event) => setNextVisible(event.target.checked)}
         />

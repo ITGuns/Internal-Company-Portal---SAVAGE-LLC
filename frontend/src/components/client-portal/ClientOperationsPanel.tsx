@@ -5,6 +5,8 @@ import { ProductionPanel } from "@/components/workspace/ProductionWorkspace";
 
 export const clientOperationsSelectClass = "w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
 export const clientOperationsTextareaClass = "min-h-24 w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
+export const clientOperationsCheckboxLabelClass = "inline-flex min-h-10 items-center gap-2 rounded-md border border-[var(--border)] px-3 text-sm text-[var(--foreground)]";
+export const clientOperationsCheckboxClass = "h-4 w-4 shrink-0 accent-[var(--accent)]";
 
 export default function ClientOperationsPanel({
   children,
@@ -52,7 +54,7 @@ export function ProjectPillSelector({
               type="button"
               onClick={() => onChange(project.id)}
               aria-pressed={isSelected}
-              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${isSelected ? "border-[var(--accent)] bg-[var(--card-surface)] text-[var(--foreground)]" : "border-[var(--border)] text-[var(--muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"}`}
+              className={`inline-flex min-h-10 items-center justify-center rounded-full border px-3 py-2 text-xs font-medium transition-colors ${isSelected ? "border-[var(--accent)] bg-[var(--card-surface)] text-[var(--foreground)]" : "border-[var(--border)] text-[var(--muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"}`}
             >
               {project.name}
             </button>

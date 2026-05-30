@@ -1,5 +1,46 @@
 # Development Notes
 
+## 2026-05-30 - Client Portal Touch Target Polish
+
+### Completed
+
+- Increased tap targets for client/admin portal preset buttons, status controls, calendar controls, and visibility checkboxes.
+- Increased shared client portal pill choice controls so request type and priority selections meet the same touch-target baseline.
+- Added shared checkbox classes for Client Operations forms so client-visible toggles have consistent spacing and focusable hit areas.
+- Tightened client-operations grid overflow handling so the account picker and route content do not force horizontal layout spillover.
+
+### Files Changed
+
+- `frontend/src/app/client/tickets/page.tsx`
+- `frontend/src/app/globals.css`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/client-portal/AdminClientMetricsPanel.tsx`
+- `frontend/src/components/client-portal/AdminClientResourcesPanel.tsx`
+- `frontend/src/components/client-portal/AdminClientUpdatesPanel.tsx`
+- `frontend/src/components/client-portal/AdminTicketList.tsx`
+- `frontend/src/components/client-portal/ChoiceGroup.tsx`
+- `frontend/src/components/client-portal/ClientOperationsPanel.tsx`
+- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
+- `frontend/src/components/client-portal/TicketDetailPresets.tsx`
+- `frontend/src/components/client-portal/production-records/shared.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Keep the pass frontend-only; no API contracts, backend permissions, database behavior, or client visibility rules changed.
+- Prefer shared form-control classes inside the client-portal component layer instead of repeating checkbox styling in each admin panel.
+
+### How to Test
+
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- `cd frontend && npm test`
+- Browser smoke on `/client/tickets` and `/operations/clients` with mobile and desktop viewport checks for control sizing and overflow.
+
+### Next Steps
+
+- If time allows, browser-check the broader client/admin route set for any remaining tight controls after this tap-target pass.
+
 ## 2026-05-29 - Admin Client Operations Route Remodel Pass
 
 ### Completed

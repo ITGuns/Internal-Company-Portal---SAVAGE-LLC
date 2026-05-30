@@ -71,7 +71,7 @@ function ClientOperationsClientPicker({ workspace }: { workspace: ClientOperatio
   const { current, history } = splitClientOrganizationsByHistory(workspace.organizations);
 
   return (
-    <aside className="space-y-4" aria-label="Client account selector">
+    <aside className="min-w-0 space-y-4" aria-label="Client account selector">
       <ProductionPanel title="Clients" icon={BriefcaseBusiness} bodyClassName="p-4">
         {workspace.organizations.length === 0 ? (
           <EmptyState
@@ -376,9 +376,9 @@ export default function ClientOperationsShell({
           {workspace.loading ? (
             <div className="text-sm text-[var(--muted)]">Loading client operations...</div>
           ) : (
-            <div className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
+            <div className="grid min-w-0 gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
               <ClientOperationsClientPicker workspace={workspace} />
-              <div className="space-y-5">
+              <div className="min-w-0 space-y-5">
                 <ClientOperationsClientHeader workspace={workspace} />
                 <ClientOperationsRouteSummary pathname={pathname} routeTitle={routeTitle} workspace={workspace} />
                 {children(workspace)}

@@ -63,7 +63,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
   const shouldShowTimeClock = Boolean(user) && !pathname.startsWith('/client');
 
   const iconButtonClass = cn(
-    'inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] text-[var(--muted)]',
+    'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] text-[var(--muted)]',
     'transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-out)]',
     'hover:border-[var(--muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]',
     'active:translate-y-px active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]',

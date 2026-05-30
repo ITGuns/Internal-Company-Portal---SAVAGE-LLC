@@ -18,7 +18,7 @@ export default function TicketDetailPresets({ category, onSelect }: TicketDetail
           key={`${preset.category}-${preset.label}`}
           type="button"
           onClick={() => onSelect(preset.detail)}
-          className="rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          className="inline-flex min-h-10 items-center justify-center rounded-full border border-[var(--border)] px-3 py-2 text-xs font-medium text-[var(--muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         >
           {preset.label}
         </button>

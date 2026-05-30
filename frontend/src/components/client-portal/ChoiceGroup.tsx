@@ -39,7 +39,7 @@ export default function ChoiceGroup({
               onClick={() => onChange(option.value)}
               className={cn(
                 isPillVariant
-                  ? "rounded-full border px-3 py-1.5 text-left text-sm transition-colors"
+                  ? "inline-flex min-h-10 items-center justify-center rounded-full border px-3 py-2 text-left text-sm transition-colors"
                   : "min-h-16 rounded-[var(--radius-md)] border px-3 py-2 text-left transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
                 selected

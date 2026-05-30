@@ -77,7 +77,7 @@ export default function AdminTicketList({
                     onClick={() => onUpdateStatus(ticket, status.value)}
                     disabled={isStatusSelected || saving}
                     aria-pressed={isStatusSelected}
-                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${isStatusSelected ? "border-[var(--accent)] bg-[var(--card-surface)] text-[var(--foreground)]" : "border-[var(--border)] text-[var(--muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"}`}
+                    className={`inline-flex min-h-10 items-center justify-center rounded-full border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${isStatusSelected ? "border-[var(--accent)] bg-[var(--card-surface)] text-[var(--foreground)]" : "border-[var(--border)] text-[var(--muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"}`}
                   >
                     {status.label}
                   </button>

@@ -8,7 +8,10 @@ import {
   ClientResourceLink,
   createClientResource,
 } from "@/lib/client-portal";
-import ClientOperationsPanel from "./ClientOperationsPanel";
+import ClientOperationsPanel, {
+  clientOperationsCheckboxClass,
+  clientOperationsCheckboxLabelClass,
+} from "./ClientOperationsPanel";
 
 const emptyResource = { label: "", url: "", type: "link", visibleToClient: true, projectId: "" };
 
@@ -48,8 +51,8 @@ export default function AdminClientResourcesPanel({
           <FormField id="resource-label" label="Label" value={resourceForm.label} onChange={(label) => setResourceForm((form) => ({ ...form, label }))} required />
           <FormField id="resource-url" label="URL" value={resourceForm.url} onChange={(url) => setResourceForm((form) => ({ ...form, url }))} required />
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={resourceForm.visibleToClient} onChange={(event) => setResourceForm((form) => ({ ...form, visibleToClient: event.target.checked }))} />
+        <label className={clientOperationsCheckboxLabelClass}>
+          <input className={clientOperationsCheckboxClass} type="checkbox" checked={resourceForm.visibleToClient} onChange={(event) => setResourceForm((form) => ({ ...form, visibleToClient: event.target.checked }))} />
           Visible to client
         </label>
         <Button type="submit" loading={saving}>Add Resource</Button>

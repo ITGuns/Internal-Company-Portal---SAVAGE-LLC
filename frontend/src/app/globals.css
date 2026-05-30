@@ -558,7 +558,12 @@ input:focus {
     background: transparent;
     color: var(--foreground);
     border: 1px solid var(--border);
-    padding: 0.4rem 0.6rem;
+    display: inline-flex;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.45rem 0.75rem;
     border-radius: 0.5rem;
     box-shadow: none;
     font-weight: 600;
@@ -616,6 +621,9 @@ input:focus {
 
 .fc .fc-daygrid-event,
 .fc .fc-event {
+  display: flex !important;
+  min-height: 2rem !important;
+  align-items: center !important;
   color: var(--fc-event-color) !important;
   box-shadow: none !important;
   padding: 0.125rem 0.35rem !important;
@@ -624,6 +632,7 @@ input:focus {
 
 .fc .fc-daygrid-event .fc-event-title,
 .fc .fc-daygrid-event .fc-event-main {
+  min-width: 0;
   color: var(--fc-event-color) !important;
   font-size: 0.75rem;
 }
@@ -895,11 +904,16 @@ html[data-theme="dark"] .priority-dot.high {
 }
 
 .fc .fc-col-header-cell-cushion {
+  display: inline-flex;
+  min-width: 2rem;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
   color: var(--muted) !important;
   font-size: 11px;
   font-weight: 600;
   text-decoration: none !important;
-  padding: 6px 4px;
+  padding: 0 6px;
 }
 
 /* Day cells */
@@ -913,11 +927,17 @@ html[data-theme="dark"] .priority-dot.high {
 
 /* Day number links */
 .fc .fc-daygrid-day-number {
+  display: inline-flex;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
   color: var(--muted) !important;
   font-size: 12px;
   font-weight: 500;
   text-decoration: none !important;
-  padding: 4px 6px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
 }
 
 /* Today highlight */
@@ -947,6 +967,12 @@ html[data-theme="dark"] .priority-dot.high {
   background-color: var(--card-surface) !important;
   border-color: var(--border) !important;
   color: var(--foreground) !important;
+  display: inline-flex !important;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.75rem !important;
   font-size: 12px !important;
   font-weight: 500 !important;
   box-shadow: none !important;
