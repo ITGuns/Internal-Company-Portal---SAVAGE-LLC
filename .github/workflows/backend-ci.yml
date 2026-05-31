@@ -18,15 +18,35 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+      JWT_SECRET: local-ci-jwt-secret
+      REFRESH_TOKEN_SECRET: local-ci-refresh-secret
+
     strategy:
       matrix:
         node-version: [22.x]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
@@ -35,10 +55,22 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Validate Prisma schema
+      run: npx prisma validate
+
     - name: Generate Prisma Client
       # We don't use the npm script 'prisma:generate' because it expects a .env file
       # We just need the generated client for the build to pass
       run: npx prisma generate
 
+    - name: Apply database migrations
+      run: npx prisma migrate deploy
+
+    - name: Test
+      run: npm test
+
     - name: Build
       run: npm run build
+
+    - name: Audit dependencies
+      run: npm audit --audit-level=high

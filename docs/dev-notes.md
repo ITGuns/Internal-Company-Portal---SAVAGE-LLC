@@ -1,5 +1,58 @@
 # Development Notes
 
+## 2026-05-31 - Main Workflow And Upload Hardening
+
+### Completed
+
+- Expanded GitHub Actions coverage on `main` so backend CI has a disposable PostgreSQL service, applies migrations, and runs Prisma validation, backend tests, build, and dependency audit.
+- Expanded the full CI pipeline to run backend tests/build/audit, frontend tests/lint/build/audit, Prisma validation, migrations, `git diff --check`, and Docker Compose config validation.
+- Hardened generic upload and avatar validation so decoded content signatures must match declared file/image types.
+- Updated the standalone frontend start script to run the generated standalone server.
+- Removed the root package dependency sink and added a root lockfile so root-level audits have a deterministic package surface.
+
+### Files Changed
+
+- `.github/workflows/backend-ci.yml`
+- `.github/workflows/ci.yml`
+- `backend/src/uploads/upload.validation.ts`
+- `backend/src/uploads/uploads.controller.ts`
+- `backend/src/users/users.controller.ts`
+- `backend/tests/run-tests.ts`
+- `backend/tests/upload.validation.test.ts`
+- `frontend/next.config.ts`
+- `frontend/package.json`
+- `package.json`
+- `package-lock.json`
+- `docs/api.md`
+- `docs/architecture.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept upload signature checks dependency-free and focused on the file types already accepted by the API.
+- Used a disposable PostgreSQL service in CI because the backend route tests exercise real Prisma writes.
+- Kept package dependencies owned by `backend/` and `frontend/`; root scripts only orchestrate verification.
+- Pinned the frontend Turbopack root to the frontend package so the root audit lockfile does not make Next infer the repository root during builds.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd backend && npx prisma validate`
+- `cd backend && npx prisma generate`
+- `cd backend && npm audit --audit-level=high`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- `cd frontend && npm audit --audit-level=high`
+- From repo root with temporary local secrets: `docker compose config`
+- From repo root: `git diff --check`
+- From repo root: `npm audit --audit-level=high`
+
+### Next Steps
+
+- Replace production `console.log` calls with a structured logger in a later backend observability pass.
+
 ## 2026-05-31 - Client Service Tier Management
 
 ### Completed

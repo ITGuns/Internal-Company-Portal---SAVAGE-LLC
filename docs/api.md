@@ -340,6 +340,8 @@ Configured admin bypass emails also receive payroll management access.
 
 - Upload routes require authentication.
 - `POST /api/uploads` stores a file and returns an authenticated file URL under `/api/uploads/files/:filename`.
+- Upload payloads must be valid base64 and the decoded file signature must match the declared allowed content type. Supported generic uploads are PNG, JPEG, GIF, PDF, plain text, DOC, and DOCX.
+- Avatar data URI uploads are limited to JPEG, PNG, GIF, and WebP signatures and remain capped at 5 MB.
 - `GET /api/uploads/files/:filename` requires authentication, normalizes the basename, and rejects path traversal or missing files.
 - File-directory list and children routes require authentication.
 - File-directory create/delete routes are protected by the feature's admin/manager access checks.

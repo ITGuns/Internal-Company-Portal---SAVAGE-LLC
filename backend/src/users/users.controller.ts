@@ -6,6 +6,7 @@ import { PayrollService } from '../payroll/payroll.service'
 import { DepartmentsService } from '../departments/departments.service'
 import { isAdminEmail } from '../config/env.config'
 import { canRequestAssigneeTasks, hasTaskAssignmentPrivilege } from '../tasks/tasks.permissions'
+import { decodeBase64Payload, validateAvatarContent } from '../uploads/upload.validation'
 import { sanitizeUserForDirectory, sanitizeUsersForDirectory } from './users.security'
 
 export class UsersController {
@@ -82,14 +83,18 @@ export class UsersController {
 
                 // Accept base64 data URI or a URL string
                 const { avatar } = req.body
-                if (!avatar) {
+                if (!avatar || typeof avatar !== 'string') {
                     return res.status(400).json({ error: 'Avatar data is required' })
                 }
 
-                // Validate size if base64 (rough check: base64 length * 0.75 = bytes)
                 if (avatar.startsWith('data:image/')) {
-                    const base64Data = avatar.split(',')[1] || ''
-                    const sizeBytes = Math.round((base64Data.length * 3) / 4)
+                    const decoded = decodeBase64Payload(avatar)
+                    const mediaType = decoded?.mediaType || ''
+                    if (!decoded || !mediaType.startsWith('image/') || !validateAvatarContent(mediaType, decoded.buffer)) {
+                        return res.status(400).json({ error: 'Avatar content does not match a supported image type' })
+                    }
+
+                    const sizeBytes = decoded.buffer.length
                     if (sizeBytes > 5 * 1024 * 1024) {
                         return res.status(400).json({ error: 'Avatar image must be less than 5MB' })
                     }

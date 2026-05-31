@@ -2,6 +2,13 @@ import express, { Request, Response, Router } from 'express'
 import fs from 'fs'
 import path from 'path'
 import { authenticateToken } from '../auth/auth.middleware'
+import {
+    decodeBase64Payload,
+    isGeneralUploadMimeType,
+    normalizeMimeType,
+    validateAvatarContent,
+    validateUploadContent,
+} from './upload.validation'
 
 export class UploadsController {
     router(): Router {
@@ -51,27 +58,29 @@ export class UploadsController {
                     return res.status(400).json({ error: 'Name, type, and data (base64) required' })
                 }
 
-                // Basic validation
-                const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-                if (!allowedTypes.includes(type)) {
+                const normalizedType = normalizeMimeType(type)
+                if (!isGeneralUploadMimeType(normalizedType)) {
                     return res.status(400).json({ error: 'Invalid file type' })
                 }
 
-                // Decode base64
-                // Check if data has prefix
-                let base64Data = data;
-                const matches = data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/)
-                if (matches && matches.length === 3) {
-                    base64Data = matches[2];
-                } else {
-                    // Assume raw base64 if no prefix, or fail?
-                    // Let's try to decode directly
+                const decoded = decodeBase64Payload(data)
+                if (!decoded) {
+                    return res.status(400).json({ error: 'Invalid base64 file data' })
                 }
 
-                const buffer = Buffer.from(base64Data, 'base64')
+                if (decoded.mediaType && decoded.mediaType !== normalizedType) {
+                    return res.status(400).json({ error: 'File data type does not match declared file type' })
+                }
+
+                const buffer = decoded.buffer
                 const sizeInBytes = buffer.length
                 if (sizeInBytes > 10 * 1024 * 1024) { // 10MB limit
                     return res.status(400).json({ error: 'File too large (max 10MB)' })
+                }
+
+                const validatedType = validateUploadContent(normalizedType, buffer)
+                if (!validatedType) {
+                    return res.status(400).json({ error: 'File content does not match declared file type' })
                 }
 
                 const timestamp = Date.now()
@@ -82,7 +91,7 @@ export class UploadsController {
                 fs.writeFileSync(filepath, buffer)
 
                 const url = `/api/uploads/files/${filename}`
-                res.status(201).json({ url, name: safeName, type, size: sizeInBytes })
+                res.status(201).json({ url, name: safeName, type: validatedType, size: sizeInBytes })
             } catch (error) {
                 console.error('Upload error:', error)
                 res.status(500).json({ error: 'Failed to upload file' })
@@ -110,17 +119,16 @@ export class UploadsController {
                     })
                 }
 
-                // Extract mime type and base64 data
-                const matches = image.match(/^data:image\/(\w+);base64,(.+)$/)
-                if (!matches || matches.length !== 3) {
+                const decoded = decodeBase64Payload(image)
+                const mediaType = decoded?.mediaType || ''
+                if (!decoded || !mediaType.startsWith('image/')) {
                     return res.status(400).json({
                         error: 'Invalid base64 image format',
                         code: 'VALIDATION_ERROR'
                     })
                 }
 
-                const [, mimeType, base64Data] = matches
-                const buffer = Buffer.from(base64Data, 'base64')
+                const buffer = decoded.buffer
 
                 // Validate size (5MB max for avatars)
                 const sizeInBytes = buffer.length
@@ -135,15 +143,14 @@ export class UploadsController {
                     })
                 }
 
-                // Validate mime type
-                const allowedTypes = ['jpeg', 'jpg', 'png', 'gif', 'webp']
-                if (!allowedTypes.includes(mimeType.toLowerCase())) {
+                const avatarType = validateAvatarContent(mediaType, buffer)
+                if (!avatarType) {
                     return res.status(400).json({
-                        error: 'Invalid image type',
+                        error: 'Image content does not match a supported image type',
                         code: 'VALIDATION_ERROR',
                         details: {
-                            allowed: allowedTypes,
-                            received: mimeType
+                            allowed: ['jpeg', 'jpg', 'png', 'gif', 'webp'],
+                            received: mediaType
                         }
                     })
                 }
@@ -153,7 +160,7 @@ export class UploadsController {
                 res.json({
                     avatar: image,
                     size: sizeInBytes,
-                    type: `image/${mimeType}`
+                    type: `image/${avatarType}`
                 })
 
             } catch (error) {
