@@ -64,7 +64,7 @@ jobs:
       run: npx prisma generate
 
     - name: Provision test database schema
-      run: npx prisma db push --skip-generate
+      run: npx prisma db push
 
     - name: Test
       run: npm test

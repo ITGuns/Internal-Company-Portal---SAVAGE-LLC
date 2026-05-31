@@ -58,7 +58,7 @@ jobs:
 
     - name: Provision Test Database Schema
       working-directory: ./backend
-      run: npx prisma db push --skip-generate
+      run: npx prisma db push
 
     - name: Test Backend
       working-directory: ./backend
