@@ -81,7 +81,7 @@ export class UsersController {
                     }
                 }
 
-                // Accept base64 data URI or a URL string
+                // Accept supported stored avatar references or image data URIs
                 const { avatar } = req.body
                 if (!avatar || typeof avatar !== 'string') {
                     return res.status(400).json({ error: 'Avatar data is required' })

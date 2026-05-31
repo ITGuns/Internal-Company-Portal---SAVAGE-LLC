@@ -1,5 +1,52 @@
 # Development Notes
 
+## 2026-06-01 - Stored Avatar Validation Completion
+
+### Completed
+
+- Tightened stored avatar validation so arbitrary non-image strings, unsafe schemes, and unsupported data URIs are rejected.
+- Preserved existing supported avatar workflows for empty values, short initials, safe relative paths, `http(s)` URLs, and validated base64 image data URIs.
+- Applied the shared avatar validator to the public employee verification request flow before pending users are created.
+- Added backend tests for unsafe stored avatar references and invalid employee verification avatar input.
+- Fixed a review regression where valid image data URI avatars over 2048 characters were blocked before the 5MB decoded image-size validation ran.
+- Moved employee verification avatar validation before default password generation and bcrypt hashing so malformed public submissions fail cheaply.
+- Opted GitHub Actions workflows into the Node 24 JavaScript action runtime to get ahead of the Node 20 action deprecation.
+
+### Files Changed
+
+- `backend/src/employees/employees.controller.ts`
+- `backend/src/uploads/upload.validation.ts`
+- `backend/tests/employees.routes.test.ts`
+- `backend/tests/run-tests.ts`
+- `backend/tests/upload.validation.test.ts`
+- `.github/workflows/backend-ci.yml`
+- `.github/workflows/ci.yml`
+- `docs/api.md`
+- `docs/architecture.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept OAuth and existing image URL support by allowing only `http` and `https` URL references.
+- Kept internal upload references usable by allowing safe relative paths that do not contain whitespace, backslashes, control characters, or protocol-relative `//` prefixes.
+- Kept payroll initials compatible by allowing one to three alphanumeric avatar initials.
+- Left Prisma migration baseline cleanup as a separate database task because safely changing migration history needs an explicit baseline plan.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npx ts-node tests/upload.validation.test.ts`
+- `cd backend && npm run build`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- From repo root with temporary local secrets: `docker compose config`
+- From repo root: `git diff --check`
+
+### Next Steps
+
+- Add route-level user avatar mutation tests if the profile API surface changes again.
+
 ## 2026-06-01 - Main CI And Avatar Bypass Fix
 
 ### Completed

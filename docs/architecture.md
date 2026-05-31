@@ -51,7 +51,7 @@ Important backend conventions:
 - User and employee responses must stay sanitized and must not return password, reset-token, bank, or tax fields.
 - Socket.io connections verify JWTs and authorize conversation room joins server-side.
 - Uploaded files are served through authenticated `/api/uploads/files/:filename` routes, not unauthenticated static `/uploads` serving.
-- Base64 image avatar values are validated through the shared upload validation helper before being stored by user routes.
+- Stored avatar values are validated through the shared upload validation helper before being stored by user and employee request routes. Accepted stored values are empty strings, short initials, safe relative paths, `http(s)` URLs, or validated base64 image data URIs.
 
 ## Frontend Structure
 

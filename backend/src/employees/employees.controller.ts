@@ -6,6 +6,7 @@ import { authenticateToken, AuthRequest } from '../auth/auth.middleware';
 import * as crypto from 'crypto';
 import { isAdminEmail, config } from '../config/env.config';
 import { MissingSignupRoleAssignmentError } from '../auth/signup.requests';
+import { validateStoredAvatarValue } from '../uploads/upload.validation';
 import {
     hasEmployeeManagementAccess,
     serializeDeployedEmployee,
@@ -114,6 +115,13 @@ export class EmployeesController {
 
             // Log the request
             console.log(`[Employees] New verification request for: ${employeeData.name}`);
+
+            if (employeeData.avatar !== undefined) {
+                const avatarValidation = validateStoredAvatarValue(employeeData.avatar);
+                if (!avatarValidation.valid) {
+                    return res.status(400).json({ error: avatarValidation.error || 'Invalid avatar data' });
+                }
+            }
 
             // 1. SAVE TO DATABASE
             // Generate a unique random password (12-char hex + S!)

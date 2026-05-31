@@ -26,6 +26,9 @@ interface DecodedBase64Payload {
 const DATA_URI_PATTERN = /^data:([A-Za-z0-9][A-Za-z0-9.+/-]*);base64,([\s\S]+)$/
 const BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/
 const DEFAULT_AVATAR_MAX_BYTES = 5 * 1024 * 1024
+const MAX_STORED_AVATAR_LENGTH = 2048
+const AVATAR_INITIALS_PATTERN = /^[A-Za-z0-9]{1,3}$/
+const UNSAFE_AVATAR_PATH_PATTERN = /[\s\\\u0000-\u001f\u007f]/
 
 export function normalizeMimeType(type: unknown): string {
     if (typeof type !== 'string') return ''
@@ -92,11 +95,27 @@ export function validateStoredAvatarValue(
         return { valid: false, error: 'Avatar data must be a string' }
     }
 
-    if (!value || !value.startsWith('data:image/')) {
+    const trimmedValue = value.trim()
+    if (!trimmedValue) {
         return { valid: true }
     }
 
-    const decoded = decodeBase64Payload(value)
+    if (!trimmedValue.startsWith('data:image/')) {
+        if (trimmedValue.length > MAX_STORED_AVATAR_LENGTH) {
+            return { valid: false, error: 'Avatar value is too long' }
+        }
+
+        if (isSafeStoredAvatarReference(trimmedValue)) {
+            return { valid: true }
+        }
+
+        return {
+            valid: false,
+            error: 'Avatar must be initials, a safe URL/path, or a supported image data URI',
+        }
+    }
+
+    const decoded = decodeBase64Payload(trimmedValue)
     const mediaType = decoded?.mediaType || ''
     if (!decoded || !mediaType.startsWith('image/')) {
         return { valid: false, error: 'Invalid base64 image format' }
@@ -113,6 +132,28 @@ export function validateStoredAvatarValue(
     }
 
     return { valid: true, sizeBytes, avatarType }
+}
+
+function isSafeStoredAvatarReference(value: string): boolean {
+    if (UNSAFE_AVATAR_PATH_PATTERN.test(value)) {
+        return false
+    }
+
+    if (AVATAR_INITIALS_PATTERN.test(value)) {
+        return true
+    }
+
+    if (value.startsWith('/')) {
+        return !value.startsWith('//')
+    }
+
+    try {
+        const url = new URL(value)
+        const hasSafeProtocol = url.protocol === 'https:' || url.protocol === 'http:'
+        return hasSafeProtocol && !url.username && !url.password
+    } catch {
+        return false
+    }
 }
 
 function hasExpectedSignature(type: GeneralUploadMimeType, buffer: Buffer): boolean {
