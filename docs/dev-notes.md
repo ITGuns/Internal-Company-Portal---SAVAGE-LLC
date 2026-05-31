@@ -5,6 +5,7 @@
 ### Completed
 
 - Updated backend GitHub Actions jobs to provision the disposable CI PostgreSQL database from the Prisma schema with `prisma db push`, because the current migration history is not an empty-database baseline.
+- Updated `Backend CI` path filters so backend workflow edits trigger their own validation instead of leaving a stale failed run as the latest backend workflow result.
 - Updated the repository whitespace workflow so push and pull-request events check the actual changed commit/range instead of an empty clean-checkout diff.
 - Added a reusable stored-avatar validator so user creation, direct avatar upload, and profile updates all reject invalid or mismatched image data URIs.
 - Expanded upload validation tests to cover stored avatar values, including valid PNG data URIs, mismatched signatures, unsupported SVG data URIs, URL strings, empty values, and non-string input.
