@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import {
   decodeBase64Payload,
   normalizeMimeType,
+  validateStoredAvatarValue,
   validateAvatarContent,
   validateUploadContent,
 } from '../src/uploads/upload.validation'
@@ -45,5 +46,12 @@ assert.equal(validateAvatarContent('image/png', png), 'png')
 assert.equal(validateAvatarContent('gif', gif), 'gif')
 assert.equal(validateAvatarContent('webp', webp), 'webp')
 assert.equal(validateAvatarContent('webp', png), null)
+
+assert.equal(validateStoredAvatarValue(`data:image/png;base64,${png.toString('base64')}`).valid, true)
+assert.equal(validateStoredAvatarValue(`data:image/png;base64,${pdf.toString('base64')}`).valid, false)
+assert.equal(validateStoredAvatarValue(`data:image/svg+xml;base64,${Buffer.from('<svg />').toString('base64')}`).valid, false)
+assert.equal(validateStoredAvatarValue('https://example.test/avatar.png').valid, true)
+assert.equal(validateStoredAvatarValue('').valid, true)
+assert.equal(validateStoredAvatarValue(42).valid, false)
 
 console.log('upload.validation tests passed')

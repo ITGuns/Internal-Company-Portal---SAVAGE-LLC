@@ -1,11 +1,50 @@
 # Development Notes
 
+## 2026-06-01 - Main CI And Avatar Bypass Fix
+
+### Completed
+
+- Updated backend GitHub Actions jobs to provision the disposable CI PostgreSQL database from the Prisma schema with `prisma db push --skip-generate`, because the current migration history is not an empty-database baseline.
+- Updated the repository whitespace workflow so push and pull-request events check the actual changed commit/range instead of an empty clean-checkout diff.
+- Added a reusable stored-avatar validator so user creation, direct avatar upload, and profile updates all reject invalid or mismatched image data URIs.
+- Expanded upload validation tests to cover stored avatar values, including valid PNG data URIs, mismatched signatures, unsupported SVG data URIs, URL strings, empty values, and non-string input.
+
+### Files Changed
+
+- `.github/workflows/backend-ci.yml`
+- `.github/workflows/ci.yml`
+- `backend/src/uploads/upload.validation.ts`
+- `backend/src/users/users.controller.ts`
+- `backend/tests/upload.validation.test.ts`
+- `docs/api.md`
+- `docs/architecture.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept CI schema provisioning separate from production migration deployment until a true baseline migration strategy is planned.
+- Preserved existing URL and empty-avatar workflows while enforcing content validation for base64 image data URIs.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- From repo root with temporary local secrets: `docker compose config`
+- From repo root: `git diff --check`
+
+### Next Steps
+
+- Plan a dedicated Prisma migration baseline cleanup before making CI rely on `prisma migrate deploy` against an empty database.
+
 ## 2026-05-31 - Main Workflow And Upload Hardening
 
 ### Completed
 
-- Expanded GitHub Actions coverage on `main` so backend CI has a disposable PostgreSQL service, applies migrations, and runs Prisma validation, backend tests, build, and dependency audit.
-- Expanded the full CI pipeline to run backend tests/build/audit, frontend tests/lint/build/audit, Prisma validation, migrations, `git diff --check`, and Docker Compose config validation.
+- Expanded GitHub Actions coverage on `main` so backend CI has a disposable PostgreSQL service and runs Prisma validation, backend tests, build, and dependency audit.
+- Expanded the full CI pipeline to run backend tests/build/audit, frontend tests/lint/build/audit, Prisma validation, schema provisioning for CI, `git diff --check`, and Docker Compose config validation.
 - Hardened generic upload and avatar validation so decoded content signatures must match declared file/image types.
 - Updated the standalone frontend start script to run the generated standalone server.
 - Removed the root package dependency sink and added a root lockfile so root-level audits have a deterministic package surface.

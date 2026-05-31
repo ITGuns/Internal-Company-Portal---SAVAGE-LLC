@@ -11,6 +11,13 @@ export const GENERAL_UPLOAD_MIME_TYPES = [
 export type GeneralUploadMimeType = typeof GENERAL_UPLOAD_MIME_TYPES[number]
 export type AvatarImageType = 'jpeg' | 'png' | 'gif' | 'webp'
 
+export interface StoredAvatarValidationResult {
+    valid: boolean
+    error?: string
+    sizeBytes?: number
+    avatarType?: AvatarImageType
+}
+
 interface DecodedBase64Payload {
     buffer: Buffer
     mediaType?: string
@@ -18,6 +25,7 @@ interface DecodedBase64Payload {
 
 const DATA_URI_PATTERN = /^data:([A-Za-z0-9][A-Za-z0-9.+/-]*);base64,([\s\S]+)$/
 const BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/
+const DEFAULT_AVATAR_MAX_BYTES = 5 * 1024 * 1024
 
 export function normalizeMimeType(type: unknown): string {
     if (typeof type !== 'string') return ''
@@ -74,6 +82,37 @@ export function validateAvatarContent(type: unknown, buffer: Buffer): AvatarImag
     return hasExpectedAvatarSignature(normalizedType, buffer)
         ? normalizedType as AvatarImageType
         : null
+}
+
+export function validateStoredAvatarValue(
+    value: unknown,
+    maxBytes = DEFAULT_AVATAR_MAX_BYTES
+): StoredAvatarValidationResult {
+    if (typeof value !== 'string') {
+        return { valid: false, error: 'Avatar data must be a string' }
+    }
+
+    if (!value || !value.startsWith('data:image/')) {
+        return { valid: true }
+    }
+
+    const decoded = decodeBase64Payload(value)
+    const mediaType = decoded?.mediaType || ''
+    if (!decoded || !mediaType.startsWith('image/')) {
+        return { valid: false, error: 'Invalid base64 image format' }
+    }
+
+    const sizeBytes = decoded.buffer.length
+    if (sizeBytes > maxBytes) {
+        return { valid: false, error: 'Avatar image must be less than 5MB', sizeBytes }
+    }
+
+    const avatarType = validateAvatarContent(mediaType, decoded.buffer)
+    if (!avatarType) {
+        return { valid: false, error: 'Avatar content does not match a supported image type', sizeBytes }
+    }
+
+    return { valid: true, sizeBytes, avatarType }
 }
 
 function hasExpectedSignature(type: GeneralUploadMimeType, buffer: Buffer): boolean {

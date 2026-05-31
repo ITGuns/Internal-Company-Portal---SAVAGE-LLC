@@ -64,6 +64,7 @@ User directory endpoints sanitize sensitive fields before returning data to the 
 - `POST /api/users` is admin-only.
 - `PATCH /api/users/:id` allows self updates for permitted profile fields.
 - Non-privileged users cannot update protected fields such as `status`, `appliedDate`, `salary`, `role`, `department`, `departmentId`, or `isApproved`.
+- User avatar mutations accept existing URL/empty values, but base64 `data:image/*` values must decode successfully, stay under 5 MB, and match a supported JPEG, PNG, GIF, or WebP file signature.
 - `DELETE /api/users/:id` requires admin or operations-manager access.
 - `POST /api/users/:id/roles` and `DELETE /api/users/:id/roles/:role` are admin-only role assignment routes.
 
@@ -341,7 +342,7 @@ Configured admin bypass emails also receive payroll management access.
 - Upload routes require authentication.
 - `POST /api/uploads` stores a file and returns an authenticated file URL under `/api/uploads/files/:filename`.
 - Upload payloads must be valid base64 and the decoded file signature must match the declared allowed content type. Supported generic uploads are PNG, JPEG, GIF, PDF, plain text, DOC, and DOCX.
-- Avatar data URI uploads are limited to JPEG, PNG, GIF, and WebP signatures and remain capped at 5 MB.
+- Avatar data URI uploads and stored user avatar updates are limited to JPEG, PNG, GIF, and WebP signatures and remain capped at 5 MB.
 - `GET /api/uploads/files/:filename` requires authentication, normalizes the basename, and rejects path traversal or missing files.
 - File-directory list and children routes require authentication.
 - File-directory create/delete routes are protected by the feature's admin/manager access checks.

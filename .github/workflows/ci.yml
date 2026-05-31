@@ -56,9 +56,9 @@ jobs:
       working-directory: ./backend
       run: npx prisma generate
 
-    - name: Apply Database Migrations
+    - name: Provision Test Database Schema
       working-directory: ./backend
-      run: npx prisma migrate deploy
+      run: npx prisma db push --skip-generate
 
     - name: Test Backend
       working-directory: ./backend
@@ -117,9 +117,18 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Check Whitespace
-      run: git diff --check
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          git diff --check "origin/${{ github.base_ref }}...HEAD"
+        elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+          git diff --check "${{ github.event.before }}" "${{ github.sha }}"
+        else
+          git diff-tree --check --root --no-commit-id -r HEAD
+        fi
 
     - name: Validate Docker Compose Config
       run: docker compose config

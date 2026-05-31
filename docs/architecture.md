@@ -51,6 +51,7 @@ Important backend conventions:
 - User and employee responses must stay sanitized and must not return password, reset-token, bank, or tax fields.
 - Socket.io connections verify JWTs and authorize conversation room joins server-side.
 - Uploaded files are served through authenticated `/api/uploads/files/:filename` routes, not unauthenticated static `/uploads` serving.
+- Base64 image avatar values are validated through the shared upload validation helper before being stored by user routes.
 
 ## Frontend Structure
 
@@ -158,6 +159,8 @@ npm audit --audit-level=high
 ```
 
 `docker compose config` requires explicit local values for `POSTGRES_PASSWORD`, `JWT_SECRET`, and `REFRESH_TOKEN_SECRET`. Use temporary local placeholders for config validation only; production must use real deployment secrets.
+
+GitHub Actions backend jobs provision their disposable test PostgreSQL schema with `npx prisma db push --skip-generate` after Prisma validation and generation. The current migration directory is not an empty-database baseline, so migration deployment should be handled as a separate production release concern until a baseline migration cleanup is planned.
 
 Security hardening:
 
