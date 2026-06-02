@@ -1,7 +1,6 @@
 import 'reflect-metadata'
 import express, { Request, Response, NextFunction } from 'express'
 import { createServer } from 'http' // Added for Socket.io
-import bodyParser from 'body-parser'
 import passport from 'passport'
 import { AppModule } from './app.module'
 import { TasksController } from './tasks/tasks.controller'
@@ -26,6 +25,7 @@ import { initializePassport } from './auth/passport.config'
 import { notificationService } from './notifications/socket.service' // Service for real-time updates
 import { createAuthRateLimiters } from './security/rate-limits'
 import { connectAuthRateLimitStoreFactory } from './security/redis-rate-limit.store'
+import { configureJsonBodyParsers } from './security/json-body-limits'
 import { createSecurityHeadersMiddleware } from './security/security-headers'
 
 async function bootstrap() {
@@ -57,7 +57,7 @@ async function bootstrap() {
     storeMode: config.authRateLimitStore,
   })
 
-  app.use(bodyParser.json({ limit: '50mb' }))
+  configureJsonBodyParsers(app)
   app.use(passport.initialize())
 
   const shouldLogRequests = config.nodeEnv !== 'production' || config.logLevel.toLowerCase() === 'debug'

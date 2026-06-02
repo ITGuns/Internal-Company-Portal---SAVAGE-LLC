@@ -1,5 +1,36 @@
 # Development Notes
 
+## 2026-06-02 - Standalone Start And JSON Body Limits
+
+### Completed
+
+- Added a frontend standalone preparation script that copies `public` and `.next/static` into `.next/standalone` after `next build`.
+- Scoped the backend large JSON parser to upload/avatar and employee verification routes instead of allowing large JSON bodies on every API route.
+- Added backend regression coverage for route-specific JSON body limits.
+
+### Files Changed
+
+- `backend/src/main.ts`
+- `backend/src/security/json-body-limits.ts`
+- `backend/tests/json-body-limits.test.ts`
+- `backend/tests/run-tests.ts`
+- `frontend/package.json`
+- `frontend/scripts/prepare-standalone.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Keep standalone startup on `node .next/standalone/server.js`, but prepare the asset folders that Next standalone does not copy by default.
+- Use a `1mb` default JSON body limit for normal API routes and a `16mb` large-body limit for legitimate base64 upload/avatar payload routes.
+- Keep route matching in a small middleware module so request-size policy can be tested without bootstrapping the whole backend server.
+
+### How to Test
+
+- `npm --prefix backend test`
+- `npm --prefix backend run build`
+- `npm --prefix frontend run build`
+- `npm --prefix frontend run start`
+
 ## 2026-06-02 - Workflow Usability And Client Action Clarity
 
 ### Completed
