@@ -5,15 +5,16 @@ const baseUrl = process.env.VISUAL_SMOKE_BASE_URL || "http://localhost:3000";
 const now = new Date().toISOString();
 
 const defaultRoutes = [
+  "/",
   "/client",
   "/client/work",
+  "/client/tickets",
   "/client/approvals",
   "/client/messages",
   "/client/reports",
   "/client/resources",
   "/client/account",
   "/client/calendar",
-  "/client/tickets",
   "/operations/clients",
   "/operations/clients/accounts",
   "/operations/clients/delivery",
@@ -26,14 +27,21 @@ const defaultRoutes = [
   "/operations/clients/calendar",
   "/dashboard",
   "/task-tracking",
+  "/task-calendar",
   "/daily-logs",
   "/payroll-calendar",
   "/payroll-dashboard",
+  "/my-payslips",
+  "/announcements",
   "/chat",
   "/company-chat",
   "/private-messages",
   "/file-directory",
   "/operations",
+  "/profile",
+  "/whiteboard",
+  "/discord",
+  "/not-a-real-route",
 ];
 
 const routes = (process.env.VISUAL_SMOKE_ROUTES || "")
@@ -42,6 +50,12 @@ const routes = (process.env.VISUAL_SMOKE_ROUTES || "")
   .filter(Boolean);
 
 const routesToCheck = routes.length > 0 ? routes : defaultRoutes;
+const enableInteractionAudit = process.env.VISUAL_SMOKE_INTERACTIONS === "1";
+const maxInteractionsPerRoute = Number(process.env.VISUAL_SMOKE_MAX_INTERACTIONS || "0");
+const interactionOffset = Number(process.env.VISUAL_SMOKE_INTERACTION_OFFSET || "0");
+const interactionTimeoutMs = Number(process.env.VISUAL_SMOKE_INTERACTION_TIMEOUT_MS || "1000");
+const interactionWaitMs = Number(process.env.VISUAL_SMOKE_INTERACTION_WAIT_MS || "500");
+const routeControlsOnly = process.env.VISUAL_SMOKE_ROUTE_CONTROLS_ONLY === "1";
 const requestedThemes = (process.env.VISUAL_SMOKE_THEMES || "dark,light")
   .split(",")
   .map((theme) => theme.trim())
@@ -52,7 +66,33 @@ const viewports = [
   { name: "mobile", width: 390, height: 844 },
 ];
 
-const user = {
+const smokePersona = (process.env.VISUAL_SMOKE_USER_ROLE || "admin").trim().toLowerCase();
+
+const clientNavigationLeakLabels = new Set([
+  "Dashboard",
+  "Task Tracking",
+  "Task Calendar",
+  "Daily Logs",
+  "Payroll Calendar",
+  "Payroll Dashboard",
+  "My Payslips",
+  "Announcements",
+  "Messages & Chat",
+  "Company Chat",
+  "Private Messages",
+  "File Directory",
+  "Operations",
+  "Client Operations",
+  "Operations Client Requests",
+  "Whiteboard",
+]);
+
+function findClientNavigationLeaks(labels) {
+  if (smokePersona !== "client") return [];
+  return labels.filter((label) => clientNavigationLeakLabels.has(label));
+}
+
+const adminUser = {
   id: "admin-1",
   email: "admin@example.test",
   name: "Demo Admin",
@@ -63,18 +103,40 @@ const user = {
   status: "active",
 };
 
+const clientUser = {
+  id: "client-1",
+  email: "owner@example.test",
+  name: "Client Owner",
+  role: "client",
+  roles: ["client_owner"],
+  department: "Client",
+  isApproved: true,
+  status: "active",
+};
+
+const employeeUser = {
+  id: "employee-1",
+  email: "employee@example.test",
+  name: "Demo Employee",
+  role: "web_developer",
+  roles: ["web_developer"],
+  department: "Website Developers",
+  isApproved: true,
+  status: "active",
+};
+
+const user = smokePersona === "anonymous"
+  ? null
+  : smokePersona === "client"
+    ? clientUser
+    : smokePersona === "employee"
+      ? employeeUser
+      : adminUser;
+
 const users = [
-  user,
-  {
-    id: "employee-1",
-    email: "employee@example.test",
-    name: "Demo Employee",
-    role: "web_developer",
-    roles: ["web_developer"],
-    department: "Website Developers",
-    isApproved: true,
-    status: "active",
-  },
+  adminUser,
+  employeeUser,
+  clientUser,
 ];
 
 const departments = [
@@ -118,7 +180,7 @@ const tasks = [
     departmentId: "dept-ops",
     department: departments[0],
     assigneeId: "admin-1",
-    assignee: user,
+    assignee: adminUser,
     dueDate: "2026-06-05T00:00:00.000Z",
     progress: 86,
     timerStatus: "stopped",
@@ -139,7 +201,7 @@ const announcements = [
     category: "news",
     timestamp: now,
     createdAt: now,
-    author: user,
+    author: adminUser,
     likes: [],
     comments: [],
   },
@@ -180,7 +242,7 @@ const messages = [
     senderId: "admin-1",
     content: "Route smoke checks are running against the local build.",
     createdAt: now,
-    sender: user,
+    sender: adminUser,
   },
 ];
 
@@ -246,7 +308,7 @@ const clientTickets = [
         id: "comment-1",
         ticketId: "ticket-1",
         authorId: "admin-1",
-        author: user,
+        author: adminUser,
         body: "We posted the draft update for your review.",
         visibility: "client",
         createdAt: now,
@@ -288,7 +350,7 @@ const clientOverview = {
       userId: "client-1",
       role: "client_owner",
       status: "active",
-      user: { id: "client-1", email: "owner@example.test", name: "Client Owner" },
+      user: clientUser,
     },
   ],
   tickets: clientTickets,
@@ -421,7 +483,7 @@ const clientActivities = [
     id: "activity-1",
     organizationId: "org-1",
     actorId: "admin-1",
-    actor: user,
+    actor: adminUser,
     type: "ticket_comment_created",
     subjectType: "ticket",
     subjectId: "ticket-1",
@@ -457,6 +519,17 @@ function jsonResponse(body, status = 200) {
   };
 }
 
+function payrollTimeEntry(overrides = {}) {
+  return {
+    id: overrides.id || "time-entry-audit",
+    userId: overrides.userId || user?.id || "admin-1",
+    start: overrides.start || now,
+    end: overrides.end,
+    duration: overrides.duration,
+    notes: overrides.notes || "Visual smoke audit entry",
+  };
+}
+
 function findChromeExecutable() {
   const candidates = [
     process.env.PLAYWRIGHT_CHROME_PATH,
@@ -480,6 +553,10 @@ async function installMocks(page, theme) {
     const path = url.pathname;
 
     if (path === "/backend-auth/me") {
+      if (!user) {
+        await route.fulfill(jsonResponse({ error: "Not authenticated" }, 401));
+        return;
+      }
       await route.fulfill(jsonResponse({ user }));
       return;
     }
@@ -489,6 +566,26 @@ async function installMocks(page, theme) {
         accessToken: "visual-smoke-token",
         refreshToken: "visual-smoke-refresh-token",
       }));
+      return;
+    }
+
+    if (path === "/backend-auth/login") {
+      await route.fulfill(jsonResponse({ error: "Invalid demo credentials" }, 401));
+      return;
+    }
+
+    if (path === "/backend-auth/signup") {
+      await route.fulfill(jsonResponse({ success: true, message: "Signup request submitted for audit." }, 201));
+      return;
+    }
+
+    if (path === "/backend-auth/forgot-password") {
+      await route.fulfill(jsonResponse({ success: true, message: "Password reset email queued for audit." }));
+      return;
+    }
+
+    if (path === "/backend-auth/reset-password") {
+      await route.fulfill(jsonResponse({ success: true, message: "Password reset completed for audit." }));
       return;
     }
 
@@ -531,6 +628,22 @@ async function installMocks(page, theme) {
     }
     if (path.startsWith("/api/payroll/time-entries")) {
       await route.fulfill(jsonResponse([]));
+      return;
+    }
+    if (path === "/api/payroll/clock-in") {
+      await route.fulfill(jsonResponse(payrollTimeEntry({ id: "clock-in-audit" }), 201));
+      return;
+    }
+    if (path === "/api/payroll/clock-out") {
+      await route.fulfill(jsonResponse(payrollTimeEntry({ id: "clock-in-audit", end: now, duration: 1 })));
+      return;
+    }
+    if (path === "/api/payroll/entry") {
+      await route.fulfill(jsonResponse(payrollTimeEntry({ id: "manual-entry-audit", end: now, duration: 480 }), 201));
+      return;
+    }
+    if (path.startsWith("/api/payroll/entry/")) {
+      await route.fulfill(jsonResponse(payrollTimeEntry({ id: path.split("/").pop() || "manual-entry-audit", end: now, duration: 480 })));
       return;
     }
     if (path.startsWith("/api/payroll/events")) {
@@ -650,9 +763,15 @@ async function installMocks(page, theme) {
   });
 
   await page.addInitScript(({ currentUser, themeName }) => {
-    localStorage.setItem("currentUser", JSON.stringify(currentUser));
-    localStorage.setItem("accessToken", "visual-smoke-token");
-    localStorage.setItem("refreshToken", "visual-smoke-refresh-token");
+    if (currentUser) {
+      localStorage.setItem("currentUser", JSON.stringify(currentUser));
+      localStorage.setItem("accessToken", "visual-smoke-token");
+      localStorage.setItem("refreshToken", "visual-smoke-refresh-token");
+    } else {
+      localStorage.removeItem("currentUser");
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+    }
     localStorage.setItem("theme", themeName);
     const applyTheme = () => {
       const root = document.documentElement;
@@ -663,6 +782,208 @@ async function installMocks(page, theme) {
     applyTheme();
     window.addEventListener("DOMContentLoaded", applyTheme, { once: true });
   }, { currentUser: user, themeName: theme });
+}
+
+const interactiveSelector = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([type='hidden']):not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[role='button']:not([aria-disabled='true'])",
+  "[role='tab']:not([aria-disabled='true'])",
+].join(",");
+
+const skippedInteractionPatterns = [
+  /attach/i,
+  /download/i,
+  /print/i,
+  /upload/i,
+  /preview site/i,
+  /discord/i,
+];
+
+function isSkippedInteraction(control) {
+  if (control.tag === "input" && control.type === "file") return "file input";
+  if (control.href && /^https?:\/\//i.test(control.href) && !control.href.startsWith(baseUrl)) return "external link";
+  const label = control.label || "";
+  const matchedPattern = skippedInteractionPatterns.find((pattern) => pattern.test(label));
+  return matchedPattern ? `skipped action: ${matchedPattern.source}` : "";
+}
+
+function valueForInputType(type) {
+  switch (type) {
+    case "email":
+      return "audit@example.test";
+    case "password":
+      return "AuditPass123";
+    case "number":
+    case "range":
+      return "1";
+    case "date":
+      return "2026-06-02";
+    case "time":
+      return "09:00";
+    case "datetime-local":
+      return "2026-06-02T09:00";
+    case "tel":
+      return "555-0100";
+    case "url":
+      return "https://example.test";
+    default:
+      return "Audit check";
+  }
+}
+
+async function getVisibleControls(page) {
+  return page.evaluate(({ selector, routeOnly }) => {
+    const viewportWidth = window.innerWidth;
+    const textOf = (element) => (
+      element.textContent
+      || element.getAttribute("aria-label")
+      || element.getAttribute("placeholder")
+      || element.getAttribute("name")
+      || element.getAttribute("id")
+      || ""
+    ).replace(/\s+/g, " ").trim();
+    const isVisible = (element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return rect.width > 0
+        && rect.height > 0
+        && rect.right > 0
+        && rect.left < viewportWidth
+        && style.visibility !== "hidden"
+        && style.display !== "none"
+        && style.pointerEvents !== "none";
+    };
+
+    const controls = Array.from(document.querySelectorAll(selector))
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        const inPersistentShell = Boolean(element.closest("#primary-sidebar, header"));
+        return {
+          element,
+          tag: element.tagName.toLowerCase(),
+          type: (element.getAttribute("type") || "").toLowerCase(),
+          role: element.getAttribute("role") || "",
+          label: textOf(element).slice(0, 120),
+          ariaLabel: element.getAttribute("aria-label") || "",
+          href: element.getAttribute("href") || "",
+          disabled: Boolean(element.disabled) || element.getAttribute("aria-disabled") === "true",
+          inPersistentShell,
+          visible: isVisible(element),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+        };
+      })
+      .filter((control) => control.visible && !control.disabled && (!routeOnly || !control.inPersistentShell));
+    controls.forEach((control, auditIndex) => {
+      control.element.setAttribute("data-visual-smoke-control", String(auditIndex));
+      control.auditIndex = auditIndex;
+      delete control.element;
+    });
+    return controls;
+  }, { selector: interactiveSelector, routeOnly: routeControlsOnly });
+}
+
+async function auditInteractions(page, routePath, theme, viewport) {
+  if (!enableInteractionAudit) {
+    return { enabled: false, total: 0, tested: 0, skipped: [], issues: [] };
+  }
+
+  const initialControls = await getVisibleControls(page);
+  const interactionLimit = maxInteractionsPerRoute > 0 ? maxInteractionsPerRoute : initialControls.length;
+  const controlsToAudit = initialControls.slice(interactionOffset, interactionOffset + interactionLimit);
+  const skipped = [];
+  const issues = [];
+  let tested = 0;
+
+  page.on("dialog", async (dialog) => {
+    await dialog.dismiss().catch(() => {});
+  });
+
+  for (const control of controlsToAudit) {
+    const skipReason = isSkippedInteraction(control);
+    if (skipReason) {
+      skipped.push({ routePath, viewport: viewport.name, theme, label: control.label, tag: control.tag, reason: skipReason });
+      continue;
+    }
+
+    try {
+      await page.goto(`${baseUrl}${routePath}`, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await page.waitForTimeout(interactionWaitMs);
+      const currentControls = await getVisibleControls(page);
+      const currentControl = currentControls[control.auditIndex];
+      if (!currentControl) {
+        skipped.push({ routePath, viewport: viewport.name, theme, label: control.label, tag: control.tag, reason: "control disappeared after reload" });
+        continue;
+      }
+      const locator = page.locator(`[data-visual-smoke-control="${currentControl.auditIndex}"]`);
+
+      const actionableControl = currentControl || control;
+
+      if (actionableControl.tag === "input") {
+        if (actionableControl.type === "checkbox" || actionableControl.type === "radio") {
+          await locator.click({ timeout: interactionTimeoutMs, force: true });
+        } else if (actionableControl.type === "range") {
+          await locator.evaluate((element) => {
+            const input = element;
+            input.value = input.max || "50";
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+            input.dispatchEvent(new Event("change", { bubbles: true }));
+          });
+        } else {
+          await locator.fill(valueForInputType(actionableControl.type), { timeout: interactionTimeoutMs });
+        }
+      } else if (actionableControl.tag === "textarea") {
+        await locator.fill("Audit check details", { timeout: interactionTimeoutMs });
+      } else if (actionableControl.tag === "select") {
+        const options = await locator.locator("option").evaluateAll((items) => items.map((option) => option.value).filter(Boolean));
+        if (options.length > 0) {
+          await locator.selectOption(options[Math.min(1, options.length - 1)], { timeout: interactionTimeoutMs });
+        } else {
+          skipped.push({ routePath, viewport: viewport.name, theme, label: control.label, tag: control.tag, reason: "select has no options" });
+          continue;
+        }
+      } else {
+        await locator.click({ timeout: interactionTimeoutMs, force: true });
+      }
+
+      tested += 1;
+      await page.waitForTimeout(interactionWaitMs);
+      const health = await page.evaluate(() => ({
+        currentPath: location.pathname,
+        loginPath: location.pathname.includes("/login"),
+        overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      }));
+      if (!routePath.startsWith("/login") && !routePath.startsWith("/signup") && !routePath.startsWith("/forgot-password") && !routePath.startsWith("/reset-password") && health.loginPath) {
+        issues.push({ routePath, viewport: viewport.name, theme, label: control.label, tag: control.tag, issue: "interaction redirected to login", currentPath: health.currentPath });
+      }
+      if (health.overflowX > 3) {
+        issues.push({ routePath, viewport: viewport.name, theme, label: control.label, tag: control.tag, issue: "interaction caused horizontal overflow", overflowX: health.overflowX });
+      }
+    } catch (error) {
+      issues.push({
+        routePath,
+        viewport: viewport.name,
+        theme,
+        label: control.label,
+        tag: control.tag,
+        type: control.type,
+        issue: error instanceof Error ? error.message.split("\n")[0] : String(error),
+      });
+    }
+  }
+
+  return {
+    enabled: true,
+    total: initialControls.length,
+    audited: controlsToAudit.length,
+    tested,
+    skipped,
+    issues,
+  };
 }
 
 async function inspectRoute(browser, routePath, viewport, theme) {
@@ -681,6 +1002,16 @@ async function inspectRoute(browser, routePath, viewport, theme) {
   });
   await page.waitForTimeout(1500);
   await page.screenshot({ fullPage: false });
+
+  let commandLabels = [];
+  if (smokePersona === "client" && viewport.name === "desktop") {
+    await page.keyboard.press("Control+K");
+    await page.waitForTimeout(150);
+    commandLabels = await page.locator("[data-command-item]").evaluateAll((items) => items
+      .map((item) => item.querySelector(".text-sm")?.textContent?.trim() || item.textContent?.trim() || "")
+      .filter(Boolean));
+    await page.keyboard.press("Escape");
+  }
 
   const metrics = await page.evaluate((expectedRoutePath) => {
     const root = document.documentElement;
@@ -701,6 +1032,10 @@ async function inspectRoute(browser, routePath, viewport, theme) {
       || element.getAttribute("placeholder")
       || ""
     ).replace(/\s+/g, " ").trim();
+    const textList = (selector) => Array.from(document.querySelectorAll(selector))
+      .filter(isVisible)
+      .map(textOf)
+      .filter(Boolean);
 
     const controlSelector = [
       "button",
@@ -725,14 +1060,27 @@ async function inspectRoute(browser, routePath, viewport, theme) {
       .filter((control) => control.height < 38 || control.width < 28);
 
     return {
+      currentPath: location.pathname,
       h1: document.querySelector("h1")?.textContent?.trim() || null,
       theme: root.getAttribute("data-theme"),
       hasLoginRedirect: !expectedRoutePath.startsWith("/login") && location.pathname.includes("/login"),
       overflowX: root.scrollWidth - root.clientWidth,
       smallControls,
+      sidebarLabels: textList("#primary-sidebar a"),
       bodySample: document.body.innerText.replace(/\s+/g, " ").trim().slice(0, 220),
     };
   }, routePath);
+  metrics.commandLabels = commandLabels;
+  metrics.clientNavigationLeaks = [
+    ...new Set([
+      ...findClientNavigationLeaks(metrics.sidebarLabels),
+      ...findClientNavigationLeaks(commandLabels),
+    ]),
+  ];
+  metrics.clientLandingRedirectMiss = smokePersona === "client"
+    && ["/", "/dashboard"].includes(routePath)
+    && metrics.currentPath !== "/client";
+  metrics.interactions = await auditInteractions(page, routePath, theme, viewport);
 
   await page.close();
   return { routePath, theme, viewport: viewport.name, metrics, pageErrors };
@@ -764,17 +1112,31 @@ async function main() {
     result.metrics.hasLoginRedirect
     || result.metrics.overflowX > 3
     || result.metrics.smallControls.length > 0
+    || result.metrics.clientNavigationLeaks.length > 0
+    || result.metrics.clientLandingRedirectMiss
+    || result.metrics.interactions.issues.length > 0
     || result.pageErrors.length > 0
   ));
 
   const summary = results.map((result) => ({
     routePath: result.routePath,
+    currentPath: result.metrics.currentPath,
     theme: result.theme,
     viewport: result.viewport,
     h1: result.metrics.h1,
     appliedTheme: result.metrics.theme,
     overflowX: result.metrics.overflowX,
     smallControls: result.metrics.smallControls.length,
+    clientNavigationLeaks: result.metrics.clientNavigationLeaks,
+    clientLandingRedirectMiss: result.metrics.clientLandingRedirectMiss,
+    interactions: result.metrics.interactions.enabled ? {
+      total: result.metrics.interactions.total,
+      audited: result.metrics.interactions.audited,
+      tested: result.metrics.interactions.tested,
+      skipped: result.metrics.interactions.skipped.length,
+      skippedSample: result.metrics.interactions.skipped.slice(0, 5),
+      issues: result.metrics.interactions.issues.length,
+    } : undefined,
     pageErrors: result.pageErrors.length,
   }));
 

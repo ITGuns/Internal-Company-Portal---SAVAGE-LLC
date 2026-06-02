@@ -595,10 +595,16 @@ input:focus {
     background: transparent;
     color: var(--foreground);
     border: 1px solid var(--border);
-    padding: 0.4rem 0.6rem;
+    display: inline-flex;
+    min-height: 2.5rem;
+    min-width: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.55rem 0.75rem;
     border-radius: 0.5rem;
     box-shadow: none;
     font-weight: 600;
+    line-height: 1;
     transition:
       background-color 120ms ease,
       color 120ms ease,
@@ -633,8 +639,14 @@ input:focus {
   }
 
   /* Compact button group spacing */
+  .fc .fc-button-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
   .fc .fc-button-group>*+* {
-    margin-left: 0.375rem;
+    margin-left: 0;
   }
 
   /* Ensure toolbar background remains transparent and inherits page surface */
@@ -969,8 +981,17 @@ html[data-theme="dark"] .priority-dot.high {
 
 /* Toolbar buttons area */
 .fc .fc-toolbar {
+  align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 0.5rem;
+}
+
+.fc .fc-toolbar-chunk {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
 }
 
 .fc .fc-toolbar-title {
@@ -984,10 +1005,32 @@ html[data-theme="dark"] .priority-dot.high {
   background-color: var(--card-surface) !important;
   border-color: var(--border) !important;
   color: var(--foreground) !important;
+  display: inline-flex !important;
+  min-height: 2.5rem !important;
+  min-width: 2.5rem !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0.55rem 0.75rem !important;
   font-size: 12px !important;
   font-weight: 500 !important;
+  line-height: 1 !important;
   box-shadow: none !important;
   transition: background-color 0.15s, border-color 0.15s;
+}
+
+.fc .fc-prev-button,
+.fc .fc-next-button {
+  padding-inline: 0 !important;
+}
+
+.fc .fc-button-group {
+  display: inline-flex !important;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.fc .fc-button-group > * + * {
+  margin-left: 0 !important;
 }
 
 .fc .fc-button:hover {

@@ -1,9 +1,13 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useUser } from "@/contexts/UserContext";
+import { getUserRoleNames, hasClientOperationsAccess, hasClientPortalAccess } from "@/lib/role-access";
 import {
+  BarChart3,
+  CheckCircle2,
   Home,
   Grid,
   Users,
@@ -13,6 +17,15 @@ import {
   Folder,
   User,
   Search,
+  BriefcaseBusiness,
+  Building2,
+  CalendarDays,
+  ClipboardList,
+  LayoutDashboard,
+  PencilRuler,
+  Ticket,
+  Wallet,
+  Wrench,
 } from "lucide-react";
 
 interface CommandItem {
@@ -24,15 +37,51 @@ interface CommandItem {
   keywords?: string[];
 }
 
-const COMMANDS: CommandItem[] = [
+const PROFILE_COMMAND: CommandItem = {
+  id: "profile",
+  label: "Profile",
+  description: "Your account settings",
+  icon: User,
+  href: "/profile",
+  keywords: ["account", "settings", "avatar"],
+};
+
+const INTERNAL_COMMANDS: CommandItem[] = [
   { id: "dashboard", label: "Dashboard", description: "Overview and stats", icon: Home, href: "/dashboard", keywords: ["home", "overview"] },
   { id: "tasks", label: "Task Tracking", description: "Manage and track tasks", icon: Grid, href: "/task-tracking", keywords: ["todo", "board", "kanban"] },
+  { id: "task-calendar", label: "Task Calendar", description: "Task schedule and due dates", icon: CalendarDays, href: "/task-calendar", keywords: ["schedule", "due dates", "calendar"] },
+  { id: "client-portal", label: "Client Portal", description: "Client progress and next actions", icon: BriefcaseBusiness, href: "/client", keywords: ["client", "portal", "customer", "workspace"] },
+  { id: "client-requests", label: "Client Requests", description: "Submit and review client requests", icon: Ticket, href: "/client/tickets", keywords: ["client", "request", "ticket", "support"] },
   { id: "payroll", label: "Payroll Calendar", description: "Schedules and time entries", icon: DollarSign, href: "/payroll-calendar", keywords: ["salary", "pay", "time", "clock"] },
+  { id: "payroll-dashboard", label: "Payroll Dashboard", description: "Payroll review and reporting", icon: LayoutDashboard, href: "/payroll-dashboard", keywords: ["salary", "payroll", "reports", "audit"] },
+  { id: "payslips", label: "My Payslips", description: "Payslip history and downloads", icon: Wallet, href: "/my-payslips", keywords: ["pay", "salary", "history", "download"] },
   { id: "announcements", label: "Announcements", description: "Company news and updates", icon: Megaphone, href: "/announcements", keywords: ["news", "updates", "events"] },
   { id: "daily-logs", label: "Daily Logs", description: "Daily work activity reports", icon: Users, href: "/daily-logs", keywords: ["reports", "activity", "work"] },
   { id: "chat", label: "Messages & Chat", description: "Team communication", icon: MessageSquare, href: "/chat", keywords: ["messages", "dm", "channel"] },
   { id: "files", label: "File Directory", description: "Shared documents and files", icon: Folder, href: "/file-directory", keywords: ["documents", "drive", "upload"] },
-  { id: "profile", label: "Profile", description: "Your account settings", icon: User, href: "/profile", keywords: ["account", "settings", "avatar"] },
+];
+
+const CLIENT_COMMANDS: CommandItem[] = [
+  { id: "client-command-center", label: "Command Center", description: "Progress and next actions", icon: BriefcaseBusiness, href: "/client", keywords: ["client", "portal", "home", "progress"] },
+  { id: "client-work", label: "Work", description: "Website progress and open work", icon: Grid, href: "/client/work", keywords: ["client", "work", "tasks", "progress"] },
+  { id: "client-requests", label: "Requests", description: "Submit and review requests", icon: Ticket, href: "/client/tickets", keywords: ["client", "request", "ticket", "support"] },
+  { id: "client-approvals", label: "Approvals", description: "Review items waiting for input", icon: CheckCircle2, href: "/client/approvals", keywords: ["client", "approval", "review"] },
+  { id: "client-messages", label: "Messages", description: "Request and update conversations", icon: MessageSquare, href: "/client/messages", keywords: ["client", "messages", "conversation"] },
+  { id: "client-reports", label: "Reports", description: "Published performance summaries", icon: BarChart3, href: "/client/reports", keywords: ["client", "reports", "performance"] },
+  { id: "client-resources", label: "Resources", description: "Shared links, assets, and files", icon: Folder, href: "/client/resources", keywords: ["client", "files", "resources", "assets"] },
+  { id: "client-account", label: "Account", description: "Service tier and account status", icon: User, href: "/client/account", keywords: ["client", "account", "settings"] },
+  { id: "client-calendar", label: "Calendar", description: "Campaign and content schedule", icon: CalendarDays, href: "/client/calendar", keywords: ["client", "calendar", "schedule"] },
+  PROFILE_COMMAND,
+];
+
+const CLIENT_OPERATIONS_COMMANDS: CommandItem[] = [
+  { id: "operations", label: "Operations", description: "Departments, roles, and approvals", icon: Wrench, href: "/operations", keywords: ["admin", "department", "roles", "approval"] },
+  { id: "client-operations", label: "Client Operations", description: "Admin client workspaces", icon: Building2, href: "/operations/clients", keywords: ["client", "operations", "accounts", "delivery"] },
+  { id: "client-operations-requests", label: "Operations Client Requests", description: "Admin request queue", icon: ClipboardList, href: "/operations/clients/requests", keywords: ["client", "operations", "request", "ticket"] },
+];
+
+const ADMIN_COMMANDS: CommandItem[] = [
+  { id: "whiteboard", label: "Whiteboard", description: "Admin brainstorming workspace", icon: PencilRuler, href: "/whiteboard", keywords: ["draw", "canvas", "brainstorm"] },
 ];
 
 export default function CommandPalette() {
@@ -42,9 +91,24 @@ export default function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const { user } = useUser();
+
+  const isClientPortalUser = hasClientPortalAccess(user);
+  const canAccessClientOperations = hasClientOperationsAccess(user);
+  const isAdmin = getUserRoleNames(user).includes("admin");
+  const commands = useMemo(() => {
+    if (isClientPortalUser) return CLIENT_COMMANDS;
+
+    return [
+      ...INTERNAL_COMMANDS,
+      ...(canAccessClientOperations ? CLIENT_OPERATIONS_COMMANDS : []),
+      ...(isAdmin ? ADMIN_COMMANDS : []),
+      PROFILE_COMMAND,
+    ];
+  }, [canAccessClientOperations, isAdmin, isClientPortalUser]);
 
   const filtered = query.trim()
-    ? COMMANDS.filter((cmd) => {
+    ? commands.filter((cmd) => {
         const q = query.toLowerCase();
         return (
           cmd.label.toLowerCase().includes(q) ||
@@ -52,7 +116,7 @@ export default function CommandPalette() {
           cmd.keywords?.some((k) => k.includes(q))
         );
       })
-    : COMMANDS;
+    : commands;
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -103,10 +167,12 @@ export default function CommandPalette() {
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
+        if (filtered.length === 0) return;
         setSelectedIndex((i) => (i + 1) % filtered.length);
         break;
       case "ArrowUp":
         e.preventDefault();
+        if (filtered.length === 0) return;
         setSelectedIndex((i) => (i - 1 + filtered.length) % filtered.length);
         break;
       case "Enter":

@@ -100,7 +100,7 @@ export default function AnnouncementCard({
               <div className="relative">
                 <button
                   onClick={onToggleMenu}
-                  className="p-1 rounded hover:bg-[var(--card-surface)] transition"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] hover:bg-[var(--card-surface)] transition"
                   aria-label="More options"
                 >
                   <MoreVertical className="w-4 h-4 text-[var(--muted)]" />
@@ -150,7 +150,7 @@ export default function AnnouncementCard({
               <div className="flex items-center gap-3 ml-6">
                 <button
                   onClick={onToggleGoing}
-                  className={`text-sm px-3 py-1 rounded transition ${
+                  className={`inline-flex min-h-10 items-center rounded px-3 text-sm transition ${
                     going
                       ? "bg-green-500/20 text-green-600 dark:text-green-400"
                       : "bg-[var(--card-bg)] border border-[var(--border)] hover:bg-[var(--card-surface)]"
@@ -186,9 +186,10 @@ export default function AnnouncementCard({
           <div className="flex items-center gap-4 text-sm text-[var(--muted)] mb-3">
             <button
               onClick={onToggleLike}
-              className={`flex items-center gap-1 transition ${
+              className={`inline-flex min-h-10 items-center gap-1 rounded-[var(--radius-md)] px-2 transition ${
                 liked ? "text-red-500" : "hover:text-[var(--foreground)]"
               }`}
+              aria-label={`${announcement.likes.length} ${announcement.likes.length === 1 ? "like" : "likes"}`}
             >
               <Heart className={`w-4 h-4 ${liked ? "fill-current" : ""}`} />
               <span>
@@ -198,7 +199,8 @@ export default function AnnouncementCard({
             </button>
             <button
               onClick={onToggleComments}
-              className="flex items-center gap-1 hover:text-[var(--foreground)] transition"
+              className="inline-flex min-h-10 items-center gap-1 rounded-[var(--radius-md)] px-2 hover:text-[var(--foreground)] transition"
+              aria-label={`${announcement.comments.length} ${announcement.comments.length === 1 ? "comment" : "comments"}`}
             >
               <MessageCircle className="w-4 h-4" />
               <span>
@@ -246,11 +248,11 @@ export default function AnnouncementCard({
                     }
                   }}
                   placeholder="Write a comment..."
-                  className="flex-1 p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-sm"
+                  className="min-h-10 flex-1 rounded border border-[var(--border)] bg-[var(--background)] p-2 text-sm text-[var(--foreground)]"
                 />
                 <button
                   onClick={onAddComment}
-                  className="p-2 rounded bg-[var(--foreground)] text-[var(--background)] hover:opacity-90 transition"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded bg-[var(--foreground)] text-[var(--background)] hover:opacity-90 transition"
                   aria-label="Post comment"
                 >
                   <Send className="w-4 h-4" />

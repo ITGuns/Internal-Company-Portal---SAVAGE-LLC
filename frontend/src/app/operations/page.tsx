@@ -186,27 +186,33 @@ export default function OperationsPage() {
         />
 
         <div className="mt-6">
-          <div className="flex items-center gap-4 border-b border-[var(--border)] mb-6">
+          <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-[var(--border)] pb-3" role="tablist" aria-label="Operations sections">
             <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'departments'}
               onClick={() => setActiveTab('departments')}
-              className={`pb-2 px-1 text-sm font-medium transition-colors relative ${activeTab === 'departments' ? 'text-[var(--accent)]' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
+              className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'departments' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
             >
               Departments
-              {activeTab === 'departments' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent)]" />}
             </button>
             <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'roles'}
               onClick={() => setActiveTab('roles')}
-              className={`pb-2 px-1 text-sm font-medium transition-colors relative ${activeTab === 'roles' ? 'text-[var(--accent)]' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
+              className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'roles' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
             >
               Roles
-              {activeTab === 'roles' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent)]" />}
             </button>
             <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'clients'}
               onClick={() => setActiveTab('clients')}
-              className={`pb-2 px-1 text-sm font-medium transition-colors relative ${activeTab === 'clients' ? 'text-[var(--accent)]' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
+              className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'clients' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
             >
               Clients
-              {activeTab === 'clients' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent)]" />}
             </button>
           </div>
 
@@ -273,7 +279,7 @@ export default function OperationsPage() {
                       </div>
                       <button
                         onClick={() => openDepartmentDelete(dept)}
-                        className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-500"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded text-red-500 hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 dark:hover:bg-red-900/30"
                         aria-label={`Delete ${dept.name}`}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -305,7 +311,7 @@ export default function OperationsPage() {
                     <div className="flex justify-end">
                       <button
                         onClick={() => openRoleDelete(role)}
-                        className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-500"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded text-red-500 hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 dark:hover:bg-red-900/30"
                         aria-label={`Delete role ${role.name}`}
                       >
                         <Trash2 className="w-4 h-4" />

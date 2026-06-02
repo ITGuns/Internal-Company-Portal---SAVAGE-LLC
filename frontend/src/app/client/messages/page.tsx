@@ -105,7 +105,7 @@ export default function ClientMessagesPage() {
                           <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{message.body}</p>
                           <Link
                             href="/client/tickets"
-                            className="mt-3 inline-flex text-sm font-medium text-[var(--accent)] hover:underline"
+                            className="mt-3 inline-flex min-h-10 items-center rounded-[var(--radius-md)] px-2 text-sm font-medium text-[var(--accent)] hover:underline"
                           >
                             Open request
                           </Link>

@@ -573,7 +573,7 @@ export default function DashboardPage() {
             <Card variant="elevated" className="overflow-hidden">
               <Card.Header>
                 <h3 className="font-semibold text-sm">Company Announcements</h3>
-                <Link href="/announcements" className="text-sm text-[var(--muted)] hover:text-[var(--accent)] hover:underline">View All</Link>
+                <Link href="/announcements" className="inline-flex min-h-10 items-center rounded-[var(--radius-md)] px-2 text-sm text-[var(--muted)] hover:text-[var(--accent)] hover:underline">View All</Link>
               </Card.Header>
 
               {recentAnnouncements.length === 0 ? (
@@ -612,7 +612,7 @@ export default function DashboardPage() {
               <Card variant="elevated" className="overflow-hidden self-start">
                 <Card.Header>
                   <h4 className="font-semibold">Recent Shoutouts</h4>
-                  <Link href="/announcements" className="text-sm text-[var(--muted)] hover:text-[var(--accent)] hover:underline">View All</Link>
+                  <Link href="/announcements" className="inline-flex min-h-10 items-center rounded-[var(--radius-md)] px-2 text-sm text-[var(--muted)] hover:text-[var(--accent)] hover:underline">View All</Link>
                 </Card.Header>
 
                 {recentShoutouts.length === 0 ? (

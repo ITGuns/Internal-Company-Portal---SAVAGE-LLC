@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { CheckCircle2, Mail, Lock, User as UserIcon } from 'lucide-react';
 import LoginInput from '@/components/LoginInput';
 import { useUser } from '@/contexts/UserContext';
+import { getAuthenticatedLandingPath } from '@/lib/role-access';
 import { getSignupRoleOptions, type SignupDepartmentOption } from '@/lib/signup-options';
 import styles from '../login/login.module.css';
 
@@ -27,7 +28,7 @@ export default function SignUpPage() {
 
   useEffect(() => {
     if (user) {
-      router.push('/dashboard');
+      router.push(getAuthenticatedLandingPath(user));
     }
   }, [user, router]);
 

@@ -870,7 +870,7 @@ export default function TaskTrackingPage() {
                   placeholder="Search tasks..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 rounded-full bg-[var(--card-bg)] border border-[var(--border)] text-xs focus:ring-1 focus:ring-[var(--accent)] outline-none w-48 transition-all focus:w-64"
+                  className="min-h-10 w-48 rounded-full border border-[var(--border)] bg-[var(--card-bg)] py-2 pl-8 pr-3 text-xs outline-none transition-all focus:w-64 focus:ring-1 focus:ring-[var(--accent)]"
                 />
               </div>
               <Button

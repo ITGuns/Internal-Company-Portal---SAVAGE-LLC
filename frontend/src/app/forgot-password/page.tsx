@@ -6,6 +6,7 @@ import { Mail } from 'lucide-react';
 import LoginInput from '@/components/LoginInput';
 import { useUser } from '@/contexts/UserContext';
 import { requestPasswordReset } from '@/lib/api';
+import { getAuthenticatedLandingPath } from '@/lib/role-access';
 import styles from '../login/login.module.css';
 
 export default function ForgotPasswordPage() {
@@ -21,7 +22,7 @@ export default function ForgotPasswordPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      router.push('/dashboard');
+      router.push(getAuthenticatedLandingPath(user));
     }
   }, [user, router]);
 

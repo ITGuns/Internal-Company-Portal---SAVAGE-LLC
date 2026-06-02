@@ -50,7 +50,7 @@ export default function ClientAccountPage() {
                         href={organization.websiteUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-sm text-[var(--accent)] hover:underline"
+                        className="inline-flex min-h-10 items-center gap-1 rounded-[var(--radius-md)] px-2 text-sm text-[var(--accent)] hover:underline"
                       >
                         Website <ExternalLink className="h-3.5 w-3.5" />
                       </a>

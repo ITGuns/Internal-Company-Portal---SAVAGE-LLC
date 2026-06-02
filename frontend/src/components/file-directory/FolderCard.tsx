@@ -59,9 +59,10 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
               href={folder.driveLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-2 hover:bg-[var(--card-bg)] rounded-lg transition-colors"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg transition-colors hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               onClick={(e) => e.stopPropagation()}
               title="Open in Drive"
+              aria-label={`Open ${folder.name} in Drive`}
             >
               <ExternalLink className="w-4 h-4 text-[var(--muted)]" />
             </a>
@@ -85,8 +86,9 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
                 e.stopPropagation();
                 onDelete();
               }}
-              className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg opacity-0 transition-colors hover:bg-red-50 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 group-hover:opacity-100 dark:hover:bg-red-900/20"
               title="Delete folder"
+              aria-label={`Delete ${folder.name}`}
             >
               <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
             </button>
@@ -117,8 +119,9 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
               e.stopPropagation();
               onDelete();
             }}
-            className="absolute top-3 right-3 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-30"
+            className="absolute right-3 top-3 z-30 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 opacity-0 transition-opacity focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 group-hover:opacity-100 dark:bg-red-900/20"
             title="Delete folder"
+            aria-label={`Delete ${folder.name}`}
           >
             <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
           </button>

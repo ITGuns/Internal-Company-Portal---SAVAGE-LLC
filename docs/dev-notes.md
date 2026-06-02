@@ -1,5 +1,240 @@
 # Development Notes
 
+## 2026-06-02 - Exhaustive Interaction Audit Fix Cycle
+
+### Completed
+
+- Reframed the audit away from broad sampling and into route-by-route, persona-by-persona coverage.
+- Expanded visual smoke with optional interaction auditing for visible links, buttons, inputs, selects, tabs, checkboxes, radios, and range controls.
+- Added safe admin, employee, client, and anonymous personas to visual smoke.
+- Added safe mock responses for auth forms and payroll clock/manual-entry actions so workflow checks do not touch real backend data.
+- Ran desktop and mobile interaction sweeps across client, employee, admin operations, payroll, auth, and shell-level controls.
+- Used the in-app Browser for visible shell checks: sidebar collapse/expand, command palette, notifications, profile panel, and theme toggle.
+- Fixed undersized password visibility buttons on login, signup, and reset-password forms.
+
+### Files Changed
+
+- `frontend/scripts/visual-smoke.mjs`
+- `frontend/src/app/login/login.module.css`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Treated redirect aliases like `/payroll-dashboard` and `/` as route behavior to verify separately from route-body click isolation.
+- Kept destructive or external actions skipped in automated clicks: uploads, downloads, print, Discord/external links, and file inputs.
+- Used mocked auth/payroll responses for function checks because real local submissions could mutate data.
+
+### How to Test
+
+- `VISUAL_SMOKE_USER_ROLE=client VISUAL_SMOKE_INTERACTIONS=1 VISUAL_SMOKE_ROUTE_CONTROLS_ONLY=1 VISUAL_SMOKE_ROUTES=/client,/client/work,/client/tickets,/client/approvals,/client/messages,/client/reports,/client/resources,/client/account,/client/calendar VISUAL_SMOKE_THEMES=dark npm --prefix frontend run test:visual`
+- `VISUAL_SMOKE_USER_ROLE=admin VISUAL_SMOKE_INTERACTIONS=1 VISUAL_SMOKE_ROUTE_CONTROLS_ONLY=1 VISUAL_SMOKE_ROUTES=/operations,/operations/clients,/operations/clients/accounts,/operations/clients/delivery,/operations/clients/requests,/operations/clients/approvals,/operations/clients/reports,/operations/clients/assets,/operations/clients/billing,/operations/clients/roadmap,/operations/clients/calendar,/payroll-calendar,/whiteboard VISUAL_SMOKE_THEMES=dark npm --prefix frontend run test:visual`
+- `VISUAL_SMOKE_USER_ROLE=anonymous VISUAL_SMOKE_INTERACTIONS=1 VISUAL_SMOKE_ROUTES=/login,/signup,/forgot-password,/reset-password,/reset-password?token=audit-token&email=audit%40example.test VISUAL_SMOKE_THEMES=dark npm --prefix frontend run test:visual`
+- Persona shell sweeps with `VISUAL_SMOKE_INTERACTIONS=1` on `/client` for client users and `/dashboard` for employee/admin users.
+
+### Next Steps
+
+- Keep external links, file inputs, downloads, and print actions as explicit manual checks because automated interaction should not trigger them without user intent.
+
+## 2026-06-02 - Client Persona Workflow Fix Cycle
+
+### Completed
+
+- Simulated the portal as a client user instead of relying on the admin session.
+- Fixed authenticated client landing so `/` and `/dashboard` resolve to `/client`.
+- Changed login and already-authenticated auth screens to use the existing role-aware landing helper.
+- Restricted the shared sidebar to client-facing portal routes for client users.
+- Made the command palette role-aware so client search no longer exposes employee/admin destinations.
+- Hid the employee time clock from client users.
+- Added a client persona mode to visual smoke with checks for client landing redirects and internal navigation leaks.
+- Improved the mobile navigation toggle label and `aria-expanded` state while the client drawer is open.
+
+### Files Changed
+
+- `frontend/src/app/login/page.tsx`
+- `frontend/src/app/signup/page.tsx`
+- `frontend/src/app/forgot-password/page.tsx`
+- `frontend/src/app/reset-password/page.tsx`
+- `frontend/src/components/AuthGuard.tsx`
+- `frontend/src/components/CommandPalette.tsx`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/lib/sidebar-navigation.ts`
+- `frontend/scripts/visual-smoke.mjs`
+- `frontend/tests/sidebar-navigation.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the fix to navigation, landing, and shell behavior; no backend route or database contract changed.
+- Reused `getAuthenticatedLandingPath` and `CLIENT_PORTAL_NAV_ITEMS` instead of adding another role/navigation source.
+- Treated client search and mobile drawer behavior as part of the client workflow, not optional polish.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- Client persona smoke: `VISUAL_SMOKE_USER_ROLE=client VISUAL_SMOKE_ROUTES=/,/dashboard,/client,/client/work,/client/tickets,/client/approvals,/client/messages,/client/reports,/client/resources,/client/account,/client/calendar npm --prefix frontend run test:visual`
+- Admin focused smoke: `VISUAL_SMOKE_ROUTES=/dashboard,/operations,/operations/clients,/client npm --prefix frontend run test:visual`
+- `npm --prefix frontend run build`
+- Manual client workflow simulation: client lands on `/client`, searches Requests, submits a request, opens the mobile drawer, and navigates to Requests without internal nav leaks.
+
+### Next Steps
+
+- Add deeper route-level authorization/redirect rules for direct-linked internal employee/admin pages if client accounts should be blocked beyond the dashboard landing behavior.
+
+## 2026-06-02 - Full Usability Audit Fix Cycle
+
+### Completed
+
+- Ran a broader Vibe Auto Research audit across admin, employee-facing, client-facing, and shared workflow routes.
+- Added a rendered client portal section nav across `/client` and `/client/*` pages, including direct access to client `Requests`.
+- Expanded the command palette so client, operations, payslip, task calendar, payroll dashboard, and whiteboard routes are discoverable by search.
+- Fixed mobile Payslips overflow by removing the legacy manual sidebar offset and using the shared app shell spacing.
+- Enlarged undersized announcement action controls, whiteboard tools/color swatches/range input, dashboard text links, and client resource/account/message links.
+- Added proper page shells and `Header` titles for Task Calendar and Discord placeholder routes.
+- Expanded the default visual smoke route matrix to include the previously skipped full-site audit routes.
+
+### Files Changed
+
+- `frontend/src/app/client/page.tsx`
+- `frontend/src/app/client/tickets/page.tsx`
+- `frontend/src/app/client/messages/page.tsx`
+- `frontend/src/app/client/resources/page.tsx`
+- `frontend/src/app/client/account/page.tsx`
+- `frontend/src/app/dashboard/page.tsx`
+- `frontend/src/app/my-payslips/page.tsx`
+- `frontend/src/app/whiteboard/page.tsx`
+- `frontend/src/app/task-calendar/page.tsx`
+- `frontend/src/app/discord/page.tsx`
+- `frontend/src/components/CommandPalette.tsx`
+- `frontend/src/components/announcements/AnnouncementCard.tsx`
+- `frontend/src/components/client-portal/ClientPortalTopNav.tsx`
+- `frontend/src/components/client-portal/ClientPortalWorkspaceFrame.tsx`
+- `frontend/src/lib/client-portal-navigation.ts`
+- `frontend/scripts/visual-smoke.mjs`
+- `frontend/tests/client-portal-navigation.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Treated visual-smoke failures as authoritative unless the browser pass disproved them.
+- Reused the existing client operations top-nav pattern for client portal sections instead of creating a separate visual language.
+- Kept fixes scoped to discoverability, hit areas, responsive shell spacing, route titles, and audit coverage; no backend or database contracts changed.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run test:visual`
+- Focused client smoke: `VISUAL_SMOKE_ROUTES=/client,/client/work,/client/tickets,/client/messages npm --prefix frontend run test:visual`
+- `npm --prefix frontend run build`
+- `git diff --check`
+- Chrome extension checks: route matrix, sidebar collapse, modal-open workflows, command palette searches for `client`, `operations`, `payslip`, and `whiteboard`, and client nav on `/client`, `/client/work`, and `/client/tickets`.
+
+### Next Steps
+
+- Add a logged-out/public-route smoke mode for `/login`, `/signup`, `/forgot-password`, and `/reset-password`; current visual smoke seeds an authenticated user.
+
+## 2026-06-02 - Manual Usability Fix Cycle
+
+### Completed
+
+- Ran the Vibe Auto Research and Prompt-to-Quality cycle against the manual desktop/browser audit findings.
+- Enlarged FullCalendar toolbar controls across client, operations client, payroll, and task calendar surfaces.
+- Fixed small custom chat controls in the sidebar, message actions, search panel, and composer.
+- Made Daily Logs filters responsive on mobile and removed the horizontal overflow found by visual smoke.
+- Reworked Operations tabs into accessible 40px tab controls and resized destructive icon buttons.
+- Resized File Directory breadcrumbs, folder-card icon actions, and toolbar fields.
+- Added a Client Portal sidebar item so `/client/*` routes keep a clear active navigation anchor.
+- Fixed the Task Tracking search input hit area.
+
+### Files Changed
+
+- `frontend/src/app/globals.css`
+- `frontend/src/app/chat/page.tsx`
+- `frontend/src/app/daily-logs/page.tsx`
+- `frontend/src/app/file-directory/page.tsx`
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/chat/ChatSidebar.tsx`
+- `frontend/src/components/chat/MessageInput.tsx`
+- `frontend/src/components/file-directory/FolderCard.tsx`
+- `frontend/tests/sidebar-navigation.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the fixes scoped to hit areas, wrapping, active navigation, and workflow polish instead of changing API or data behavior.
+- Used shared FullCalendar CSS for calendar controls so client and admin calendar routes improve together.
+- Kept native Daily Logs checkboxes visually compact while making their label rows the 40px touch targets.
+
+### How to Test
+
+- `npm --prefix frontend test -- sidebar-navigation.test.mjs`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run test:visual`
+- `git diff --check`
+- Chrome extension route audit: `/operations/clients`, `/client`, `/client/calendar`, `/operations/clients/calendar`, `/task-tracking`, `/daily-logs`, `/chat`, `/file-directory`, and `/operations`.
+- Chrome workflow checks: chat search open/close, Daily Logs add-modal open/close, Operations tab switching.
+
+### Next Steps
+
+- Keep visual smoke as the regression gate for future app-shell and workflow UI changes.
+
+## 2026-06-02 - Sidebar Collapse Shell Cycle
+
+### Completed
+
+- Checked the repo instructions, design docs, app shell files, visual-smoke script, and validation commands before editing.
+- Confirmed Google Chrome is installed and the Codex Chrome Extension/native host are configured; the first Chrome backend retry was unavailable, then a later extension retry connected successfully.
+- Added a persisted desktop sidebar collapse state while preserving the existing mobile drawer behavior.
+- Wired the header hamburger to open mobile navigation on small screens and collapse/expand the desktop sidebar on desktop.
+- Added focused helper coverage for sidebar toggle mode and accessible toggle labels.
+- Verified the desktop collapse/expand cycle in the in-app Browser and again through the Chrome extension.
+- Fixed the overlapping admin nav active state so `/operations/clients` highlights `Clients` without also glowing `Operations`.
+
+### Files Changed
+
+- `frontend/src/contexts/SidebarContext.tsx`
+- `frontend/src/lib/sidebar-navigation.ts`
+- `frontend/src/components/LayoutWrapper.tsx`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/tests/sidebar-navigation.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept mobile navigation as a drawer because that matches the existing design contract.
+- Put collapse state in a shell context so `Sidebar`, page padding, and fixed `Header` stay synchronized.
+- Persisted desktop collapse with the existing `STORAGE_KEYS.SIDEBAR_COLLAPSED` key instead of adding a new storage convention.
+- Made the `Operations` sidebar item exact-match only while keeping `Clients` section matching for `/operations/clients/*` pages.
+- Used Browser Use as the initial live click-through fallback while Chrome was unavailable, then reran the same desktop route and hamburger check through the Chrome extension after the connection recovered.
+- Restarted the frontend dev server after a stale dev route response returned 404 for `/operations/clients`; the route then served correctly and Browser Use navigation passed.
+
+### How to Test
+
+- `npm --prefix frontend test -- sidebar-navigation.test.mjs`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `npm --prefix backend test`
+- `npm --prefix backend run build`
+- `npm run check:skills`
+- `git diff --check`
+- `npm --prefix backend audit --audit-level=high`
+- `npm --prefix frontend audit --audit-level=high`
+- `npm audit --audit-level=high`
+- `VISUAL_SMOKE_ROUTES='/dashboard,/operations/clients,/client,/login' VISUAL_SMOKE_THEMES='dark,light' npm --prefix frontend run test:visual`
+- Browser Use desktop check: `/dashboard` collapse to `80px`, reload persistence, collapsed `Clients` navigation to `/operations/clients`, then restore expanded `288px` state.
+- Chrome extension desktop check: `/operations/clients` rendered authenticated client operations, hamburger collapsed to `80px`, restored expanded `288px`, and reported no console warnings/errors.
+- Chrome extension active-state check: `/operations/clients` sets `aria-current="page"` only on `Clients`; `Operations` remains inactive.
+
+### Next Steps
+
+- If the Chrome backend disappears again, retry the extension connection once before reinstalling or reloading the Chrome plugin from the Codex plugin UI.
+- Add a dedicated visual test assertion for the hamburger collapse/expand cycle if this shell behavior becomes a release gate.
+
 ## 2026-06-02 - Light And Dark Theme Fix
 
 ### Completed

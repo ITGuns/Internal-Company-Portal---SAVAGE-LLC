@@ -197,7 +197,7 @@ export default function FileDirectoryPage() {
         <div className="flex items-center gap-2 py-4 text-sm flex-wrap">
           <button
             onClick={() => handleBreadcrumbClick(null)}
-            className="flex items-center gap-1 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            className="flex min-h-10 items-center gap-1 rounded-[var(--radius-md)] px-2 text-[var(--muted)] transition-colors hover:bg-[var(--card-surface)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
             <Home className="w-4 h-4" />
             Home
@@ -208,7 +208,7 @@ export default function FileDirectoryPage() {
               <ChevronRight className="w-4 h-4 text-[var(--muted)]" />
               <button
                 onClick={() => handleBreadcrumbClick(folder.id)}
-                className={`hover:text-[var(--foreground)] transition-colors ${index === breadcrumbs.length - 1 && !driveMode
+                className={`min-h-10 rounded-[var(--radius-md)] px-2 transition-colors hover:bg-[var(--card-surface)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${index === breadcrumbs.length - 1 && !driveMode
                   ? 'text-[var(--foreground)] font-medium'
                   : 'text-[var(--muted)]'
                   }`}
@@ -241,7 +241,7 @@ export default function FileDirectoryPage() {
                 placeholder="Search folders..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-[var(--card-surface)] border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-[var(--foreground)]"
+                className="min-h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--card-surface)] py-2 pl-10 pr-4 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -249,7 +249,7 @@ export default function FileDirectoryPage() {
             <select
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="px-4 py-2 bg-[var(--card-surface)] border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-[var(--foreground)] [color-scheme:light] dark:[color-scheme:dark]"
+              className="min-h-10 rounded-lg border border-[var(--border)] bg-[var(--card-surface)] px-4 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:light] dark:[color-scheme:dark]"
               aria-label="Filter by department"
             >
               <option value="All Departments">Global Directory</option>
@@ -264,7 +264,7 @@ export default function FileDirectoryPage() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-4 py-2 bg-[var(--card-surface)] border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-[var(--foreground)] [color-scheme:light] dark:[color-scheme:dark]"
+              className="min-h-10 rounded-lg border border-[var(--border)] bg-[var(--card-surface)] px-4 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:light] dark:[color-scheme:dark]"
               aria-label="Sort folders"
             >
               <option value="name">Sort by Name</option>

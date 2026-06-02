@@ -258,12 +258,15 @@
 }
 
 .passwordInput {
-  padding-right: 48px; /* Space for the eye icon */
+  padding-right: 56px;
 }
 
 .passwordToggle {
   position: absolute;
-  right: 12px;
+  right: 8px;
+  top: 50%;
+  width: 40px;
+  height: 40px;
   background: none;
   border: none;
   color: var(--login-text-secondary);
@@ -271,8 +274,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
-  border-radius: 4px;
+  padding: 0;
+  border-radius: 8px;
+  transform: translateY(-50%);
   transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 150ms var(--ease-out);
   z-index: 1;
 }
@@ -288,7 +292,7 @@
 }
 
 .passwordToggle:active {
-  transform: translateY(1px) scale(0.98);
+  transform: translateY(-50%) scale(0.98);
 }
 
 .eyeIcon {

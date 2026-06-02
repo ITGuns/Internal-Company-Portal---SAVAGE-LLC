@@ -12,6 +12,9 @@ import { useSocket } from '@/context/SocketContext';
 import { useUser } from '@/contexts/UserContext';
 import TimeClock from './TimeClock';
 import { cn } from '@/lib/utils';
+import { useSidebar } from '@/contexts/SidebarContext';
+import { getNavigationToggleLabel } from '@/lib/sidebar-navigation';
+import { hasClientPortalAccess } from '@/lib/role-access';
 
 const routeTitles: Record<string, { title: string; subtitle?: string }> = {
   '/dashboard': { title: 'Dashboard', subtitle: 'Today, tasks, logs, and approvals' },
@@ -42,6 +45,8 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const { user } = useUser();
+  const { desktopCollapsed, mobileOpen, isDesktopViewport, toggleNavigation } = useSidebar();
+  const showEmployeeClock = Boolean(user) && !hasClientPortalAccess(user);
 
   const isDashboard = pathname === '/' || pathname === '/dashboard';
   const autoTitle = getRouteTitle(pathname);
@@ -56,13 +61,21 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
   );
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-30 flex h-20 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-raised)]/95 px-4 shadow-[0_18px_44px_-38px_var(--accent)] backdrop-blur md:left-72 md:h-24 md:px-6">
+    <header
+      className={cn(
+        'fixed left-0 right-0 top-0 z-30 flex h-20 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-raised)]/95 px-4 shadow-[0_18px_44px_-38px_var(--accent)] backdrop-blur',
+        'transition-[left,height,padding] duration-200 ease-[var(--ease-out)] md:h-24 md:px-6',
+        desktopCollapsed ? 'md:left-20' : 'md:left-72',
+      )}
+    >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <button
           type="button"
-          className={cn(iconButtonClass, 'min-w-10 shrink-0 md:hidden')}
-          onClick={() => window.dispatchEvent(new Event('toggle-sidebar'))}
-          aria-label="Open navigation"
+          className={cn(iconButtonClass, 'min-w-10 shrink-0')}
+          onClick={toggleNavigation}
+          aria-label={getNavigationToggleLabel(isDesktopViewport, desktopCollapsed, mobileOpen)}
+          aria-expanded={isDesktopViewport ? !desktopCollapsed : mobileOpen}
+          aria-controls="primary-sidebar"
         >
           <Menu className="h-5 w-5" aria-hidden="true" />
         </button>
@@ -93,7 +106,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
           </kbd>
         </button>
 
-        {user ? (
+        {showEmployeeClock ? (
           <div className="hidden xl:block">
             <TimeClock />
           </div>
