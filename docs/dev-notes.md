@@ -1,5 +1,43 @@
 # Development Notes
 
+## 2026-06-02 - Auth Session Cookie Hardening
+
+### Completed
+
+- Moved new browser refresh-token delivery to an httpOnly SameSite `portal_refresh_token` cookie for login and OAuth responses.
+- Updated `/auth/refresh` to read the refresh token from the cookie, rotate the browser cookie response, and keep body-token refresh as a legacy fallback.
+- Updated frontend auth helpers so new login sessions no longer store refresh tokens in localStorage and token refresh retries also handle the backend's expired-token `403` response.
+- Added backend route coverage for login cookie issuance, cookie refresh, legacy body refresh, and logout cookie clearing.
+
+### Files Changed
+
+- `backend/src/auth/auth.controller.ts`
+- `backend/src/auth/auth.session.ts`
+- `backend/tests/auth.routes.test.ts`
+- `backend/tests/run-tests.ts`
+- `frontend/src/lib/api.ts`
+- `frontend/src/lib/constants.ts`
+- `frontend/src/lib/types/auth.ts`
+- `frontend/src/contexts/UserContext.tsx`
+- `frontend/src/context/SocketContext.tsx`
+- `docs/api.md`
+- `docs/architecture.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Avoided a schema migration in this tranche; DB-backed refresh-token revocation/rotation remains the next auth hardening layer.
+- Preserved body-based refresh temporarily so existing sessions can recover while new sessions use the cookie path.
+- Kept access tokens as bearer tokens for existing REST and Socket.IO contracts.
+
+### How to Test
+
+- `npm --prefix backend test`
+- `npm --prefix backend run build`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+
 ## 2026-06-02 - Standalone Start And JSON Body Limits
 
 ### Completed

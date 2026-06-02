@@ -1,8 +1,13 @@
 "use client"
 
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { getCurrentUser, setCurrentUser as saveCurrentUser, getRefreshToken, setAuthToken, setRefreshToken } from '@/lib/api';
-import { STORAGE_KEYS } from '@/lib/constants';
+import {
+  getAuthToken,
+  getCurrentUser,
+  logout as endAuthSession,
+  refreshAccessToken,
+  setCurrentUser as saveCurrentUser,
+} from '@/lib/api';
 
 export interface User {
   id: string | number;
@@ -37,47 +42,48 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Logout - clear user data and all tokens
   const logout = useCallback(() => {
     setUser(null);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEYS.USER);
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-    }
+    endAuthSession();
   }, []);
 
-  // Fetch user from localStorage or API
   const refreshUser = useCallback(async () => {
     try {
       setError(null);
       const storedUser = getCurrentUser();
 
       if (storedUser) {
-        // Safety check: if we just had an auth error, don't try again immediately to avoid loops
         if (typeof window !== 'undefined' && sessionStorage.getItem('auth_error')) {
-          // Auth error loop detected — clear session
           logout();
-          sessionStorage.removeItem('auth_error'); // Clear flag so they can try logging in again manually
+          sessionStorage.removeItem('auth_error');
           setIsLoading(false);
           return;
         }
 
-        // Optimistically set user from storage
         setUser(storedUser);
 
-        // Verify with backend
+        let accessToken = getAuthToken();
+        if (!accessToken) {
+          accessToken = await refreshAccessToken();
+        }
+
+        if (!accessToken) {
+          logout();
+          setIsLoading(false);
+          return;
+        }
+
         try {
           const res = await fetch(`/backend-auth/me`, {
+            credentials: 'include',
             headers: {
-              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+              'Authorization': `Bearer ${accessToken}`
             }
           });
 
           if (res.ok) {
             const data = await res.json();
             if (data.user) {
-              // Only update if data changed to avoid re-renders
               setUser(prev => {
                 const hasChanged = prev?.id !== data.user.id ||
                   prev?.email !== data.user.email ||
@@ -91,31 +97,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
               });
               saveCurrentUser(data.user);
             }
-          } else if (res.status === 401) {
-            // Access token expired — try to refresh
-            const refreshToken = getRefreshToken();
-            if (refreshToken) {
-              try {
-                const refreshRes = await fetch(`/backend-auth/refresh`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ refreshToken })
-                });
-                if (refreshRes.ok) {
-                  const refreshData = await refreshRes.json();
-                  if (refreshData.accessToken) {
-                    setAuthToken(refreshData.accessToken);
-                    if (refreshData.refreshToken) setRefreshToken(refreshData.refreshToken);
-                    // Token refreshed — next poll will re-verify
-                    // Don't logout — next poll will re-verify cleanly
-                    return;
-                  }
-                }
-              } catch (refreshErr) {
-                console.error('[UserContext] Token refresh failed:', refreshErr);
+          } else if (res.status === 401 || res.status === 403) {
+            try {
+              const newAccessToken = await refreshAccessToken();
+              if (newAccessToken) {
+                return;
               }
+            } catch (refreshErr) {
+              console.error('[UserContext] Token refresh failed:', refreshErr);
             }
-            // Refresh also failed — log the user out
+
             if (typeof window !== 'undefined') sessionStorage.setItem('auth_error', 'true');
             logout();
           }
@@ -135,7 +126,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [logout]);
 
-  // Update user in state and localStorage
   const updateUser = useCallback((userData: Partial<User>) => {
     setUser(prev => {
       if (!prev) return null;
@@ -145,18 +135,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Initial load
   useEffect(() => {
     void refreshUser();
   }, [refreshUser]);
 
-  // Polling to keep user data fresh
   useEffect(() => {
     if (!user) return;
 
     const interval = setInterval(() => {
       refreshUser();
-    }, 30000); // 30 seconds poll interval
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [user, refreshUser]);
@@ -177,7 +165,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Custom hook to use the UserContext
 export function useUser() {
   const context = useContext(UserContext);
   if (context === undefined) {

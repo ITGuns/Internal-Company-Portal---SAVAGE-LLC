@@ -18,7 +18,7 @@ Authenticates approved users only.
 
 - Invalid credentials return `401`.
 - Pending or unapproved accounts return `403`.
-- Approved users receive access and refresh tokens.
+- Approved users receive an access token in JSON and a refresh token in an httpOnly `portal_refresh_token` cookie.
 - Auth user responses are serialized through the auth security helper and do not return password or reset-token fields.
 
 ### OAuth Login
@@ -31,10 +31,10 @@ Google and Discord OAuth routes are mounted under `/auth`.
 
 ### Token Refresh And Current User
 
-- `POST /auth/refresh` refreshes an access token from a refresh token.
+- `POST /auth/refresh` refreshes an access token from the httpOnly refresh cookie. A body `refreshToken` is still accepted as a legacy fallback for older browser sessions.
 - Refresh rejects missing users and users who are no longer approved.
 - `GET /auth/me` returns the authenticated user context through the same safe auth serializer.
-- `POST /auth/logout` clears the current auth-session response.
+- `POST /auth/logout` clears the refresh-token cookie; the frontend also clears its stored access token and user cache.
 - `POST /auth/forgot-password` and `POST /auth/reset-password` support the password reset flow.
 
 ## Users

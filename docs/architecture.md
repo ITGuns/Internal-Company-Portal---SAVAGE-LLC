@@ -114,7 +114,7 @@ See `docs/database.md` for current schema notes and migration behavior.
 
 ## Access Control Model
 
-The portal uses JWT authentication plus feature-level role checks.
+The portal uses short-lived JWT access tokens, an httpOnly SameSite refresh-token cookie, and feature-level role checks.
 
 - `admin`, `administrator`, `manager`, and `operations_manager` are privileged in several management flows.
 - Some features also recognize display-style roles such as `Operations Manager` or `Chief Operations Officer`.
@@ -124,6 +124,7 @@ The portal uses JWT authentication plus feature-level role checks.
 - Client users are scoped through active `ClientMembership` records on active `ClientOrganization` records; internal managers/admins use the client portal management helper for cross-client access and deactivate memberships or archive client accounts by status rather than deleting tenant history.
 - Client invitations are management-only and derive the global `client` user role, approval state, setup token, and organization membership on the server.
 - Chat channels and privileged conversation names such as `General` are restricted to management access.
+- Browser refresh tokens should stay out of JavaScript-readable storage. New login/OAuth responses set the `portal_refresh_token` httpOnly cookie and return only an access token; `/auth/refresh` keeps a temporary body-token fallback for legacy sessions.
 
 When adding sensitive behavior, update the relevant permission helper or create a small feature-local helper instead of scattering role string checks across UI and API files.
 

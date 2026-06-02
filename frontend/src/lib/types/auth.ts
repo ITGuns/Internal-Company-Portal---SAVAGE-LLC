@@ -12,11 +12,12 @@ export interface LoginCredentials {
 }
 
 /**
- * JWT token pair returned by backend
+ * Auth tokens returned by backend. New browser sessions receive the refresh
+ * token as an httpOnly cookie; `refreshToken` remains optional for legacy flows.
  */
 export interface AuthTokens {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;
 }
 
 /**

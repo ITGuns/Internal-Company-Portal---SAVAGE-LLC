@@ -73,6 +73,8 @@ export const MESSAGES = {
 // ============================================
 export const STORAGE_KEYS = {
   USER: 'currentUser',
+  ACCESS_TOKEN: 'accessToken',
+  LEGACY_REFRESH_TOKEN: 'refreshToken',
   THEME: 'theme',
   SIDEBAR_COLLAPSED: 'sidebarCollapsed',
 } as const;

@@ -82,7 +82,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             auth: {
-                token: typeof localStorage !== 'undefined' ? localStorage.getItem('accessToken') : null
+                token: typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN) : null
             }
         })
 
@@ -190,7 +190,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         const loadHistorical = async () => {
             const hasAuthenticatedSession = typeof window !== 'undefined'
                 && Boolean(localStorage.getItem(STORAGE_KEYS.USER))
-                && Boolean(localStorage.getItem('accessToken'))
+                && Boolean(localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN))
 
             if (!hasAuthenticatedSession) return
 
@@ -230,7 +230,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const checkUserAndConnect = () => {
             const storedUser = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.USER) : null
-            const accessToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
+            const accessToken = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN) : null
 
             if (!storedUser || !accessToken) {
                 if (socketRef.current) disconnect()

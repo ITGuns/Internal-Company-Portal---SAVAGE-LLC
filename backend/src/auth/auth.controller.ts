@@ -7,6 +7,11 @@ import { authenticateToken, AuthRequest } from './auth.middleware'
 import { buildPendingSignupProfile, canLoginApprovedUser } from './signup.requests'
 import { canIssueAuthTokens, serializeAuthUser } from './auth.security'
 import {
+    clearRefreshTokenCookie,
+    getRefreshTokenFromRequest,
+    setRefreshTokenCookie,
+} from './auth.session'
+import {
     hasConfiguredSignupRolesForDepartment,
     isDefaultSignupRoleAllowed,
     normalizeSignupOption,
@@ -47,11 +52,12 @@ export class AuthController {
                     email: user.email,
                     name: user.name || undefined,
                 })
+                setRefreshTokenCookie(res, tokens.refreshToken)
 
                 res.json({
                     success: true,
                     user: serializeAuthUser(user),
-                    tokens,
+                    tokens: { accessToken: tokens.accessToken },
                 })
             }
         )
@@ -76,11 +82,12 @@ export class AuthController {
                     email: user.email,
                     name: user.name || undefined,
                 })
+                setRefreshTokenCookie(res, tokens.refreshToken)
 
                 res.json({
                     success: true,
                     user: serializeAuthUser(user),
-                    tokens,
+                    tokens: { accessToken: tokens.accessToken },
                 })
             }
         )
@@ -224,11 +231,12 @@ export class AuthController {
                     email: user.email,
                     name: user.name || undefined,
                 })
+                setRefreshTokenCookie(res, tokens.refreshToken)
 
                 res.json({
                     success: true,
                     user: serializeAuthUser(user),
-                    tokens,
+                    tokens: { accessToken: tokens.accessToken },
                 })
             } catch (error) {
                 console.error('Login failed:', error)
@@ -238,14 +246,20 @@ export class AuthController {
 
         // Refresh token endpoint
         router.post('/refresh', async (req: Request, res: Response) => {
-            const { refreshToken } = req.body
+            const refreshToken = getRefreshTokenFromRequest(req)
 
             if (!refreshToken) {
                 return res.status(400).json({ error: 'Refresh token required' })
             }
 
+            let payload: JwtPayload
             try {
-                const payload = JwtService.verifyRefreshToken(refreshToken)
+                payload = JwtService.verifyRefreshToken(refreshToken)
+            } catch (error) {
+                return res.status(403).json({ error: 'Invalid or expired refresh token' })
+            }
+
+            try {
                 const { prisma } = await import('../database/prisma.service')
                 const user = await prisma.user.findUnique({
                     where: { id: payload.userId },
@@ -255,13 +269,21 @@ export class AuthController {
                     return res.status(403).json({ error: 'Account pending approval' })
                 }
 
-                const newAccessToken = JwtService.generateAccessToken(payload)
+                const tokenPayload: JwtPayload = {
+                    userId: user.id,
+                    email: user.email,
+                    name: user.name || undefined,
+                }
+                const newAccessToken = JwtService.generateAccessToken(tokenPayload)
+                const newRefreshToken = JwtService.generateRefreshToken(tokenPayload)
+                setRefreshTokenCookie(res, newRefreshToken)
 
                 res.json({
                     accessToken: newAccessToken,
                 })
             } catch (error) {
-                res.status(403).json({ error: 'Invalid or expired refresh token' })
+                console.error('Refresh token rotation failed:', error)
+                res.status(500).json({ error: 'Unable to refresh token' })
             }
         })
 
@@ -295,8 +317,9 @@ export class AuthController {
             }
         })
 
-        // Logout (client-side should delete tokens)
+        // Logout clears the browser refresh cookie; client-side should delete access token state.
         router.post('/logout', (req: Request, res: Response) => {
+            clearRefreshTokenCookie(res)
             res.json({ success: true, message: 'Logged out successfully' })
         })
 

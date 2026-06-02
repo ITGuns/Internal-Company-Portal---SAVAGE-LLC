@@ -7,27 +7,39 @@ const AUTH_URL = '/backend-auth';
 
 export const getAuthToken = () => {
     if (typeof window !== 'undefined') {
-        return localStorage.getItem('accessToken')
+        return localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)
     }
     return null
 }
 
 export const setAuthToken = (token: string) => {
     if (typeof window !== 'undefined') {
-        localStorage.setItem('accessToken', token)
+        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token)
     }
 }
 
 export const getRefreshToken = () => {
     if (typeof window !== 'undefined') {
-        return localStorage.getItem('refreshToken')
+        return localStorage.getItem(STORAGE_KEYS.LEGACY_REFRESH_TOKEN)
     }
     return null
 }
 
-export const setRefreshToken = (token: string) => {
+export const setRefreshToken = (token?: string | null) => {
     if (typeof window !== 'undefined') {
-        localStorage.setItem('refreshToken', token)
+        if (token) {
+            localStorage.setItem(STORAGE_KEYS.LEGACY_REFRESH_TOKEN, token)
+        } else {
+            localStorage.removeItem(STORAGE_KEYS.LEGACY_REFRESH_TOKEN)
+        }
+    }
+}
+
+export const clearAuthSession = () => {
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+        localStorage.removeItem(STORAGE_KEYS.LEGACY_REFRESH_TOKEN);
+        localStorage.removeItem(STORAGE_KEYS.USER);
     }
 }
 
@@ -46,22 +58,27 @@ export const setCurrentUser = (user: Record<string, unknown>) => {
 }
 
 /**
- * Attempt to refresh the access token using the stored refresh token.
- * Returns the new access token on success, null on failure.
+ * Attempt to refresh the access token using the httpOnly refresh cookie.
+ * Legacy localStorage refresh tokens are sent only when still present.
  */
-const tryRefreshToken = async (): Promise<string | null> => {
+export const refreshAccessToken = async (): Promise<string | null> => {
     const refreshToken = getRefreshToken()
-    if (!refreshToken) return null
     try {
         const res = await fetch(`${AUTH_URL}/refresh`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refreshToken })
+            credentials: 'include',
+            ...(refreshToken
+                ? {
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refreshToken }),
+                }
+                : {}),
         })
         if (res.ok) {
             const data = await res.json()
             if (data.accessToken) {
                 setAuthToken(data.accessToken)
+                setRefreshToken(data.refreshToken || null)
                 return data.accessToken
             }
         }
@@ -85,6 +102,7 @@ export const loginWithEmail = async (credentials: LoginCredentials): Promise<Aut
         const res = await fetch(`${AUTH_URL}/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify(credentials)
         });
 
@@ -93,7 +111,7 @@ export const loginWithEmail = async (credentials: LoginCredentials): Promise<Aut
         if (res.ok && data.success && data.tokens) {
             // Store auth token and user data
             setAuthToken(data.tokens.accessToken);
-            setRefreshToken(data.tokens.refreshToken);
+            setRefreshToken(data.tokens.refreshToken || null);
             setCurrentUser(data.user);
             return data;
         }
@@ -111,11 +129,13 @@ export const loginWithEmail = async (credentials: LoginCredentials): Promise<Aut
  * Clears auth tokens and user data from localStorage
  */
 export const logout = () => {
-    if (typeof window !== 'undefined') {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem(STORAGE_KEYS.USER);
-    }
+    void fetch(`${AUTH_URL}/logout`, {
+        method: 'POST',
+        credentials: 'include',
+    }).catch((error) => {
+        console.warn('Logout request failed:', error)
+    })
+    clearAuthSession()
 }
 
 /**
@@ -154,6 +174,14 @@ interface APIOptions extends RequestInit {
     _isRetry?: boolean;
 }
 
+async function shouldRefreshAuth(response: Response): Promise<boolean> {
+    if (response.status === 401) return true
+    if (response.status !== 403) return false
+
+    const data = await response.clone().json().catch(() => null)
+    return data?.error === 'Invalid or expired token'
+}
+
 export const apiFetch = async (endpoint: string, options: APIOptions = {}): Promise<Response> => {
     const token = getAuthToken()
 
@@ -166,13 +194,13 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
     const response = await fetch(`${API_URL}${endpoint}`, {
         ...options,
         cache: 'no-store',
+        credentials: 'include',
         headers,
     })
 
-    // If 401, try refreshing the token once before giving up
-    if (response.status === 401 && !options._isRetry) {
-        // Try refresh token first
-        const newToken = await tryRefreshToken()
+    // If auth is missing or expired, try refreshing the token once before giving up.
+    if ((await shouldRefreshAuth(response)) && !options._isRetry) {
+        const newToken = await refreshAccessToken()
         if (newToken) {
             return apiFetch(endpoint, { ...options, _isRetry: true })
         }
@@ -182,9 +210,7 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
         // with TypeError("Failed to fetch"), flooding the UI with error toasts.
         // UserContext will detect the 401 on its next /auth/me poll and handle logout.
         if (typeof window !== 'undefined') {
-            localStorage.removeItem('accessToken')
-            localStorage.removeItem('refreshToken')
-            localStorage.removeItem(STORAGE_KEYS.USER)
+            clearAuthSession()
         }
     }
 
