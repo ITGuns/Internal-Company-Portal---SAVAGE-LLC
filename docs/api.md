@@ -63,6 +63,7 @@ User directory endpoints sanitize sensitive fields before returning data to the 
 
 - `POST /api/users` is admin-only.
 - `PATCH /api/users/:id` allows self updates for permitted profile fields.
+- User avatar writes through `POST /api/users`, `PATCH /api/users/:id`, and `POST /api/users/:id/avatar` accept only http(s) URLs, relative paths, empty removal values where profile updates allow them, or supported image data URIs that pass signature validation and the 5 MB avatar limit.
 - Non-privileged users cannot update protected fields such as `status`, `appliedDate`, `salary`, `role`, `department`, `departmentId`, or `isApproved`.
 - `DELETE /api/users/:id` requires admin or operations-manager access.
 - `POST /api/users/:id/roles` and `DELETE /api/users/:id/roles/:role` are admin-only role assignment routes.
@@ -172,6 +173,41 @@ Department writes are management-only:
 - `GET /api/roles` returns role options.
 - `POST /api/roles` and `DELETE /api/roles/:id` are management routes for backend role-option maintenance.
 
+## Client Portal
+
+All client portal endpoints require authentication.
+
+Client portal management access recognizes normalized admin, administrator, manager, operations-manager, chief-operations-officer, web-developer, website-developer, and webdev roles. Configured admin bypass emails are also allowed.
+
+### Client Organization Access
+
+- Internal managers and admins can list and manage all client organizations, including archived client accounts.
+- Client users can only list or read active organizations where they have an active `ClientMembership`.
+- Client-facing serializers omit internal organization notes, raw `tierId`, internal tier price/priority, ticket assignment fields, internal ticket comments, and inactive client memberships.
+
+### Client Routes
+
+- `GET /api/clients/organizations` lists client organizations visible to the requester.
+- `POST /api/clients/organizations` creates a client organization and is restricted to client-management access.
+- `GET /api/clients/service-tiers`, `POST /api/clients/service-tiers`, `PATCH /api/clients/service-tiers/:id`, and `PATCH /api/clients/organizations/:id/service-tier` manage service tiers for internal client-management users.
+- `PATCH /api/clients/organizations/:id/status` updates a client organization status (`active`, `paused`, or `archived`) for internal management. Archiving removes client-facing access without deleting history.
+- `GET /api/clients/organizations/:id/overview` returns scoped memberships, projects, tickets, updates, metrics, resources, production records, and billing/calendar data for one organization.
+- `GET /api/clients/organizations/:id/activity` returns scoped activity history. Internal users can receive internal and client-visible events; client users only receive client-visible events for assigned active organizations.
+- `GET /api/clients/activity/queue` returns derived action queue items from tickets, approvals, work items, draft reports, and recent completions.
+- Membership and invitation routes manage active client access without destructive deletion: `GET/POST /api/clients/organizations/:id/memberships`, `POST /api/clients/organizations/:id/invitations`, and `PATCH /api/clients/memberships/:id`.
+- Project, update, metric, resource, work item, approval, report, roadmap, asset, billing-status, and calendar-item routes support client production records with server-derived ownership and visibility checks.
+- `POST /api/clients/organizations/:id/reports/draft` generates an editable draft report from existing client operations records before internal users publish it.
+- Ticket routes support client requests and conversations: `POST /api/clients/organizations/:id/tickets`, `GET /api/clients/tickets`, `PATCH /api/clients/tickets/:id`, `DELETE /api/clients/tickets/:id`, `PATCH /api/clients/tickets/:id/status`, and `POST /api/clients/tickets/:id/comments`.
+
+Protected fields:
+
+- Clients cannot set `organizationId`, `createdById`, `assignedToId`, or `internalNotes` through ticket creation.
+- Client-created resources and calendar items cannot set internal-only visibility, creator ownership, project ownership, or admin workflow status.
+- Client ticket updates cannot set organization, creator, assignment, status, project, comments, or internal notes.
+- Client invitations derive user approval, global client role, setup token, tenant assignment, and timestamps server-side.
+- Production record routes derive organization, creator/requester IDs, publish timestamps, and client-visible filtering server-side.
+- Client activity responses strip internal events and internal metadata from client users.
+
 ## Daily Logs
 
 All daily-log endpoints require authentication.
@@ -268,7 +304,10 @@ Configured admin bypass emails also receive payroll management access.
 
 - Upload routes require authentication.
 - `POST /api/uploads` stores a file and returns an authenticated file URL under `/api/uploads/files/:filename`.
-- `GET /api/uploads/files/:filename` requires authentication, normalizes the basename, and rejects path traversal or missing files.
+- Upload payloads must be valid base64 and the decoded file signature must match the declared allowed content type. Supported generic uploads are PNG, JPEG, GIF, PDF, plain text, DOC, and DOCX.
+- Stored generic upload filenames use a server-generated timestamp plus a sanitized basename and canonical extension derived from the validated content type, not from the user-supplied extension.
+- `GET /api/uploads/files/:filename` requires authentication, only serves supported stored upload filenames, rejects path traversal or missing files, sets the response content type from the canonical extension, and sends `X-Content-Type-Options: nosniff`.
+- Avatar data URI uploads are limited to JPEG, PNG, GIF, and WebP signatures and remain capped at 5 MB.
 - File-directory list and children routes require authentication.
 - File-directory create/delete routes are protected by the feature's admin/manager access checks.
 

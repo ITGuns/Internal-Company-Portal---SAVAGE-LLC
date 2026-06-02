@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, FormEvent, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, Mail, Lock, User as UserIcon } from 'lucide-react';
 import LoginInput from '@/components/LoginInput';
@@ -139,7 +140,7 @@ export default function SignUpPage() {
               type="text"
               value={name}
               onChange={setName}
-              placeholder="Pol Villorente"
+              placeholder="Pol Villorente…"
               required
               disabled={loading}
               icon={UserIcon}
@@ -152,7 +153,7 @@ export default function SignUpPage() {
               type="email"
               value={email}
               onChange={setEmail}
-              placeholder="you@savage.com"
+              placeholder="you@savage.com…"
               required
               disabled={loading}
               icon={Mail}
@@ -165,7 +166,7 @@ export default function SignUpPage() {
               type="password"
               value={password}
               onChange={setPassword}
-              placeholder="Password"
+              placeholder="Create a password…"
               required
               disabled={loading}
               icon={Lock}
@@ -178,7 +179,7 @@ export default function SignUpPage() {
               type="password"
               value={confirmPassword}
               onChange={setConfirmPassword}
-              placeholder="Confirm password"
+              placeholder="Confirm password…"
               required
               disabled={loading}
               icon={Lock}
@@ -191,6 +192,7 @@ export default function SignUpPage() {
               </label>
               <select
                 id="department"
+                name="department"
                 value={departmentId}
                 onChange={(e) => {
                   setDepartmentId(e.target.value);
@@ -200,7 +202,7 @@ export default function SignUpPage() {
                 required
                 disabled={loading}
               >
-                <option value="">Select Department</option>
+                <option value="">Select Department…</option>
                 {departments.map((department) => (
                   <option key={department.id} value={department.id}>
                     {department.name}
@@ -218,6 +220,7 @@ export default function SignUpPage() {
               </label>
               <select
                 id="role"
+                name="role"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 className={styles.select}
@@ -226,10 +229,10 @@ export default function SignUpPage() {
               >
                 <option value="">
                   {!departmentId
-                    ? 'Select Department First'
+                    ? 'Select Department First…'
                     : roleOptions.length === 0
                       ? 'No roles configured'
-                      : 'Select Role'}
+                      : 'Select Role…'}
                 </option>
                 {roleOptions.map((roleOption) => (
                   <option key={roleOption.id} value={roleOption.name}>
@@ -252,7 +255,7 @@ export default function SignUpPage() {
               disabled={loading}
             >
               {loading && <span className={styles.spinner} />}
-              {loading ? 'Creating Account...' : 'Sign Up'}
+              {loading ? 'Creating Account…' : 'Sign Up'}
             </button>
           </form>
         )}
@@ -267,16 +270,12 @@ export default function SignUpPage() {
           <div className={styles.signUpSection}>
             <p className={styles.signUpText}>
               Already have an account?
-              <a
+              <Link
                 href="/login"
                 className={styles.signUpLink}
-                onClick={(e) => {
-                  e.preventDefault();
-                  router.push('/login');
-                }}
               >
                 Sign in
-              </a>
+              </Link>
             </p>
           </div>
         )}

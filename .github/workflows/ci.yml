@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "v2-improvements" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "v2-improvements" ]
 
 jobs:
   build-backend:
@@ -15,10 +15,10 @@ jobs:
         node-version: [22.x]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
@@ -28,13 +28,29 @@ jobs:
       working-directory: ./backend
       run: npm ci
 
+    - name: Validate Prisma Schema
+      working-directory: ./backend
+      run: npx prisma validate
+      env:
+        DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+
     - name: Generate Prisma Client
       working-directory: ./backend
       run: npx prisma generate
+      env:
+        DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+
+    - name: Test Backend
+      working-directory: ./backend
+      run: npm test
 
     - name: Build Backend
       working-directory: ./backend
       run: npm run build
+
+    - name: Audit Backend Dependencies
+      working-directory: ./backend
+      run: npm audit --audit-level=high
 
   build-frontend:
     runs-on: ubuntu-latest
@@ -44,10 +60,10 @@ jobs:
         node-version: [22.x]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
@@ -57,9 +73,53 @@ jobs:
       working-directory: ./frontend
       run: npm ci
 
+    - name: Test Frontend
+      working-directory: ./frontend
+      run: npm test
+
+    - name: Lint Frontend
+      working-directory: ./frontend
+      run: npm run lint
+
     - name: Build Frontend
       working-directory: ./frontend
       run: npm run build
       env:
         # Avoid connecting to real backend during build if possible
         NEXT_PUBLIC_API_URL: http://localhost:4000/api
+
+    - name: Audit Frontend Dependencies
+      working-directory: ./frontend
+      run: npm audit --audit-level=high
+
+  repository-checks:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Validate Skill Inventory
+      run: npm run check:skills
+
+    - name: Check Whitespace
+      shell: bash
+      run: |
+        if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+          git diff --check "origin/$GITHUB_BASE_REF...HEAD"
+        elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+          git diff --check "${{ github.event.before }}" "$GITHUB_SHA"
+        else
+          git diff-tree --check --no-commit-id --root -r "$GITHUB_SHA"
+        fi
+
+    - name: Audit Root Dependencies
+      run: npm audit --audit-level=high
+
+    - name: Validate Docker Compose Config
+      run: docker compose config
+      env:
+        POSTGRES_PASSWORD: local-compose-check-password
+        JWT_SECRET: local-compose-check-jwt-secret
+        REFRESH_TOKEN_SECRET: local-compose-check-refresh-secret

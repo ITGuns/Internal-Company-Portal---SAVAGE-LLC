@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { getCurrentUser, setCurrentUser as saveCurrentUser, getRefreshToken, setAuthToken, setRefreshToken } from '@/lib/api';
-import { STORAGE_KEYS } from '@/lib/constants';
+import { AUTH_SESSION_CLEARED_EVENT, clearAuthSession } from '@/lib/auth-session';
 
 export interface User {
   id: string | number;
@@ -40,11 +40,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // Logout - clear user data and all tokens
   const logout = useCallback(() => {
     setUser(null);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEYS.USER);
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-    }
+    setError(null);
+    setIsLoading(false);
+    clearAuthSession();
+  }, []);
+
+  useEffect(() => {
+    const handleAuthCleared = () => {
+      setUser(null);
+      setError(null);
+      setIsLoading(false);
+    };
+
+    window.addEventListener(AUTH_SESSION_CLEARED_EVENT, handleAuthCleared);
+    return () => window.removeEventListener(AUTH_SESSION_CLEARED_EVENT, handleAuthCleared);
   }, []);
 
   // Fetch user from localStorage or API
@@ -91,7 +100,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
               });
               saveCurrentUser(data.user);
             }
-          } else if (res.status === 401) {
+          } else if (res.status === 401 || res.status === 403) {
             // Access token expired — try to refresh
             const refreshToken = getRefreshToken();
             if (refreshToken) {

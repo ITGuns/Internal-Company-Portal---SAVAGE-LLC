@@ -18,6 +18,7 @@ import { UploadsController } from './uploads/uploads.controller'
 import { EmployeesController } from './employees/employees.controller'
 import { FileDirectoryController } from './file-directory/file-directory.controller'
 import { NotificationsController } from './notifications/notifications.controller'
+import { ClientsController } from './clients/clients.controller'
 import { config, validateConfig } from './config/env.config'
 import { PrismaService } from './database/prisma.service'
 import { initializePassport } from './auth/passport.config'
@@ -115,6 +116,9 @@ async function bootstrap() {
 
   const notificationsController = new NotificationsController()
   app.use('/api/notifications', notificationsController.router())
+
+  const clientsController = new ClientsController()
+  app.use('/api/clients', clientsController.router())
 
 
   // Expose app for Vercel

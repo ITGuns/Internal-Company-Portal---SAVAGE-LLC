@@ -56,15 +56,15 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
   );
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-30 flex h-20 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--background)]/95 px-4 backdrop-blur md:left-72 md:h-24 md:px-6">
+    <header className="fixed left-0 right-0 top-0 z-30 flex h-20 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-raised)]/95 px-4 shadow-[0_18px_44px_-38px_var(--accent)] backdrop-blur md:left-72 md:h-24 md:px-6">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <button
           type="button"
-          className={cn(iconButtonClass, 'md:hidden')}
+          className={cn(iconButtonClass, 'min-w-10 shrink-0 md:hidden')}
           onClick={() => window.dispatchEvent(new Event('toggle-sidebar'))}
           aria-label="Open navigation"
         >
-          <Menu className="h-5 w-5" />
+          <Menu className="h-5 w-5" aria-hidden="true" />
         </button>
 
         <div className="min-w-0">
@@ -72,7 +72,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
             {resolvedTitle}
           </h1>
           {resolvedSubtitle ? (
-            <p className="mt-0.5 line-clamp-1 text-xs text-[var(--muted)] md:text-sm">
+            <p className="mt-0.5 hidden line-clamp-1 text-xs text-[var(--muted)] sm:block md:text-sm">
               {resolvedSubtitle}
             </p>
           ) : null}
@@ -86,10 +86,10 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
           className="hidden h-10 items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--muted)] transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] active:translate-y-px sm:flex"
           aria-label="Open command palette"
         >
-          <Search className="h-4 w-4" />
+          <Search className="h-4 w-4" aria-hidden="true" />
           <span className="hidden lg:inline">Search</span>
           <kbd className="hidden rounded border border-[var(--border)] bg-[var(--card-surface)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--muted)] lg:inline">
-            Ctrl K
+            Ctrl&nbsp;K
           </kbd>
         </button>
 
@@ -107,7 +107,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
           className={cn(iconButtonClass, 'relative')}
           onClick={() => setShowNotifications((open) => !open)}
         >
-          <Bell className="h-5 w-5" />
+          <Bell className="h-5 w-5" aria-hidden="true" />
           {unreadCount > 0 ? (
             <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border-2 border-[var(--background)] bg-[var(--accent)]" />
           ) : null}

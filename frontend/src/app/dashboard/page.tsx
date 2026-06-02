@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import Link from 'next/link'
 import Header from '@/components/Header'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
@@ -41,7 +42,31 @@ import {
 } from '@/lib/dashboard-summary'
 import { DASHBOARD_DEEP_LINKS } from '@/lib/dashboard-deep-links'
 
+const dashboardNumberFormatter = new Intl.NumberFormat('en-US', {
+  maximumFractionDigits: 0,
+});
+
 function QuickLink({ title, subtitle, icon: Icon, onClick, href }: { title: string; subtitle?: string; icon: React.ComponentType<{ className?: string }>; onClick?: () => void; href?: string }) {
+  const quickLinkClass = 'flex min-h-14 w-full items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3 text-left transition-[background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--accent)] hover:bg-[var(--surface-hover)] hover:shadow-[var(--shadow-sm)] active:translate-y-px active:scale-[0.995] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]';
+  const content = (
+    <>
+      <Icon className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-medium text-[var(--foreground)]">{title}</div>
+        {subtitle && <div className="mt-1 truncate text-xs text-[var(--muted)]">{subtitle}</div>}
+      </div>
+      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[var(--muted)]" aria-hidden="true" />
+    </>
+  );
+
+  if (href && !onClick) {
+    return (
+      <a href={href} target="_blank" rel="noreferrer" className={quickLinkClass}>
+        {content}
+      </a>
+    );
+  }
+
   const handleClick = () => {
     if (onClick) {
       onClick();
@@ -54,14 +79,9 @@ function QuickLink({ title, subtitle, icon: Icon, onClick, href }: { title: stri
     <button
       type="button"
       onClick={handleClick}
-      className="flex min-h-14 w-full items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3 text-left transition-[background-color,border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--muted)] hover:bg-[var(--surface-hover)] active:translate-y-px active:scale-[0.995]"
+      className={quickLinkClass}
     >
-      <Icon className="h-4 w-4 shrink-0 text-[var(--muted)]" />
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium text-[var(--foreground)]">{title}</div>
-        {subtitle && <div className="mt-1 text-xs text-[var(--muted)]">{subtitle}</div>}
-      </div>
-      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[var(--muted)]" />
+      {content}
     </button>
   )
 }
@@ -80,23 +100,23 @@ function DashboardMetric({
   tone: 'emerald' | 'blue' | 'amber' | 'red' | 'slate';
 }) {
   const toneClass = {
-    emerald: 'bg-[var(--status-completed-bg)] text-[var(--status-completed)]',
-    blue: 'bg-[var(--status-in-progress-bg)] text-[var(--status-in-progress)]',
-    amber: 'bg-[var(--priority-medium-bg)] text-[var(--priority-medium)]',
-    red: 'bg-[var(--status-blocked-bg)] text-[var(--status-blocked)]',
-    slate: 'bg-[var(--card-surface)] text-[var(--foreground)]',
+    emerald: 'border-[var(--status-completed)] bg-[var(--status-completed-bg)] text-[var(--status-completed)]',
+    blue: 'border-[var(--status-in-progress)] bg-[var(--status-in-progress-bg)] text-[var(--status-in-progress)]',
+    amber: 'border-[var(--priority-medium)] bg-[var(--priority-medium-bg)] text-[var(--priority-medium)]',
+    red: 'border-[var(--status-blocked)] bg-[var(--status-blocked-bg)] text-[var(--status-blocked)]',
+    slate: 'border-[var(--border)] bg-[var(--card-surface)] text-[var(--foreground)]',
   }[tone];
 
   return (
-    <Card padding="md" className="min-h-[112px]">
+    <Card padding="md" className="min-h-[120px] overflow-hidden">
       <div className="flex h-full items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-xs text-[var(--muted)]">{label}</div>
-          <div className="mt-2 text-2xl font-semibold tabular-nums">{value}</div>
-          <div className="mt-1 text-xs text-[var(--muted)]">{helper}</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">{label}</div>
+          <div className="mt-2 truncate text-2xl font-semibold tabular-nums text-[var(--foreground)]">{value}</div>
+          <div className="mt-1 line-clamp-2 text-xs text-[var(--muted)]">{helper}</div>
         </div>
-        <div className={`rounded-[var(--radius-md)] p-2 ${toneClass}`}>
-          <Icon className="h-5 w-5" />
+        <div className={`rounded-[var(--radius-md)] border p-2 shadow-[0_0_24px_-18px_currentColor] ${toneClass}`}>
+          <Icon className="h-5 w-5" aria-hidden="true" />
         </div>
       </div>
     </Card>
@@ -113,10 +133,10 @@ function AttentionRow({ item }: { item: DashboardAttentionItem }) {
   return (
     <a
       href={item.href}
-      className="flex items-start gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3 transition-[background-color,border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--muted)] hover:bg-[var(--surface-hover)] active:translate-y-px"
+      className="flex items-start gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3 transition-[background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--accent)] hover:bg-[var(--surface-hover)] hover:shadow-[var(--shadow-sm)] active:translate-y-px focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
     >
       <div className={`mt-0.5 rounded-md p-1.5 ${iconClass}`}>
-        <AlertTriangle className="h-4 w-4" />
+        <AlertTriangle className="h-4 w-4" aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -129,7 +149,7 @@ function AttentionRow({ item }: { item: DashboardAttentionItem }) {
         </div>
         <div className="mt-1 text-xs text-[var(--muted)]">{item.description}</div>
       </div>
-      <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-[var(--muted)]" />
+      <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-[var(--muted)]" aria-hidden="true" />
     </a>
   );
 }
@@ -149,10 +169,10 @@ function ActionButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-[86px] items-start gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3 text-left transition-[background-color,border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--muted)] hover:bg-[var(--surface-hover)] active:translate-y-px active:scale-[0.995]"
+      className="flex min-h-[86px] items-start gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3 text-left transition-[background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--accent)] hover:bg-[var(--surface-hover)] hover:shadow-[var(--shadow-sm)] active:translate-y-px active:scale-[0.995] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
     >
-      <div className="rounded-[var(--radius-md)] bg-[var(--card-surface)] p-2 text-[var(--foreground)]">
-        <Icon className="h-4 w-4" />
+      <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-2 text-[var(--accent)]">
+        <Icon className="h-4 w-4" aria-hidden="true" />
       </div>
       <div className="min-w-0">
         <div className="text-sm font-medium">{label}</div>
@@ -338,7 +358,7 @@ export default function DashboardPage() {
 
   if (loading || userLoading) {
     return (
-      <main className="main-content-height bg-[var(--background)] text-[var(--foreground)] p-6">
+      <main className="main-content-height bg-transparent p-6 text-[var(--foreground)]">
         <Header />
         <DashboardSkeleton />
       </main>
@@ -347,7 +367,7 @@ export default function DashboardPage() {
 
   if (!user) {
     return (
-      <main className="main-content-height bg-[var(--background)] text-[var(--foreground)] p-6">
+      <main className="main-content-height bg-transparent p-6 text-[var(--foreground)]">
         <Header />
         <div className="flex flex-col items-center justify-center h-[60vh] text-center">
           <h2 className="text-2xl font-bold mb-4">Please Log In</h2>
@@ -359,19 +379,20 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
+    <main className="main-content-height bg-transparent text-[var(--foreground)]">
       <div className="mx-auto max-w-[1480px] p-4 pt-3 md:p-6">
         <Header />
 
         <div className="mt-5 grid grid-cols-1 items-start gap-4 xl:mt-8 xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="space-y-4">
-            <Card padding="lg" className="overflow-hidden">
+            <Card padding="lg" className="relative overflow-hidden">
+              <div className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,var(--accent),var(--accent-secondary))]" aria-hidden="true" />
               <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                 <div className="max-w-2xl">
-                  <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
-                    {isManagementDashboard ? 'Team command center' : 'Personal command center'}
+                  <div className="inline-flex rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card-surface)] px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--accent)]">
+                    {isManagementDashboard ? 'Team Command Center' : 'Personal Command Center'}
                   </div>
-                  <h2 className="mt-2 max-w-xl text-2xl font-semibold leading-tight text-[var(--foreground)] md:text-3xl">
+                  <h2 className="mt-3 max-w-xl text-2xl font-semibold leading-tight text-pretty text-[var(--foreground)] md:text-3xl">
                     {isManagementDashboard ? 'Review today before work piles up.' : 'Your day, tasks, logs, and payroll in one place.'}
                   </h2>
                   <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
@@ -396,35 +417,35 @@ export default function DashboardPage() {
               />
               <DashboardMetric
                 label="Assigned Tasks"
-                value={dashboardSummary.metrics.assignedTasks}
+                value={dashboardNumberFormatter.format(dashboardSummary.metrics.assignedTasks)}
                 helper={isManagementDashboard ? 'Visible to your role' : 'Assigned to you'}
                 icon={ClipboardList}
                 tone="blue"
               />
               <DashboardMetric
                 label="In Progress"
-                value={dashboardSummary.metrics.inProgressTasks}
+                value={dashboardNumberFormatter.format(dashboardSummary.metrics.inProgressTasks)}
                 helper="Active work items"
                 icon={TrendingUp}
                 tone="slate"
               />
               <DashboardMetric
                 label="Completed Today"
-                value={dashboardSummary.metrics.completedToday}
+                value={dashboardNumberFormatter.format(dashboardSummary.metrics.completedToday)}
                 helper="Closed today"
                 icon={CheckCircle2}
                 tone="emerald"
               />
               <DashboardMetric
                 label="Overdue"
-                value={dashboardSummary.metrics.overdueTasks}
+                value={dashboardNumberFormatter.format(dashboardSummary.metrics.overdueTasks)}
                 helper="Past due and open"
                 icon={AlertCircle}
                 tone={dashboardSummary.metrics.overdueTasks > 0 ? 'red' : 'amber'}
               />
               <DashboardMetric
                 label={isManagementDashboard ? 'Approvals' : 'Daily Log'}
-                value={isManagementDashboard ? dashboardSummary.metrics.pendingApprovals : (dashboardSummary.metrics.pendingDailyLog ? 'Open' : 'Done')}
+                value={isManagementDashboard ? dashboardNumberFormatter.format(dashboardSummary.metrics.pendingApprovals) : (dashboardSummary.metrics.pendingDailyLog ? 'Open' : 'Done')}
                 helper={isManagementDashboard ? 'Pending employees' : 'Today status'}
                 icon={isManagementDashboard ? UserCheck : FileText}
                 tone={dashboardSummary.metrics.pendingApprovals > 0 || dashboardSummary.metrics.pendingDailyLog ? 'amber' : 'emerald'}
@@ -490,7 +511,7 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between w-full">
                   <h3 className="font-semibold text-sm">Company Chat</h3>
                   <div className="flex items-center gap-2">
-                    <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-[var(--status-completed)]' : 'bg-[var(--status-blocked)]'}`}></span>
+                    <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-[var(--status-completed)]' : 'bg-[var(--status-blocked)]'}`} aria-hidden="true"></span>
                     <span className="text-[10px] text-[var(--muted)]">{onlineCount > 0 ? `${onlineCount} online` : 'Active'}</span>
                   </div>
                 </div>
@@ -501,8 +522,8 @@ export default function DashboardPage() {
                 className="chat-scroll flex-1 space-y-3 overflow-y-auto bg-[var(--card-bg)] p-4"
               >
                 {messages.length === 0 ? (
-                    <div className="flex h-full flex-col items-center justify-center rounded-[var(--radius-md)] border border-dashed border-[var(--border)] text-center">
-                    <Send className="w-8 h-8 mx-auto text-[var(--muted)] mb-2" />
+                  <div className="flex h-full flex-col items-center justify-center rounded-[var(--radius-md)] border border-dashed border-[var(--border)] text-center">
+                    <Send className="w-8 h-8 mx-auto text-[var(--muted)] mb-2" aria-hidden="true" />
                     <div className="text-xs text-[var(--muted)]">No messages yet</div>
                   </div>
                 ) : (
@@ -527,8 +548,10 @@ export default function DashboardPage() {
                 <form onSubmit={handleSendMessage} className="flex items-center gap-2 w-full">
                   <input
                     aria-label="Type a message"
+                    name="dashboard-chat-message"
+                    autoComplete="off"
                     className="flex-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-2 text-xs text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                    placeholder="Type a message..."
+                    placeholder="Type a message…"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     disabled={!activeConversation}
@@ -539,7 +562,7 @@ export default function DashboardPage() {
                     aria-label="Send message"
                     className="rounded-[var(--radius-md)] bg-[var(--accent)] p-2 text-[var(--accent-foreground)] transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-95 active:translate-y-px active:scale-[0.98] disabled:opacity-30"
                   >
-                    <Send className="w-3.5 h-3.5" />
+                    <Send className="w-3.5 h-3.5" aria-hidden="true" />
                   </button>
                 </form>
               </Card.Footer>
@@ -550,12 +573,12 @@ export default function DashboardPage() {
             <Card variant="elevated" className="overflow-hidden">
               <Card.Header>
                 <h3 className="font-semibold text-sm">Company Announcements</h3>
-                <a href="/announcements" className="text-sm text-[var(--muted)] hover:underline">View All</a>
+                <Link href="/announcements" className="text-sm text-[var(--muted)] hover:text-[var(--accent)] hover:underline">View All</Link>
               </Card.Header>
 
               {recentAnnouncements.length === 0 ? (
                 <div className="p-8 text-center bg-[var(--card-surface)]">
-                  <Megaphone className="mx-auto mb-3 h-10 w-10 text-[var(--muted)] opacity-50" />
+                  <Megaphone className="mx-auto mb-3 h-10 w-10 text-[var(--muted)] opacity-50" aria-hidden="true" />
                   <div className="text-sm text-[var(--muted)]">No announcements yet</div>
                 </div>
               ) : (
@@ -570,7 +593,7 @@ export default function DashboardPage() {
                           <div className="flex items-center gap-2 mb-1">
                             <div className="font-medium text-sm truncate">{announcement.title}</div>
                             {announcement.isImportant && (
-                              <AlertCircle className="w-3.5 h-3.5 text-amber-500 fill-amber-500 flex-shrink-0" />
+                              <AlertCircle className="w-3.5 h-3.5 text-amber-500 fill-amber-500 flex-shrink-0" aria-hidden="true" />
                             )}
                           </div>
                           <div className="text-xs text-[var(--muted)] mb-2">
@@ -589,12 +612,12 @@ export default function DashboardPage() {
               <Card variant="elevated" className="overflow-hidden self-start">
                 <Card.Header>
                   <h4 className="font-semibold">Recent Shoutouts</h4>
-                  <a href="/announcements" className="text-sm text-[var(--muted)] hover:underline">View All</a>
+                  <Link href="/announcements" className="text-sm text-[var(--muted)] hover:text-[var(--accent)] hover:underline">View All</Link>
                 </Card.Header>
 
                 {recentShoutouts.length === 0 ? (
                   <div className="bg-[var(--card-bg)] p-8 text-center">
-                    <Star className="mx-auto mb-3 h-10 w-10 text-[var(--muted)] opacity-50" />
+                    <Star className="mx-auto mb-3 h-10 w-10 text-[var(--muted)] opacity-50" aria-hidden="true" />
                     <div className="text-sm text-[var(--muted)]">No shoutouts yet</div>
                   </div>
                 ) : (
@@ -602,7 +625,7 @@ export default function DashboardPage() {
                     {recentShoutouts.map(shoutout => (
                       <div key={shoutout.id} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3">
                         <div className="flex items-start gap-2 mb-1">
-                          <Trophy className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                          <Trophy className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
                           <div className="flex-1">
                             <div className="font-medium text-sm">{shoutout.title}</div>
                             <div className="text-xs text-[var(--muted)] mt-1 line-clamp-2">{shoutout.body}</div>

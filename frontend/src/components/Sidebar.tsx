@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  BriefcaseBusiness,
   CalendarDays,
   DollarSign,
   Folder,
@@ -43,11 +44,11 @@ function NavItem({ icon: Icon, label, badge, href }: NavItemConfig) {
         'transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-out)]',
         'focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--sidebar)]',
         isActive
-          ? 'border-[var(--accent)] bg-[var(--card-surface)] font-semibold text-[var(--foreground)]'
+          ? 'border-[var(--accent)] bg-[var(--card-surface)] font-semibold text-[var(--foreground)] shadow-[inset_0_0_0_1px_rgba(23,217,245,0.14)]'
           : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]',
       )}
     >
-      <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-[var(--accent)]' : 'text-current')} />
+      <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-[var(--accent)]' : 'text-current')} aria-hidden="true" />
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {badge ? (
         <span className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[var(--accent-foreground)]">
@@ -109,6 +110,7 @@ export default function Sidebar() {
 
   const adminItems: NavItemConfig[] = [
     { href: '/operations', icon: ShieldCheck, label: 'Operations' },
+    { href: '/operations/clients', icon: BriefcaseBusiness, label: 'Clients' },
     ...(isAdmin ? [{ href: '/whiteboard', icon: Grid, label: 'Whiteboard' }] : []),
   ];
 
@@ -117,7 +119,7 @@ export default function Sidebar() {
       {mobileOpen ? (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-slate-950/35 backdrop-blur-[1px] md:hidden"
+          className="fixed inset-0 z-40 bg-[var(--scrim)] backdrop-blur-[2px] md:hidden"
           onClick={() => setMobileOpen(false)}
           aria-label="Close navigation"
         />
@@ -132,17 +134,22 @@ export default function Sidebar() {
       >
         <div className="flex h-full flex-col">
           <header className="flex h-24 items-center justify-between border-b border-[var(--sidebar-border)] px-5">
-            <div>
-              <div className="text-base font-semibold tracking-tight">MyDeskii</div>
-              <div className="mt-0.5 text-xs text-[var(--muted)]">SAVAGE LLC workspace</div>
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--card-surface)] text-sm font-bold text-[var(--accent)] shadow-[0_0_24px_-14px_var(--accent)]" aria-hidden="true">
+                M
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-base font-semibold tracking-tight">MyDeskii</div>
+                <div className="mt-0.5 text-xs text-[var(--muted)]">SAVAGE LLC workspace</div>
+              </div>
             </div>
             <button
               type="button"
-              className="nav-animated inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)] md:hidden"
+              className="nav-animated inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)] md:hidden"
               onClick={() => setMobileOpen(false)}
               aria-label="Close navigation"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </header>
 
@@ -167,14 +174,14 @@ export default function Sidebar() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <UserAvatar className="h-full w-full" size={40} aria-hidden={true} />
+                  <UserAvatar className="h-full w-full" size={40} ariaHidden={true} />
                 )}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-semibold">{user?.name || 'User'}</div>
                 <div className="truncate text-xs text-[var(--muted)]">{user?.email || 'Guest'}</div>
               </div>
-              <UserCircle className="h-4 w-4 text-[var(--muted)]" />
+              <UserCircle className="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />
             </Link>
           </footer>
         </div>

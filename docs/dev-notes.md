@@ -1,5 +1,610 @@
 # Development Notes
 
+## 2026-06-02 - Light And Dark Theme Fix
+
+### Completed
+
+- Consolidated MyDeskii theme variables so dark mode and light mode share the same token contract.
+- Added missing workspace tokens used by client/admin command-center hero surfaces.
+- Fixed light-mode sidebar readability by giving light mode its own sidebar token set.
+- Tokenized client workspace hero labels, actions, progress bars, and detail text instead of hard-coded cyan-on-dark classes.
+- Added light/dark theme coverage to the visual smoke script.
+
+### Files Changed
+
+- `frontend/src/app/globals.css`
+- `frontend/src/components/ThemeToggle.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/Button.tsx`
+- `frontend/src/components/workspace/ProductionWorkspace.tsx`
+- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
+- `frontend/src/app/client/page.tsx`
+- `frontend/scripts/visual-smoke.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept dark mode as the default MyDeskii visual direction.
+- Made light mode a complete operational theme instead of a partial inversion.
+- Preserved routes, query parameters, backend APIs, and existing client navigation behavior.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `VISUAL_SMOKE_ROUTES='/operations/clients,/operations/clients/delivery,/client,/dashboard,/login' VISUAL_SMOKE_THEMES='dark,light' npm --prefix frontend run test:visual`
+- Browser smoke `/operations/clients?client=<id>` by toggling dark and light mode.
+
+### Next Steps
+
+- Continue token migration on lower-priority payroll, file directory, and chat internals as those screens enter review scope.
+
+## 2026-06-02 - Prompt-to-Quality Agent Workflow
+
+### Completed
+
+- Added a Prompt-to-Quality Cycle for prompt intake, skill planning, repo applicability checks, plan quality gates, implementation, reviewer passes, and fix/review loops.
+- Updated the Vibe Auto Research skill so implementation prompts must review technical quality and user-flow quality before final response.
+- Added a focused skill reference for the new cycle and documented the workflow in the repo agent guide.
+
+### Files Changed
+
+- `AGENTS.md`
+- `docs/agent-workflows.md`
+- `docs/dev-notes.md`
+- `skills/.agents/skills/vibe-auto-research/SKILL.md`
+- `skills/.agents/skills/vibe-auto-research/references/prompt-to-quality-cycle.md`
+- `skills/skills-lock.json`
+
+### Decisions Made
+
+- Kept the workflow inside `vibe-auto-research` instead of creating a competing orchestration skill.
+- Treated `to-prd` as opt-in for PRD or issue-tracker output, not a default action for every plan.
+- Required browser click-through for UI/user-flow work when the app can be rendered.
+
+### How to Test
+
+- `npm run check:skills`
+- `git diff --check`
+
+### Next Steps
+
+- Restart Codex or start a new session to have newly installed global skills appear automatically.
+
+## 2026-06-02 - Chrome Stale Auth Session Fix
+
+### Completed
+
+- Inspected the user's real Chrome tab with the Codex Chrome Extension.
+- Confirmed the Chrome errors were stale-auth failures: `Invalid or expired token` for client organization fetches, time entries, and socket auth.
+- Added shared auth-session handling so token-specific `403` responses follow the refresh/logout path instead of rendering protected screens with empty data.
+- Updated user state to react immediately when a shared API request clears stale auth.
+- Updated socket connection logic to wait for verified user state and a current token before connecting.
+- Added focused unit coverage for token-auth failure detection.
+
+### Files Changed
+
+- `frontend/src/lib/auth-session.ts`
+- `frontend/src/lib/api.ts`
+- `frontend/src/contexts/UserContext.tsx`
+- `frontend/src/context/SocketContext.tsx`
+- `frontend/tests/auth-session.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept normal `403 Insufficient permissions` behavior separate from `403 Invalid or expired token`.
+- Avoided redirecting directly inside `apiFetch`; it clears auth and lets `AuthGuard` route the user to `/login`.
+- Did not inspect or expose Chrome token values.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- Chrome smoke: reload a stale-auth local portal tab and confirm it lands on `/login` without new console errors.
+
+### Next Steps
+
+- If the team wants a friendlier UX, add a login-page notice when the redirect was caused by session expiry.
+
+## 2026-06-02 - Client Delivery Polish Continuation
+
+### Completed
+
+- Created and executed a skill-guided plan for the next Client Delivery polish pass.
+- Added default input `name` support to the shared `FormField` component.
+- Added delivery form control names, autocomplete handling, textarea resizing, and ellipsis-style placeholder copy.
+- Added a compact empty state when a client has no work items.
+- Hardened long project, work-item, and completed-work text so client content wraps instead of clipping.
+- Rechecked the live Delivery tab and focused visual smoke route.
+
+### Files Changed
+
+- `frontend/src/components/forms/FormField.tsx`
+- `frontend/src/components/client-portal/AdminClientProjectsPanel.tsx`
+- `frontend/src/components/client-portal/AdminClientUpdatesPanel.tsx`
+- `frontend/src/components/client-portal/ClientOperationsPanel.tsx`
+- `frontend/src/components/client-portal/production-records/shared.tsx`
+- `frontend/src/components/client-portal/production-records/WorkItemsPanel.tsx`
+- `frontend/src/app/operations/clients/delivery/page.tsx`
+- `docs/superpowers/plans/2026-06-02-client-delivery-polish.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the implementation inside existing shared controls and delivery panels instead of redesigning the route.
+- Treated checkbox labels as the interaction target, with the checkbox visual remaining smaller than the label hit area.
+- Preserved backend/API contracts and did not add dependencies.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `VISUAL_SMOKE_ROUTES='/operations/clients/delivery' npm --prefix frontend run test:visual`
+- Browser smoke `/operations/clients/delivery?client=<id>` on the live local tab.
+
+### Next Steps
+
+- Apply the same form-control metadata pass to the remaining production-record routes if they become part of the next review scope.
+
+## 2026-06-02 - Client Delivery UI Review
+
+### Completed
+
+- Reviewed the admin Client Delivery route at desktop and mobile sizes.
+- Raised shared button minimum heights so Delivery form actions meet the touch-target gate.
+- Improved client operation website links, checkbox sizing, record title wrapping, and mobile header handling.
+- Rechecked the route with focused browser smoke after the visual fixes.
+
+### Files Changed
+
+- `frontend/src/components/Button.tsx`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
+- `frontend/src/components/client-portal/ClientOperationsPanel.tsx`
+- `frontend/src/components/client-portal/production-records/shared.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Fixed the shared UI primitives that owned the issues instead of adding page-only overrides.
+- Kept the mobile page header compact by hiding secondary subtitle copy below the `sm` breakpoint.
+- Preserved the existing dark MyDeskii operations style and top client navigation.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `VISUAL_SMOKE_ROUTES='/operations/clients/delivery' npm --prefix frontend run test:visual`
+- Browser smoke `/operations/clients/delivery?client=<id>` at desktop and mobile widths.
+
+### Next Steps
+
+- Continue using the focused visual smoke route whenever shared client operations controls change.
+
+## 2026-06-02 - Client Operations Top Navigation
+
+### Completed
+
+- Added a shared top navigation bar for the client operations section directly below the page header.
+- Reused the existing client operations navigation config so Overview, Accounts, Delivery, Requests, Approvals, Reports, Assets, Billing, Roadmap, and Calendar stay in one route order.
+- Preserved the selected `client` query parameter when moving between client operations sections.
+- Added focused active-state coverage so Overview is not incorrectly marked active on nested client operations routes.
+
+### Files Changed
+
+- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
+- `frontend/src/lib/client-operations-navigation.ts`
+- `frontend/tests/client-operations-navigation.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Put the nav in `ClientOperationsShell` so every `/operations/clients/*` page gets the same top navigation.
+- Use real `Link` elements with `aria-current` and visible focus states instead of one-off buttons or click handlers.
+- Keep desktop as a compact single-row bar and mobile as a horizontal scroll strip to avoid wrapping the workflow controls.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `VISUAL_SMOKE_ROUTES='/operations/clients/accounts,/operations/clients/reports' npm --prefix frontend run test:visual`
+- Browser smoke `/operations/clients/accounts?client=<id>` at desktop and mobile widths.
+
+### Next Steps
+
+- Consider adding the same style of top navigation to the client-facing `/client/*` portal if the team wants parity for client users.
+
+## 2026-06-02 - MyDeskii Command-Center Redesign Planning
+
+### Completed
+
+- Preserved the MyDeskii product identity while incorporating the boss-approved dark command-center reference into the design direction.
+- Updated the frontend redesign plan with frontend best-practice gates for accessibility, focus states, forms, responsive layout, content handling, URL state, performance, data formatting, motion, and dark-mode readability.
+- Clarified that the reference should influence visual style and dashboard energy, not introduce marketing-page sections or fake decorative metrics.
+
+### Files Changed
+
+- `DESIGN.md`
+- `docs/frontend-redesign-plan.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Treat the boss reference as a premium MyDeskii command-center style, not a rename or direct Gemfield template copy.
+- Start future implementation with global tokens, shared components, shell, auth, and dashboard before touching dense workflow internals.
+- Keep frontend best practices as explicit gates in the plan so visual polish does not weaken accessibility, responsiveness, or performance.
+
+### How to Test
+
+- Review `DESIGN.md` and `docs/frontend-redesign-plan.md`.
+- When implementation starts, run `npm --prefix frontend test`, `npm --prefix frontend run lint`, `npm --prefix frontend run build`, and browser checks for desktop and mobile.
+
+### Next Steps
+
+- Create or update the first implementation task for global tokens, shared components, shell, auth, and dashboard.
+- Browser-review the current MyDeskii dashboard against the boss-reference direction before broad route edits.
+
+## 2026-06-02 - MyDeskii Command-Center First Implementation
+
+### Completed
+
+- Updated the global MyDeskii frontend theme to default to a dark command-center palette with cyan and magenta accents, glass surfaces, stronger borders, and dark form controls.
+- Refined shared shell components, cards, buttons, sidebar, header, and protected layout surfaces so the app keeps the MyDeskii identity while matching the boss-approved visual direction.
+- Upgraded login and signup screens with the new dark treatment, better focus states, accessible icon handling, keyboard-reachable password toggles, proper form names, and Next `Link` navigation.
+- Restyled the dashboard landing surface, metrics, quick links, attention rows, chat input, announcements, and quick actions into a denser command-center experience.
+- Browser-verified login, signup, and the authenticated admin dashboard at desktop and mobile widths.
+
+### Files Changed
+
+- `frontend/src/app/globals.css`
+- `frontend/src/app/layout.tsx`
+- `frontend/src/app/dashboard/page.tsx`
+- `frontend/src/app/login/login.module.css`
+- `frontend/src/app/login/page.tsx`
+- `frontend/src/app/signup/page.tsx`
+- `frontend/src/components/Button.tsx`
+- `frontend/src/components/Card.tsx`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/LayoutWrapper.tsx`
+- `frontend/src/components/LoginInput.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/ThemeToggle.tsx`
+- `frontend/src/components/ui/button.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Keep the product name and shell branding as MyDeskii rather than copying the Gemfield identity from the reference.
+- Apply the reference as a product-app command-center language, not a marketing landing page.
+- Start with shared tokens, auth, shell, and dashboard because those areas set the visual system for later route-by-route redesign work.
+- Preserve light-mode support as a secondary fallback, while making dark mode the default MyDeskii experience.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `git diff --check -- frontend/src/app/globals.css frontend/src/app/layout.tsx frontend/src/components/ThemeToggle.tsx frontend/src/app/login/login.module.css frontend/src/app/login/page.tsx frontend/src/app/signup/page.tsx frontend/src/app/dashboard/page.tsx frontend/src/components/LoginInput.tsx frontend/src/components/Button.tsx frontend/src/components/Card.tsx frontend/src/components/Header.tsx frontend/src/components/LayoutWrapper.tsx frontend/src/components/Sidebar.tsx frontend/src/components/ui/button.tsx docs/dev-notes.md`
+- Browser smoke at `http://localhost:3000/login`, `http://localhost:3000/signup`, and authenticated `http://localhost:3000/dashboard` for desktop and mobile viewport checks.
+
+### Next Steps
+
+- Carry the command-center tokens into the dense workflow pages in small route groups.
+- Add route-specific visual smoke coverage once the broader redesign reaches task tracking, payroll, files, chat, and operations.
+
+## 2026-06-02 - Client Side Shell Restored
+
+### Completed
+
+- Added a visible client setup hub at `/operations/clients`.
+- Added a client-facing portal shell at `/client`.
+- Wired the client area into the sidebar and the Operations page with a `Clients` tab.
+- Added reusable client portal configuration for shell sections, status cards, principles, and next backend steps.
+- Documented that client routes are currently frontend shells because this checkout has no client Prisma models or API routes.
+
+### Files Changed
+
+- `frontend/src/lib/client-portal.ts`
+- `frontend/src/app/operations/clients/page.tsx`
+- `frontend/src/app/client/page.tsx`
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Do not invent client records, Prisma models, or API contracts in this pass.
+- Make the client side visible immediately while clearly labeling persisted data and membership access as the next backend slice.
+- Keep client data boundaries explicit: only published or assigned client-safe records should appear in the future client portal.
+
+### How to Test
+
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- Browser smoke `/operations`, `/operations/clients`, and `/client` at desktop and mobile widths.
+- `git diff --check -- frontend/src/lib/client-portal.ts frontend/src/app/operations/clients/page.tsx frontend/src/app/client/page.tsx frontend/src/app/operations/page.tsx frontend/src/components/Sidebar.tsx docs/features.md docs/dev-notes.md`
+
+### Next Steps
+
+- Add client organization, membership, report, calendar, and file models in a backend/database vertical slice.
+- Add tenant-scoped API routes and permission checks before rendering persisted client records.
+
+## 2026-06-02 - Full Client Portal Module Retrieved
+
+### Completed
+
+- Retrieved the full client portal module from the earlier client-service-tier commit instead of leaving the temporary frontend shell in place.
+- Restored client Prisma models, migrations, seed data, backend client services/routes/serializers/validation, frontend client and operations route groups, reusable client portal components, hooks, libraries, and focused tests.
+- Mounted the restored backend client controller at `/api/clients`.
+- Restored the frontend visual smoke script and `test:visual` package script.
+- Tightened shared header, sidebar, and time-clock touch targets so the restored client route visual smoke passes on desktop and mobile.
+- Updated feature and API documentation to describe the restored full client portal behavior and client-safe data boundaries.
+
+### Files Changed
+
+- `backend/prisma/schema.prisma`
+- `backend/prisma/seed.ts`
+- `backend/prisma/migrations/202605240001_client_portal_foundation/migration.sql`
+- `backend/prisma/migrations/202605270001_client_portal_production_records/migration.sql`
+- `backend/prisma/migrations/202605270002_client_activity/migration.sql`
+- `backend/prisma/migrations/202605270003_client_resource_ownership/migration.sql`
+- `backend/src/main.ts`
+- `backend/src/clients/*`
+- `backend/tests/run-tests.ts`
+- `backend/tests/clients.*.test.ts`
+- `frontend/package.json`
+- `frontend/scripts/visual-smoke.mjs`
+- `frontend/src/app/client/*`
+- `frontend/src/app/operations/clients/*`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/TimeClock.tsx`
+- `frontend/src/components/client-portal/*`
+- `frontend/src/components/workspace/ProductionWorkspace.tsx`
+- `frontend/src/hooks/useClientOperationsWorkspace.ts`
+- `frontend/src/hooks/useClientPortalWorkspace.ts`
+- `frontend/src/lib/client-*.ts`
+- `frontend/tests/client-*.test.mjs`
+- `docs/api.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Restore the existing proven client portal module from repository history rather than rebuilding it from scratch.
+- Preserve the current MyDeskii command-center shell and sidebar styling while bringing back the deeper client functionality.
+- Keep client-safe serialization, tenant membership checks, server-derived ownership, and internal/client visibility boundaries as the client module contract.
+
+### How to Test
+
+- `npm --prefix backend run prisma:generate`
+- `npx prisma validate` from `backend/`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `npm --prefix backend run build`
+- `npm --prefix backend test`
+- Browser smoke `/operations/clients`, `/client`, `/client/reports`, and focused client operations routes at desktop and mobile widths.
+
+### Next Steps
+
+- Apply restored migrations to any real database environment before relying on live client records.
+- Verify demo client login and membership access against the target database.
+- Continue route-by-route visual polish so the restored client module fully matches the new MyDeskii command-center direction.
+
+## 2026-06-02 - Generic Upload Serving Hardening
+
+### Completed
+
+- Hardened generic uploads so stored filenames use a sanitized basename plus a canonical extension derived from validated MIME/signature, not from the user-supplied extension.
+- Added stored upload filename validation for authenticated file serving, including unsupported-extension and traversal-marker rejection.
+- Set served upload `Content-Type` from the canonical extension and added `X-Content-Type-Options: nosniff`.
+- Added focused helper tests for canonical upload metadata and stored filename validation.
+- Added route-level upload tests for authentication, canonical `.pdf`/`.txt` storage, served MIME headers, MIME/signature mismatch rejection, unsupported extensions, and encoded traversal attempts.
+
+### Files Changed
+
+- `backend/src/uploads/upload.validation.ts`
+- `backend/src/uploads/uploads.controller.ts`
+- `backend/tests/upload.validation.test.ts`
+- `backend/tests/uploads.routes.test.ts`
+- `backend/tests/run-tests.ts`
+- `docs/api.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept generic upload serving authenticated and dependency-free.
+- Preserved compatibility for legacy timestamped filenames that include dots in the basename, while rejecting `..`, path separators, and unsupported final extensions.
+- Kept response `name` as the sanitized display name with canonical extension and added `filename` for the stored object name.
+
+### How to Test
+
+- `npm --prefix backend test`
+- `npm --prefix backend run build`
+- `npm run check`
+- `git diff --check`
+
+### Next Steps
+
+- Consider adding a body-size preflight check before base64 decoding if uploads become a high-traffic or abuse-prone endpoint.
+- Consider adding persistence for uploaded file metadata if the file directory starts relying on richer file records.
+
+## 2026-06-02 - Agent Skill Inventory Validation
+
+### Completed
+
+- Fixed the repo skill inventory so locked skill paths match the actual hidden `skills/.agents/skills` snapshot.
+- Added a root `check:skills` script that validates every locked skill path and SHA-256 hash.
+- Added the skill inventory validator to the repository CI checks.
+- Added a root `README.md` as the setup and verification entry point.
+- Added `docs/code-review.md` as the repo-specific review checklist for backend, frontend, auth, uploads, database, agent workflow, and release readiness.
+- Expanded agent workflow docs with repo-local versus global skill policy, third-party skill trust rules, hidden skill snapshot inspection, and skill add/remove maintenance steps.
+
+### Files Changed
+
+- `AGENTS.md`
+- `.github/workflows/ci.yml`
+- `README.md`
+- `docs/agent-workflows.md`
+- `docs/architecture.md`
+- `docs/code-review.md`
+- `docs/dev-notes.md`
+- `package.json`
+- `scripts/check-skills-lock.mjs`
+- `skills/skills-lock.json`
+
+### Decisions Made
+
+- Kept repo-local skills under `skills/.agents/skills` instead of moving the snapshot, and documented `rg --hidden --files skills` for inspection.
+- Treated `skills/skills-lock.json` as a repository inventory that must match the current `SKILL.md` contents.
+- Kept third-party skill use conservative: useful for repeated portal workflows, reviewed before import, and not used with private portal data unless explicitly approved.
+
+### How to Test
+
+- `npm run check:skills`
+- `npm run check`
+- `git diff --check`
+
+### Next Steps
+
+- Before committing, decide whether all currently snapshotted third-party skills should remain repo-local or whether rarely used skills should stay global only.
+- Keep `docs/code-review.md` current as new release gates or sensitive portal workflows are added.
+
+## 2026-06-01 - Repo Agent Workflow Setup
+
+### Completed
+
+- Made Vibe Auto Research explicit as the default operating workflow in `AGENTS.md`.
+- Added `docs/agent-workflows.md` as the repo memory for skill selection, agent delegation, verification gates, and skill maintenance.
+- Documented when to use third-party skills such as `web-design-guidelines`, `improve-codebase-architecture`, `supabase-postgres-best-practices`, `gsap-frameworks`, and `ai-image-generation`.
+- Updated the repo skill inventory so the local `vibe-auto-research` and `find-skills` snapshots are listed beside the curated third-party skills.
+
+### Files Changed
+
+- `AGENTS.md`
+- `docs/agent-workflows.md`
+- `docs/dev-notes.md`
+- `skills/skills-lock.json`
+
+### Decisions Made
+
+- Kept repo-level agent behavior in `AGENTS.md` plus `docs/` instead of creating a `.codex/` folder, because no verified repo-local `.codex` convention exists in this checkout.
+- Kept global Codex skills available globally, but documented only a curated repo-local skill snapshot to avoid loading irrelevant skills into every task.
+- Treated `skills/skills-lock.json` as the repo inventory for curated skills.
+
+### How to Test
+
+- From repo root: `git diff --check`
+- From repo root: validate `skills/skills-lock.json` as JSON.
+
+### Next Steps
+
+- If a future Codex release documents repo-local `.codex/` behavior, revisit whether this repo should add one.
+- Add or remove repo-local skill snapshots only when there is a repeated portal workflow that needs them.
+
+## 2026-06-01 - Skills And Avatar Validation Review
+
+### Completed
+
+- Exercised the repo-local Vibe Auto Research and parallel agent workflow against the current upload-hardening branch.
+- Used two read-only explorer agents to review upload/avatar security and CI/release readiness in parallel.
+- Closed the highest-risk finding by adding shared avatar value validation for user create, profile patch, and dedicated avatar update paths.
+- Added tests for accepted avatar URLs/relative paths, image data URIs, unsupported schemes, MIME mismatches, oversized data URIs, and non-string avatar values.
+- Fixed the repository-level CI whitespace check so GitHub Actions validates the pushed or pull-request diff range instead of checking a clean checkout.
+- Added the root package audit to the root `npm run check` command and CI repository checks.
+
+### Files Changed
+
+- `backend/src/uploads/upload.validation.ts`
+- `backend/src/users/users.controller.ts`
+- `backend/tests/upload.validation.test.ts`
+- `.github/workflows/ci.yml`
+- `package.json`
+- `docs/api.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept stored user avatars limited to http(s) URLs, relative paths, empty removal values where profile updates allow them, or validated image data URIs.
+- Kept avatar validation in the uploads validation helper so every user-avatar persistence path uses the same rules.
+- Kept generic upload filename/content-type hardening as a follow-up because it is a separate serving-contract change from avatar persistence validation.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- From repo root: `npm run check`
+- From repo root: `git diff --check`
+
+### Next Steps
+
+- Derive or enforce generic upload filename extensions from validated MIME types, or persist/set validated content types when serving files.
+- Consider adding Express route-level tests for upload and user avatar endpoints.
+
+## 2026-05-31 - Workflow And Upload Hardening
+
+### Completed
+
+- Switched active work to the documented `v2-improvements` branch.
+- Expanded GitHub Actions coverage for `v2-improvements` and added backend tests, frontend tests, frontend lint, dependency audits, Prisma validation, and repository checks to CI.
+- Hardened generic upload and avatar validation so decoded content signatures must match declared file/image types.
+- Updated the standalone frontend start script to run the generated standalone server.
+- Removed the root package dependency sink and added a root lockfile so root-level audits have a deterministic package surface.
+- Removed the Docker Compose fallback database password so local Compose validation requires explicit database and auth secrets.
+
+### Files Changed
+
+- `.github/workflows/backend-ci.yml`
+- `.github/workflows/ci.yml`
+- `backend/src/uploads/upload.validation.ts`
+- `backend/src/uploads/uploads.controller.ts`
+- `backend/src/users/users.controller.ts`
+- `backend/tests/run-tests.ts`
+- `backend/tests/upload.validation.test.ts`
+- `docker-compose.yml`
+- `frontend/next.config.ts`
+- `frontend/package.json`
+- `package.json`
+- `package-lock.json`
+- `docs/api.md`
+- `docs/architecture.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept upload signature checks dependency-free and focused on the file types already accepted by the API.
+- Kept CI split into the existing backend, frontend, and repository-level jobs instead of introducing a new CI layout.
+- Kept root dependencies out of the repo root; package dependencies remain owned by `backend/` and `frontend/`.
+- Pinned the frontend Turbopack root to the frontend package so the root audit lockfile does not make Next infer the repository root during builds.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd backend && npx prisma validate`
+- `cd backend && npx prisma generate`
+- `cd backend && npm audit --audit-level=high`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- `cd frontend && npm audit --audit-level=high`
+- From repo root with temporary local secrets: `docker compose config`
+- From repo root: `git diff --check`
+- From repo root: `npm audit --audit-level=high`
+
+### Next Steps
+
+- Consider adding a focused visual smoke script to this branch after the route set stabilizes.
+- Replace production `console.log` calls with a structured logger in a later backend observability pass.
+
 ## 2026-05-24 - Documentation Cleanup Before Client Portal
 
 ### Completed

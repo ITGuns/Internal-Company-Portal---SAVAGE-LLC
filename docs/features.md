@@ -76,11 +76,30 @@ Signup creates a pending account and preserves the requested department/role wit
 
 ## Operations
 
-Operations manages departments and role options.
+Operations manages departments, role options, and client account administration.
 
 - Department and role deletes now require a typed confirmation modal.
 - The delete action stays disabled until the exact target name is typed.
 - Department delete confirmation displays linked task and user-role counts when provided by the API.
+- Operations includes a `Clients` tab that links to the client operations command center.
+- `/operations/clients` is the Client Operations command center for account health, open work, requests, approvals, latest updates, reports, and focused route links.
+- `/operations/clients/accounts` manages client setup, invitations, approved existing-user access, membership status changes, account profile details, service tiers, and archive/restore controls.
+- `/operations/clients/delivery`, `/operations/clients/requests`, `/operations/clients/approvals`, `/operations/clients/reports`, `/operations/clients/assets`, `/operations/clients/billing`, `/operations/clients/roadmap`, and `/operations/clients/calendar` split client production records into focused admin work areas.
+- Client Operations separates current client accounts from archived history so removed clients do not crowd the active working list.
+
+## Client Portal Foundation
+
+MyDeskii includes the backend and frontend foundation for a client-facing portal inside the existing internal app.
+
+- Client portal records are grouped under `ClientOrganization`.
+- Client users are scoped through active `ClientMembership` records on active client organizations and cannot see other organizations or archived clients.
+- Internal managers/admins can create client organizations, manage service tiers, invite client contacts, assign existing approved users, and review cross-client portal data.
+- Client-facing serializers omit internal organization notes, raw tier IDs, internal tier price/priority, ticket assignment fields, internal ticket comments, and inactive client memberships.
+- `/client` is the client command center for assigned clients.
+- `/client/work`, `/client/approvals`, `/client/messages`, `/client/reports`, `/client/resources`, `/client/account`, `/client/calendar`, and `/client/tickets` provide focused client-facing work, approval, communication, reporting, resource, account, schedule, and request surfaces.
+- Client overview responses only expose records marked visible to clients and allowed by membership.
+- Client and admin dashboards consume shared activity history and derived action queues; client users only see client-visible events.
+- Client users land on `/client` after login, and authenticated client users attempting `/dashboard` are redirected back to the client portal.
 
 ## Payroll Calendar
 

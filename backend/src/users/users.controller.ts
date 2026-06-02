@@ -6,6 +6,7 @@ import { PayrollService } from '../payroll/payroll.service'
 import { DepartmentsService } from '../departments/departments.service'
 import { isAdminEmail } from '../config/env.config'
 import { canRequestAssigneeTasks, hasTaskAssignmentPrivilege } from '../tasks/tasks.permissions'
+import { validateAvatarValue } from '../uploads/upload.validation'
 import { sanitizeUserForDirectory, sanitizeUsersForDirectory } from './users.security'
 
 export class UsersController {
@@ -82,20 +83,16 @@ export class UsersController {
 
                 // Accept base64 data URI or a URL string
                 const { avatar } = req.body
-                if (!avatar) {
+                if (!avatar || typeof avatar !== 'string') {
                     return res.status(400).json({ error: 'Avatar data is required' })
                 }
 
-                // Validate size if base64 (rough check: base64 length * 0.75 = bytes)
-                if (avatar.startsWith('data:image/')) {
-                    const base64Data = avatar.split(',')[1] || ''
-                    const sizeBytes = Math.round((base64Data.length * 3) / 4)
-                    if (sizeBytes > 5 * 1024 * 1024) {
-                        return res.status(400).json({ error: 'Avatar image must be less than 5MB' })
-                    }
+                const avatarValidation = validateAvatarValue(avatar)
+                if (!avatarValidation.valid) {
+                    return res.status(400).json({ error: avatarValidation.error || 'Invalid avatar data' })
                 }
 
-                const user = await this.service.update(id, { avatar })
+                const user = await this.service.update(id, { avatar: avatarValidation.value })
 
                 res.json({ success: true, user: sanitizeUserForDirectory(user) })
             } catch (error) {
@@ -151,13 +148,18 @@ export class UsersController {
                     return res.status(400).json({ error: 'Email is required' })
                 }
 
+                const avatarValidation = avatar === undefined ? undefined : validateAvatarValue(avatar)
+                if (avatarValidation && !avatarValidation.valid) {
+                    return res.status(400).json({ error: avatarValidation.error || 'Invalid avatar data' })
+                }
+
                 // Check if user already exists
                 const existingUser = await this.service.findByEmail(email)
                 if (existingUser) {
                     return res.status(409).json({ error: 'User with this email already exists' })
                 }
 
-                const user = await this.service.create({ email, name, avatar })
+                const user = await this.service.create({ email, name, avatar: avatarValidation?.value })
 
                 // Send welcome email (async, don't block response)
                 const loginUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
@@ -210,6 +212,11 @@ export class UsersController {
                     })
                 }
 
+                const avatarValidation = avatar === undefined ? undefined : validateAvatarValue(avatar)
+                if (avatarValidation && !avatarValidation.valid) {
+                    return res.status(400).json({ error: avatarValidation.error || 'Invalid avatar data' })
+                }
+
                 // Check if user exists
                 const existingUser = await this.service.findById(id)
                 if (!existingUser) {
@@ -220,7 +227,7 @@ export class UsersController {
                 const user = await this.service.update(id, {
                     name,
                     email,
-                    avatar,
+                    avatar: avatarValidation?.value,
                     birthday,
                     phone,
                     address,
