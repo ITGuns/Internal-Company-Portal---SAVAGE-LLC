@@ -53,6 +53,7 @@ Use this checklist for human review, agent review, and pre-release self-review. 
 - Forms have clear labels, validation feedback, and accessible controls.
 - Management-only UI remains convenience only; backend authorization remains authoritative.
 - Browser verification covers changed routes when the app can be rendered locally.
+- A fresh manual click-through is included for changed UI, auth, workflow, navigation, form, dashboard, or client-facing paths, and is reported as done, blocked, or not applicable.
 
 ## Agent and Skill Workflow
 

@@ -10,7 +10,7 @@ Meaningful work in this repo must follow Vibe Auto Research:
 2. Inspect the relevant repo files and docs.
 3. Decide from evidence.
 4. Make the smallest scoped edit.
-5. Verify with tests, builds, lint, browser smoke, or the relevant gate.
+5. Verify with tests, builds, lint, browser smoke, a fresh manual click-through for changed user paths, or the relevant gate.
 
 Start with `AGENTS.md`, then use the relevant docs under `docs/`.
 

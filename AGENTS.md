@@ -29,6 +29,7 @@ Use **Vibe Auto Research** instead:
 
 4. **Verification finishes the loop.**
    - Run relevant tests, lint, builds, Prisma checks, browser checks, or focused smoke checks when available.
+   - For UI, auth, workflow, navigation, form, dashboard, or client-facing changes, include a fresh manual click-through item in the finish checklist. Mark it done, blocked, or explicitly not applicable before calling the work complete.
    - If verification cannot be run, state exactly what was not run and why.
 
 The working loop is:
@@ -126,6 +127,7 @@ Use Browser/in-app browser when a local or reachable app can be rendered. Review
 - mobile and desktop responsive behavior
 - text clipping, overflow, overlap, awkward wrapping, and touch target size
 - console errors, missing assets, broken links, and obvious network/API failures
+- a fresh manual click-through of the changed user path when the local app can be rendered safely
 
 If Browser is unavailable, the app cannot start, auth blocks access, or verification would be unsafe, state that clearly and use the best fallback: static code review, screenshots, existing visual tests, or manual browser verification steps.
 
@@ -204,6 +206,7 @@ When finishing work, include:
 - Where it changed.
 - What verification ran.
 - What browser review found for UI/user-flow changes.
+- Whether the fresh manual click-through was completed, blocked, or not applicable.
 - What Computer Use found for desktop/app-surface checks.
 - Known limitations or follow-up work.
 

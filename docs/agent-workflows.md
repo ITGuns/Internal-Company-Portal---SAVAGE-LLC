@@ -10,7 +10,7 @@ Use this loop for feature work, bug fixes, reviews, release checks, and document
 2. Evidence: inspect the relevant repo files, docs, tests, scripts, and current git state.
 3. Decision: revise the plan based on what the repo actually shows.
 4. Edit: make the smallest scoped change that solves the verified need.
-5. Verification: run the commands or browser checks that prove the result, or state exactly what could not be verified.
+5. Verification: run the commands, browser checks, and fresh manual click-through item that prove the result, or state exactly what could not be verified.
 
 Do not present work as complete if the evidence or verification step is missing.
 
@@ -63,7 +63,7 @@ Use this matrix after the Vibe Auto Research classification step:
 | Backend/API change | `api-service-quality`, `auth-access-control` when permissions are involved | Controllers, services, validation helpers, serializers, tests, `docs/api.md` | Backend tests, build, and targeted API checks |
 | Security-sensitive work | `security-production-readiness`, `auth-access-control`, `integrations-webhooks-safety` when relevant | Trust boundaries, untrusted inputs, auth checks, sensitive outputs, logs, docs | Focused security tests plus build and release gates |
 | Database/schema/query work | `database-safety`, `supabase-postgres-best-practices` | Prisma schema, migrations, seed data, query callers, `docs/database.md` | `npx prisma validate`, `npx prisma generate`, tests that cover changed queries |
-| Frontend/UI work | `frontend-visual-quality`, `web-design-guidelines`, Browser/in-app browser | `DESIGN.md`, route/component code, state/loading/error paths, responsive constraints | Frontend tests, lint, build, browser smoke for affected routes |
+| Frontend/UI work | `frontend-visual-quality`, `web-design-guidelines`, Browser/in-app browser | `DESIGN.md`, route/component code, state/loading/error paths, responsive constraints | Frontend tests, lint, build, browser smoke for affected routes, and fresh manual click-through of the changed path |
 | Architecture review | `project-architecture-standards`, `improve-codebase-architecture` | Docs, module ownership, duplication, test seams, high-friction files | Findings with file references; implementation only after approval |
 | Code review | `requesting-code-review`, `receiving-code-review`, CodeRabbit when explicitly requested | Current diff, `docs/code-review.md`, related tests/docs/contracts | Findings first, then focused fixes and re-verification when asked |
 | Release/publish readiness | `verification-before-completion`, release gates in `docs/architecture.md` | Branch, dirty worktree, CI config, lockfiles, package scripts, dependency audit surface | `npm run check`, Prisma checks when relevant, `docker compose config`, `git diff --check` |
@@ -135,7 +135,7 @@ git diff --check
 npm audit --audit-level=high
 ```
 
-For UI/user-flow changes, add browser verification against affected routes when the app can be rendered locally. For release/publish decisions, inspect branch state and remote sync before recommending a push.
+For UI/user-flow changes, add browser verification against affected routes when the app can be rendered locally. Always add a fresh manual click-through item for changed user paths; report it as done, blocked, or not applicable before finishing. For release/publish decisions, inspect branch state and remote sync before recommending a push.
 
 ## Skill Trust and Maintenance
 

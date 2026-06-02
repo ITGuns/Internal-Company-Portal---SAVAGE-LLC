@@ -1,5 +1,33 @@
 # Development Notes
 
+## 2026-06-02 - Manual Click-Through Finish Gate
+
+### Completed
+
+- Added fresh manual click-through as a standing finish-check item for changed UI, auth, workflow, navigation, form, dashboard, and client-facing paths.
+- Updated repo workflow docs so automated visual smoke remains useful but does not replace a real user-path click-through when the local app can be rendered safely.
+
+### Files Changed
+
+- `AGENTS.md`
+- `README.md`
+- `docs/agent-workflows.md`
+- `docs/code-review.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Manual click-through must be reported as done, blocked, or not applicable before calling relevant work complete.
+- The requirement belongs in durable workflow docs, not only in a one-off session note.
+
+### How to Test
+
+- `git diff --check`
+
+### Next Steps
+
+- Include the manual click-through result in future closeouts for relevant UI, auth, workflow, navigation, form, dashboard, and client-facing work.
+
 ## 2026-06-02 - Auth Session Cookie Hardening
 
 ### Completed
