@@ -42,6 +42,17 @@ const routes = (process.env.VISUAL_SMOKE_ROUTES || "")
   .filter(Boolean);
 
 const routesToCheck = routes.length > 0 ? routes : defaultRoutes;
+const defaultAuthRoutes = [
+  "/login",
+  "/signup",
+  "/forgot-password",
+  "/reset-password?token=visual-reset-token&email=admin@example.test",
+];
+const authRoutes = (process.env.VISUAL_SMOKE_AUTH_ROUTES || "")
+  .split(",")
+  .map((route) => route.trim())
+  .filter(Boolean);
+const authRoutesToCheck = authRoutes.length > 0 ? authRoutes : defaultAuthRoutes;
 const viewports = [
   { name: "desktop", width: 1440, height: 900 },
   { name: "mobile", width: 390, height: 844 },
@@ -668,7 +679,7 @@ async function inspectRoute(browser, routePath, viewport) {
   await page.waitForTimeout(1500);
   await page.screenshot({ fullPage: false });
 
-  const metrics = await page.evaluate(() => {
+  const metrics = await page.evaluate((currentRoute) => {
     const root = document.documentElement;
     const viewportHeight = window.innerHeight;
     const isVisible = (element) => {
@@ -709,18 +720,112 @@ async function inspectRoute(browser, routePath, viewport) {
         };
       })
       .filter((control) => control.height < 38 || control.width < 28);
+    const composerInput = currentRoute === "/chat" && window.innerWidth <= 480
+      ? Array.from(document.querySelectorAll("input"))
+        .find((input) => (input.getAttribute("placeholder") || "").startsWith("Message "))
+      : null;
+    const composerRect = composerInput?.getBoundingClientRect();
+    const chatMobile = composerRect
+      ? {
+        composerWidth: Math.round(composerRect.width),
+        composerLeft: Math.round(composerRect.left),
+        composerRight: Math.round(composerRect.right),
+        viewportWidth: window.innerWidth,
+        isUsable: composerRect.width >= 180
+          && composerRect.left >= 0
+          && composerRect.right <= window.innerWidth,
+      }
+      : null;
 
     return {
       h1: document.querySelector("h1")?.textContent?.trim() || null,
       hasLoginRedirect: location.pathname.includes("/login"),
       overflowX: root.scrollWidth - root.clientWidth,
       smallControls,
+      chatMobile,
+      bodySample: document.body.innerText.replace(/\s+/g, " ").trim().slice(0, 220),
+    };
+  }, routePath);
+
+  await page.close();
+  return { kind: "app", routePath, viewport: viewport.name, metrics, pageErrors };
+}
+
+async function inspectAuthRoute(browser, routePath, viewport) {
+  const page = await browser.newPage({
+    viewport: { width: viewport.width, height: viewport.height },
+  });
+
+  await page.route("**/*", async (route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname;
+
+    if (path === "/backend-auth/me") {
+      await route.fulfill(jsonResponse({ error: "Unauthorized" }, 401));
+      return;
+    }
+
+    if (path === "/api/departments") {
+      await route.fulfill(jsonResponse(departments));
+      return;
+    }
+
+    await route.continue();
+  });
+
+  const pageErrors = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+
+  await page.goto(`${baseUrl}${routePath}`, {
+    waitUntil: "domcontentloaded",
+    timeout: 30000,
+  });
+  await page.waitForTimeout(1000);
+
+  const metrics = await page.evaluate(() => {
+    const viewportHeight = window.innerHeight;
+    const isVisible = (element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return rect.width > 0
+        && rect.height > 0
+        && rect.top < viewportHeight
+        && rect.bottom > 0
+        && style.visibility !== "hidden"
+        && style.display !== "none";
+    };
+    const getLabelText = (element) => {
+      const id = element.getAttribute("id");
+      if (!id) return "";
+      return document.querySelector(`label[for="${CSS.escape(id)}"]`)?.textContent
+        ?.replace(/\s+/g, " ")
+        .trim() || "";
+    };
+    const formControlSelector = [
+      "input:not([type='hidden']):not([type='button']):not([type='submit']):not([type='checkbox']):not([type='radio'])",
+      "select",
+      "textarea",
+    ].join(",");
+    const missingFormNames = Array.from(document.querySelectorAll(formControlSelector))
+      .filter(isVisible)
+      .filter((element) => !element.getAttribute("name"))
+      .map((element) => ({
+        tag: element.tagName.toLowerCase(),
+        id: element.getAttribute("id") || "",
+        label: getLabelText(element),
+        placeholder: element.getAttribute("placeholder") || "",
+      }));
+
+    return {
+      h1: document.querySelector("h1")?.textContent?.trim() || null,
+      overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      missingFormNames,
       bodySample: document.body.innerText.replace(/\s+/g, " ").trim().slice(0, 220),
     };
   });
 
   await page.close();
-  return { routePath, viewport: viewport.name, metrics, pageErrors };
+  return { kind: "auth", routePath, viewport: viewport.name, metrics, pageErrors };
 }
 
 async function main() {
@@ -739,14 +844,21 @@ async function main() {
         results.push(await inspectRoute(browser, routePath, viewport));
       }
     }
+    for (const routePath of authRoutesToCheck) {
+      for (const viewport of viewports) {
+        results.push(await inspectAuthRoute(browser, routePath, viewport));
+      }
+    }
   } finally {
     await browser.close();
   }
 
   const failures = results.filter((result) => (
-    result.metrics.hasLoginRedirect
+    (result.kind === "app" && result.metrics.hasLoginRedirect)
     || result.metrics.overflowX > 3
-    || result.metrics.smallControls.length > 0
+    || (result.metrics.smallControls?.length || 0) > 0
+    || (result.metrics.missingFormNames?.length || 0) > 0
+    || result.metrics.chatMobile?.isUsable === false
     || result.pageErrors.length > 0
   ));
 
@@ -755,7 +867,9 @@ async function main() {
     viewport: result.viewport,
     h1: result.metrics.h1,
     overflowX: result.metrics.overflowX,
-    smallControls: result.metrics.smallControls.length,
+    smallControls: result.metrics.smallControls?.length || 0,
+    missingFormNames: result.metrics.missingFormNames?.length || 0,
+    chatMobile: result.metrics.chatMobile || null,
     pageErrors: result.pageErrors.length,
   }));
 

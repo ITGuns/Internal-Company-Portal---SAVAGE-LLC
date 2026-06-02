@@ -164,43 +164,43 @@ export default function CalendarTab({
       {/* Enhanced Legend Bar */}
       <div className="mb-6 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-surface)]/50 backdrop-blur-md shadow-sm">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-xs">
-          <div className="flex items-center gap-2 group transition-all cursor-default">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-500/10 group-hover:ring-emerald-500/20 transition-all shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
+          <div className="flex items-center gap-2 group cursor-default">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-500/10 group-hover:ring-emerald-500/20 transition-[box-shadow] shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
             <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Pay Day</span>
           </div>
 
-          <div className="flex items-center gap-2 group transition-all cursor-default">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500 ring-4 ring-red-500/10 group-hover:ring-red-500/20 transition-all shadow-[0_0_10px_rgba(239,68,68,0.3)]" />
+          <div className="flex items-center gap-2 group cursor-default">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500 ring-4 ring-red-500/10 group-hover:ring-red-500/20 transition-[box-shadow] shadow-[0_0_10px_rgba(239,68,68,0.3)]" />
             <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Holiday</span>
           </div>
 
-          <div className="flex items-center gap-2 group transition-all cursor-default">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 ring-4 ring-amber-500/10 group-hover:ring-amber-500/20 transition-all shadow-[0_0_10px_rgba(245,158,11,0.3)]" />
+          <div className="flex items-center gap-2 group cursor-default">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 ring-4 ring-amber-500/10 group-hover:ring-amber-500/20 transition-[box-shadow] shadow-[0_0_10px_rgba(245,158,11,0.3)]" />
             <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Deadline</span>
           </div>
 
-          <div className="flex items-center gap-2 group transition-all cursor-default">
-            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 ring-4 ring-indigo-500/10 group-hover:ring-indigo-500/20 transition-all shadow-[0_0_10px_rgba(79,70,229,0.3)]" />
+          <div className="flex items-center gap-2 group cursor-default">
+            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 ring-4 ring-indigo-500/10 group-hover:ring-indigo-500/20 transition-[box-shadow] shadow-[0_0_10px_rgba(79,70,229,0.3)]" />
             <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Meeting</span>
           </div>
 
           <div className="h-4 w-px bg-[var(--border)] mx-1 hidden sm:block" />
 
-          <div className="flex items-center gap-2 group transition-all cursor-default">
+          <div className="flex items-center gap-2 group cursor-default">
             <div className="flex items-center justify-center w-5 h-5 rounded bg-emerald-600/10 text-emerald-600 group-hover:bg-emerald-600/20 transition-colors">
               <Clock className="w-3 h-3" />
             </div>
             <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Clock In</span>
           </div>
 
-          <div className="flex items-center gap-2 group transition-all cursor-default">
+          <div className="flex items-center gap-2 group cursor-default">
             <div className="flex items-center justify-center w-5 h-5 rounded bg-red-600/10 text-red-600 group-hover:bg-red-600/20 transition-colors">
               <LogOut className="w-3 h-3" />
             </div>
             <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Clock Out</span>
           </div>
 
-          <div className="flex items-center gap-2 group transition-all cursor-default">
+          <div className="flex items-center gap-2 group cursor-default">
             <div className="flex items-center justify-center w-5 h-5 rounded bg-sky-600/10 text-sky-600 group-hover:bg-sky-600/20 transition-colors">
               <BarChart3 className="w-3 h-3" />
             </div>
@@ -231,17 +231,17 @@ export default function CalendarTab({
                   // Direction-specific colours: green=in, red=out, blue=total
                   const bg =
                     direction === "in"
-                      ? "bg-emerald-600 dark:bg-emerald-700"
+                      ? "bg-emerald-800 dark:bg-emerald-700"
                       : direction === "out"
-                        ? "bg-red-600 dark:bg-red-700"
-                        : "bg-sky-600 dark:bg-sky-700";
+                        ? "bg-red-800 dark:bg-red-700"
+                        : "bg-sky-800 dark:bg-sky-700";
                   return (
                     <div
                       className={`px-1.5 py-0.5 rounded text-white text-[10px] w-full truncate overflow-hidden font-medium flex items-center gap-1 ${bg}`}
                       title={evt.title + " (permanent record)"}
                     >
                       <span className="truncate">{evt.title}</span>
-                      <span className="text-white/50 ml-auto text-[9px] flex-shrink-0">🔒</span>
+                      <span className="text-white/80 ml-auto text-[9px] flex-shrink-0">🔒</span>
                     </div>
                   );
                 }
@@ -277,7 +277,7 @@ export default function CalendarTab({
                   Audit View
                 </div>
               ) : clockedIn && (
-                <div className="inline-flex items-center gap-2 bg-emerald-600 text-white text-xs px-2 py-1 rounded-full">
+                <div className="inline-flex items-center gap-2 bg-emerald-800 text-white text-xs px-2 py-1 rounded-full">
                   <span className="w-2 h-2 rounded-full bg-white/90 animate-pulse inline-block" />
                   <span>Clocked In</span>
                 </div>

@@ -21,6 +21,8 @@ import {
   Search,
   CheckSquare,
   Download,
+  Pause,
+  Play,
 } from "lucide-react";
 import { TaskBoardSkeleton } from '@/components/ui/Skeleton';
 import {
@@ -100,7 +102,7 @@ export default function TaskTrackingPage() {
   const [deepLinkFilter, setDeepLinkFilter] = useState<TaskDeepLinkFilter | null>(null);
   const [deepLinkTaskId, setDeepLinkTaskId] = useState<string | null>(null);
   const [taskLinkError, setTaskLinkError] = useState<string | null>(null);
-  const [view, setView] = useState<"grid" | "list" | "calendar">('calendar');
+  const [view, setView] = useState<"grid" | "list" | "calendar">('list');
 
   // Filter & Sort State
   const [filterStatus, setFilterStatus] = useState<TaskStatus[]>([]);
@@ -605,6 +607,16 @@ export default function TaskTrackingPage() {
   const overdueTasks = filteredTasks.filter(t => t.dueDate && t.dueDate < todayStr && t.status !== 'completed');
   const completedCount = filteredTasks.filter(t => t.status === 'completed').length;
   const inProgressCount = filteredTasks.filter(t => t.status === 'in_progress').length;
+  const reviewCount = filteredTasks.filter(t => t.status === 'review').length;
+  const openCount = filteredTasks.filter(t => t.status !== 'completed').length;
+  const activeFilterCount = filterStatus.length + filterPriority.length + (filterUserId ? 1 : 0) + (filterDeptId ? 1 : 0);
+  const focusTask =
+    overdueTasks[0]
+    || todaysTasks[0]
+    || sortedTasks.find((task) => task.status === 'in_progress')
+    || sortedTasks.find((task) => task.status === 'review')
+    || sortedTasks.find((task) => task.status === 'todo')
+    || null;
   const deepLinkFilterLabel = getTaskFilterLabel(deepLinkFilter);
   const deepLinkFilterDescription = getTaskFilterDescription(deepLinkFilter);
 
@@ -660,14 +672,76 @@ export default function TaskTrackingPage() {
   }
 
   return (
-    <main className="h-[calc(100vh-112px)] bg-[var(--background)] text-[var(--foreground)] flex flex-col overflow-hidden">
+    <main className="main-content-height bg-[var(--background)] text-[var(--foreground)] flex flex-col">
       <div className="p-6 pt-0 flex flex-col flex-1 min-h-0">
         <Header
           title="Task Tracking"
           subtitle="Track and manage tasks, assignments, and progress."
         />
 
-        <div className="mt-6 flex flex-col flex-1 min-h-0">
+        <div className="mt-6 flex flex-col flex-1 min-h-0 gap-4">
+          <section className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-[var(--foreground)]">Work focus</div>
+                {focusTask ? (
+                  <div className="mt-1 min-w-0">
+                    <div className="truncate text-lg font-semibold">{focusTask.title}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                      <span>{STATUS_LABELS[focusTask.status]}</span>
+                      <span>{focusTask.priority} priority</span>
+                      {focusTask.dueDate ? <span>Due {focusTask.dueDate}</span> : <span>No due date</span>}
+                      {focusTask.assignee ? <span>Assigned to {focusTask.assignee.name || focusTask.assignee.email}</span> : null}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-sm text-[var(--muted)]">No open tasks in the current view.</p>
+                )}
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-4 xl:min-w-[28rem]">
+                {[
+                  { label: "Open", value: openCount },
+                  { label: "Overdue", value: overdueTasks.length },
+                  { label: "Due today", value: todaysTasks.length },
+                  { label: "Review", value: reviewCount },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2">
+                    <div className="text-xs text-[var(--muted)]">{item.label}</div>
+                    <div className="mt-1 font-mono text-xl font-semibold tabular-nums">{item.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+              {focusTask ? (
+                <>
+                  <Button
+                    variant="primary"
+                    icon={<CheckSquare className="w-4 h-4" />}
+                    onClick={() => openTaskDetails(focusTask)}
+                  >
+                    Open Focus Task
+                  </Button>
+                  {focusTask.status !== 'completed' ? (
+                    <Button
+                      variant="secondary"
+                      icon={focusTask.timerStatus === 'playing' ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                      onClick={(event) => handleTaskAction(event, focusTask.id, focusTask.timerStatus === 'playing' ? 'pause' : 'play')}
+                    >
+                      {focusTask.timerStatus === 'playing' ? 'Pause Timer' : 'Start Timer'}
+                    </Button>
+                  ) : null}
+                </>
+              ) : (
+                <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={openNewTask}>
+                  Create Task
+                </Button>
+              )}
+            </div>
+          </section>
+
           <div className="flex flex-wrap items-center gap-3 mb-4">
             <Button
               onClick={openNewTask}
@@ -688,7 +762,7 @@ export default function TaskTrackingPage() {
             <Button
               onClick={() => setShowEODModal(true)}
               variant="secondary"
-              className="bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/20"
+              className="border-red-700 bg-red-700 text-white hover:bg-red-800"
               icon={<ClipboardCheck className="w-4 h-4" />}
             >
               Generate EOD Report
@@ -701,11 +775,11 @@ export default function TaskTrackingPage() {
                 onClick={() => setShowDisplayMenu(!showDisplayMenu)}
                 className="min-w-[120px]"
               >
-                Organize {(filterStatus.length + filterPriority.length + (filterUserId ? 1 : 0) + (filterDeptId ? 1 : 0)) > 0 && `(${filterStatus.length + filterPriority.length + (filterUserId ? 1 : 0) + (filterDeptId ? 1 : 0)})`}
+                Organize {activeFilterCount > 0 && `(${activeFilterCount})`}
               </Button>
 
               {showDisplayMenu && (
-                <div className="absolute top-full left-0 mt-2 w-80 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-xl z-30 p-4 dropdown-glass glass overflow-hidden flex flex-col max-h-[85vh]">
+                <div className="absolute top-full left-0 mt-2 w-80 max-w-[calc(100vw-3rem)] bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-xl z-30 p-4 dropdown-glass glass overflow-hidden flex flex-col max-h-[85vh]">
                   <div className="flex justify-between items-center mb-4 border-b border-[var(--border)] pb-2">
                     <span className="font-bold text-sm">Display & Filter</span>
                     <button
@@ -744,7 +818,7 @@ export default function TaskTrackingPage() {
                                 setSortOrder("asc");
                               }
                             }}
-                            className={`px-3 py-2 text-xs rounded border transition-all flex items-center justify-between ${sortBy === opt.val
+                            className={`px-3 py-2 text-xs rounded border transition-[background-color,border-color,color] flex items-center justify-between ${sortBy === opt.val
                               ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)] font-medium'
                               : 'bg-[var(--background)] text-[var(--muted)] border-[var(--border)] hover:border-[var(--muted)]'
                               }`}
@@ -770,7 +844,7 @@ export default function TaskTrackingPage() {
                           <button
                             key={opt.val}
                             onClick={() => setGroupBy(opt.val as any)}
-                            className={`px-3 py-2 text-xs rounded border transition-all flex items-center justify-between ${groupBy === opt.val
+                            className={`px-3 py-2 text-xs rounded border transition-[background-color,border-color,color] flex items-center justify-between ${groupBy === opt.val
                               ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)] font-medium'
                               : 'bg-[var(--background)] text-[var(--muted)] border-[var(--border)] hover:border-[var(--muted)]'
                               }`}
@@ -863,14 +937,14 @@ export default function TaskTrackingPage() {
               )}
             </div>
 
-            <div className="ml-auto flex items-center gap-2">
-              <div className="relative mr-2">
+            <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
+              <div className="relative mr-2 w-full sm:w-auto">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--muted)]" />
                 <input
                   placeholder="Search tasks..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="min-h-10 w-48 rounded-full border border-[var(--border)] bg-[var(--card-bg)] py-2 pl-8 pr-3 text-sm outline-none transition-all focus:w-64 focus:ring-1 focus:ring-[var(--accent)]"
+                  className="min-h-10 w-full rounded-full border border-[var(--border)] bg-[var(--card-bg)] py-2 pl-8 pr-3 text-sm outline-none transition-[border-color,box-shadow] focus:ring-1 focus:ring-[var(--accent)] sm:w-56"
                 />
               </div>
               <Button

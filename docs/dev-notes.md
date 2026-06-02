@@ -1,5 +1,105 @@
 # Development Notes
 
+## 2026-06-02 - Workflow Usability And Client Action Clarity
+
+### Completed
+
+- Reworked Daily Logs so the first screen prioritizes adding today's log, today/personal/blocked counts, and log search before secondary filters on mobile.
+- Changed Task Tracking's default view fallback from calendar to list and added a work-focus panel with open, overdue, due-today, and review counts plus direct focus-task actions.
+- Improved Task Tracking action target sizes in list and board cards so timer and completion controls pass the visual smoke touch-target gate.
+- Replaced chat channel validation `alert()` calls with existing toast messages and added semantic/focus support for chat scroll regions.
+- Improved payroll calendar chip contrast for small event/status text.
+- Added explicit responsibility labels to client action queue items, such as `Client to reply`, `Team to reply`, and `Ready to review`.
+
+### Files Changed
+
+- `docs/dev-notes.md`
+- `frontend/src/app/daily-logs/page.tsx`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/app/chat/page.tsx`
+- `frontend/src/components/chat/ChatSidebar.tsx`
+- `frontend/src/components/client-portal/ClientActionQueue.tsx`
+- `frontend/src/components/payroll/CalendarTab.tsx`
+- `frontend/src/components/tasks/BoardCard.tsx`
+- `frontend/src/components/tasks/TaskListRow.tsx`
+- `frontend/src/lib/daily-logs.ts`
+- `frontend/src/lib/tasks.ts`
+
+### Decisions Made
+
+- Keep this tranche frontend-only and avoid auth/session, database, or backend API rewrites.
+- Preserve all existing routes, query deep links, views, and API contracts while improving first-screen workflow priority.
+- Use `next start` as the local visual target for this verification pass because the standalone server rendered only the global loading fallback in this local check.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `$env:VISUAL_SMOKE_BASE_URL = "http://127.0.0.1:3106"; $env:VISUAL_SMOKE_ROUTES = "/daily-logs,/task-tracking,/chat,/payroll-calendar,/client,/operations/clients"; npm --prefix frontend run test:visual`
+- Playwright mobile screenshot spot-check for `/daily-logs`, `/task-tracking`, `/chat`, `/payroll-calendar`, `/client`, and `/operations/clients`
+
+### Next Steps
+
+- Schedule a dedicated auth/session hardening pass for refresh-token storage, revocation, and httpOnly cookie strategy.
+- Investigate the standalone start/static-asset behavior before relying on `npm --prefix frontend start` as a local production preview target.
+- Continue client workflow review deeper into request submission, approval response, report publishing, and admin reply loops.
+
+## 2026-06-02 - V3 Agent Foundation and Mobile Chat Workability
+
+### Completed
+
+- Added repo-level `AGENTS.md`, `README.md`, agent workflow docs, code review checklist, and a v3 implementation plan.
+- Ported the curated repo-local skills snapshot and added `npm run check:skills` to validate locked skill hashes.
+- Replaced stale GitHub agent instructions that hard-coded `v2-improvements` with v3-safe workflow and branch guidance.
+- Extended `frontend/scripts/visual-smoke.mjs` to check auth form `name` attributes and mobile chat composer usability.
+- Fixed auth form fields by defaulting `LoginInput` names from IDs and adding explicit signup select names.
+- Improved `/chat` on mobile by stacking the conversation list above the message pane and keeping the composer usable at phone widths.
+
+### Files Changed
+
+- `AGENTS.md`
+- `README.md`
+- `.github/copilot-instructions.md`
+- `package.json`
+- `scripts/check-skills-lock.mjs`
+- `skills/skills-lock.json`
+- `skills/.agents/skills/**`
+- `docs/agent-workflows.md`
+- `docs/code-review.md`
+- `docs/dev-notes.md`
+- `docs/superpowers/plans/2026-06-02-v3-foundation-mobile-workability.md`
+- `frontend/scripts/visual-smoke.mjs`
+- `frontend/src/components/LoginInput.tsx`
+- `frontend/src/app/signup/page.tsx`
+- `frontend/src/app/chat/page.tsx`
+- `frontend/src/components/chat/ChatSidebar.tsx`
+- `frontend/src/components/chat/MessageInput.tsx`
+
+### Decisions Made
+
+- Keep repo memory in `AGENTS.md`, `docs/`, `scripts/`, and `skills/` rather than creating a repo `.codex/` folder.
+- Keep the existing curated skills available because the user explicitly does not want useful skills pruned.
+- Treat browser smoke as the regression gate for auth form accessibility and mobile chat geometry.
+- Leave backend/API/schema behavior unchanged for this slice.
+
+### How to Test
+
+- `npm run check:skills`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `npm --prefix backend run build`
+- `$env:VISUAL_SMOKE_BASE_URL = "http://localhost:3103"; npm --prefix frontend run test:visual`
+- Focused visual smoke before and after fix with `VISUAL_SMOKE_ROUTES=/chat`
+- Playwright mobile screenshot/geometry spot-check for `/chat`
+- `git diff --check`
+
+### Next Steps
+
+- Continue v3 with the next mobile workflow passes: task tracking mobile density and daily logs action/filter priority.
+- Consider backend architecture follow-up for the large `clients` service/controller after user-facing v3 UI work is stable.
+
 ## 2026-06-01 - Stored Avatar Validation Completion
 
 ### Completed

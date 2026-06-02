@@ -137,7 +137,7 @@ export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
                   {task.timerStatus === "playing" ? (
                     <button
                       onClick={(e) => onAction?.(e, task.id, "pause")}
-                      className="p-1 hover:bg-[var(--card-bg)] rounded text-[var(--accent)]"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded text-[var(--accent)] hover:bg-[var(--card-bg)]"
                       title="Pause Task"
                       aria-label="Pause task"
                     >
@@ -146,7 +146,7 @@ export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
                   ) : (
                     <button
                       onClick={(e) => onAction?.(e, task.id, "play")}
-                      className="p-1 hover:bg-[var(--card-bg)] rounded text-emerald-500"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded text-emerald-500 hover:bg-[var(--card-bg)]"
                       title="Start Task"
                       aria-label="Start task"
                     >
@@ -155,7 +155,7 @@ export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
                   )}
                   <button
                     onClick={(e) => onAction?.(e, task.id, "complete")}
-                    className="p-1 hover:bg-[var(--card-bg)] rounded text-blue-500"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded text-blue-500 hover:bg-[var(--card-bg)]"
                     title="Complete Task"
                     aria-label="Complete task"
                   >

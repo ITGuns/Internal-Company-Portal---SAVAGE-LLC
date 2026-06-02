@@ -40,14 +40,14 @@ export default function ChatSidebar({
     onlineUserIds = new Set(),
 }: ChatSidebarProps) {
     return (
-        <div className="w-72 border-r border-[var(--border)] bg-[var(--card-surface)] flex flex-col h-full overflow-hidden">
+        <div className="flex h-64 min-h-0 w-full shrink-0 flex-col overflow-hidden border-b border-[var(--border)] bg-[var(--card-surface)] md:h-full md:w-72 md:border-b-0 md:border-r">
             {/* Channels Section */}
             <div className="p-4 border-b border-[var(--border)]">
                 <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] flex items-center gap-2">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] flex items-center gap-2">
                         <Hash className="w-3.5 h-3.5" /> Channels
                         <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} title={isConnected ? 'Connected' : 'Disconnected'} />
-                    </h3>
+                    </h2>
                     <button
                         type="button"
                         onClick={onCreateChannel}
@@ -64,7 +64,7 @@ export default function ChatSidebar({
                             <button
                                 type="button"
                                 onClick={() => onSelectConversation(c.id)}
-                                className={`flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-all ${selectedId === c.id
+                                className={`flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-[background-color,color,box-shadow] ${selectedId === c.id
                                     ? 'bg-[var(--accent)] text-white shadow-sm'
                                     : 'text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'
                                     }`}
@@ -93,9 +93,9 @@ export default function ChatSidebar({
             {/* Direct Messages Section */}
             <div className="flex-1 flex flex-col overflow-hidden">
                 <div className="p-4 flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] flex items-center gap-2">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] flex items-center gap-2">
                         <Users className="w-3.5 h-3.5" /> Direct Messages
-                    </h3>
+                    </h2>
                     <button
                         type="button"
                         onClick={onNewChat}
@@ -107,7 +107,7 @@ export default function ChatSidebar({
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-1 chat-scroll">
+                <div tabIndex={0} aria-label="Direct messages" className="flex-1 overflow-y-auto px-2 pb-4 space-y-1 chat-scroll focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">
                     {directMessages.map(c => {
                         const other = getOtherParticipant(c)
                         const isActive = selectedId === c.id
@@ -117,7 +117,7 @@ export default function ChatSidebar({
                                 <button
                                     type="button"
                                     onClick={() => onSelectConversation(c.id)}
-                                    className={`flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-all ${isActive
+                                    className={`flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-[background-color,color,box-shadow] ${isActive
                                         ? 'bg-[var(--accent)] text-white shadow-md'
                                         : 'text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'
                                         }`}
@@ -152,7 +152,7 @@ export default function ChatSidebar({
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); onDeleteConversation(c.id); }}
-                                    className={`absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full opacity-0 transition-all group-hover:opacity-100 ${isActive ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-red-500 text-white shadow-sm'}`}
+                                    className={`absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full opacity-0 transition-[background-color,color,box-shadow,opacity] group-hover:opacity-100 ${isActive ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-red-500 text-white shadow-sm'}`}
                                     aria-label="Delete conversation"
                                 >
                                     <Trash2 className="w-4 h-4" />

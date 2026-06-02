@@ -346,10 +346,10 @@ const TASK_VIEW_KEY = 'task_view_preference';
  * Get saved view preference
  */
 export function getTaskViewPreference(): 'grid' | 'list' | 'calendar' {
-  if (typeof localStorage === 'undefined') return 'calendar';
+  if (typeof localStorage === 'undefined') return 'list';
   const val = localStorage.getItem(TASK_VIEW_KEY);
   if (val === 'grid' || val === 'list' || val === 'calendar') return val;
-  return 'calendar';
+  return 'list';
 }
 
 /**

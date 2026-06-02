@@ -84,15 +84,15 @@ export default function TaskListRow({ task, onClick, onAction }: TaskListRowProp
           {task.status !== 'completed' && (
             <>
               {task.timerStatus === 'playing' ? (
-                <button onClick={(e) => onAction(e, task.id, 'pause')} className="p-1.5 hover:bg-[var(--card-bg)] rounded text-[var(--accent)]" aria-label="Pause task">
+                <button onClick={(e) => onAction(e, task.id, 'pause')} className="inline-flex h-10 w-10 items-center justify-center rounded text-[var(--accent)] hover:bg-[var(--card-bg)]" aria-label="Pause task">
                   <Pause className="w-3.5 h-3.5 fill-current" />
                 </button>
               ) : (
-                <button onClick={(e) => onAction(e, task.id, 'play')} className="p-1.5 hover:bg-[var(--card-bg)] rounded text-emerald-500" aria-label="Start task">
+                <button onClick={(e) => onAction(e, task.id, 'play')} className="inline-flex h-10 w-10 items-center justify-center rounded text-emerald-500 hover:bg-[var(--card-bg)]" aria-label="Start task">
                   <Play className="w-3.5 h-3.5 fill-current" />
                 </button>
               )}
-              <button onClick={(e) => onAction(e, task.id, 'complete')} className="p-1.5 hover:bg-[var(--card-bg)] rounded text-blue-500" aria-label="Complete task">
+              <button onClick={(e) => onAction(e, task.id, 'complete')} className="inline-flex h-10 w-10 items-center justify-center rounded text-blue-500 hover:bg-[var(--card-bg)]" aria-label="Complete task">
                 <CheckCircle2 className="w-3.5 h-3.5" />
               </button>
             </>

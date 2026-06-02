@@ -118,12 +118,12 @@ export default function UnifiedChatPage() {
 
     const handleCreateChannel = async () => {
         if (!newChannelName.trim()) {
-            alert("Channel name is required");
+            toast.error("Channel name is required");
             return;
         }
 
         if (selectedChannelUsers.length === 0) {
-            alert("Please select at least one member for the channel.");
+            toast.error("Select at least one member for the channel");
             return;
         }
 
@@ -485,15 +485,15 @@ export default function UnifiedChatPage() {
 
     if (loading) {
         return (
-            <div className="flex flex-col h-[calc(100vh-112px)]">
+            <main className="flex flex-col h-[calc(100vh-112px)]">
                 <Header title="Company Chat" />
                 <PageSkeleton />
-            </div>
+            </main>
         )
     }
 
     return (
-        <div className="flex flex-col h-[calc(100vh-112px)] overflow-hidden">
+        <main className="flex flex-col h-[calc(100vh-112px)] overflow-hidden">
             <Header
                 title="Chat & Messages"
                 subtitle={isDirect ? `Direct Message with ${otherUser?.name}` : `# ${selectedConv?.name || "Select a channel"}`}
@@ -523,7 +523,7 @@ export default function UnifiedChatPage() {
                             autoFocus
                         />
                         <button onClick={handleSearch} disabled={searching} className="px-3 py-2 bg-[var(--accent)] text-white rounded-lg text-sm disabled:opacity-50">
-                            {searching ? '...' : 'Search'}
+                            {searching ? 'Searching...' : 'Search'}
                         </button>
                         <button onClick={() => { setSearchOpen(false); setSearchTerm(''); setSearchResults([]) }} className="p-2 text-[var(--muted)] hover:text-[var(--foreground)]" aria-label="Close search">
                             <X className="w-4 h-4" />
@@ -555,7 +555,7 @@ export default function UnifiedChatPage() {
                 </div>
             )}
 
-            <div className="flex flex-1 overflow-hidden relative">
+            <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
                 <ChatSidebar
                     channels={channels}
                     directMessages={directMessages}
@@ -571,13 +571,13 @@ export default function UnifiedChatPage() {
                 />
 
                 {/* Chat Area */}
-                <div className="flex-1 flex flex-col bg-[var(--background)] h-full overflow-hidden">
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--background)]">
                     {!selectedId ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-[var(--muted)] p-8 text-center">
                             <div className="w-20 h-20 bg-[var(--card-surface)] rounded-full flex items-center justify-center mb-6 shadow-sm">
                                 <MessageSquare className="w-10 h-10 opacity-20" />
                             </div>
-                            <h3 className="text-xl font-bold text-[var(--foreground)] mb-2">Your Conversations</h3>
+                            <h2 className="text-xl font-bold text-[var(--foreground)] mb-2">Your Conversations</h2>
                             <p className="max-w-xs text-sm">Select a channel or message from the sidebar to start chatting with your team.</p>
                             <Button variant="primary" size="md" className="mt-6" onClick={() => setShowNewChat(true)}>
                                 Start a New Discussion
@@ -586,7 +586,12 @@ export default function UnifiedChatPage() {
                     ) : (
                         <>
                             {/* Messages Container */}
-                            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 chat-scroll">
+                            <div
+                                ref={scrollRef}
+                                tabIndex={0}
+                                aria-label="Messages"
+                                className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 chat-scroll focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                            >
                                 {messages.map((msg, i) => {
                                     const myId = currentUser?.id ? String(currentUser.id) : undefined
                                     const isMe = msg.senderId === myId
@@ -617,7 +622,7 @@ export default function UnifiedChatPage() {
                                                 )}
                                                 {!isMe && !showHeader && <div className="w-10 flex-shrink-0" />}
 
-                                                <div className={`relative px-4 py-2.5 rounded-2xl text-sm shadow-sm transition-all ${isMe
+                                                <div className={`relative px-4 py-2.5 rounded-2xl text-sm shadow-sm transition-[background-color,border-color,box-shadow] ${isMe
                                                     ? 'bg-[var(--accent)] text-white rounded-tr-none'
                                                     : 'bg-[var(--card-surface)] text-[var(--foreground)] border border-[var(--border)] rounded-tl-none'
                                                     }`}>
@@ -667,11 +672,11 @@ export default function UnifiedChatPage() {
 
                                                     {/* Message Actions (Edit + Delete) */}
                                                     {isMe && !editingMessageId && (
-                                                        <div className="absolute -left-24 top-1/2 flex -translate-y-1/2 items-center gap-1 opacity-0 transition-all group-hover:opacity-100">
+                                                        <div className="absolute -left-24 top-1/2 flex -translate-y-1/2 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleStartEdit(msg)}
-                                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[var(--muted)] transition-all hover:bg-[var(--background)] hover:text-[var(--accent)]"
+                                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[var(--muted)] transition-[background-color,color] hover:bg-[var(--background)] hover:text-[var(--accent)]"
                                                                 aria-label="Edit message"
                                                             >
                                                                 <Pencil className="w-4 h-4" />
@@ -679,7 +684,7 @@ export default function UnifiedChatPage() {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleDeleteMessage(msg.id)}
-                                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-red-500 transition-all hover:bg-red-50"
+                                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-red-500 transition-[background-color,color] hover:bg-red-50"
                                                                 aria-label="Delete message"
                                                             >
                                                                 <Trash2 className="w-4 h-4" />
@@ -757,6 +762,6 @@ export default function UnifiedChatPage() {
                     onCreateChannel={handleCreateChannel}
                 />
             </div>
-        </div>
+        </main>
     )
 }

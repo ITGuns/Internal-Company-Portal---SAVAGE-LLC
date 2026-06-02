@@ -79,10 +79,6 @@ export async function fetchDailyLogs(department?: string, status?: string, logTy
     }
   } catch (error: unknown) {
     console.error('Failed to fetch daily logs:', error);
-    if (typeof window !== 'undefined') {
-      const message = error instanceof Error ? error.message : String(error);
-      alert(`Fetch logs failed: ${message}`);
-    }
   }
   return [];
 }

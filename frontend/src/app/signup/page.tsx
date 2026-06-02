@@ -191,6 +191,7 @@ export default function SignUpPage() {
               </label>
               <select
                 id="department"
+                name="departmentId"
                 value={departmentId}
                 onChange={(e) => {
                   setDepartmentId(e.target.value);
@@ -218,6 +219,7 @@ export default function SignUpPage() {
               </label>
               <select
                 id="role"
+                name="role"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 className={styles.select}

@@ -54,7 +54,7 @@ export default function MessageInput({
                     </div>
                 </div>
             )}
-            <form onSubmit={onSend} className="flex gap-3 items-center">
+            <form onSubmit={onSend} className="flex min-w-0 items-center gap-3">
                 <input
                     type="file"
                     ref={fileInputRef}
@@ -71,7 +71,7 @@ export default function MessageInput({
                 >
                     <Paperclip className="w-5 h-5" />
                 </button>
-                <div className="relative flex-1">
+                <div className="relative min-w-0 flex-1">
                     <input
                         value={newMessage}
                         onChange={(e) => onMessageChange(e.target.value)}
@@ -88,7 +88,7 @@ export default function MessageInput({
                 <button
                     type="submit"
                     disabled={(!newMessage.trim() && !attachment) || sending}
-                    className="p-3 bg-[var(--accent)] text-white rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
+                    className="shrink-0 p-3 bg-[var(--accent)] text-white rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
                     aria-label="Send message"
                 >
                     <Send className="w-5 h-5" />

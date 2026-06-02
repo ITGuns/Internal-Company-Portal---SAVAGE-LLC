@@ -30,6 +30,15 @@ const categoryIcons: Record<ClientActionQueueCategory, typeof MessageSquare> = {
   recently_completed: Settings2,
 };
 
+const categoryActionCopy: Record<ClientActionQueueCategory, string> = {
+  team_response_needed: "Team to reply",
+  client_response_needed: "Client to reply",
+  approval_needed: "Decision needed",
+  work_due_soon: "Due soon",
+  report_ready: "Ready to review",
+  recently_completed: "Recently closed",
+};
+
 function priorityLabel(priority: string) {
   if (!priority) return "Normal";
   return priority
@@ -90,7 +99,12 @@ export default function ClientActionQueue({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold">{item.title}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate text-sm font-semibold">{item.title}</span>
+                        <span className="rounded-full border border-[var(--border)] bg-[var(--card-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--foreground)]">
+                          {categoryActionCopy[category]}
+                        </span>
+                      </div>
                       <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--muted)]">{item.summary}</p>
                     </div>
                     <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-[var(--muted)]" aria-hidden="true" />

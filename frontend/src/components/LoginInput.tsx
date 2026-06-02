@@ -14,6 +14,7 @@ export interface LoginInputProps {
   required?: boolean;
   disabled?: boolean;
   icon?: LucideIcon;
+  name?: string;
   autoComplete?: string;
   error?: string;
 }
@@ -33,6 +34,7 @@ export default function LoginInput({
   required = false,
   disabled = false,
   icon: Icon,
+  name,
   autoComplete,
   error
 }: LoginInputProps) {
@@ -55,6 +57,7 @@ export default function LoginInput({
         {Icon && <Icon className={styles.inputIcon} size={16} />}
         <input
           id={id}
+          name={name ?? id}
           type={inputType}
           value={value}
           onChange={(e) => onChange(e.target.value)}

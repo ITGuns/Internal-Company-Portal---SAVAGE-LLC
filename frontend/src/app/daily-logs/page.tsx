@@ -146,14 +146,14 @@ export default function DailyLogsPage() {
   const reviewSummary = getDailyLogReviewSummary(logs, {
     selectedUserId: userFilter === 'all' ? undefined : userFilter,
   });
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
   // Filter logs
   const filteredLogs = logs.filter(log => {
     // Date filter
     if (dateFilter === 'today') {
-      const now = new Date();
-      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      if (log.date !== today) return false;
+      if (log.date !== todayStr) return false;
     } else if (dateFilter === 'week') {
       const weekLogs = getThisWeekLogs(logs);
       if (!weekLogs.find(l => l.id === log.id)) return false;
@@ -210,6 +210,8 @@ export default function DailyLogsPage() {
   const totalLogs = filteredLogs.length;
   const weekLogs = getThisWeekLogs(logs).length;
   const yourLogs = currentUser ? logs.filter(l => l.authorId === String(currentUser.id)).length : 0;
+  const todayLogs = logs.filter((log) => log.date === todayStr).length;
+  const blockedLogs = filteredLogs.filter((log) => log.status === 'blocked').length;
 
   const handleAddTask = () => {
     if (!formTaskInput.trim()) return;
@@ -302,12 +304,47 @@ export default function DailyLogsPage() {
           subtitle="Track daily progress and team activities"
         />
 
+        <section className="mt-6 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-[var(--foreground)]">Log today's work before review</div>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+                Create the daily record first, then use filters when you need to audit older logs or team activity.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={() => setShowModal(true)}>
+                Add Log
+              </Button>
+              <Button variant="secondary" icon={<ClipboardList className="w-4 h-4" />} onClick={() => setDateFilter('today')}>
+                Show Today
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {[
+              { label: "Today", value: todayLogs, caption: "Logs submitted" },
+              { label: "Your logs", value: yourLogs, caption: "Personal history" },
+              { label: "Blocked", value: blockedLogs, caption: "Needs follow-up" },
+            ].map((item) => (
+              <div key={item.label} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2">
+                <div className="text-xs text-[var(--muted)]">{item.label}</div>
+                <div className="mt-1 flex items-end justify-between gap-3">
+                  <span className="font-mono text-2xl font-semibold tabular-nums">{item.value}</span>
+                  <span className="text-xs text-[var(--muted)]">{item.caption}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         <div className="mt-6 grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
           {/* Filters Sidebar */}
-          <div className="min-w-0">
+          <div className="order-2 min-w-0 lg:order-1">
             <div className="bg-[var(--card-bg)] border border-[var(--border)] rounded-lg p-4 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-sm">Filters</h3>
+                <h2 className="font-semibold text-sm">Filters</h2>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -416,7 +453,7 @@ export default function DailyLogsPage() {
               </div>
 
               <div className="pt-4 border-t border-[var(--border)]">
-                <h4 className="font-semibold text-sm mb-3">Quick Stats</h4>
+                <h3 className="font-semibold text-sm mb-3">Quick Stats</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-[var(--muted)]">Total Logs</span>
@@ -435,7 +472,7 @@ export default function DailyLogsPage() {
 
               {canReviewTeamLogs && (
                 <div className="pt-4 border-t border-[var(--border)]">
-                  <h4 className="font-semibold text-sm mb-3">Manager Review</h4>
+                  <h3 className="font-semibold text-sm mb-3">Manager Review</h3>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-[var(--muted)]">Reviewed Logs</span>
@@ -467,7 +504,7 @@ export default function DailyLogsPage() {
           </div>
 
           {/* Main Content */}
-          <div className="min-w-0">
+          <div className="order-1 min-w-0 lg:order-2">
             <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="relative min-w-0 flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
@@ -509,14 +546,14 @@ export default function DailyLogsPage() {
                         <div className="mb-2 flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="font-semibold">{log.author}</h3>
+                              <h2 className="font-semibold">{log.author}</h2>
                               <StatusBadge status={log.status} size="md" />
                             </div>
                             <div className="mt-1 text-sm text-[var(--muted)]">
                               {log.department} • {formatLogDate(log.date)} • <span className="capitalize">{log.logType}</span>
                             </div>
                           </div>
-                          <button type="button" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]">⋮</button>
+                          <button type="button" aria-label={`Open actions for ${log.author}'s log`} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]">⋮</button>
                         </div>
 
                         {/* Tasks */}
