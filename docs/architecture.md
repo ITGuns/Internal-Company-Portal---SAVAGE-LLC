@@ -32,7 +32,6 @@ Mounted routes:
 - `/api/employees`
 - `/api/file-directory`
 - `/api/notifications`
-- `/api/clients`
 
 Backend responsibilities are split by feature folder:
 
@@ -40,7 +39,6 @@ Backend responsibilities are split by feature folder:
 - Services hold business logic and Prisma operations.
 - Permission helpers centralize role and admin-email checks where the feature has sensitive access rules.
 - Serializers/security helpers should be used before returning user, employee, or profile data to the frontend.
-- Client portal routes use organization-scoped access helpers and serializers so client users only see active assigned organization data.
 
 Important backend conventions:
 
@@ -51,7 +49,6 @@ Important backend conventions:
 - User and employee responses must stay sanitized and must not return password, reset-token, bank, or tax fields.
 - Socket.io connections verify JWTs and authorize conversation room joins server-side.
 - Uploaded files are served through authenticated `/api/uploads/files/:filename` routes, not unauthenticated static `/uploads` serving.
-- Stored avatar values are validated through the shared upload validation helper before being stored by user and employee request routes. Accepted stored values are empty strings, short initials, safe relative paths, `http(s)` URLs, or validated base64 image data URIs.
 
 ## Frontend Structure
 
@@ -59,24 +56,11 @@ Frontend app entry point: `frontend/src/app`.
 
 Important page areas:
 
-- `client` command center
-- `client/work`
-- `client/approvals`
-- `client/messages`
-- `client/reports`
-- `client/resources`
-- `client/account`
-- `client/calendar`
-- `client/tickets`
-- `operations/clients` holds the Client Operations command center, while `operations/clients/accounts`, `delivery`, `requests`, `approvals`, `reports`, `assets`, `billing`, `roadmap`, and `calendar` split client administration into focused admin routes.
-- `components/client-portal/ClientOperationsShell.tsx` and `hooks/useClientOperationsWorkspace.ts` share role guards, client selection, overview loading, memberships, users, and mutation refresh behavior across Client Operations admin pages.
-- `components/client-portal/production-records` holds the focused Client Operations admin panels for work items, approvals, reports, roadmap, assets, billing, and calendar records.
 - `dashboard`
 - `task-tracking`
 - `daily-logs`
 - `payroll-calendar`
 - `operations`
-- `operations/clients`
 - `profile`
 - `chat`
 - `signup`
@@ -94,9 +78,6 @@ Important frontend conventions:
 - Pages should stay readable; repeated UI should move into components.
 - Reusable workflow rules should live in `src/lib` and be covered by focused tests.
 - URL query params drive deep-linked workflow states, such as dashboard quick actions, task filters, task details, daily-log creation, payroll tabs, and payroll audit filters.
-- Client portal pages share route metadata, workspace loading, and layout through `src/lib/client-portal-navigation.ts`, `src/hooks/useClientPortalWorkspace.ts`, and `src/components/client-portal`; the sidebar is the primary cross-page navigation surface.
-- Client Operations pages share route metadata through `src/lib/client-operations-navigation.ts`; sidebar and header labels come from this single route map.
-- Client invite UI keeps onboarding payload shaping in `src/lib/client-invitations.ts`, while `AdminClientMembersPanel` owns the operator workflow for invite links, existing-user memberships, and safe deactivation.
 - Management-only UI should share role helper logic, but backend permissions remain authoritative.
 
 ## Data Model
@@ -108,7 +89,6 @@ Core domain groups:
 - Daily logs: `DailyLog` with structured JSON task entries.
 - Payroll: `TimeEntry`, `PayrollEvent`, `PayrollPeriod`, `Payslip`, and `PayrollItem`.
 - Collaboration: chat conversations, participants, messages, announcements, comments, reactions, notifications, uploads, and file-directory folders.
-- Client portal: `ClientOrganization`, `ClientMembership`, `ClientProject`, `ClientTicket`, `ClientTicketComment`, `ClientUpdate`, `ClientMetricSnapshot`, `ClientResourceLink`, `ClientServiceTier`, `ClientWorkItem`, `ClientApproval`, `ClientReport`, `ClientRoadmapRecommendation`, `ClientAsset`, `ClientBillingStatus`, and `ClientCalendarItem`.
 
 See `docs/database.md` for current schema notes and migration behavior.
 
@@ -118,11 +98,8 @@ The portal uses JWT authentication plus feature-level role checks.
 
 - `admin`, `administrator`, `manager`, and `operations_manager` are privileged in several management flows.
 - Some features also recognize display-style roles such as `Operations Manager` or `Chief Operations Officer`.
-- Client Operations additionally recognizes `Web Developer`/`web_developer` style roles so webdevs can work in the dedicated Client Side area without becoming general Operations admins.
 - Configured admin bypass emails receive selected privileged access through centralized helpers.
 - Employee self-service routes should only expose or mutate the authenticated user's own data unless a feature-specific permission check allows broader access.
-- Client users are scoped through active `ClientMembership` records on active `ClientOrganization` records; internal managers/admins use the client portal management helper for cross-client access and deactivate memberships or archive client accounts by status rather than deleting tenant history.
-- Client invitations are management-only and derive the global `client` user role, approval state, setup token, and organization membership on the server.
 - Chat channels and privileged conversation names such as `General` are restricted to management access.
 
 When adding sensitive behavior, update the relevant permission helper or create a small feature-local helper instead of scattering role string checks across UI and API files.
@@ -153,6 +130,11 @@ npm audit --audit-level=high
 Repository-level checks:
 
 ```powershell
+npm run check:skills
+npm run check
+$env:POSTGRES_PASSWORD = "local-compose-check-password"
+$env:JWT_SECRET = "local-compose-check-jwt-secret"
+$env:REFRESH_TOKEN_SECRET = "local-compose-check-refresh-secret"
 docker compose config
 git diff --check
 npm audit --audit-level=high
@@ -162,10 +144,7 @@ npm audit --audit-level=high
 
 GitHub Actions backend jobs provision their disposable test PostgreSQL schema with `npx prisma db push` after Prisma validation and generation. The current migration directory is not an empty-database baseline, so migration deployment should be handled as a separate production release concern until a baseline migration cleanup is planned.
 
-Security hardening:
+Security-related runtime notes:
 
-- Backend security headers are centralized in `backend/src/security/security-headers.ts` and applied early in `backend/src/main.ts`.
-- Auth abuse protection is centralized in `backend/src/security/rate-limits.ts` and applied to `/auth/login`, `/auth/signup`, `/auth/forgot-password`, and `/auth/reset-password`.
-- Socket conversation authorization is centralized in `backend/src/notifications/socket.authorization.ts` and reused by conversation room joins and typing relays.
 - Production auth rate limiting defaults to Redis-backed storage via `REDIS_URL`; local development and tests default to in-memory storage unless `AUTH_RATE_LIMIT_STORE=redis` is set.
 - Docker Compose includes Redis for distributed auth limits. Keep `TRUST_PROXY_HOPS=0` unless the backend is behind a trusted reverse proxy, then set the exact number of trusted hops.

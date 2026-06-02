@@ -116,17 +116,17 @@ export function ProductionPanel({
         <div className="flex min-w-0 items-center gap-2">
           {Icon ? (
             <span className={cn("inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-md)] border", isDeep ? "border-[var(--workspace-ink-border)] bg-[var(--workspace-ink-soft)]" : "border-[var(--border)] bg-[var(--card-surface)]")}>
-              <Icon className={cn("h-4 w-4", isDeep ? "text-cyan-300" : "text-[var(--accent)]")} />
+              <Icon className={cn("h-4 w-4", isDeep ? "text-[var(--workspace-ink-accent)]" : "text-[var(--accent)]")} />
             </span>
           ) : null}
           <div className="min-w-0">
-            {eyebrow ? <div className={cn("truncate text-[10px] font-semibold uppercase tracking-[0.1em]", isDeep ? "text-cyan-200/80" : "text-[var(--muted)]")}>{eyebrow}</div> : null}
+            {eyebrow ? <div className={cn("truncate text-[10px] font-semibold uppercase tracking-[0.1em]", isDeep ? "text-[var(--workspace-ink-muted)]" : "text-[var(--muted)]")}>{eyebrow}</div> : null}
             <h2 className="truncate text-sm font-semibold">{title}</h2>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {typeof count !== "undefined" ? (
-            <span className={cn("rounded-full px-2 py-0.5 text-xs", isDeep ? "bg-[var(--workspace-ink-soft)] text-cyan-100" : "bg-[var(--card-surface)] text-[var(--muted)]")}>
+            <span className={cn("rounded-full px-2 py-0.5 text-xs", isDeep ? "bg-[var(--workspace-ink-soft)] text-[var(--workspace-ink-foreground)]" : "bg-[var(--card-surface)] text-[var(--muted)]")}>
               {count}
             </span>
           ) : null}
@@ -166,10 +166,10 @@ export function ProductionStatusHero({
           <div className="flex flex-wrap items-center gap-3">
             {Icon ? (
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--workspace-ink-border)] bg-[var(--workspace-ink-soft)]">
-                <Icon className="h-5 w-5 text-cyan-300" />
+                <Icon className="h-5 w-5 text-[var(--workspace-ink-accent)]" />
               </span>
             ) : null}
-            <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-cyan-100">
+            <span className="rounded-full border border-[var(--workspace-ink-border)] bg-[var(--workspace-ink-accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--workspace-ink-accent)]">
               {eyebrow}
             </span>
             {status}
@@ -188,12 +188,12 @@ export function ProductionStatusHero({
         </div>
       </div>
 
-      <div className="grid gap-4 border-t border-[var(--workspace-ink-border)] bg-[color-mix(in_srgb,var(--workspace-ink)_80%,black_20%)] p-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 border-t border-[var(--workspace-ink-border)] bg-[var(--workspace-ink-soft)] p-5 sm:grid-cols-2 lg:grid-cols-4">
         {metrics.map((metric) => (
-          <div key={metric.label} className="min-w-0 border-l border-cyan-200/15 pl-4 first:border-l-0 first:pl-0">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-cyan-100/70">{metric.label}</div>
-            <div className="mt-1 truncate text-2xl font-semibold tabular-nums text-cyan-50">{metric.value}</div>
-            {metric.caption ? <div className="mt-1 line-clamp-2 text-xs leading-5 text-cyan-100/65">{metric.caption}</div> : null}
+          <div key={metric.label} className="min-w-0 border-l border-[var(--workspace-ink-border)] pl-4 first:border-l-0 first:pl-0">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--workspace-ink-muted)]">{metric.label}</div>
+            <div className="mt-1 truncate text-2xl font-semibold tabular-nums text-[var(--workspace-ink-foreground)]">{metric.value}</div>
+            {metric.caption ? <div className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--workspace-ink-muted)]">{metric.caption}</div> : null}
           </div>
         ))}
       </div>

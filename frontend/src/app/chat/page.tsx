@@ -17,17 +17,6 @@ import NewChatModal from '@/components/chat/NewChatModal'
 import CreateChannelModal from '@/components/chat/CreateChannelModal'
 import { useToast } from '@/components/ToastProvider'
 
-const getAvatarInitials = (name: string) => {
-    const initials = name
-        .trim()
-        .split(/\s+/)
-        .slice(0, 2)
-        .map(part => part[0]?.toUpperCase())
-        .join('')
-
-    return initials || '?'
-}
-
 export default function UnifiedChatPage() {
     const { socket, isConnected, clearChatBadge } = useSocket()
     const { user: currentUser } = useUser()
@@ -414,10 +403,10 @@ export default function UnifiedChatPage() {
     // Emit typing events with debounce
     const handleTypingEmit = useCallback(() => {
         if (!socket || !selectedId || !currentUser) return
-        socket.emit('typing:start', { conversationId: selectedId })
+        socket.emit('typing:start', { conversationId: selectedId, userId: String(currentUser.id), userName: currentUser.name })
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
         typingTimeoutRef.current = setTimeout(() => {
-            socket.emit('typing:stop', { conversationId: selectedId })
+            socket.emit('typing:stop', { conversationId: selectedId, userId: String(currentUser.id) })
         }, 2000)
     }, [socket, selectedId, currentUser])
 
@@ -502,9 +491,8 @@ export default function UnifiedChatPage() {
             {/* Search Panel Toggle + Panel */}
             <div className="flex items-center justify-end px-4 py-1 border-b border-[var(--border)] bg-[var(--card-surface)]">
                 <button
-                    type="button"
                     onClick={() => setSearchOpen(prev => !prev)}
-                    className={`flex min-h-10 items-center gap-1.5 rounded-[var(--radius-md)] px-3 text-sm transition-colors ${searchOpen ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'}`}
+                    className={`flex min-h-10 items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${searchOpen ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'}`}
                     aria-label="Search messages"
                 >
                     <Search className="w-4 h-4" />
@@ -519,13 +507,13 @@ export default function UnifiedChatPage() {
                             onChange={e => setSearchTerm(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleSearch()}
                             placeholder="Search messages..."
-                            className="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                            className="min-h-10 flex-1 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                             autoFocus
                         />
-                        <button onClick={handleSearch} disabled={searching} className="px-3 py-2 bg-[var(--accent)] text-white rounded-lg text-sm disabled:opacity-50">
+                        <button onClick={handleSearch} disabled={searching} className="min-h-10 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm text-white disabled:opacity-50">
                             {searching ? '...' : 'Search'}
                         </button>
-                        <button onClick={() => { setSearchOpen(false); setSearchTerm(''); setSearchResults([]) }} className="p-2 text-[var(--muted)] hover:text-[var(--foreground)]" aria-label="Close search">
+                        <button onClick={() => { setSearchOpen(false); setSearchTerm(''); setSearchResults([]) }} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]" aria-label="Close search">
                             <X className="w-4 h-4" />
                         </button>
                     </div>
@@ -535,7 +523,7 @@ export default function UnifiedChatPage() {
                                 <button
                                     key={r.id}
                                     onClick={() => { setSelectedId(r.conversation.id); setSearchOpen(false); setSearchTerm(''); setSearchResults([]) }}
-                                    className="w-full text-left flex items-start gap-2 p-2 rounded-lg hover:bg-[var(--background)] transition-colors"
+                                    className="flex min-h-12 w-full items-start gap-2 rounded-lg p-2 text-left transition-colors hover:bg-[var(--background)]"
                                 >
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
@@ -606,13 +594,7 @@ export default function UnifiedChatPage() {
                                             <div className="flex items-center max-w-[85%] md:max-w-[70%]">
                                                 {!isMe && showHeader && (
                                                     <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 mr-2 border border-[var(--border)] self-end mb-1">
-                                                        {msg.sender.avatar ? (
-                                                            <Image src={msg.sender.avatar} alt={msg.sender.name} width={32} height={32} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <div className="flex h-full w-full items-center justify-center bg-[var(--card-surface)] text-[11px] font-semibold text-[var(--foreground)]">
-                                                                {getAvatarInitials(msg.sender.name)}
-                                                            </div>
-                                                        )}
+                                                        <Image src={msg.sender.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.sender.name)}`} alt={msg.sender.name} width={32} height={32} className="w-full h-full object-cover" />
                                                     </div>
                                                 )}
                                                 {!isMe && !showHeader && <div className="w-10 flex-shrink-0" />}
@@ -631,8 +613,8 @@ export default function UnifiedChatPage() {
                                                                 autoFocus
                                                                 aria-label="Edit message"
                                                             />
-                                                            <button type="button" onClick={handleSaveEdit} className="inline-flex h-10 w-10 items-center justify-center rounded-full hover:bg-white/20" aria-label="Save edit"><Check className="w-4 h-4" /></button>
-                                                            <button type="button" onClick={handleCancelEdit} className="inline-flex h-10 w-10 items-center justify-center rounded-full hover:bg-white/20" aria-label="Cancel edit"><X className="w-4 h-4" /></button>
+                                                            <button onClick={handleSaveEdit} className="inline-flex h-10 w-10 items-center justify-center rounded hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80" aria-label="Save edit"><Check className="w-3.5 h-3.5" /></button>
+                                                            <button onClick={handleCancelEdit} className="inline-flex h-10 w-10 items-center justify-center rounded hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80" aria-label="Cancel edit"><X className="w-3.5 h-3.5" /></button>
                                                         </div>
                                                     ) : (
                                                         <>
@@ -667,22 +649,20 @@ export default function UnifiedChatPage() {
 
                                                     {/* Message Actions (Edit + Delete) */}
                                                     {isMe && !editingMessageId && (
-                                                        <div className="absolute -left-24 top-1/2 flex -translate-y-1/2 items-center gap-1 opacity-0 transition-all group-hover:opacity-100">
+                                                        <div className="absolute -left-24 top-1/2 flex -translate-y-1/2 items-center gap-1 opacity-0 transition-all group-hover:opacity-100 group-focus-within:opacity-100">
                                                             <button
-                                                                type="button"
                                                                 onClick={() => handleStartEdit(msg)}
-                                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[var(--muted)] transition-all hover:bg-[var(--background)] hover:text-[var(--accent)]"
+                                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[var(--muted)] transition-all hover:bg-[var(--background)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                                                                 aria-label="Edit message"
                                                             >
-                                                                <Pencil className="w-4 h-4" />
+                                                                <Pencil className="w-3 h-3" />
                                                             </button>
                                                             <button
-                                                                type="button"
                                                                 onClick={() => handleDeleteMessage(msg.id)}
-                                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-red-500 transition-all hover:bg-red-50"
+                                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-red-500 transition-all hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
                                                                 aria-label="Delete message"
                                                             >
-                                                                <Trash2 className="w-4 h-4" />
+                                                                <Trash2 className="w-3 h-3" />
                                                             </button>
                                                         </div>
                                                     )}

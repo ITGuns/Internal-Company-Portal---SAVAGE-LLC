@@ -3,6 +3,7 @@
 import React from "react";
 import { Activity, BriefcaseBusiness, CheckCircle2, FileText, Gauge } from "lucide-react";
 import Header from "@/components/Header";
+import ClientPortalTopNav from "@/components/client-portal/ClientPortalTopNav";
 import EmptyState from "@/components/ui/EmptyState";
 import { ProductionMetricStrip, type ProductionMetricItem } from "@/components/workspace/ProductionWorkspace";
 import {
@@ -30,6 +31,7 @@ export default function ClientPortalWorkspaceFrame({
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-6 pt-0">
         <Header title={title} subtitle={subtitle} />
+        <ClientPortalTopNav />
 
         <div className="mt-6 space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-3">

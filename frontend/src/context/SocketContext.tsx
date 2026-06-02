@@ -3,8 +3,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { APP_CONFIG } from '@/lib/config'
-import { STORAGE_KEYS } from '@/lib/constants'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getAuthToken } from '@/lib/api'
+import { useUser } from '@/contexts/UserContext'
 import { getQueryClient } from '@/lib/queryClient'
 import type { SocketNotificationPayload } from '@/lib/types/api'
 
@@ -47,7 +47,7 @@ interface SocketContextType {
     notifications: Notification[]
     unreadCount: number        // total: notifications + chat
     unreadChatCount: number    // chat messages only — for sidebar badge
-    connect: (userId: string) => void
+    connect: (userId: string, token?: string) => void
     disconnect: () => void
     markAsRead: (id: string) => void
     markAllAsRead: () => void
@@ -58,6 +58,7 @@ interface SocketContextType {
 const SocketContext = createContext<SocketContextType | undefined>(undefined)
 
 export function SocketProvider({ children }: { children: ReactNode }) {
+    const { user, isLoading: userLoading } = useUser()
     const [socket, setSocket] = useState<Socket | null>(null)
     const socketRef = React.useRef<Socket | null>(null)
     const [isConnected, setIsConnected] = useState(false)
@@ -67,7 +68,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     const unreadCount = notifications.filter(n => !n.read).length + unreadChatCount
 
-    const connect = useCallback((userId: string) => {
+    const connect = useCallback((userId: string, token = getAuthToken() || "") => {
+        if (!token) return
         if (socketRef.current?.connected) return
 
         if (socketRef.current) {
@@ -82,7 +84,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             auth: {
-                token: typeof localStorage !== 'undefined' ? localStorage.getItem('accessToken') : null
+                token
             }
         })
 
@@ -188,9 +190,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     // Fetch historical notifications from REST API on mount
     useEffect(() => {
         const loadHistorical = async () => {
-            const hasAuthenticatedSession = typeof window !== 'undefined'
-                && Boolean(localStorage.getItem(STORAGE_KEYS.USER))
-                && Boolean(localStorage.getItem('accessToken'))
+            const hasAuthenticatedSession = !userLoading && Boolean(user) && Boolean(getAuthToken())
 
             if (!hasAuthenticatedSession) return
 
@@ -224,28 +224,22 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             }
         }
         loadHistorical()
-    }, [])
+    }, [user, userLoading])
 
     // Auto-connect and monitor user changes
     useEffect(() => {
         const checkUserAndConnect = () => {
-            const storedUser = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.USER) : null
-            const accessToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
+            const accessToken = getAuthToken()
 
-            if (!storedUser || !accessToken) {
+            if (userLoading || !user || !accessToken) {
                 if (socketRef.current) disconnect()
                 return
             }
 
-            try {
-                const user = JSON.parse(storedUser)
-                const uid = user.id || user.userId || user.uuid
+            const uid = user.id
 
-                if (uid && (!socketRef.current || !socketRef.current.connected)) {
-                    connect(uid)
-                }
-            } catch {
-                // Ignore parse errors
+            if (uid && (!socketRef.current || !socketRef.current.connected)) {
+                connect(String(uid), accessToken)
             }
         }
 
@@ -258,7 +252,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
                 socketRef.current.disconnect()
             }
         }
-    }, [connect, disconnect])
+    }, [connect, disconnect, user, userLoading])
 
     return (
         <SocketContext.Provider value={{

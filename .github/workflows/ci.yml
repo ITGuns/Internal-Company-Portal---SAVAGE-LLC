@@ -5,9 +5,9 @@ env:
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "v2-improvements" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "v2-improvements" ]
 
 jobs:
   build-backend:
@@ -132,6 +132,12 @@ jobs:
         else
           git diff-tree --check --root --no-commit-id -r HEAD
         fi
+
+    - name: Validate Skill Inventory
+      run: npm run check:skills
+
+    - name: Audit Root Dependencies
+      run: npm audit --audit-level=high
 
     - name: Validate Docker Compose Config
       run: docker compose config

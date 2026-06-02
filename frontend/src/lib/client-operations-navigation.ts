@@ -78,6 +78,12 @@ export function getClientOperationsRouteTitle(pathname: string): Pick<ClientOper
     : CLIENT_OPERATIONS_NAV_ITEMS[0];
 }
 
+export function isClientOperationsNavItemActive(href: string, pathname: string): boolean {
+  if (href === "/operations/clients") return pathname === href;
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function withClientOperationsClientParam(href: string, clientId?: string | null): string {
   if (!clientId) return href;
 

@@ -37,7 +37,7 @@ export default function RootLayout({
         {/* Inline script ensures initial theme is applied before React hydrates to avoid flash/mismatch */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('theme');var r=document.documentElement;if(t==='dark'){r.setAttribute('data-theme','dark');r.classList.add('dark');}else if(t==='light'){r.setAttribute('data-theme','light');r.classList.remove('dark');}else{var m=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(m){r.setAttribute('data-theme','dark');r.classList.add('dark');}else{r.setAttribute('data-theme','light');r.classList.remove('dark');}}}catch(e){} })();`,
+            __html: `(function(){try{var t=localStorage.getItem('theme');var r=document.documentElement;if(t==='light'){r.setAttribute('data-theme','light');r.classList.remove('dark');}else{r.setAttribute('data-theme','dark');r.classList.add('dark');}}catch(e){} })();`,
           }}
         />
 

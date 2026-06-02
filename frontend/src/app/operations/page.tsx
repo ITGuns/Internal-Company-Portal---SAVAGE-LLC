@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useCallback, useEffect } from "react";
+import Link from "next/link";
 import Header from "@/components/Header";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import FormField from "@/components/forms/FormField";
 import EmptyState from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ToastProvider";
-import { Plus, Trash2, Building } from "lucide-react";
+import { ArrowRight, BriefcaseBusiness, Building, Plus, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 type Department = {
@@ -39,7 +40,7 @@ export default function OperationsPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'departments' | 'roles'>('departments');
+  const [activeTab, setActiveTab] = useState<'departments' | 'roles' | 'clients'>('departments');
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
@@ -185,22 +186,33 @@ export default function OperationsPage() {
         />
 
         <div className="mt-6">
-          <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-[var(--border)]">
+          <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-[var(--border)] pb-3" role="tablist" aria-label="Operations sections">
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === 'departments'}
               onClick={() => setActiveTab('departments')}
-              className={`relative min-h-10 rounded-t-[var(--radius-md)] px-3 text-sm font-medium transition-colors ${activeTab === 'departments' ? 'text-[var(--accent)]' : 'text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]'}`}
+              className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'departments' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
             >
               Departments
-              {activeTab === 'departments' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent)]" />}
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === 'roles'}
               onClick={() => setActiveTab('roles')}
-              className={`relative min-h-10 rounded-t-[var(--radius-md)] px-3 text-sm font-medium transition-colors ${activeTab === 'roles' ? 'text-[var(--accent)]' : 'text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]'}`}
+              className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'roles' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
             >
               Roles
-              {activeTab === 'roles' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent)]" />}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'clients'}
+              onClick={() => setActiveTab('clients')}
+              className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'clients' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
+            >
+              Clients
             </button>
           </div>
 
@@ -213,7 +225,7 @@ export default function OperationsPage() {
               >
                 Add Department
               </Button>
-            ) : (
+            ) : activeTab === 'roles' ? (
               <Button
                 variant="primary"
                 icon={<Plus className="w-4 h-4" />}
@@ -221,7 +233,15 @@ export default function OperationsPage() {
               >
                 Add Role
               </Button>
-            )}
+            ) : activeTab === 'clients' ? (
+              <Link
+                href="/operations/clients"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] shadow-[0_12px_32px_-22px_var(--accent)] transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-105 active:translate-y-px"
+              >
+                Open Client Operations
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            ) : null}
           </div>
 
           {activeTab === 'departments' ? (
@@ -258,9 +278,8 @@ export default function OperationsPage() {
                         )}
                       </div>
                       <button
-                        type="button"
                         onClick={() => openDepartmentDelete(dept)}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded text-red-500 hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 dark:hover:bg-red-900/30"
                         aria-label={`Delete ${dept.name}`}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -270,7 +289,7 @@ export default function OperationsPage() {
                 ))}
               </div>
             )
-          ) : (
+          ) : activeTab === 'roles' ? (
             roles.length === 0 ? (
               <EmptyState
                 icon={Building}
@@ -291,9 +310,8 @@ export default function OperationsPage() {
                     </div>
                     <div className="flex justify-end">
                       <button
-                        type="button"
                         onClick={() => openRoleDelete(role)}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded text-red-500 hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 dark:hover:bg-red-900/30"
                         aria-label={`Delete role ${role.name}`}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -303,6 +321,47 @@ export default function OperationsPage() {
                 ))}
               </div>
             )
+          ) : (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-[var(--shadow-sm)]">
+                <div className="flex items-start gap-4">
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]">
+                    <BriefcaseBusiness className="h-6 w-6" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="inline-flex rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card-surface)] px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--accent)]">
+                      Client Side
+                    </div>
+                    <h2 className="mt-3 text-xl font-semibold">Client Operations is now available.</h2>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+                      Use this section to review the client portal shell, client-safe publishing rules, and the next backend slice needed for real client accounts.
+                    </p>
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <Link
+                        href="/operations/clients"
+                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] shadow-[0_12px_32px_-22px_var(--accent)] transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-105 active:translate-y-px"
+                      >
+                        Open Client Operations
+                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                      </Link>
+                      <Link
+                        href="/client"
+                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-[background-color,border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--accent)] hover:bg-[var(--surface-hover)] active:translate-y-px"
+                      >
+                        Open Client Portal
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-5">
+                <h3 className="text-sm font-semibold">Current state</h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                  This checkout has no client database models or API routes yet, so the client side starts as a visible shell and setup hub.
+                </p>
+              </div>
+            </div>
           )}
         </div>
       </div>

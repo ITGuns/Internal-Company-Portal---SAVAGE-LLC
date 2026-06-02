@@ -1,10 +1,10 @@
 /**
  * Login Page Styles
- * Monochromatic design system with 8px grid spacing
+ * MyDeskii command-center auth surface with 8px grid spacing
  */
 
 /* ============================================
-   MONOCHROMATIC COLOR PALETTE - LIGHT MODE
+   COMMAND-CENTER COLOR PALETTE - LIGHT MODE
    ============================================ */
 .loginContainer {
   /* Background & Surfaces */
@@ -37,8 +37,8 @@
   --login-btn-secondary-hover: var(--card-surface);
   
   /* Shadows & Effects */
-  --login-shadow: oklch(0.25 0.02 255 / 0.06);
-  --login-shadow-hover: oklch(0.25 0.02 255 / 0.1);
+  --login-shadow: rgba(23, 217, 245, 0.16);
+  --login-shadow-hover: rgba(242, 59, 191, 0.18);
   
   /* Error States */
   --login-error: var(--status-blocked);
@@ -47,7 +47,7 @@
 }
 
 /* ============================================
-   MONOCHROMATIC COLOR PALETTE - DARK MODE
+   COMMAND-CENTER COLOR PALETTE - DARK MODE
    ============================================ */
 :global(.dark) .loginContainer {
   /* Background & Surfaces */
@@ -80,13 +80,13 @@
   --login-btn-secondary-hover: var(--card-surface);
   
   /* Shadows & Effects */
-  --login-shadow: oklch(0 0 0 / 0.22);
-  --login-shadow-hover: oklch(0 0 0 / 0.32);
+  --login-shadow: rgba(23, 217, 245, 0.2);
+  --login-shadow-hover: rgba(242, 59, 191, 0.2);
   
   /* Error States */
-  --login-error: #EF4444;
-  --login-error-bg: #7F1D1D;
-  --login-error-border: #991B1B;
+  --login-error: var(--status-blocked);
+  --login-error-bg: var(--status-blocked-bg);
+  --login-error-border: color-mix(in srgb, var(--status-blocked) 38%, var(--border));
 }
 
 /* ============================================
@@ -99,22 +99,51 @@
   justify-content: center;
   background-color: var(--login-bg);
   background-image:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 36%),
-    linear-gradient(180deg, var(--background), var(--card-surface));
-  padding: 16px; /* 2 grid units - mobile */
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 34%),
+    linear-gradient(225deg, color-mix(in srgb, var(--accent-secondary) 10%, transparent), transparent 36%),
+    linear-gradient(180deg, var(--background), color-mix(in srgb, var(--card-surface) 46%, var(--background)));
+  padding: clamp(16px, 4vw, 40px);
   color: var(--login-text-primary);
   transition: background-color 200ms var(--ease-out);
+  overflow: hidden;
+  position: relative;
+}
+
+.loginContainer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(102, 220, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(102, 220, 255, 0.07) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: linear-gradient(180deg, transparent, black 20%, black 76%, transparent);
+  opacity: 0.34;
 }
 
 .card {
+  position: relative;
+  overflow: hidden;
   width: 100%;
   max-width: 420px; /* 52.5 grid units */
-  background-color: var(--login-card-bg);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--login-card-bg) 94%, white), var(--login-card-bg));
   border: 1px solid var(--login-border);
   border-radius: 8px; /* 1 grid unit */
   padding: 32px;
-  box-shadow: 0 18px 48px -38px var(--login-shadow-hover), 0 1px 2px var(--login-shadow);
+  box-shadow: 0 24px 70px -42px var(--login-shadow), 0 18px 54px -46px var(--login-shadow-hover);
   transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+  backdrop-filter: blur(16px);
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+  opacity: 0.92;
 }
 
 /* ============================================
@@ -127,6 +156,7 @@
   color: var(--login-text-primary);
   margin: 0;
   text-align: center;
+  letter-spacing: 0;
 }
 
 .subtitle {
@@ -166,6 +196,10 @@
   line-height: 1.5;
   color: var(--login-text-primary);
   margin-bottom: 8px; /* 1 grid unit */
+}
+
+.labelIcon {
+  color: var(--accent);
 }
 
 .inputWrapper {
@@ -214,18 +248,25 @@
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--login-input-focus) 16%, transparent);
 }
 
+.input:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--login-input-focus) 45%, var(--login-input-border));
+}
+
 .input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
 .passwordInput {
-  padding-right: 48px; /* Space for the eye icon */
+  padding-right: 56px;
 }
 
 .passwordToggle {
   position: absolute;
-  right: 12px;
+  right: 8px;
+  top: 50%;
+  width: 40px;
+  height: 40px;
   background: none;
   border: none;
   color: var(--login-text-secondary);
@@ -233,8 +274,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
-  border-radius: 4px;
+  padding: 0;
+  border-radius: 8px;
+  transform: translateY(-50%);
   transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 150ms var(--ease-out);
   z-index: 1;
 }
@@ -244,8 +286,13 @@
   background-color: var(--login-btn-secondary-hover);
 }
 
+.passwordToggle:focus-visible {
+  outline: 2px solid var(--login-input-focus);
+  outline-offset: 2px;
+}
+
 .passwordToggle:active {
-  transform: translateY(1px) scale(0.98);
+  transform: translateY(-50%) scale(0.98);
 }
 
 .eyeIcon {
@@ -265,11 +312,13 @@
   font-weight: 600;
   line-height: 1.5;
   color: var(--login-btn-text);
-  background-color: var(--login-btn-bg);
+  background:
+    linear-gradient(135deg, var(--login-btn-bg), color-mix(in srgb, var(--accent-secondary) 72%, var(--login-btn-bg)));
   border: none;
   border-radius: 8px; /* 1 grid unit */
   cursor: pointer;
-  transition: background-color 160ms var(--ease-out), transform 160ms var(--ease-out), filter 160ms var(--ease-out);
+  box-shadow: 0 12px 32px -22px var(--accent);
+  transition: box-shadow 160ms var(--ease-out), transform 160ms var(--ease-out), filter 160ms var(--ease-out);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -277,12 +326,18 @@
 }
 
 .submitButton:hover:not(:disabled) {
-  background-color: var(--login-btn-hover);
+  filter: brightness(1.08);
+  box-shadow: 0 16px 38px -20px var(--accent);
 }
 
 .submitButton:active:not(:disabled) {
-  background-color: var(--login-btn-active);
+  filter: brightness(0.96);
   transform: translateY(1px) scale(0.99);
+}
+
+.submitButton:focus-visible {
+  outline: 2px solid var(--login-input-focus);
+  outline-offset: 3px;
 }
 
 .submitButton:disabled {
@@ -352,12 +407,17 @@
   color: var(--login-input-text);
   border: 1px solid var(--login-input-border);
   outline: none;
+  color-scheme: inherit;
   transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out), background-color 150ms var(--ease-out);
 }
 
 .select:focus {
   border-color: var(--login-input-focus);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--login-input-focus) 16%, transparent);
+}
+
+.select:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--login-input-focus) 45%, var(--login-input-border));
 }
 
 .select:disabled {
@@ -377,7 +437,7 @@
   color: var(--login-text-secondary);
   text-align: right;
   text-decoration: none;
-  transition: color 150ms ease;
+  transition: color 150ms var(--ease-out);
   cursor: pointer;
 }
 
@@ -406,12 +466,13 @@
   font-weight: 500;
   color: var(--login-text-primary);
   text-decoration: none;
-  transition: opacity 150ms ease;
+  transition: color 150ms var(--ease-out), opacity 150ms var(--ease-out);
   margin-left: 4px; /* 0.5 grid unit */
 }
 
 .signUpLink:hover {
-  opacity: 0.7;
+  color: var(--accent);
+  opacity: 1;
   text-decoration: underline;
 }
 
@@ -437,6 +498,10 @@
    RESPONSIVE ADJUSTMENTS
    ============================================ */
 @media (max-width: 640px) {
+  .card {
+    padding: 24px;
+  }
+
   .title {
     font-size: 1.5625rem; /* 25px - lg - slightly smaller on mobile */
   }

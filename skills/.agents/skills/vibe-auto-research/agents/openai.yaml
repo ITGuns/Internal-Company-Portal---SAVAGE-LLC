@@ -1,0 +1,6 @@
+interface:
+  display_name: "Vibe Auto Research"
+  short_description: "Repo, browser, and desktop evidence first"
+  default_prompt: "Use $vibe-auto-research to form a hypothesis, prove it from repo, browser, and desktop evidence, then implement and verify the change."
+policy:
+  allow_implicit_invocation: true

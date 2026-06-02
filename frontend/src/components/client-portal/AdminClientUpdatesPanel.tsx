@@ -53,7 +53,7 @@ export default function AdminClientUpdatesPanel({
         }}
         className="space-y-3"
       >
-        <FormField id="update-title" label="Title" value={updateForm.title} onChange={(title) => setUpdateForm((form) => ({ ...form, title }))} required />
+        <FormField id="update-title" name="update-title" label="Title" value={updateForm.title} onChange={(title) => setUpdateForm((form) => ({ ...form, title }))} autoComplete="off" required />
         <div className="flex flex-wrap gap-2">
           {CLIENT_UPDATE_PRESETS.map((preset) => (
             <button
@@ -73,9 +73,11 @@ export default function AdminClientUpdatesPanel({
         </div>
         <textarea
           className={clientOperationsTextareaClass}
+          name="update-body"
+          autoComplete="off"
           value={updateForm.body}
           onChange={(event) => setUpdateForm((form) => ({ ...form, body: event.target.value }))}
-          placeholder="What changed for the client?"
+          placeholder="Describe what changed for the client…"
           aria-label="Update body"
           required
         />
@@ -85,7 +87,7 @@ export default function AdminClientUpdatesPanel({
           onChange={(projectId) => setUpdateForm((form) => ({ ...form, projectId }))}
         />
         <label className={clientOperationsCheckboxLabelClass}>
-          <input className={clientOperationsCheckboxClass} type="checkbox" checked={updateForm.visibleToClient} onChange={(event) => setUpdateForm((form) => ({ ...form, visibleToClient: event.target.checked }))} />
+          <input className={clientOperationsCheckboxClass} type="checkbox" name="update-visible-to-client" checked={updateForm.visibleToClient} onChange={(event) => setUpdateForm((form) => ({ ...form, visibleToClient: event.target.checked }))} />
           Visible to client
         </label>
         <Button type="submit" loading={saving}>Publish Update</Button>

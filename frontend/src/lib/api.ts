@@ -1,5 +1,10 @@
 import { STORAGE_KEYS } from './constants';
 import type { LoginCredentials, AuthResponse } from './types/auth';
+import {
+    clearAuthSession,
+    isAuthFailureResponse,
+    SESSION_EXPIRED_MESSAGE,
+} from './auth-session';
 
 const API_URL = '/api';
 const AUTH_URL = '/backend-auth';
@@ -111,11 +116,7 @@ export const loginWithEmail = async (credentials: LoginCredentials): Promise<Aut
  * Clears auth tokens and user data from localStorage
  */
 export const logout = () => {
-    if (typeof window !== 'undefined') {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem(STORAGE_KEYS.USER);
-    }
+    clearAuthSession();
 }
 
 /**
@@ -169,8 +170,12 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
         headers,
     })
 
-    // If 401, try refreshing the token once before giving up
-    if (response.status === 401 && !options._isRetry) {
+    const isAuthFailure = await isAuthFailureResponse(response);
+
+    // If auth failed, try refreshing the token once before giving up.
+    // The backend returns 403 for expired JWTs, while role failures also use 403.
+    // `isAuthFailureResponse` only treats token-specific 403 payloads as auth expiry.
+    if (isAuthFailure && !options._isRetry) {
         // Try refresh token first
         const newToken = await tryRefreshToken()
         if (newToken) {
@@ -181,14 +186,16 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
         // DO NOT redirect here: window.location.href cancels all in-flight fetches
         // with TypeError("Failed to fetch"), flooding the UI with error toasts.
         // UserContext will detect the 401 on its next /auth/me poll and handle logout.
-        if (typeof window !== 'undefined') {
-            localStorage.removeItem('accessToken')
-            localStorage.removeItem('refreshToken')
-            localStorage.removeItem(STORAGE_KEYS.USER)
-        }
+        clearAuthSession()
+        throw new Error(SESSION_EXPIRED_MESSAGE)
     }
 
-    if (!response.ok && response.status !== 401) {
+    if (isAuthFailure) {
+        clearAuthSession()
+        throw new Error(SESSION_EXPIRED_MESSAGE)
+    }
+
+    if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const message = errorData.details || errorData.error || `Request failed with status ${response.status}`;
         throw new Error(message);

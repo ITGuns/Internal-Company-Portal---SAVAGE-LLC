@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, FormEvent, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock } from 'lucide-react';
 import LoginInput from '@/components/LoginInput';
@@ -36,9 +37,9 @@ export default function LoginPage() {
         return;
       }
 
-      const response = await loginWithEmail({ email, password });
+      const loginResponse = await loginWithEmail({ email, password });
       await refreshUser();
-      router.push(getAuthenticatedLandingPath(response.user));
+      router.push(getAuthenticatedLandingPath(loginResponse.user));
     } catch (err: unknown) {
       console.error('Login error:', err);
       setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
@@ -65,7 +66,7 @@ export default function LoginPage() {
             type="email"
             value={email}
             onChange={setEmail}
-            placeholder="you@savage.com"
+            placeholder="you@savage.com…"
             required
             disabled={loading}
             icon={Mail}
@@ -78,23 +79,19 @@ export default function LoginPage() {
             type="password"
             value={password}
             onChange={setPassword}
-            placeholder="Password"
+            placeholder="Enter your password…"
             required
             disabled={loading}
             icon={Lock}
             autoComplete="current-password"
           />
 
-          <a
+          <Link
             href="/forgot-password"
             className={styles.forgotPassword}
-            onClick={(e) => {
-              e.preventDefault();
-              router.push('/forgot-password');
-            }}
           >
             Forgot password?
-          </a>
+          </Link>
 
           <button
             type="submit"
@@ -102,7 +99,7 @@ export default function LoginPage() {
             disabled={loading}
           >
             {loading && <span className={styles.spinner} />}
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Signing In…' : 'Sign In'}
           </button>
         </form>
 
@@ -115,16 +112,12 @@ export default function LoginPage() {
         <div className={styles.signUpSection}>
           <p className={styles.signUpText}>
             Don't have an account?
-            <a
+            <Link
               href="/signup"
               className={styles.signUpLink}
-              onClick={(e) => {
-                e.preventDefault();
-                router.push('/signup');
-              }}
             >
               Sign up
-            </a>
+            </Link>
           </p>
         </div>
       </div>

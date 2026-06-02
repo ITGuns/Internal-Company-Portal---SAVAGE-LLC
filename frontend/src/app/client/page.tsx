@@ -21,6 +21,7 @@ import {
 import Button from "@/components/Button";
 import ClientActionQueue from "@/components/client-portal/ClientActionQueue";
 import ClientActivityTimeline from "@/components/client-portal/ClientActivityTimeline";
+import ClientPortalTopNav from "@/components/client-portal/ClientPortalTopNav";
 import ChoiceGroup from "@/components/client-portal/ChoiceGroup";
 import TicketDetailPresets from "@/components/client-portal/TicketDetailPresets";
 import Header from "@/components/Header";
@@ -58,7 +59,7 @@ import { buildClientCommandCenter } from "@/lib/client-portal-command";
 import { buildClientPortalSummary } from "@/lib/client-portal-summary";
 
 const textareaClass = "min-h-28 w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
-const heroActionClass = "inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] border px-4 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-cyan-200";
+const heroActionClass = "inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] border px-4 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-[var(--workspace-ink-accent)]";
 
 function clampPercent(value?: number | null) {
   return Math.min(100, Math.max(0, value || 0));
@@ -190,6 +191,7 @@ export default function ClientPortalPage() {
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-4 pt-0 sm:p-6 sm:pt-0">
         <Header title="Client Portal" subtitle="Progress, requests, approvals, reports, resources, and next actions." />
+        <ClientPortalTopNav />
 
         {loading ? (
           <div className="mt-6 text-sm text-[var(--muted)]">Loading client workspace...</div>
@@ -204,15 +206,15 @@ export default function ClientPortalPage() {
               title={`${overview.organization.name} delivery cockpit`}
               description="A single place to see what moved, what needs your input, and what the team is preparing next without exposing internal production notes."
               icon={BriefcaseBusiness}
-              status={<StatusBadge label={overview.organization.status} size="sm" className="border border-cyan-300/25 bg-cyan-300/10 text-cyan-50" />}
+              status={<StatusBadge label={overview.organization.status} size="sm" className="border border-[var(--workspace-ink-border)] bg-[var(--workspace-ink-accent-soft)] text-[var(--workspace-ink-accent)]" />}
               metrics={heroMetrics}
               actions={(
                 <>
-                  <a href="#submit-request" className={`${heroActionClass} border-cyan-300/40 bg-cyan-300 text-slate-950 hover:bg-cyan-200`}>
+                  <a href="#submit-request" className={`${heroActionClass} border-[var(--workspace-ink-accent)] bg-[var(--workspace-ink-accent)] text-[var(--accent-foreground)] hover:brightness-105`}>
                     <Plus className="h-4 w-4" aria-hidden="true" />
                     Submit Request
                   </a>
-                  <Link href="/client/reports" className={`${heroActionClass} border-cyan-300/30 bg-transparent text-cyan-50 hover:bg-cyan-300/10`}>
+                  <Link href="/client/reports" className={`${heroActionClass} border-[var(--workspace-ink-border)] bg-transparent text-[var(--workspace-ink-foreground)] hover:bg-[var(--workspace-ink-accent-soft)] hover:text-[var(--workspace-ink-accent)]`}>
                     <BarChart3 className="h-4 w-4" aria-hidden="true" />
                     View Reports
                   </Link>
@@ -223,34 +225,34 @@ export default function ClientPortalPage() {
                 <div>
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-xs font-semibold uppercase tracking-[0.08em] text-cyan-100/70">Delivery progress</div>
-                      <div className="mt-1 text-3xl font-semibold tabular-nums text-cyan-50">{summary.averageProgress}%</div>
+                      <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--workspace-ink-muted)]">Delivery progress</div>
+                      <div className="mt-1 text-3xl font-semibold tabular-nums text-[var(--workspace-ink-foreground)]">{summary.averageProgress}%</div>
                     </div>
-                    <Gauge className="h-9 w-9 text-cyan-200" aria-hidden="true" />
+                    <Gauge className="h-9 w-9 text-[var(--workspace-ink-accent)]" aria-hidden="true" />
                   </div>
-                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-700/70">
-                    <div className="h-full rounded-full bg-cyan-300" style={{ width: `${clampPercent(summary.averageProgress)}%` }} />
+                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--workspace-ink-border)]">
+                    <div className="h-full rounded-full bg-[var(--workspace-ink-accent)]" style={{ width: `${clampPercent(summary.averageProgress)}%` }} />
                   </div>
                 </div>
 
                 <div className="grid gap-4 border-t border-[var(--workspace-ink-border)] pt-4 sm:grid-cols-2">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-cyan-100/70">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--workspace-ink-muted)]">
                       <FileText className="h-3.5 w-3.5" aria-hidden="true" />
                       Latest update
                     </div>
-                    <div className="mt-2 line-clamp-1 text-sm font-semibold text-cyan-50">{latestUpdate?.title || "No update published yet"}</div>
+                    <div className="mt-2 line-clamp-1 text-sm font-semibold text-[var(--workspace-ink-foreground)]">{latestUpdate?.title || "No update published yet"}</div>
                     <p className="mt-1 line-clamp-3 text-sm leading-6 text-[var(--workspace-ink-muted)]">
                       {latestUpdate?.body || "Progress notes will appear here when the team publishes client-visible updates."}
                     </p>
                   </div>
 
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-cyan-100/70">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--workspace-ink-muted)]">
                       <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                       Your next action
                     </div>
-                    <div className="mt-2 line-clamp-1 text-sm font-semibold text-cyan-50">
+                    <div className="mt-2 line-clamp-1 text-sm font-semibold text-[var(--workspace-ink-foreground)]">
                       {nextActionItem ? nextActionItem.title : "No action needed right now"}
                     </div>
                     <p className="mt-1 line-clamp-3 text-sm leading-6 text-[var(--workspace-ink-muted)]">
@@ -313,7 +315,7 @@ export default function ClientPortalPage() {
                             </div>
                             <div className="min-w-0">
                               <div className="h-2 overflow-hidden rounded-full bg-[var(--card-surface)]">
-                                <div className="h-full rounded-full bg-cyan-500" style={{ width: `${clampPercent(item.progress)}%` }} />
+                                <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${clampPercent(item.progress)}%` }} />
                               </div>
                               <div className="mt-1 text-right text-xs text-[var(--muted)]">{item.progress || 0}%</div>
                             </div>

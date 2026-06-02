@@ -19,6 +19,12 @@ export const CLIENT_PORTAL_NAV_ITEMS: ClientPortalNavItem[] = [
     subtitle: "Website progress, open tasks, and completed work",
   },
   {
+    href: "/client/tickets",
+    label: "Requests",
+    title: "Requests",
+    subtitle: "Submit requests and review status with the team",
+  },
+  {
     href: "/client/approvals",
     label: "Approvals",
     title: "Approvals",

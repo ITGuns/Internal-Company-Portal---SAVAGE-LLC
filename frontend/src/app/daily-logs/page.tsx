@@ -296,15 +296,15 @@ export default function DailyLogsPage() {
 
   return (
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
-      <div className="p-6 pt-3">
+      <div className="px-4 py-6 pt-3 sm:px-6">
         <Header
           title="Daily Logs"
           subtitle="Track daily progress and team activities"
         />
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
+        <div className="mt-6 flex flex-col gap-6 lg:flex-row">
           {/* Filters Sidebar */}
-          <div className="min-w-0">
+          <div className="w-full lg:w-64 lg:flex-shrink-0">
             <div className="bg-[var(--card-bg)] border border-[var(--border)] rounded-lg p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-sm">Filters</h3>
@@ -328,7 +328,7 @@ export default function DailyLogsPage() {
                 <select
                   value={dateFilter}
                   onChange={(e) => setDateFilter(e.target.value as DateFilter)}
-                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-sm [color-scheme:light] dark:[color-scheme:dark]"
+                  className="min-h-10 w-full rounded border border-[var(--border)] bg-[var(--background)] p-2 text-sm [color-scheme:light] dark:[color-scheme:dark]"
                   aria-label="Date Range"
                 >
                   <option value="today">Today</option>
@@ -343,7 +343,7 @@ export default function DailyLogsPage() {
                 <select
                   value={departmentFilter}
                   onChange={(e) => setDepartmentFilter(e.target.value)}
-                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-sm [color-scheme:light] dark:[color-scheme:dark]"
+                  className="min-h-10 w-full rounded border border-[var(--border)] bg-[var(--background)] p-2 text-sm [color-scheme:light] dark:[color-scheme:dark]"
                   aria-label="Department"
                 >
                   {DEPARTMENTS.map(dept => (
@@ -357,7 +357,7 @@ export default function DailyLogsPage() {
                 <select
                   value={userFilter}
                   onChange={(e) => setUserFilter(e.target.value)}
-                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-sm [color-scheme:light] dark:[color-scheme:dark]"
+                  className="min-h-10 w-full rounded border border-[var(--border)] bg-[var(--background)] p-2 text-sm [color-scheme:light] dark:[color-scheme:dark]"
                   aria-label="Team Member"
                 >
                   <option value="all">All Members</option>
@@ -372,7 +372,7 @@ export default function DailyLogsPage() {
                 <select
                   value={logTypeFilter}
                   onChange={(e) => setLogTypeFilter(e.target.value)}
-                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-sm [color-scheme:light] dark:[color-scheme:dark]"
+                  className="min-h-10 w-full rounded border border-[var(--border)] bg-[var(--background)] p-2 text-sm [color-scheme:light] dark:[color-scheme:dark]"
                   aria-label="Log Type"
                 >
                   <option value="all">All Types</option>
@@ -385,7 +385,7 @@ export default function DailyLogsPage() {
               <div>
                 <label className="block text-sm font-medium mb-2">Status</label>
                 <div className="space-y-2">
-                  <label className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] px-2">
+                  <label className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] px-2 hover:bg-[var(--card-surface)]">
                     <input
                       type="checkbox"
                       checked={statusFilters.completed}
@@ -394,7 +394,7 @@ export default function DailyLogsPage() {
                     />
                     <span className="text-sm">Completed</span>
                   </label>
-                  <label className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] px-2">
+                  <label className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] px-2 hover:bg-[var(--card-surface)]">
                     <input
                       type="checkbox"
                       checked={statusFilters['in-progress']}
@@ -403,7 +403,7 @@ export default function DailyLogsPage() {
                     />
                     <span className="text-sm">In Progress</span>
                   </label>
-                  <label className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] px-2">
+                  <label className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] px-2 hover:bg-[var(--card-surface)]">
                     <input
                       type="checkbox"
                       checked={statusFilters.blocked}
@@ -467,16 +467,16 @@ export default function DailyLogsPage() {
           </div>
 
           {/* Main Content */}
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="relative min-w-0 flex-1">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
                 <input
                   type="text"
                   placeholder="Search logs by keyword, task, or person..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] dark:[color-scheme:dark]"
+                  className="min-h-10 w-full rounded border border-[var(--border)] bg-[var(--background)] py-2 pl-10 pr-4 [color-scheme:light] dark:[color-scheme:dark]"
                 />
               </div>
               <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={() => setShowModal(true)}>
@@ -485,7 +485,7 @@ export default function DailyLogsPage() {
             </div>
 
             {/* Log Entries */}
-            <div className="h-[calc(100vh-12rem)] space-y-4 overflow-y-auto pr-2 pb-24 chat-scroll">
+            <div className="space-y-4 h-[calc(100vh-12rem)] overflow-y-auto pr-2 pb-24 chat-scroll">
               {filteredLogs.length === 0 ? (
                 <EmptyState
                   icon={FileText}
@@ -497,8 +497,8 @@ export default function DailyLogsPage() {
               ) : (
                 <>
                   {paginatedLogs.map(log => (
-                  <div key={log.id} className="min-w-0 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4 transition hover:shadow-sm sm:p-6">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                  <div key={log.id} className="bg-[var(--card-bg)] border border-[var(--border)] rounded-lg p-4 transition hover:shadow-sm sm:p-6">
+                    <div className="flex items-start gap-4">
                       {/* Avatar */}
                       <div className="w-12 h-12 rounded-full bg-[var(--card-surface)] flex items-center justify-center font-semibold flex-shrink-0">
                         {log.author.charAt(0)}
@@ -506,17 +506,17 @@ export default function DailyLogsPage() {
 
                       <div className="min-w-0 flex-1">
                         {/* Header */}
-                        <div className="mb-2 flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <div className="flex items-center gap-2">
                               <h3 className="font-semibold">{log.author}</h3>
                               <StatusBadge status={log.status} size="md" />
                             </div>
-                            <div className="mt-1 text-sm text-[var(--muted)]">
+                            <div className="text-sm text-[var(--muted)] mt-1">
                               {log.department} • {formatLogDate(log.date)} • <span className="capitalize">{log.logType}</span>
                             </div>
                           </div>
-                          <button type="button" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]">⋮</button>
+                          <button className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]" aria-label="Daily log actions">⋮</button>
                         </div>
 
                         {/* Tasks */}
@@ -566,7 +566,7 @@ export default function DailyLogsPage() {
                         )}
 
                         {/* Footer Stats */}
-                        <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--muted)]">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--muted)]">
                           <div className="flex items-center gap-1">
                             <Clock className="w-4 h-4" />
                             <span>{log.hoursLogged} hours logged</span>
@@ -576,9 +576,8 @@ export default function DailyLogsPage() {
                             <span>{getCompletedTasksCount(log)} tasks completed</span>
                           </div>
                           <button
-                            type="button"
                             onClick={() => handleLike(log.id)}
-                            className={`flex min-h-10 items-center gap-1 rounded-[var(--radius-md)] px-2 transition hover:bg-[var(--card-surface)] hover:text-[var(--foreground)] ${currentUser && log.likes.includes(String(currentUser.id)) ? 'text-red-500' : ''}`}
+                            className={`flex min-h-10 items-center gap-1 rounded-[var(--radius-md)] px-2 transition hover:bg-[var(--card-surface)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${currentUser && log.likes.includes(String(currentUser.id)) ? 'text-red-500' : ''}`}
                           >
                             <ThumbsUp className={`w-4 h-4 ${currentUser && log.likes.includes(String(currentUser.id)) ? 'fill-current' : ''}`} />
                             <span>{log.likes.length} {log.likes.length === 1 ? 'like' : 'likes'}</span>

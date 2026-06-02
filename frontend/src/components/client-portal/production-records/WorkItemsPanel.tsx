@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ClipboardList } from "lucide-react";
 import Button from "@/components/Button";
 import FormField from "@/components/forms/FormField";
+import EmptyState from "@/components/ui/EmptyState";
 import type { ClientWorkItem } from "@/lib/client-portal";
 import {
   createClientWorkItem,
@@ -75,6 +76,8 @@ function WorkItemRecord({
         visibleToClient={item.visibleToClient !== false}
         saving={saving}
         archiveDisabled={item.status === "archived"}
+        statusName={`work-status-inline-${item.id}`}
+        visibilityName={`work-visible-inline-${item.id}`}
         onSave={(data) => submitScoped(() => updateClientWorkItem(item.id, data), "Work item updated", () => undefined)}
         onArchive={() => submitScoped(() => updateClientWorkItem(item.id, { status: "archived" }), "Work item archived", () => undefined)}
       />
@@ -91,16 +94,16 @@ function WorkItemRecord({
             );
           }}
         >
-          <FormField id={`work-title-${item.id}`} label="Title" value={form.title} onChange={(title) => setForm((current) => ({ ...current, title }))} required />
-          <TextareaField value={form.description || ""} onChange={(description) => setForm((current) => ({ ...current, description }))} placeholder="Client-visible task details" ariaLabel={`Work item details for ${item.title}`} />
+          <FormField id={`work-title-${item.id}`} name={`work-title-${item.id}`} label="Title" value={form.title} onChange={(title) => setForm((current) => ({ ...current, title }))} autoComplete="off" required />
+          <TextareaField name={`work-description-${item.id}`} value={form.description || ""} onChange={(description) => setForm((current) => ({ ...current, description }))} placeholder="Add client-visible task details…" ariaLabel={`Work item details for ${item.title}`} />
           <div className="grid gap-3 sm:grid-cols-3">
-            <select className={selectClass} value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))} aria-label="Work item status">
+            <select className={selectClass} name={`work-status-${item.id}`} value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))} aria-label="Work item status">
               {CLIENT_WORK_ITEM_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
             </select>
-            <FormField id={`work-progress-${item.id}`} label="Progress" type="number" value={form.progress || ""} min={0} max={100} onChange={(progress) => setForm((current) => ({ ...current, progress }))} />
-            <FormField id={`work-due-${item.id}`} label="Due Date" type="date" value={form.dueAt || ""} onChange={(dueAt) => setForm((current) => ({ ...current, dueAt }))} />
+            <FormField id={`work-progress-${item.id}`} name={`work-progress-${item.id}`} label="Progress" type="number" value={form.progress || ""} min={0} max={100} inputMode="numeric" autoComplete="off" onChange={(progress) => setForm((current) => ({ ...current, progress }))} />
+            <FormField id={`work-due-${item.id}`} name={`work-due-${item.id}`} label="Due Date" type="date" value={form.dueAt || ""} autoComplete="off" onChange={(dueAt) => setForm((current) => ({ ...current, dueAt }))} />
           </div>
-          <VisibilityCheckbox checked={form.visibleToClient} onChange={(visibleToClient) => setForm((current) => ({ ...current, visibleToClient }))} />
+          <VisibilityCheckbox name={`work-visible-${item.id}`} checked={form.visibleToClient} onChange={(visibleToClient) => setForm((current) => ({ ...current, visibleToClient }))} />
           <EditFormActions saving={saving} onCancel={() => setIsEditing(false)} />
         </form>
       ) : null}
@@ -138,23 +141,27 @@ export default function WorkItemsPanel({
         }}
         className="space-y-3"
       >
-        <FormField id="work-title" label="Title" value={workItemForm.title} onChange={(title) => setWorkItemForm((form) => ({ ...form, title }))} required />
-        <TextareaField value={workItemForm.description} onChange={(description) => setWorkItemForm((form) => ({ ...form, description }))} placeholder="Client-visible task details" ariaLabel="Work item description" />
+        <FormField id="work-title" name="work-title" label="Title" value={workItemForm.title} onChange={(title) => setWorkItemForm((form) => ({ ...form, title }))} autoComplete="off" required />
+        <TextareaField name="work-description" value={workItemForm.description} onChange={(description) => setWorkItemForm((form) => ({ ...form, description }))} placeholder="Add client-visible task details…" ariaLabel="Work item description" />
         <div className="grid gap-3 sm:grid-cols-3">
-          <select className={selectClass} value={workItemForm.status} onChange={(event) => setWorkItemForm((form) => ({ ...form, status: event.target.value }))} aria-label="Work item status">
+          <select className={selectClass} name="work-status" value={workItemForm.status} onChange={(event) => setWorkItemForm((form) => ({ ...form, status: event.target.value }))} aria-label="Work item status">
             {CLIENT_WORK_ITEM_STATUSES.filter((status) => status.value !== "archived").map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
           </select>
-          <FormField id="work-progress" label="Progress" type="number" value={workItemForm.progress} min={0} max={100} onChange={(progress) => setWorkItemForm((form) => ({ ...form, progress }))} />
-          <FormField id="work-due" label="Due Date" type="date" value={workItemForm.dueAt} onChange={(dueAt) => setWorkItemForm((form) => ({ ...form, dueAt }))} />
+          <FormField id="work-progress" name="work-progress" label="Progress" type="number" value={workItemForm.progress} min={0} max={100} inputMode="numeric" autoComplete="off" onChange={(progress) => setWorkItemForm((form) => ({ ...form, progress }))} />
+          <FormField id="work-due" name="work-due" label="Due Date" type="date" value={workItemForm.dueAt} autoComplete="off" onChange={(dueAt) => setWorkItemForm((form) => ({ ...form, dueAt }))} />
         </div>
-        <VisibilityCheckbox checked={workItemForm.visibleToClient} onChange={(visibleToClient) => setWorkItemForm((form) => ({ ...form, visibleToClient }))} />
+        <VisibilityCheckbox name="work-visible" checked={workItemForm.visibleToClient} onChange={(visibleToClient) => setWorkItemForm((form) => ({ ...form, visibleToClient }))} />
         <Button type="submit" loading={saving}>Add Work Item</Button>
       </form>
 
       <div className="mt-4 space-y-2">
-        {workItems.map((item) => (
-          <WorkItemRecord key={item.id} item={item} saving={saving} submitScoped={submitScoped} />
-        ))}
+        {workItems.length === 0 ? (
+          <EmptyState variant="compact" icon={ClipboardList} title="No work items yet" description="Add the first client-visible delivery task above." />
+        ) : (
+          workItems.map((item) => (
+            <WorkItemRecord key={item.id} item={item} saving={saving} submitScoped={submitScoped} />
+          ))
+        )}
       </div>
     </MiniPanel>
   );
