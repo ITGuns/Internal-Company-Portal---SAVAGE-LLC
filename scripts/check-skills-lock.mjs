@@ -28,8 +28,8 @@ function resolveRepoPath(relativePath) {
 }
 
 async function sha256(filePath) {
-  const file = await readFile(filePath);
-  return createHash("sha256").update(file).digest("hex");
+  const file = await readFile(filePath, "utf8");
+  return createHash("sha256").update(file.replaceAll("\r\n", "\n")).digest("hex");
 }
 
 async function main() {

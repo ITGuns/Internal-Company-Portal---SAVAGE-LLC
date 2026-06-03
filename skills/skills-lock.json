@@ -5,7 +5,7 @@
       "source": "runcomfy-com/skills",
       "sourceType": "github",
       "skillPath": "skills/.agents/skills/ai-image-generation/SKILL.md",
-      "computedHash": "4b33dd283f4cd244e51199d66f2218cd9d149f72c6a63420aeca47b600de014c"
+      "computedHash": "752a30e08a7c89fbca5a8bd2556654af9a7b6ce7fb6082098299fbdb49e6253b"
     },
     "find-skills": {
       "source": "repo-local",
@@ -17,19 +17,19 @@
       "source": "greensock/gsap-skills",
       "sourceType": "github",
       "skillPath": "skills/.agents/skills/gsap-frameworks/SKILL.md",
-      "computedHash": "3d7e8c2f6bddb32ffc1763b17bba9a8a3dcbc3bd5bf6815d921d3c5a4aded85d"
+      "computedHash": "842d9d3659ec3ddc8abbdc524708f8facf81f468ac25d0577f48c759c4fa31e6"
     },
     "improve-codebase-architecture": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/.agents/skills/improve-codebase-architecture/SKILL.md",
-      "computedHash": "6d915caa3358bbb2f5e5d42f7424f65ed1aeceb2aa0480e1d009a275e3352d17"
+      "computedHash": "f00de04c7bb83cfd0ed1f97f3401a83838212c30856912ee44ba406649e6c749"
     },
     "supabase-postgres-best-practices": {
       "source": "supabase/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/.agents/skills/supabase-postgres-best-practices/SKILL.md",
-      "computedHash": "be9a8dcecb83376f38ef92aad6ae78f28a23865501aba941fdce213b58f00996"
+      "computedHash": "ccd6e4596bd51cf344fe76c464867c541ccc16b6d90ae7a9db449fb17588613b"
     },
     "web-design-guidelines": {
       "source": "vercel-labs/agent-skills",
@@ -41,7 +41,7 @@
       "source": "repo-local",
       "sourceType": "local",
       "skillPath": "skills/.agents/skills/vibe-auto-research/SKILL.md",
-      "computedHash": "26876db57f4cfd9f1ada833da3e9f1ea798751f07fb4078a676ef10ad72be25c"
+      "computedHash": "fdebf02f90e50d97cbd735dd737e958c18eac5686bfd1d60f3aff572b88685dc"
     }
   }
 }
