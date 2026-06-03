@@ -13,7 +13,7 @@ export interface Employee {
   avatar: string;
   hoursThisWeek: number;
   salary: number; // Monthly salary in PHP
-  performance: number;
+  performance: number | null;
   status: "active" | "vacation" | "leave" | "pending" | "verified";
   // Extended fields for profile panel
   phone?: string;

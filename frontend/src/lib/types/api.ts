@@ -130,7 +130,7 @@ export interface ApiEmployee {
   appliedDate?: string;
   salary?: number;
   hoursThisWeek?: number;
-  performance?: number;
+  performance?: number | null;
   department?: string;
   role?: string;
   employeeProfile?: ApiEmployeeProfile;

@@ -92,7 +92,7 @@ export default function AddEmployeeModal({
       salary: parseFloat(salary),
       status,
       hoursThisWeek: 0, // Will be calculated from time tracking
-      performance: 0, // Will be calculated from completed tasks
+      performance: null,
       avatar: avatarBase64 || getAvatarInitials(name),
     };
 

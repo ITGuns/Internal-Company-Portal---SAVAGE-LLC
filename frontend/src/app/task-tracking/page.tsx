@@ -779,7 +779,7 @@ export default function TaskTrackingPage() {
               </Button>
 
               {showDisplayMenu && (
-                <div className="absolute top-full left-0 mt-2 w-80 max-w-[calc(100vw-3rem)] bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-xl z-30 p-4 dropdown-glass glass overflow-hidden flex flex-col max-h-[85vh]">
+                <div className="absolute top-full right-0 mt-2 w-80 max-w-[calc(100vw-3rem)] bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-xl z-30 p-4 dropdown-glass glass overflow-hidden flex flex-col max-h-[85vh] sm:left-0 sm:right-auto">
                   <div className="flex justify-between items-center mb-4 border-b border-[var(--border)] pb-2">
                     <span className="font-bold text-sm">Display & Filter</span>
                     <button

@@ -48,8 +48,7 @@ export default function ForgotPasswordPage() {
         return;
       }
 
-      // Password reset not yet implemented in backend
-      // Simulate success for now
+      // Backend returns a generic response so account existence is not exposed.
       await requestPasswordReset(email);
       
       setSuccess(true);

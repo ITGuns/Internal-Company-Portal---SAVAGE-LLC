@@ -40,14 +40,7 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
   useEffect(() => {
     if (!isOpen) return;
     
-    const currentUser = getCurrentUser();
-    // Fallback to mock user for development
-    const userData = currentUser || {
-      name: "User",
-      email: "user@SVGLLC.com",
-      roles: ["Frontend Developer"]
-    };
-    setUser(userData);
+    setUser(getCurrentUser());
   }, [isOpen]);
 
   const handleSaveProfile = (updatedUser: UserProfile) => {
