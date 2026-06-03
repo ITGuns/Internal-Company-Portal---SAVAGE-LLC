@@ -59,9 +59,10 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
               href={folder.driveLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-lg transition-colors hover:bg-[var(--card-bg)]"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg transition-colors hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               onClick={(e) => e.stopPropagation()}
               title="Open in Drive"
+              aria-label={`Open ${folder.name} in Drive`}
             >
               <ExternalLink className="w-4 h-4 text-[var(--muted)]" />
             </a>
@@ -69,12 +70,11 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
 
           {hasAction && (
             <button
-              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onClick?.();
               }}
-              className="min-h-10 rounded-lg px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--card-bg)]"
+              className="px-4 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--card-bg)] rounded-lg transition-colors"
             >
               Open
             </button>
@@ -82,13 +82,13 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
 
           {onDelete && (
             <button
-              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete();
               }}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-lg opacity-0 transition-colors hover:bg-red-50 group-hover:opacity-100 dark:hover:bg-red-900/20"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg opacity-0 transition-colors hover:bg-red-50 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 group-hover:opacity-100 dark:hover:bg-red-900/20"
               title="Delete folder"
+              aria-label={`Delete ${folder.name}`}
             >
               <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
             </button>
@@ -115,13 +115,13 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
 
         {onDelete && (
           <button
-            type="button"
             onClick={(e) => {
               e.stopPropagation();
               onDelete();
             }}
-            className="absolute right-3 top-3 z-30 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-red-900/20"
+            className="absolute right-3 top-3 z-30 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 opacity-0 transition-opacity focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 group-hover:opacity-100 dark:bg-red-900/20"
             title="Delete folder"
+            aria-label={`Delete ${folder.name}`}
           >
             <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
           </button>

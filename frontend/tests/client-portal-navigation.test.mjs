@@ -34,6 +34,7 @@ test('defines the production client portal route structure in client-facing orde
   assert.deepEqual(Array.from(CLIENT_PORTAL_NAV_ITEMS, (item) => item.href), [
     '/client',
     '/client/work',
+    '/client/tickets',
     '/client/approvals',
     '/client/messages',
     '/client/reports',
@@ -45,6 +46,7 @@ test('defines the production client portal route structure in client-facing orde
   assert.deepEqual(Array.from(CLIENT_PORTAL_NAV_ITEMS, (item) => item.label), [
     'Command Center',
     'Work',
+    'Requests',
     'Approvals',
     'Messages',
     'Reports',
@@ -60,6 +62,10 @@ test('resolves exact and nested client portal route titles', () => {
   assert.deepEqual({ ...getClientPortalRouteTitle('/client') }, {
     title: 'Command Center',
     subtitle: 'Progress, approvals, requests, reports, and next actions',
+  });
+  assert.deepEqual({ ...getClientPortalRouteTitle('/client/tickets') }, {
+    title: 'Requests',
+    subtitle: 'Submit requests and review status with the team',
   });
   assert.deepEqual({ ...getClientPortalRouteTitle('/client/reports/monthly') }, {
     title: 'Reports',

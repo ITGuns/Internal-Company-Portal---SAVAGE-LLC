@@ -42,7 +42,7 @@ export default function MessageInput({
                         )}
                         <button
                             onClick={onClearAttachment}
-                            className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+                            className="absolute right-1 top-1 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white transition-colors hover:bg-black/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
                             aria-label="Remove attachment"
                         >
                             <X className="w-3 h-3" />
@@ -66,7 +66,7 @@ export default function MessageInput({
                 <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex h-10 w-10 min-w-10 shrink-0 items-center justify-center rounded-full text-[var(--muted)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)]"
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--muted)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                     aria-label="Attach file"
                 >
                     <Paperclip className="w-5 h-5" />
@@ -85,12 +85,12 @@ export default function MessageInput({
                         }}
                     />
                 </div>
-                <button
-                    type="submit"
-                    disabled={(!newMessage.trim() && !attachment) || sending}
-                    className="shrink-0 p-3 bg-[var(--accent)] text-white rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
-                    aria-label="Send message"
-                >
+                  <button
+                      type="submit"
+                      disabled={(!newMessage.trim() && !attachment) || sending}
+                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white transition-all hover:scale-105 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] active:scale-95 disabled:scale-100 disabled:opacity-50"
+                      aria-label="Send message"
+                  >
                     <Send className="w-5 h-5" />
                 </button>
             </form>

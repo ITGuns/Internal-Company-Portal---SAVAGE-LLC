@@ -48,23 +48,25 @@ export default function LoginInput({
   return (
     <div className={styles.formGroup}>
       <label htmlFor={id} className={styles.label}>
-        {Icon && <Icon className={styles.labelIcon} size={16} />}
+        {Icon && <Icon className={styles.labelIcon} size={16} aria-hidden="true" />}
         {label}
         {required && <span style={{ color: 'var(--login-error)' }}>*</span>}
       </label>
 
       <div className={styles.inputWrapper}>
-        {Icon && <Icon className={styles.inputIcon} size={16} />}
+        {Icon && <Icon className={styles.inputIcon} size={16} aria-hidden="true" />}
         <input
           id={id}
           name={name ?? id}
           type={inputType}
+          inputMode={initialType === 'email' ? 'email' : undefined}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           disabled={disabled}
           required={required}
           autoComplete={autoComplete}
+          spellCheck={initialType === 'email' || isPassword ? false : undefined}
           className={`${styles.input} ${isPassword ? styles.passwordInput : ''}`}
           aria-invalid={error ? 'true' : 'false'}
           aria-describedby={error ? `${id}-error` : undefined}
@@ -75,12 +77,11 @@ export default function LoginInput({
             onClick={togglePassword}
             className={styles.passwordToggle}
             aria-label={showPassword ? 'Hide password' : 'Show password'}
-            tabIndex={-1}
           >
             {showPassword ? (
-              <EyeOff className={styles.eyeIcon} size={20} />
+              <EyeOff className={styles.eyeIcon} size={20} aria-hidden="true" />
             ) : (
-              <Eye className={styles.eyeIcon} size={20} />
+              <Eye className={styles.eyeIcon} size={20} aria-hidden="true" />
             )}
           </button>
         )}

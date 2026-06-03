@@ -1,298 +1,12 @@
 # Development Notes
 
-## 2026-06-02 - Manual Click-Through Finish Gate
+## 2026-06-02 - Main Merge And Release Verification
 
 ### Completed
 
-- Added fresh manual click-through as a standing finish-check item for changed UI, auth, workflow, navigation, form, dashboard, and client-facing paths.
-- Updated repo workflow docs so automated visual smoke remains useful but does not replace a real user-path click-through when the local app can be rendered safely.
-
-### Files Changed
-
-- `AGENTS.md`
-- `README.md`
-- `docs/agent-workflows.md`
-- `docs/code-review.md`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Manual click-through must be reported as done, blocked, or not applicable before calling relevant work complete.
-- The requirement belongs in durable workflow docs, not only in a one-off session note.
-
-### How to Test
-
-- `git diff --check`
-
-### Next Steps
-
-- Include the manual click-through result in future closeouts for relevant UI, auth, workflow, navigation, form, dashboard, and client-facing work.
-
-## 2026-06-02 - Auth Session Cookie Hardening
-
-### Completed
-
-- Moved new browser refresh-token delivery to an httpOnly SameSite `portal_refresh_token` cookie for login and OAuth responses.
-- Updated `/auth/refresh` to read the refresh token from the cookie, rotate the browser cookie response, and keep body-token refresh as a legacy fallback.
-- Updated frontend auth helpers so new login sessions no longer store refresh tokens in localStorage and token refresh retries also handle the backend's expired-token `403` response.
-- Added backend route coverage for login cookie issuance, cookie refresh, legacy body refresh, and logout cookie clearing.
-
-### Files Changed
-
-- `backend/src/auth/auth.controller.ts`
-- `backend/src/auth/auth.session.ts`
-- `backend/tests/auth.routes.test.ts`
-- `backend/tests/run-tests.ts`
-- `frontend/src/lib/api.ts`
-- `frontend/src/lib/constants.ts`
-- `frontend/src/lib/types/auth.ts`
-- `frontend/src/contexts/UserContext.tsx`
-- `frontend/src/context/SocketContext.tsx`
-- `docs/api.md`
-- `docs/architecture.md`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Avoided a schema migration in this tranche; DB-backed refresh-token revocation/rotation remains the next auth hardening layer.
-- Preserved body-based refresh temporarily so existing sessions can recover while new sessions use the cookie path.
-- Kept access tokens as bearer tokens for existing REST and Socket.IO contracts.
-
-### How to Test
-
-- `npm --prefix backend test`
-- `npm --prefix backend run build`
-- `npm --prefix frontend test`
-- `npm --prefix frontend run lint`
-- `npm --prefix frontend run build`
-
-## 2026-06-02 - Standalone Start And JSON Body Limits
-
-### Completed
-
-- Added a frontend standalone preparation script that copies `public` and `.next/static` into `.next/standalone` after `next build`.
-- Scoped the backend large JSON parser to upload/avatar and employee verification routes instead of allowing large JSON bodies on every API route.
-- Added backend regression coverage for route-specific JSON body limits.
-
-### Files Changed
-
-- `backend/src/main.ts`
-- `backend/src/security/json-body-limits.ts`
-- `backend/tests/json-body-limits.test.ts`
-- `backend/tests/run-tests.ts`
-- `frontend/package.json`
-- `frontend/scripts/prepare-standalone.mjs`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Keep standalone startup on `node .next/standalone/server.js`, but prepare the asset folders that Next standalone does not copy by default.
-- Use a `1mb` default JSON body limit for normal API routes and a `16mb` large-body limit for legitimate base64 upload/avatar payload routes.
-- Keep route matching in a small middleware module so request-size policy can be tested without bootstrapping the whole backend server.
-
-### How to Test
-
-- `npm --prefix backend test`
-- `npm --prefix backend run build`
-- `npm --prefix frontend run build`
-- `npm --prefix frontend run start`
-
-## 2026-06-02 - Workflow Usability And Client Action Clarity
-
-### Completed
-
-- Reworked Daily Logs so the first screen prioritizes adding today's log, today/personal/blocked counts, and log search before secondary filters on mobile.
-- Changed Task Tracking's default view fallback from calendar to list and added a work-focus panel with open, overdue, due-today, and review counts plus direct focus-task actions.
-- Improved Task Tracking action target sizes in list and board cards so timer and completion controls pass the visual smoke touch-target gate.
-- Replaced chat channel validation `alert()` calls with existing toast messages and added semantic/focus support for chat scroll regions.
-- Improved payroll calendar chip contrast for small event/status text.
-- Added explicit responsibility labels to client action queue items, such as `Client to reply`, `Team to reply`, and `Ready to review`.
-
-### Files Changed
-
-- `docs/dev-notes.md`
-- `frontend/src/app/daily-logs/page.tsx`
-- `frontend/src/app/task-tracking/page.tsx`
-- `frontend/src/app/chat/page.tsx`
-- `frontend/src/components/chat/ChatSidebar.tsx`
-- `frontend/src/components/client-portal/ClientActionQueue.tsx`
-- `frontend/src/components/payroll/CalendarTab.tsx`
-- `frontend/src/components/tasks/BoardCard.tsx`
-- `frontend/src/components/tasks/TaskListRow.tsx`
-- `frontend/src/lib/daily-logs.ts`
-- `frontend/src/lib/tasks.ts`
-
-### Decisions Made
-
-- Keep this tranche frontend-only and avoid auth/session, database, or backend API rewrites.
-- Preserve all existing routes, query deep links, views, and API contracts while improving first-screen workflow priority.
-- Use `next start` as the local visual target for this verification pass because the standalone server rendered only the global loading fallback in this local check.
-
-### How to Test
-
-- `npm --prefix frontend test`
-- `npm --prefix frontend run lint`
-- `npm --prefix frontend run build`
-- `$env:VISUAL_SMOKE_BASE_URL = "http://127.0.0.1:3106"; $env:VISUAL_SMOKE_ROUTES = "/daily-logs,/task-tracking,/chat,/payroll-calendar,/client,/operations/clients"; npm --prefix frontend run test:visual`
-- Playwright mobile screenshot spot-check for `/daily-logs`, `/task-tracking`, `/chat`, `/payroll-calendar`, `/client`, and `/operations/clients`
-
-### Next Steps
-
-- Schedule a dedicated auth/session hardening pass for refresh-token storage, revocation, and httpOnly cookie strategy.
-- Investigate the standalone start/static-asset behavior before relying on `npm --prefix frontend start` as a local production preview target.
-- Continue client workflow review deeper into request submission, approval response, report publishing, and admin reply loops.
-
-## 2026-06-02 - V3 Agent Foundation and Mobile Chat Workability
-
-### Completed
-
-- Added repo-level `AGENTS.md`, `README.md`, agent workflow docs, code review checklist, and a v3 implementation plan.
-- Ported the curated repo-local skills snapshot and added `npm run check:skills` to validate locked skill hashes.
-- Replaced stale GitHub agent instructions that hard-coded `v2-improvements` with v3-safe workflow and branch guidance.
-- Extended `frontend/scripts/visual-smoke.mjs` to check auth form `name` attributes and mobile chat composer usability.
-- Fixed auth form fields by defaulting `LoginInput` names from IDs and adding explicit signup select names.
-- Improved `/chat` on mobile by stacking the conversation list above the message pane and keeping the composer usable at phone widths.
-
-### Files Changed
-
-- `AGENTS.md`
-- `README.md`
-- `.github/copilot-instructions.md`
-- `package.json`
-- `scripts/check-skills-lock.mjs`
-- `skills/skills-lock.json`
-- `skills/.agents/skills/**`
-- `docs/agent-workflows.md`
-- `docs/code-review.md`
-- `docs/dev-notes.md`
-- `docs/superpowers/plans/2026-06-02-v3-foundation-mobile-workability.md`
-- `frontend/scripts/visual-smoke.mjs`
-- `frontend/src/components/LoginInput.tsx`
-- `frontend/src/app/signup/page.tsx`
-- `frontend/src/app/chat/page.tsx`
-- `frontend/src/components/chat/ChatSidebar.tsx`
-- `frontend/src/components/chat/MessageInput.tsx`
-
-### Decisions Made
-
-- Keep repo memory in `AGENTS.md`, `docs/`, `scripts/`, and `skills/` rather than creating a repo `.codex/` folder.
-- Keep the existing curated skills available because the user explicitly does not want useful skills pruned.
-- Treat browser smoke as the regression gate for auth form accessibility and mobile chat geometry.
-- Leave backend/API/schema behavior unchanged for this slice.
-
-### How to Test
-
-- `npm run check:skills`
-- `npm --prefix frontend test`
-- `npm --prefix frontend run lint`
-- `npm --prefix frontend run build`
-- `npm --prefix backend run build`
-- `$env:VISUAL_SMOKE_BASE_URL = "http://localhost:3103"; npm --prefix frontend run test:visual`
-- Focused visual smoke before and after fix with `VISUAL_SMOKE_ROUTES=/chat`
-- Playwright mobile screenshot/geometry spot-check for `/chat`
-- `git diff --check`
-
-### Next Steps
-
-- Continue v3 with the next mobile workflow passes: task tracking mobile density and daily logs action/filter priority.
-- Consider backend architecture follow-up for the large `clients` service/controller after user-facing v3 UI work is stable.
-
-## 2026-06-01 - Stored Avatar Validation Completion
-
-### Completed
-
-- Tightened stored avatar validation so arbitrary non-image strings, unsafe schemes, and unsupported data URIs are rejected.
-- Preserved existing supported avatar workflows for empty values, short initials, safe relative paths, `http(s)` URLs, and validated base64 image data URIs.
-- Applied the shared avatar validator to the public employee verification request flow before pending users are created.
-- Added backend tests for unsafe stored avatar references and invalid employee verification avatar input.
-- Fixed a review regression where valid image data URI avatars over 2048 characters were blocked before the 5MB decoded image-size validation ran.
-- Moved employee verification avatar validation before default password generation and bcrypt hashing so malformed public submissions fail cheaply.
-- Opted GitHub Actions workflows into the Node 24 JavaScript action runtime to get ahead of the Node 20 action deprecation.
-
-### Files Changed
-
-- `backend/src/employees/employees.controller.ts`
-- `backend/src/uploads/upload.validation.ts`
-- `backend/tests/employees.routes.test.ts`
-- `backend/tests/run-tests.ts`
-- `backend/tests/upload.validation.test.ts`
-- `.github/workflows/backend-ci.yml`
-- `.github/workflows/ci.yml`
-- `docs/api.md`
-- `docs/architecture.md`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Kept OAuth and existing image URL support by allowing only `http` and `https` URL references.
-- Kept internal upload references usable by allowing safe relative paths that do not contain whitespace, backslashes, control characters, or protocol-relative `//` prefixes.
-- Kept payroll initials compatible by allowing one to three alphanumeric avatar initials.
-- Left Prisma migration baseline cleanup as a separate database task because safely changing migration history needs an explicit baseline plan.
-
-### How to Test
-
-- `cd backend && npm test`
-- `cd backend && npx ts-node tests/upload.validation.test.ts`
-- `cd backend && npm run build`
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- From repo root with temporary local secrets: `docker compose config`
-- From repo root: `git diff --check`
-
-### Next Steps
-
-- Add route-level user avatar mutation tests if the profile API surface changes again.
-
-## 2026-06-01 - Main CI And Avatar Bypass Fix
-
-### Completed
-
-- Updated backend GitHub Actions jobs to provision the disposable CI PostgreSQL database from the Prisma schema with `prisma db push`, because the current migration history is not an empty-database baseline.
-- Updated `Backend CI` path filters so backend workflow edits trigger their own validation instead of leaving a stale failed run as the latest backend workflow result.
-- Updated the repository whitespace workflow so push and pull-request events check the actual changed commit/range instead of an empty clean-checkout diff.
-- Added a reusable stored-avatar validator so user creation, direct avatar upload, and profile updates all reject invalid or mismatched image data URIs.
-- Expanded upload validation tests to cover stored avatar values, including valid PNG data URIs, mismatched signatures, unsupported SVG data URIs, URL strings, empty values, and non-string input.
-
-### Files Changed
-
-- `.github/workflows/backend-ci.yml`
-- `.github/workflows/ci.yml`
-- `backend/src/uploads/upload.validation.ts`
-- `backend/src/users/users.controller.ts`
-- `backend/tests/upload.validation.test.ts`
-- `docs/api.md`
-- `docs/architecture.md`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Kept CI schema provisioning separate from production migration deployment until a true baseline migration strategy is planned.
-- Preserved existing URL and empty-avatar workflows while enforcing content validation for base64 image data URIs.
-
-### How to Test
-
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- From repo root with temporary local secrets: `docker compose config`
-- From repo root: `git diff --check`
-
-### Next Steps
-
-- Plan a dedicated Prisma migration baseline cleanup before making CI rely on `prisma migrate deploy` against an empty database.
-
-## 2026-05-31 - Main Workflow And Upload Hardening
-
-### Completed
-
-- Expanded GitHub Actions coverage on `main` so backend CI has a disposable PostgreSQL service and runs Prisma validation, backend tests, build, and dependency audit.
-- Expanded the full CI pipeline to run backend tests/build/audit, frontend tests/lint/build/audit, Prisma validation, schema provisioning for CI, `git diff --check`, and Docker Compose config validation.
-- Hardened generic upload and avatar validation so decoded content signatures must match declared file/image types.
-- Updated the standalone frontend start script to run the generated standalone server.
-- Removed the root package dependency sink and added a root lockfile so root-level audits have a deterministic package surface.
+- Merged the pushed `v2-improvements` usability/audit branch into `main`.
+- Preserved main-side backend hardening for CORS, security headers, Redis-backed auth rate limiting, CI database provisioning, and stored avatar validation.
+- Preserved v2 frontend improvements for client portal navigation, sidebar/header usability, interaction smoke coverage, skill inventory checks, and upload filename/content-type hardening.
 
 ### Files Changed
 
@@ -303,6 +17,839 @@
 - `backend/src/users/users.controller.ts`
 - `backend/tests/run-tests.ts`
 - `backend/tests/upload.validation.test.ts`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/next.config.ts`
+- `docs/api.md`
+- `docs/architecture.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Combined validation contracts instead of choosing one branch side: generic uploads keep canonical stored filenames, and avatars keep safe initials, relative paths, `http(s)` URLs, and validated image data URIs.
+- Kept main's disposable PostgreSQL CI provisioning because backend route tests exercise real Prisma writes.
+- Kept v2's expanded repository checks so skill inventory, backend, frontend, root audit, whitespace, and Compose validation stay in the release gate.
+
+### How to Test
+
+- From repo root: `npm run check`
+- From `backend`: `npx prisma validate`
+- From `backend`: `npx prisma generate`
+- From repo root with temporary local secrets: `docker compose config`
+- From repo root: `git diff --check`
+- From repo root: `npm --prefix frontend run test:visual`
+
+### Next Steps
+
+- Watch GitHub Actions after pushing `main`.
+- Plan a dedicated Prisma migration baseline cleanup before making CI rely on `prisma migrate deploy` against an empty database.
+
+## 2026-06-02 - Exhaustive Interaction Audit Fix Cycle
+
+### Completed
+
+- Reframed the audit away from broad sampling and into route-by-route, persona-by-persona coverage.
+- Expanded visual smoke with optional interaction auditing for visible links, buttons, inputs, selects, tabs, checkboxes, radios, and range controls.
+- Added safe admin, employee, client, and anonymous personas to visual smoke.
+- Added safe mock responses for auth forms and payroll clock/manual-entry actions so workflow checks do not touch real backend data.
+- Ran desktop and mobile interaction sweeps across client, employee, admin operations, payroll, auth, and shell-level controls.
+- Used the in-app Browser for visible shell checks: sidebar collapse/expand, command palette, notifications, profile panel, and theme toggle.
+- Fixed undersized password visibility buttons on login, signup, and reset-password forms.
+
+### Files Changed
+
+- `frontend/scripts/visual-smoke.mjs`
+- `frontend/src/app/login/login.module.css`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Treated redirect aliases like `/payroll-dashboard` and `/` as route behavior to verify separately from route-body click isolation.
+- Kept destructive or external actions skipped in automated clicks: uploads, downloads, print, Discord/external links, and file inputs.
+- Used mocked auth/payroll responses for function checks because real local submissions could mutate data.
+
+### How to Test
+
+- `VISUAL_SMOKE_USER_ROLE=client VISUAL_SMOKE_INTERACTIONS=1 VISUAL_SMOKE_ROUTE_CONTROLS_ONLY=1 VISUAL_SMOKE_ROUTES=/client,/client/work,/client/tickets,/client/approvals,/client/messages,/client/reports,/client/resources,/client/account,/client/calendar VISUAL_SMOKE_THEMES=dark npm --prefix frontend run test:visual`
+- `VISUAL_SMOKE_USER_ROLE=admin VISUAL_SMOKE_INTERACTIONS=1 VISUAL_SMOKE_ROUTE_CONTROLS_ONLY=1 VISUAL_SMOKE_ROUTES=/operations,/operations/clients,/operations/clients/accounts,/operations/clients/delivery,/operations/clients/requests,/operations/clients/approvals,/operations/clients/reports,/operations/clients/assets,/operations/clients/billing,/operations/clients/roadmap,/operations/clients/calendar,/payroll-calendar,/whiteboard VISUAL_SMOKE_THEMES=dark npm --prefix frontend run test:visual`
+- `VISUAL_SMOKE_USER_ROLE=anonymous VISUAL_SMOKE_INTERACTIONS=1 VISUAL_SMOKE_ROUTES=/login,/signup,/forgot-password,/reset-password,/reset-password?token=audit-token&email=audit%40example.test VISUAL_SMOKE_THEMES=dark npm --prefix frontend run test:visual`
+- Persona shell sweeps with `VISUAL_SMOKE_INTERACTIONS=1` on `/client` for client users and `/dashboard` for employee/admin users.
+
+### Next Steps
+
+- Keep external links, file inputs, downloads, and print actions as explicit manual checks because automated interaction should not trigger them without user intent.
+
+## 2026-06-02 - Client Persona Workflow Fix Cycle
+
+### Completed
+
+- Simulated the portal as a client user instead of relying on the admin session.
+- Fixed authenticated client landing so `/` and `/dashboard` resolve to `/client`.
+- Changed login and already-authenticated auth screens to use the existing role-aware landing helper.
+- Restricted the shared sidebar to client-facing portal routes for client users.
+- Made the command palette role-aware so client search no longer exposes employee/admin destinations.
+- Hid the employee time clock from client users.
+- Added a client persona mode to visual smoke with checks for client landing redirects and internal navigation leaks.
+- Improved the mobile navigation toggle label and `aria-expanded` state while the client drawer is open.
+
+### Files Changed
+
+- `frontend/src/app/login/page.tsx`
+- `frontend/src/app/signup/page.tsx`
+- `frontend/src/app/forgot-password/page.tsx`
+- `frontend/src/app/reset-password/page.tsx`
+- `frontend/src/components/AuthGuard.tsx`
+- `frontend/src/components/CommandPalette.tsx`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/lib/sidebar-navigation.ts`
+- `frontend/scripts/visual-smoke.mjs`
+- `frontend/tests/sidebar-navigation.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the fix to navigation, landing, and shell behavior; no backend route or database contract changed.
+- Reused `getAuthenticatedLandingPath` and `CLIENT_PORTAL_NAV_ITEMS` instead of adding another role/navigation source.
+- Treated client search and mobile drawer behavior as part of the client workflow, not optional polish.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- Client persona smoke: `VISUAL_SMOKE_USER_ROLE=client VISUAL_SMOKE_ROUTES=/,/dashboard,/client,/client/work,/client/tickets,/client/approvals,/client/messages,/client/reports,/client/resources,/client/account,/client/calendar npm --prefix frontend run test:visual`
+- Admin focused smoke: `VISUAL_SMOKE_ROUTES=/dashboard,/operations,/operations/clients,/client npm --prefix frontend run test:visual`
+- `npm --prefix frontend run build`
+- Manual client workflow simulation: client lands on `/client`, searches Requests, submits a request, opens the mobile drawer, and navigates to Requests without internal nav leaks.
+
+### Next Steps
+
+- Add deeper route-level authorization/redirect rules for direct-linked internal employee/admin pages if client accounts should be blocked beyond the dashboard landing behavior.
+
+## 2026-06-02 - Full Usability Audit Fix Cycle
+
+### Completed
+
+- Ran a broader Vibe Auto Research audit across admin, employee-facing, client-facing, and shared workflow routes.
+- Added a rendered client portal section nav across `/client` and `/client/*` pages, including direct access to client `Requests`.
+- Expanded the command palette so client, operations, payslip, task calendar, payroll dashboard, and whiteboard routes are discoverable by search.
+- Fixed mobile Payslips overflow by removing the legacy manual sidebar offset and using the shared app shell spacing.
+- Enlarged undersized announcement action controls, whiteboard tools/color swatches/range input, dashboard text links, and client resource/account/message links.
+- Added proper page shells and `Header` titles for Task Calendar and Discord placeholder routes.
+- Expanded the default visual smoke route matrix to include the previously skipped full-site audit routes.
+
+### Files Changed
+
+- `frontend/src/app/client/page.tsx`
+- `frontend/src/app/client/tickets/page.tsx`
+- `frontend/src/app/client/messages/page.tsx`
+- `frontend/src/app/client/resources/page.tsx`
+- `frontend/src/app/client/account/page.tsx`
+- `frontend/src/app/dashboard/page.tsx`
+- `frontend/src/app/my-payslips/page.tsx`
+- `frontend/src/app/whiteboard/page.tsx`
+- `frontend/src/app/task-calendar/page.tsx`
+- `frontend/src/app/discord/page.tsx`
+- `frontend/src/components/CommandPalette.tsx`
+- `frontend/src/components/announcements/AnnouncementCard.tsx`
+- `frontend/src/components/client-portal/ClientPortalTopNav.tsx`
+- `frontend/src/components/client-portal/ClientPortalWorkspaceFrame.tsx`
+- `frontend/src/lib/client-portal-navigation.ts`
+- `frontend/scripts/visual-smoke.mjs`
+- `frontend/tests/client-portal-navigation.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Treated visual-smoke failures as authoritative unless the browser pass disproved them.
+- Reused the existing client operations top-nav pattern for client portal sections instead of creating a separate visual language.
+- Kept fixes scoped to discoverability, hit areas, responsive shell spacing, route titles, and audit coverage; no backend or database contracts changed.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run test:visual`
+- Focused client smoke: `VISUAL_SMOKE_ROUTES=/client,/client/work,/client/tickets,/client/messages npm --prefix frontend run test:visual`
+- `npm --prefix frontend run build`
+- `git diff --check`
+- Chrome extension checks: route matrix, sidebar collapse, modal-open workflows, command palette searches for `client`, `operations`, `payslip`, and `whiteboard`, and client nav on `/client`, `/client/work`, and `/client/tickets`.
+
+### Next Steps
+
+- Add a logged-out/public-route smoke mode for `/login`, `/signup`, `/forgot-password`, and `/reset-password`; current visual smoke seeds an authenticated user.
+
+## 2026-06-02 - Manual Usability Fix Cycle
+
+### Completed
+
+- Ran the Vibe Auto Research and Prompt-to-Quality cycle against the manual desktop/browser audit findings.
+- Enlarged FullCalendar toolbar controls across client, operations client, payroll, and task calendar surfaces.
+- Fixed small custom chat controls in the sidebar, message actions, search panel, and composer.
+- Made Daily Logs filters responsive on mobile and removed the horizontal overflow found by visual smoke.
+- Reworked Operations tabs into accessible 40px tab controls and resized destructive icon buttons.
+- Resized File Directory breadcrumbs, folder-card icon actions, and toolbar fields.
+- Added a Client Portal sidebar item so `/client/*` routes keep a clear active navigation anchor.
+- Fixed the Task Tracking search input hit area.
+
+### Files Changed
+
+- `frontend/src/app/globals.css`
+- `frontend/src/app/chat/page.tsx`
+- `frontend/src/app/daily-logs/page.tsx`
+- `frontend/src/app/file-directory/page.tsx`
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/chat/ChatSidebar.tsx`
+- `frontend/src/components/chat/MessageInput.tsx`
+- `frontend/src/components/file-directory/FolderCard.tsx`
+- `frontend/tests/sidebar-navigation.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the fixes scoped to hit areas, wrapping, active navigation, and workflow polish instead of changing API or data behavior.
+- Used shared FullCalendar CSS for calendar controls so client and admin calendar routes improve together.
+- Kept native Daily Logs checkboxes visually compact while making their label rows the 40px touch targets.
+
+### How to Test
+
+- `npm --prefix frontend test -- sidebar-navigation.test.mjs`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run test:visual`
+- `git diff --check`
+- Chrome extension route audit: `/operations/clients`, `/client`, `/client/calendar`, `/operations/clients/calendar`, `/task-tracking`, `/daily-logs`, `/chat`, `/file-directory`, and `/operations`.
+- Chrome workflow checks: chat search open/close, Daily Logs add-modal open/close, Operations tab switching.
+
+### Next Steps
+
+- Keep visual smoke as the regression gate for future app-shell and workflow UI changes.
+
+## 2026-06-02 - Sidebar Collapse Shell Cycle
+
+### Completed
+
+- Checked the repo instructions, design docs, app shell files, visual-smoke script, and validation commands before editing.
+- Confirmed Google Chrome is installed and the Codex Chrome Extension/native host are configured; the first Chrome backend retry was unavailable, then a later extension retry connected successfully.
+- Added a persisted desktop sidebar collapse state while preserving the existing mobile drawer behavior.
+- Wired the header hamburger to open mobile navigation on small screens and collapse/expand the desktop sidebar on desktop.
+- Added focused helper coverage for sidebar toggle mode and accessible toggle labels.
+- Verified the desktop collapse/expand cycle in the in-app Browser and again through the Chrome extension.
+- Fixed the overlapping admin nav active state so `/operations/clients` highlights `Clients` without also glowing `Operations`.
+
+### Files Changed
+
+- `frontend/src/contexts/SidebarContext.tsx`
+- `frontend/src/lib/sidebar-navigation.ts`
+- `frontend/src/components/LayoutWrapper.tsx`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/tests/sidebar-navigation.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept mobile navigation as a drawer because that matches the existing design contract.
+- Put collapse state in a shell context so `Sidebar`, page padding, and fixed `Header` stay synchronized.
+- Persisted desktop collapse with the existing `STORAGE_KEYS.SIDEBAR_COLLAPSED` key instead of adding a new storage convention.
+- Made the `Operations` sidebar item exact-match only while keeping `Clients` section matching for `/operations/clients/*` pages.
+- Used Browser Use as the initial live click-through fallback while Chrome was unavailable, then reran the same desktop route and hamburger check through the Chrome extension after the connection recovered.
+- Restarted the frontend dev server after a stale dev route response returned 404 for `/operations/clients`; the route then served correctly and Browser Use navigation passed.
+
+### How to Test
+
+- `npm --prefix frontend test -- sidebar-navigation.test.mjs`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `npm --prefix backend test`
+- `npm --prefix backend run build`
+- `npm run check:skills`
+- `git diff --check`
+- `npm --prefix backend audit --audit-level=high`
+- `npm --prefix frontend audit --audit-level=high`
+- `npm audit --audit-level=high`
+- `VISUAL_SMOKE_ROUTES='/dashboard,/operations/clients,/client,/login' VISUAL_SMOKE_THEMES='dark,light' npm --prefix frontend run test:visual`
+- Browser Use desktop check: `/dashboard` collapse to `80px`, reload persistence, collapsed `Clients` navigation to `/operations/clients`, then restore expanded `288px` state.
+- Chrome extension desktop check: `/operations/clients` rendered authenticated client operations, hamburger collapsed to `80px`, restored expanded `288px`, and reported no console warnings/errors.
+- Chrome extension active-state check: `/operations/clients` sets `aria-current="page"` only on `Clients`; `Operations` remains inactive.
+
+### Next Steps
+
+- If the Chrome backend disappears again, retry the extension connection once before reinstalling or reloading the Chrome plugin from the Codex plugin UI.
+- Add a dedicated visual test assertion for the hamburger collapse/expand cycle if this shell behavior becomes a release gate.
+
+## 2026-06-02 - Light And Dark Theme Fix
+
+### Completed
+
+- Consolidated MyDeskii theme variables so dark mode and light mode share the same token contract.
+- Added missing workspace tokens used by client/admin command-center hero surfaces.
+- Fixed light-mode sidebar readability by giving light mode its own sidebar token set.
+- Tokenized client workspace hero labels, actions, progress bars, and detail text instead of hard-coded cyan-on-dark classes.
+- Added light/dark theme coverage to the visual smoke script.
+
+### Files Changed
+
+- `frontend/src/app/globals.css`
+- `frontend/src/components/ThemeToggle.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/Button.tsx`
+- `frontend/src/components/workspace/ProductionWorkspace.tsx`
+- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
+- `frontend/src/app/client/page.tsx`
+- `frontend/scripts/visual-smoke.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept dark mode as the default MyDeskii visual direction.
+- Made light mode a complete operational theme instead of a partial inversion.
+- Preserved routes, query parameters, backend APIs, and existing client navigation behavior.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `VISUAL_SMOKE_ROUTES='/operations/clients,/operations/clients/delivery,/client,/dashboard,/login' VISUAL_SMOKE_THEMES='dark,light' npm --prefix frontend run test:visual`
+- Browser smoke `/operations/clients?client=<id>` by toggling dark and light mode.
+
+### Next Steps
+
+- Continue token migration on lower-priority payroll, file directory, and chat internals as those screens enter review scope.
+
+## 2026-06-02 - Prompt-to-Quality Agent Workflow
+
+### Completed
+
+- Added a Prompt-to-Quality Cycle for prompt intake, skill planning, repo applicability checks, plan quality gates, implementation, reviewer passes, and fix/review loops.
+- Updated the Vibe Auto Research skill so implementation prompts must review technical quality and user-flow quality before final response.
+- Added a focused skill reference for the new cycle and documented the workflow in the repo agent guide.
+
+### Files Changed
+
+- `AGENTS.md`
+- `docs/agent-workflows.md`
+- `docs/dev-notes.md`
+- `skills/.agents/skills/vibe-auto-research/SKILL.md`
+- `skills/.agents/skills/vibe-auto-research/references/prompt-to-quality-cycle.md`
+- `skills/skills-lock.json`
+
+### Decisions Made
+
+- Kept the workflow inside `vibe-auto-research` instead of creating a competing orchestration skill.
+- Treated `to-prd` as opt-in for PRD or issue-tracker output, not a default action for every plan.
+- Required browser click-through for UI/user-flow work when the app can be rendered.
+
+### How to Test
+
+- `npm run check:skills`
+- `git diff --check`
+
+### Next Steps
+
+- Restart Codex or start a new session to have newly installed global skills appear automatically.
+
+## 2026-06-02 - Chrome Stale Auth Session Fix
+
+### Completed
+
+- Inspected the user's real Chrome tab with the Codex Chrome Extension.
+- Confirmed the Chrome errors were stale-auth failures: `Invalid or expired token` for client organization fetches, time entries, and socket auth.
+- Added shared auth-session handling so token-specific `403` responses follow the refresh/logout path instead of rendering protected screens with empty data.
+- Updated user state to react immediately when a shared API request clears stale auth.
+- Updated socket connection logic to wait for verified user state and a current token before connecting.
+- Added focused unit coverage for token-auth failure detection.
+
+### Files Changed
+
+- `frontend/src/lib/auth-session.ts`
+- `frontend/src/lib/api.ts`
+- `frontend/src/contexts/UserContext.tsx`
+- `frontend/src/context/SocketContext.tsx`
+- `frontend/tests/auth-session.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept normal `403 Insufficient permissions` behavior separate from `403 Invalid or expired token`.
+- Avoided redirecting directly inside `apiFetch`; it clears auth and lets `AuthGuard` route the user to `/login`.
+- Did not inspect or expose Chrome token values.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- Chrome smoke: reload a stale-auth local portal tab and confirm it lands on `/login` without new console errors.
+
+### Next Steps
+
+- If the team wants a friendlier UX, add a login-page notice when the redirect was caused by session expiry.
+
+## 2026-06-02 - Client Delivery Polish Continuation
+
+### Completed
+
+- Created and executed a skill-guided plan for the next Client Delivery polish pass.
+- Added default input `name` support to the shared `FormField` component.
+- Added delivery form control names, autocomplete handling, textarea resizing, and ellipsis-style placeholder copy.
+- Added a compact empty state when a client has no work items.
+- Hardened long project, work-item, and completed-work text so client content wraps instead of clipping.
+- Rechecked the live Delivery tab and focused visual smoke route.
+
+### Files Changed
+
+- `frontend/src/components/forms/FormField.tsx`
+- `frontend/src/components/client-portal/AdminClientProjectsPanel.tsx`
+- `frontend/src/components/client-portal/AdminClientUpdatesPanel.tsx`
+- `frontend/src/components/client-portal/ClientOperationsPanel.tsx`
+- `frontend/src/components/client-portal/production-records/shared.tsx`
+- `frontend/src/components/client-portal/production-records/WorkItemsPanel.tsx`
+- `frontend/src/app/operations/clients/delivery/page.tsx`
+- `docs/superpowers/plans/2026-06-02-client-delivery-polish.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the implementation inside existing shared controls and delivery panels instead of redesigning the route.
+- Treated checkbox labels as the interaction target, with the checkbox visual remaining smaller than the label hit area.
+- Preserved backend/API contracts and did not add dependencies.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `VISUAL_SMOKE_ROUTES='/operations/clients/delivery' npm --prefix frontend run test:visual`
+- Browser smoke `/operations/clients/delivery?client=<id>` on the live local tab.
+
+### Next Steps
+
+- Apply the same form-control metadata pass to the remaining production-record routes if they become part of the next review scope.
+
+## 2026-06-02 - Client Delivery UI Review
+
+### Completed
+
+- Reviewed the admin Client Delivery route at desktop and mobile sizes.
+- Raised shared button minimum heights so Delivery form actions meet the touch-target gate.
+- Improved client operation website links, checkbox sizing, record title wrapping, and mobile header handling.
+- Rechecked the route with focused browser smoke after the visual fixes.
+
+### Files Changed
+
+- `frontend/src/components/Button.tsx`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
+- `frontend/src/components/client-portal/ClientOperationsPanel.tsx`
+- `frontend/src/components/client-portal/production-records/shared.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Fixed the shared UI primitives that owned the issues instead of adding page-only overrides.
+- Kept the mobile page header compact by hiding secondary subtitle copy below the `sm` breakpoint.
+- Preserved the existing dark MyDeskii operations style and top client navigation.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `VISUAL_SMOKE_ROUTES='/operations/clients/delivery' npm --prefix frontend run test:visual`
+- Browser smoke `/operations/clients/delivery?client=<id>` at desktop and mobile widths.
+
+### Next Steps
+
+- Continue using the focused visual smoke route whenever shared client operations controls change.
+
+## 2026-06-02 - Client Operations Top Navigation
+
+### Completed
+
+- Added a shared top navigation bar for the client operations section directly below the page header.
+- Reused the existing client operations navigation config so Overview, Accounts, Delivery, Requests, Approvals, Reports, Assets, Billing, Roadmap, and Calendar stay in one route order.
+- Preserved the selected `client` query parameter when moving between client operations sections.
+- Added focused active-state coverage so Overview is not incorrectly marked active on nested client operations routes.
+
+### Files Changed
+
+- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
+- `frontend/src/lib/client-operations-navigation.ts`
+- `frontend/tests/client-operations-navigation.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Put the nav in `ClientOperationsShell` so every `/operations/clients/*` page gets the same top navigation.
+- Use real `Link` elements with `aria-current` and visible focus states instead of one-off buttons or click handlers.
+- Keep desktop as a compact single-row bar and mobile as a horizontal scroll strip to avoid wrapping the workflow controls.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `VISUAL_SMOKE_ROUTES='/operations/clients/accounts,/operations/clients/reports' npm --prefix frontend run test:visual`
+- Browser smoke `/operations/clients/accounts?client=<id>` at desktop and mobile widths.
+
+### Next Steps
+
+- Consider adding the same style of top navigation to the client-facing `/client/*` portal if the team wants parity for client users.
+
+## 2026-06-02 - MyDeskii Command-Center Redesign Planning
+
+### Completed
+
+- Preserved the MyDeskii product identity while incorporating the boss-approved dark command-center reference into the design direction.
+- Updated the frontend redesign plan with frontend best-practice gates for accessibility, focus states, forms, responsive layout, content handling, URL state, performance, data formatting, motion, and dark-mode readability.
+- Clarified that the reference should influence visual style and dashboard energy, not introduce marketing-page sections or fake decorative metrics.
+
+### Files Changed
+
+- `DESIGN.md`
+- `docs/frontend-redesign-plan.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Treat the boss reference as a premium MyDeskii command-center style, not a rename or direct Gemfield template copy.
+- Start future implementation with global tokens, shared components, shell, auth, and dashboard before touching dense workflow internals.
+- Keep frontend best practices as explicit gates in the plan so visual polish does not weaken accessibility, responsiveness, or performance.
+
+### How to Test
+
+- Review `DESIGN.md` and `docs/frontend-redesign-plan.md`.
+- When implementation starts, run `npm --prefix frontend test`, `npm --prefix frontend run lint`, `npm --prefix frontend run build`, and browser checks for desktop and mobile.
+
+### Next Steps
+
+- Create or update the first implementation task for global tokens, shared components, shell, auth, and dashboard.
+- Browser-review the current MyDeskii dashboard against the boss-reference direction before broad route edits.
+
+## 2026-06-02 - MyDeskii Command-Center First Implementation
+
+### Completed
+
+- Updated the global MyDeskii frontend theme to default to a dark command-center palette with cyan and magenta accents, glass surfaces, stronger borders, and dark form controls.
+- Refined shared shell components, cards, buttons, sidebar, header, and protected layout surfaces so the app keeps the MyDeskii identity while matching the boss-approved visual direction.
+- Upgraded login and signup screens with the new dark treatment, better focus states, accessible icon handling, keyboard-reachable password toggles, proper form names, and Next `Link` navigation.
+- Restyled the dashboard landing surface, metrics, quick links, attention rows, chat input, announcements, and quick actions into a denser command-center experience.
+- Browser-verified login, signup, and the authenticated admin dashboard at desktop and mobile widths.
+
+### Files Changed
+
+- `frontend/src/app/globals.css`
+- `frontend/src/app/layout.tsx`
+- `frontend/src/app/dashboard/page.tsx`
+- `frontend/src/app/login/login.module.css`
+- `frontend/src/app/login/page.tsx`
+- `frontend/src/app/signup/page.tsx`
+- `frontend/src/components/Button.tsx`
+- `frontend/src/components/Card.tsx`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/LayoutWrapper.tsx`
+- `frontend/src/components/LoginInput.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/ThemeToggle.tsx`
+- `frontend/src/components/ui/button.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Keep the product name and shell branding as MyDeskii rather than copying the Gemfield identity from the reference.
+- Apply the reference as a product-app command-center language, not a marketing landing page.
+- Start with shared tokens, auth, shell, and dashboard because those areas set the visual system for later route-by-route redesign work.
+- Preserve light-mode support as a secondary fallback, while making dark mode the default MyDeskii experience.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `git diff --check -- frontend/src/app/globals.css frontend/src/app/layout.tsx frontend/src/components/ThemeToggle.tsx frontend/src/app/login/login.module.css frontend/src/app/login/page.tsx frontend/src/app/signup/page.tsx frontend/src/app/dashboard/page.tsx frontend/src/components/LoginInput.tsx frontend/src/components/Button.tsx frontend/src/components/Card.tsx frontend/src/components/Header.tsx frontend/src/components/LayoutWrapper.tsx frontend/src/components/Sidebar.tsx frontend/src/components/ui/button.tsx docs/dev-notes.md`
+- Browser smoke at `http://localhost:3000/login`, `http://localhost:3000/signup`, and authenticated `http://localhost:3000/dashboard` for desktop and mobile viewport checks.
+
+### Next Steps
+
+- Carry the command-center tokens into the dense workflow pages in small route groups.
+- Add route-specific visual smoke coverage once the broader redesign reaches task tracking, payroll, files, chat, and operations.
+
+## 2026-06-02 - Client Side Shell Restored
+
+### Completed
+
+- Added a visible client setup hub at `/operations/clients`.
+- Added a client-facing portal shell at `/client`.
+- Wired the client area into the sidebar and the Operations page with a `Clients` tab.
+- Added reusable client portal configuration for shell sections, status cards, principles, and next backend steps.
+- Documented that client routes are currently frontend shells because this checkout has no client Prisma models or API routes.
+
+### Files Changed
+
+- `frontend/src/lib/client-portal.ts`
+- `frontend/src/app/operations/clients/page.tsx`
+- `frontend/src/app/client/page.tsx`
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Do not invent client records, Prisma models, or API contracts in this pass.
+- Make the client side visible immediately while clearly labeling persisted data and membership access as the next backend slice.
+- Keep client data boundaries explicit: only published or assigned client-safe records should appear in the future client portal.
+
+### How to Test
+
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- Browser smoke `/operations`, `/operations/clients`, and `/client` at desktop and mobile widths.
+- `git diff --check -- frontend/src/lib/client-portal.ts frontend/src/app/operations/clients/page.tsx frontend/src/app/client/page.tsx frontend/src/app/operations/page.tsx frontend/src/components/Sidebar.tsx docs/features.md docs/dev-notes.md`
+
+### Next Steps
+
+- Add client organization, membership, report, calendar, and file models in a backend/database vertical slice.
+- Add tenant-scoped API routes and permission checks before rendering persisted client records.
+
+## 2026-06-02 - Full Client Portal Module Retrieved
+
+### Completed
+
+- Retrieved the full client portal module from the earlier client-service-tier commit instead of leaving the temporary frontend shell in place.
+- Restored client Prisma models, migrations, seed data, backend client services/routes/serializers/validation, frontend client and operations route groups, reusable client portal components, hooks, libraries, and focused tests.
+- Mounted the restored backend client controller at `/api/clients`.
+- Restored the frontend visual smoke script and `test:visual` package script.
+- Tightened shared header, sidebar, and time-clock touch targets so the restored client route visual smoke passes on desktop and mobile.
+- Updated feature and API documentation to describe the restored full client portal behavior and client-safe data boundaries.
+
+### Files Changed
+
+- `backend/prisma/schema.prisma`
+- `backend/prisma/seed.ts`
+- `backend/prisma/migrations/202605240001_client_portal_foundation/migration.sql`
+- `backend/prisma/migrations/202605270001_client_portal_production_records/migration.sql`
+- `backend/prisma/migrations/202605270002_client_activity/migration.sql`
+- `backend/prisma/migrations/202605270003_client_resource_ownership/migration.sql`
+- `backend/src/main.ts`
+- `backend/src/clients/*`
+- `backend/tests/run-tests.ts`
+- `backend/tests/clients.*.test.ts`
+- `frontend/package.json`
+- `frontend/scripts/visual-smoke.mjs`
+- `frontend/src/app/client/*`
+- `frontend/src/app/operations/clients/*`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/TimeClock.tsx`
+- `frontend/src/components/client-portal/*`
+- `frontend/src/components/workspace/ProductionWorkspace.tsx`
+- `frontend/src/hooks/useClientOperationsWorkspace.ts`
+- `frontend/src/hooks/useClientPortalWorkspace.ts`
+- `frontend/src/lib/client-*.ts`
+- `frontend/tests/client-*.test.mjs`
+- `docs/api.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Restore the existing proven client portal module from repository history rather than rebuilding it from scratch.
+- Preserve the current MyDeskii command-center shell and sidebar styling while bringing back the deeper client functionality.
+- Keep client-safe serialization, tenant membership checks, server-derived ownership, and internal/client visibility boundaries as the client module contract.
+
+### How to Test
+
+- `npm --prefix backend run prisma:generate`
+- `npx prisma validate` from `backend/`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `npm --prefix backend run build`
+- `npm --prefix backend test`
+- Browser smoke `/operations/clients`, `/client`, `/client/reports`, and focused client operations routes at desktop and mobile widths.
+
+### Next Steps
+
+- Apply restored migrations to any real database environment before relying on live client records.
+- Verify demo client login and membership access against the target database.
+- Continue route-by-route visual polish so the restored client module fully matches the new MyDeskii command-center direction.
+
+## 2026-06-02 - Generic Upload Serving Hardening
+
+### Completed
+
+- Hardened generic uploads so stored filenames use a sanitized basename plus a canonical extension derived from validated MIME/signature, not from the user-supplied extension.
+- Added stored upload filename validation for authenticated file serving, including unsupported-extension and traversal-marker rejection.
+- Set served upload `Content-Type` from the canonical extension and added `X-Content-Type-Options: nosniff`.
+- Added focused helper tests for canonical upload metadata and stored filename validation.
+- Added route-level upload tests for authentication, canonical `.pdf`/`.txt` storage, served MIME headers, MIME/signature mismatch rejection, unsupported extensions, and encoded traversal attempts.
+
+### Files Changed
+
+- `backend/src/uploads/upload.validation.ts`
+- `backend/src/uploads/uploads.controller.ts`
+- `backend/tests/upload.validation.test.ts`
+- `backend/tests/uploads.routes.test.ts`
+- `backend/tests/run-tests.ts`
+- `docs/api.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept generic upload serving authenticated and dependency-free.
+- Preserved compatibility for legacy timestamped filenames that include dots in the basename, while rejecting `..`, path separators, and unsupported final extensions.
+- Kept response `name` as the sanitized display name with canonical extension and added `filename` for the stored object name.
+
+### How to Test
+
+- `npm --prefix backend test`
+- `npm --prefix backend run build`
+- `npm run check`
+- `git diff --check`
+
+### Next Steps
+
+- Consider adding a body-size preflight check before base64 decoding if uploads become a high-traffic or abuse-prone endpoint.
+- Consider adding persistence for uploaded file metadata if the file directory starts relying on richer file records.
+
+## 2026-06-02 - Agent Skill Inventory Validation
+
+### Completed
+
+- Fixed the repo skill inventory so locked skill paths match the actual hidden `skills/.agents/skills` snapshot.
+- Added a root `check:skills` script that validates every locked skill path and SHA-256 hash.
+- Added the skill inventory validator to the repository CI checks.
+- Added a root `README.md` as the setup and verification entry point.
+- Added `docs/code-review.md` as the repo-specific review checklist for backend, frontend, auth, uploads, database, agent workflow, and release readiness.
+- Expanded agent workflow docs with repo-local versus global skill policy, third-party skill trust rules, hidden skill snapshot inspection, and skill add/remove maintenance steps.
+
+### Files Changed
+
+- `AGENTS.md`
+- `.github/workflows/ci.yml`
+- `README.md`
+- `docs/agent-workflows.md`
+- `docs/architecture.md`
+- `docs/code-review.md`
+- `docs/dev-notes.md`
+- `package.json`
+- `scripts/check-skills-lock.mjs`
+- `skills/skills-lock.json`
+
+### Decisions Made
+
+- Kept repo-local skills under `skills/.agents/skills` instead of moving the snapshot, and documented `rg --hidden --files skills` for inspection.
+- Treated `skills/skills-lock.json` as a repository inventory that must match the current `SKILL.md` contents.
+- Kept third-party skill use conservative: useful for repeated portal workflows, reviewed before import, and not used with private portal data unless explicitly approved.
+
+### How to Test
+
+- `npm run check:skills`
+- `npm run check`
+- `git diff --check`
+
+### Next Steps
+
+- Before committing, decide whether all currently snapshotted third-party skills should remain repo-local or whether rarely used skills should stay global only.
+- Keep `docs/code-review.md` current as new release gates or sensitive portal workflows are added.
+
+## 2026-06-01 - Repo Agent Workflow Setup
+
+### Completed
+
+- Made Vibe Auto Research explicit as the default operating workflow in `AGENTS.md`.
+- Added `docs/agent-workflows.md` as the repo memory for skill selection, agent delegation, verification gates, and skill maintenance.
+- Documented when to use third-party skills such as `web-design-guidelines`, `improve-codebase-architecture`, `supabase-postgres-best-practices`, `gsap-frameworks`, and `ai-image-generation`.
+- Updated the repo skill inventory so the local `vibe-auto-research` and `find-skills` snapshots are listed beside the curated third-party skills.
+
+### Files Changed
+
+- `AGENTS.md`
+- `docs/agent-workflows.md`
+- `docs/dev-notes.md`
+- `skills/skills-lock.json`
+
+### Decisions Made
+
+- Kept repo-level agent behavior in `AGENTS.md` plus `docs/` instead of creating a `.codex/` folder, because no verified repo-local `.codex` convention exists in this checkout.
+- Kept global Codex skills available globally, but documented only a curated repo-local skill snapshot to avoid loading irrelevant skills into every task.
+- Treated `skills/skills-lock.json` as the repo inventory for curated skills.
+
+### How to Test
+
+- From repo root: `git diff --check`
+- From repo root: validate `skills/skills-lock.json` as JSON.
+
+### Next Steps
+
+- If a future Codex release documents repo-local `.codex/` behavior, revisit whether this repo should add one.
+- Add or remove repo-local skill snapshots only when there is a repeated portal workflow that needs them.
+
+## 2026-06-01 - Skills And Avatar Validation Review
+
+### Completed
+
+- Exercised the repo-local Vibe Auto Research and parallel agent workflow against the current upload-hardening branch.
+- Used two read-only explorer agents to review upload/avatar security and CI/release readiness in parallel.
+- Closed the highest-risk finding by adding shared avatar value validation for user create, profile patch, and dedicated avatar update paths.
+- Added tests for accepted avatar URLs/relative paths, image data URIs, unsupported schemes, MIME mismatches, oversized data URIs, and non-string avatar values.
+- Fixed the repository-level CI whitespace check so GitHub Actions validates the pushed or pull-request diff range instead of checking a clean checkout.
+- Added the root package audit to the root `npm run check` command and CI repository checks.
+
+### Files Changed
+
+- `backend/src/uploads/upload.validation.ts`
+- `backend/src/users/users.controller.ts`
+- `backend/tests/upload.validation.test.ts`
+- `.github/workflows/ci.yml`
+- `package.json`
+- `docs/api.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept stored user avatars limited to http(s) URLs, relative paths, empty removal values where profile updates allow them, or validated image data URIs.
+- Kept avatar validation in the uploads validation helper so every user-avatar persistence path uses the same rules.
+- Kept generic upload filename/content-type hardening as a follow-up because it is a separate serving-contract change from avatar persistence validation.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- From repo root: `npm run check`
+- From repo root: `git diff --check`
+
+### Next Steps
+
+- Derive or enforce generic upload filename extensions from validated MIME types, or persist/set validated content types when serving files.
+- Consider adding Express route-level tests for upload and user avatar endpoints.
+
+## 2026-05-31 - Workflow And Upload Hardening
+
+### Completed
+
+- Switched active work to the documented `v2-improvements` branch.
+- Expanded GitHub Actions coverage for `v2-improvements` and added backend tests, frontend tests, frontend lint, dependency audits, Prisma validation, and repository checks to CI.
+- Hardened generic upload and avatar validation so decoded content signatures must match declared file/image types.
+- Updated the standalone frontend start script to run the generated standalone server.
+- Removed the root package dependency sink and added a root lockfile so root-level audits have a deterministic package surface.
+- Removed the Docker Compose fallback database password so local Compose validation requires explicit database and auth secrets.
+
+### Files Changed
+
+- `.github/workflows/backend-ci.yml`
+- `.github/workflows/ci.yml`
+- `backend/src/uploads/upload.validation.ts`
+- `backend/src/uploads/uploads.controller.ts`
+- `backend/src/users/users.controller.ts`
+- `backend/tests/run-tests.ts`
+- `backend/tests/upload.validation.test.ts`
+- `docker-compose.yml`
 - `frontend/next.config.ts`
 - `frontend/package.json`
 - `package.json`
@@ -314,8 +861,8 @@
 ### Decisions Made
 
 - Kept upload signature checks dependency-free and focused on the file types already accepted by the API.
-- Used a disposable PostgreSQL service in CI because the backend route tests exercise real Prisma writes.
-- Kept package dependencies owned by `backend/` and `frontend/`; root scripts only orchestrate verification.
+- Kept CI split into the existing backend, frontend, and repository-level jobs instead of introducing a new CI layout.
+- Kept root dependencies out of the repo root; package dependencies remain owned by `backend/` and `frontend/`.
 - Pinned the frontend Turbopack root to the frontend package so the root audit lockfile does not make Next infer the repository root during builds.
 
 ### How to Test
@@ -335,1711 +882,8 @@
 
 ### Next Steps
 
+- Consider adding a focused visual smoke script to this branch after the route set stabilizes.
 - Replace production `console.log` calls with a structured logger in a later backend observability pass.
-
-## 2026-05-31 - Client Service Tier Management
-
-### Completed
-
-- Added manager-only API routes to list, create, and update client service tiers.
-- Added a manager-only client organization route to assign or clear a service tier.
-- Added Client Operations account controls for assigning tiers during client creation, changing a selected client's tier, and adding/editing tier records.
-- Preserved client-safe serialization so client users can see tier name/description but not internal monthly price or priority rank.
-- Replaced the Billing screen's free-text plan field with service tier assignment so billing reflects the same tier used elsewhere.
-- Updated account, billing, operations overview, and client account displays to prefer the assigned service tier over legacy billing plan text.
-- Added internal activity/audit records when a manager assigns or clears a client's service tier.
-
-### Files Changed
-
-- `backend/src/clients/clients.controller.ts`
-- `backend/src/clients/clients.activity.ts`
-- `backend/src/clients/clients.serializers.ts`
-- `backend/src/clients/clients.service.ts`
-- `backend/src/clients/clients.validation.ts`
-- `backend/tests/clients.activity.test.ts`
-- `backend/tests/clients.routes.test.ts`
-- `frontend/scripts/visual-smoke.mjs`
-- `frontend/src/app/client/account/page.tsx`
-- `frontend/src/app/operations/clients/accounts/page.tsx`
-- `frontend/src/app/operations/clients/billing/page.tsx`
-- `frontend/src/app/operations/clients/page.tsx`
-- `frontend/src/components/client-portal/AdminClientAccountProfilePanel.tsx`
-- `frontend/src/components/client-portal/AdminClientServiceTiersPanel.tsx`
-- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
-- `frontend/src/components/client-portal/production-records/BillingPanel.tsx`
-- `frontend/src/lib/client-operations-navigation.ts`
-- `frontend/src/lib/client-portal-navigation.ts`
-- `frontend/src/lib/client-portal-display.ts`
-- `frontend/src/lib/client-portal.ts`
-- `frontend/src/lib/client-production-record-forms.ts`
-- `frontend/src/lib/client-service-tiers.ts`
-- `frontend/tests/client-activity.test.mjs`
-- `frontend/tests/client-portal-display.test.mjs`
-- `frontend/tests/client-production-record-forms.test.mjs`
-- `docs/api.md`
-- `docs/features.md`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Reused the existing `ClientServiceTier` and `ClientOrganization.tierId` schema instead of adding a migration.
-- Kept service tier management restricted to existing client-management access.
-- Made service tier the billing tier source of truth; billing status now stays focused on payment status, amount, renewal date, and client visibility.
-- Kept backend `billingStatus.planName` as a legacy-compatible field for existing records, but the billing UI no longer edits or submits it.
-
-### How to Test
-
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-
-### Next Steps
-
-- Consider a later migration or cleanup path for legacy billing `planName` values after production data is reviewed.
-
-## 2026-05-30 - Internal Route Visual Smoke and Touch Target Pass
-
-### Completed
-
-- Increased shared button, card, icon-button, pagination, sidebar, and time-clock touch targets used across internal routes.
-- Fixed Daily Logs mobile layout overflow by switching the filter/content layout to a responsive grid and wrapping log metadata/actions.
-- Tightened compact controls in Chat, File Directory, Operations, and Task Tracking so desktop and mobile controls meet the visual-smoke target baseline.
-- Added a reusable Playwright-powered visual smoke script covering client, client-operations, and core internal routes at desktop and mobile viewports.
-
-### Files Changed
-
-- `frontend/package.json`
-- `frontend/scripts/visual-smoke.mjs`
-- `frontend/src/app/chat/page.tsx`
-- `frontend/src/app/daily-logs/page.tsx`
-- `frontend/src/app/file-directory/page.tsx`
-- `frontend/src/app/operations/page.tsx`
-- `frontend/src/app/task-tracking/page.tsx`
-- `frontend/src/components/Button.tsx`
-- `frontend/src/components/Card.tsx`
-- `frontend/src/components/IconButton.tsx`
-- `frontend/src/components/Sidebar.tsx`
-- `frontend/src/components/TimeClock.tsx`
-- `frontend/src/components/chat/ChatSidebar.tsx`
-- `frontend/src/components/chat/MessageInput.tsx`
-- `frontend/src/components/file-directory/DriveFileViewer.tsx`
-- `frontend/src/components/file-directory/FolderCard.tsx`
-- `frontend/src/components/ui/Pagination.tsx`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Keep the broader internal polish pass frontend-only; no backend routes, database schema, permission rules, or API contracts changed.
-- Use one mocked visual-smoke script for the route matrix so future touch-target, redirect, page-error, and horizontal-overflow regressions are repeatable.
-- Patch shared controls where possible, then only patch route-specific controls when the visual smoke identified a concrete issue.
-
-### How to Test
-
-- `cd frontend && npm run test:visual`
-- `cd frontend && npm run lint`
-- `cd frontend && npm test`
-- `cd frontend && npm run build`
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `git diff --check`
-
-### Next Steps
-
-- Run `npm run test:visual` before future release pushes that touch route layouts or shared controls.
-
-## 2026-05-30 - Client Portal Touch Target Polish
-
-### Completed
-
-- Increased tap targets for client/admin portal preset buttons, status controls, calendar controls, and visibility checkboxes.
-- Increased shared client portal pill choice controls so request type and priority selections meet the same touch-target baseline.
-- Added shared checkbox classes for Client Operations forms so client-visible toggles have consistent spacing and focusable hit areas.
-- Tightened client-operations grid overflow handling so the account picker and route content do not force horizontal layout spillover.
-
-### Files Changed
-
-- `frontend/src/app/client/tickets/page.tsx`
-- `frontend/src/app/globals.css`
-- `frontend/src/components/Header.tsx`
-- `frontend/src/components/client-portal/AdminClientMetricsPanel.tsx`
-- `frontend/src/components/client-portal/AdminClientResourcesPanel.tsx`
-- `frontend/src/components/client-portal/AdminClientUpdatesPanel.tsx`
-- `frontend/src/components/client-portal/AdminTicketList.tsx`
-- `frontend/src/components/client-portal/ChoiceGroup.tsx`
-- `frontend/src/components/client-portal/ClientOperationsPanel.tsx`
-- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
-- `frontend/src/components/client-portal/TicketDetailPresets.tsx`
-- `frontend/src/components/client-portal/production-records/shared.tsx`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Keep the pass frontend-only; no API contracts, backend permissions, database behavior, or client visibility rules changed.
-- Prefer shared form-control classes inside the client-portal component layer instead of repeating checkbox styling in each admin panel.
-
-### How to Test
-
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- `cd frontend && npm test`
-- Browser smoke on `/client/tickets` and `/operations/clients` with mobile and desktop viewport checks for control sizing and overflow.
-
-### Next Steps
-
-- If time allows, browser-check the broader client/admin route set for any remaining tight controls after this tap-target pass.
-
-## 2026-05-29 - Admin Client Operations Route Remodel Pass
-
-### Completed
-
-- Added route-specific production control summaries to `ClientOperationsShell` so every Client Operations admin route shows the right operational metrics for its workflow.
-- Applied the shared production panel shell to production-record mini panels used by work items, approvals, reports, assets, billing, roadmap, and calendar.
-- Preserved existing admin route behavior, client selection, role checks, mutation refresh flow, and API contracts.
-
-### Files Changed
-
-- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
-- `frontend/src/components/client-portal/production-records/shared.tsx`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Upgrade all admin client routes through shared shell composition instead of copying summary widgets into each route page.
-- Keep admin routes denser than the client portal while making the control state more obvious: open work, requests, approvals, reports, assets, billing, roadmap, and calendar.
-- Keep this pass frontend-only; no backend routes, schema, permission helpers, or client visibility rules changed.
-
-### How to Test
-
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- `cd frontend && npm test`
-- Playwright/Chrome smoke on `/operations/clients` and all focused Client Operations routes with mocked client API data.
-
-### Next Steps
-
-- Run the final review and git sequence after all verification gates pass.
-- In a later pass, bring the same production density to broader internal routes: dashboard, task tracking, daily logs, payroll, chat, file directory, and operations.
-
-## 2026-05-29 - Client Route Production Remodel Pass
-
-### Completed
-
-- Added a shared production route summary to `ClientPortalWorkspaceFrame` so work, approvals, messages, reports, resources, account, and calendar inherit the same live client status band.
-- Upgraded `/client/tickets` with the production metric strip and reusable production panel system while preserving request creation, filtering, editing, deletion, comments, quick replies, and next-action signals.
-- Kept this pass frontend-only; no API contracts, backend permissions, ownership gates, or database behavior changed.
-
-### Files Changed
-
-- `frontend/src/components/client-portal/ClientPortalWorkspaceFrame.tsx`
-- `frontend/src/app/client/tickets/page.tsx`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Prefer the shared frame for client route consistency instead of duplicating a hero/header implementation in every client page.
-- Keep client-owned edit/delete rules and existing request-center state management intact.
-- Treat the command center remodel as the design source for the remaining client route polish.
-
-### How to Test
-
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- `cd frontend && npm test`
-- Playwright/Chrome smoke on `/client/work`, `/client/approvals`, `/client/messages`, `/client/reports`, `/client/resources`, `/client/account`, `/client/calendar`, and `/client/tickets` with mocked client API data.
-
-### Next Steps
-
-- Start the admin Client Operations route pass for accounts, delivery, requests, approvals, reports, assets, billing, roadmap, and calendar.
-- After admin routes, run a broader app-shell/dashboard/task/log/payroll polish pass.
-
-## 2026-05-29 - Client And Admin UI Remodel Slice
-
-### Completed
-
-- Added shared production workspace components for hero summaries, metric strips, stat grids, and reusable panels.
-- Remodeled the client command center around live workspace status, next client action, visible delivery progress, updates, communication, request submission, metrics, and resources.
-- Remodeled the admin client-operations overview with the same production structure while preserving client scoping, role access, and existing API contracts.
-- Polished the global header/sidebar shell for a more coherent production app frame.
-- Updated the product/design direction docs to capture the client/admin command-center remodel principles.
-
-### Files Changed
-
-- `PRODUCT.md`
-- `DESIGN.md`
-- `frontend/src/app/client/page.tsx`
-- `frontend/src/app/globals.css`
-- `frontend/src/app/operations/clients/page.tsx`
-- `frontend/src/components/Header.tsx`
-- `frontend/src/components/Sidebar.tsx`
-- `frontend/src/components/client-portal/ClientOperationsPanel.tsx`
-- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
-- `frontend/src/components/client-portal/ClientPortalPanel.tsx`
-- `frontend/src/components/workspace/ProductionWorkspace.tsx`
-- `reports/client-portal-ui-remodel.html`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Keep this as a frontend-only remodel slice; no backend routes, database schema, auth behavior, or client organization scoping changed.
-- Use the reference website patterns as production app architecture, not a 1:1 marketing clone.
-- Use existing Tailwind, shadcn setup, lucide icons, and local data builders instead of adding a new animation or component dependency.
-
-### How to Test
-
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- `cd frontend && npm test`
-- Playwright/Chrome smoke on `/client` and `/operations/clients` at desktop and mobile widths with mocked client API data.
-
-### Next Steps
-
-- Carry the same shared production component system into the remaining client routes: work, approvals, messages, reports, resources, account, and calendar.
-- Then apply the admin-side pattern across accounts, delivery, requests, approvals, reports, assets, billing, roadmap, and calendar.
-- Add focused visual regression coverage once the remaining remodel slices settle.
-
-## 2026-05-28 - P3 Socket Event Authorization
-
-### Completed
-
-- Added reusable Socket.IO conversation authorization helpers for safe conversation id parsing, participant checks, and server-derived typing payloads.
-- Hardened `join:conversation` so invalid conversation ids are rejected before database lookup and room names use normalized ids.
-- Hardened `typing:start` and `typing:stop` so typing relays require conversation membership and no longer trust client-provided `userId` or `userName`.
-- Updated the chat frontend to emit only the conversation id for typing events.
-- Added focused backend tests for spoofed typing identity, invalid conversation ids, participant authorization, and missing participant denial.
-
-### Files Changed
-
-- `backend/src/notifications/socket.authorization.ts`
-- `backend/src/notifications/socket.service.ts`
-- `backend/tests/socket.authorization.test.ts`
-- `backend/tests/run-tests.ts`
-- `frontend/src/app/chat/page.tsx`
-- `.github/copilot-instructions.md`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Treat the JWT payload as the identity source for socket events.
-- Keep authorization close to each conversation-scoped socket action instead of relying on prior room joins.
-- Ignore invalid/unauthorized typing events without broadcasting them to other clients.
-
-### How to Test
-
-- `cd backend && npx ts-node tests/socket.authorization.test.ts`
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-
-### Next Steps
-
-- Add upload magic-byte validation and avatar storage hardening.
-- Add a structured logger to replace production `console.log` usage.
-
-## 2026-05-28 - P2 Auth Rate Limiting And Security Headers
-
-### Completed
-
-- Added Helmet-based backend security headers with strict API-safe CSP, frame blocking, no-sniff, referrer policy, and production-only HSTS.
-- Added auth route rate limiting for login, signup, forgot-password, and reset-password flows.
-- Added Redis-backed auth rate-limit storage for production/distributed deployments, with memory mode for local development and tests.
-- Added a Redis service to Docker Compose and wired the backend to use it for distributed auth limits.
-- Added focused backend middleware tests for 429 throttling, endpoint isolation, rate-limit headers, store-mode resolution, and security headers.
-
-### Files Changed
-
-- `backend/src/security/rate-limit-config.ts`
-- `backend/src/security/rate-limits.ts`
-- `backend/src/security/redis-rate-limit.store.ts`
-- `backend/src/security/security-headers.ts`
-- `backend/src/auth/auth.controller.ts`
-- `backend/src/config/env.config.ts`
-- `backend/src/main.ts`
-- `backend/tests/security.middleware.test.ts`
-- `backend/tests/run-tests.ts`
-- `backend/package.json`
-- `backend/package-lock.json`
-- `backend/.env.example`
-- `docker-compose.yml`
-- `.github/copilot-instructions.md`
-- `docs/architecture.md`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Use Redis for production auth limiter state so multiple backend instances share the same counters.
-- Keep local/test default storage in memory to avoid requiring Redis for fast developer checks.
-- Apply rate limits at the auth route boundary before controller logic runs.
-- Keep HSTS production-only so local HTTP development is not affected.
-
-### How to Test
-
-- `cd backend && npx ts-node tests/security.middleware.test.ts`
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `docker compose config` with local `POSTGRES_PASSWORD`, `JWT_SECRET`, and `REFRESH_TOKEN_SECRET`
-
-### Next Steps
-
-- Add upload magic-byte validation.
-- Evaluate CSRF strategy for any browser-cookie-authenticated flows.
-- Continue controller input validation work with a dedicated validation library.
-
-## 2026-05-28 - P1 Repository Hardening Cleanup
-
-### Completed
-
-- Added backend and frontend Docker ignore files so local env files, build output, uploads, debug outputs, logs, backups, and caches are not sent into image build contexts.
-- Switched the backend Docker build from `npm install` to lockfile-based `npm ci`.
-- Removed tracked one-off backend check/fix/list/debug/cleanup/test scripts, old manual seed scripts, seed logs, frontend throwaway test helpers, and `.bak` page files.
-- Replaced the Prisma seed data with synthetic demo accounts and required `SEED_DEFAULT_PASSWORD` instead of a checked-in shared password.
-- Replaced the chat avatar fallback with local initials so missing avatars do not send names to a third-party image service.
-- Removed the Docker Compose `POSTGRES_PASSWORD` fallback so Compose requires an explicit local database password, matching the existing JWT secret behavior.
-
-### Files Changed
-
-- `backend/.dockerignore`
-- `frontend/.dockerignore`
-- `backend/Dockerfile`
-- `docker-compose.yml`
-- `backend/package.json`
-- `backend/.env.example`
-- `backend/prisma/seed.ts`
-- `frontend/src/app/chat/page.tsx`
-- `frontend/next.config.ts`
-- `.github/copilot-instructions.md`
-- `docs/architecture.md`
-- Removed obsolete tracked scripts and throwaway files from `backend/`, `backend/src/final_sync.ts`, and root-level frontend helper/backup files.
-
-### Decisions Made
-
-- Keep durable seed behavior in `backend/prisma/seed.ts`, but make it synthetic and local-password driven.
-- Do not preserve one-off database mutation/debug scripts in tracked source; recreate deliberate admin tooling later under a documented tools area if needed.
-- Treat Docker build context contents as part of security posture, not just deployment convenience.
-
-### How to Test
-
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd backend && npx prisma validate`
-- `cd backend && npx prisma generate`
-- `cd backend && npm ci --dry-run`
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- `cd frontend && npm ci --dry-run`
-- `docker compose config` with local `POSTGRES_PASSWORD`, `JWT_SECRET`, and `REFRESH_TOKEN_SECRET`
-- `git diff --check`
-- Search tracked files for removed sensitive fixture strings and password-hash logging.
-
-### Next Steps
-
-- Auth rate limiting and security headers were completed in the 2026-05-28 P2 hardening pass.
-- Consider creating a small, documented `backend/tools/` area only for reusable operator tooling with no real user data.
-
-## 2026-05-27 - Client Portal Request Copy And Public Socket Preview
-
-### Completed
-
-- Removed the extra command-center organization selector and top `Ticket center` shortcut from the client command center.
-- Aligned client-facing request copy so the portal says `Requests` instead of exposing internal ticket terminology.
-- Fixed mobile overflow on the client Work and Requests pages by allowing grid panels to shrink inside the viewport.
-- Moved the Socket.IO client path behind the existing `/api` proxy so the Cloudflare preview no longer calls loopback backend URLs.
-
-### Files Changed
-
-- `backend/src/notifications/socket.service.ts`
-- `frontend/next.config.ts`
-- `frontend/src/app/client/messages/page.tsx`
-- `frontend/src/app/client/page.tsx`
-- `frontend/src/app/client/tickets/page.tsx`
-- `frontend/src/app/client/work/page.tsx`
-- `frontend/src/components/client-portal/ClientPortalPanel.tsx`
-- `frontend/src/components/client-portal/ClientTicketFilterControls.tsx`
-- `frontend/src/context/SocketContext.tsx`
-- `frontend/src/lib/client-ticket-filters.ts`
-- `frontend/tests/client-ticket-filters.test.mjs`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Keep internal route names and `ClientTicket` types unchanged; only client-visible copy was adjusted.
-- Use `/api/socket` for browser Socket.IO traffic so local and temporary public previews share the same Next proxy pattern as REST API calls.
-
-### How to Test
-
-- `cd frontend && npm run lint`
-- `cd frontend && npm test`
-- `cd frontend && npm run build`
-- `cd backend && npm run build`
-- `cd backend && npm test`
-- Browser smoke: login as the Gem Field demo client and check `/client`, `/client/work`, `/client/messages`, `/client/reports`, `/client/resources`, `/client/tickets`, `/client/calendar`, `/client/approvals`, and `/client/account` on desktop and mobile.
-- Public preview smoke: open `/client` and `/client/tickets` through the Cloudflare URL and confirm no `Ticket center`, no client organization selector on Command Center, no horizontal overflow, and no failed socket/API requests.
-
-### Next Steps
-
-- Commit the verified portal cleanup, then push only when the preview is ready to share externally.
-
-## 2026-05-27 - Verification Pass And Calendar Patch Guard
-
-### Completed
-
-- Ran the backend/frontend readiness checks, Prisma validation/generation, dependency audit checks, Compose config validation, and git diff hygiene checks against the current client portal worktree.
-- Smoke-tested the local app through a temporary current-source stack on backend `4100` and frontend `3001`, including login, client organization reads, overview reads, ticket reads, action queue reads, and key client/admin pages at desktop and mobile widths.
-- Added a backend regression guard so calendar PATCH requests cannot move `endAt` before the existing `startAt` when only `endAt` is submitted.
-
-### Files Changed
-
-- `backend/src/clients/clients.service.ts`
-- `backend/tests/clients.routes.test.ts`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Keep the date-order guard in the service update path so admin and client calendar updates share the same server-side rule.
-- Preserve the existing date-only frontend payload behavior; the fix protects direct API callers and future partial-update clients.
-
-### How to Test
-
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- `cd backend && npx prisma validate`
-- `cd backend && npm run prisma:generate`
-- `cd backend && npx prisma migrate status`
-- `cd backend && npm audit --audit-level=high`
-- `cd frontend && npm audit --audit-level=high`
-- `cd backend && npm ci --dry-run`
-- `cd frontend && npm ci --dry-run`
-- `docker compose config` with local `JWT_SECRET` and `REFRESH_TOKEN_SECRET`
-- `git diff --check`
-- Browser smoke: login and open `/operations/clients`, `/operations/clients/reports`, `/operations/clients/calendar`, `/client`, `/client/calendar`, `/client/resources`, `/client/tickets`, and `/client/messages` at desktop and mobile widths.
-
-### Next Steps
-
-- Run the same verification suite once more immediately before commit, push, or deployment.
-
-## 2026-05-27 - Client Report Draft Builder
-
-### Completed
-
-- Added an internal-only report draft endpoint that generates `ClientReport` drafts from visible client operations records for a selected period.
-- Derived draft summaries from completed work, resolved requests, published updates, approvals, roadmap items, calendar activity, and metric snapshots.
-- Added admin `/operations/clients/reports` support for generating an editable draft before publishing.
-- Kept client `/client/reports` visibility unchanged: clients only receive reports that are both published and client-visible.
-
-### Files Changed
-
-- `backend/src/clients/clients.report-builder.ts`
-- `backend/src/clients/clients.controller.ts`
-- `backend/src/clients/clients.service.ts`
-- `backend/src/clients/clients.validation.ts`
-- `backend/tests/clients.production-records.test.ts`
-- `backend/tests/clients.routes.test.ts`
-- `frontend/src/components/client-portal/production-records/ReportsPanel.tsx`
-- `frontend/src/lib/client-portal.ts`
-- `frontend/src/lib/client-production-record-forms.ts`
-- `frontend/tests/client-production-record-forms.test.mjs`
-- `docs/api.md`
-- `docs/features.md`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Use draft `ClientReport` records instead of adding a new report-builder table.
-- Keep generated drafts editable through the existing report edit/publish controls.
-- Derive leads, missed opportunities, reputation, and local visibility from client-visible metric snapshots only.
-
-### How to Test
-
-- `cd backend && npx ts-node tests/clients.production-records.test.ts`
-- `cd backend && npx ts-node tests/clients.routes.test.ts`
-- `cd frontend && npm test -- client-production-record-forms.test.mjs`
-- Browser smoke: open `/operations/clients/reports`, select a client, enter a period, click `Generate Draft`, edit the generated draft, publish it, then confirm it appears on `/client/reports`.
-
-### Next Steps
-
-- Add richer source-specific report sections if operations wants separate editable narrative blocks instead of one generated summary.
-
-## 2026-05-27 - Client Calendar Owned CRUD
-
-### Completed
-
-- Added client-safe calendar create, edit, and delete access for assigned client users.
-- Scoped client calendar mutations to records created by the same client user, while internal management keeps full calendar access.
-- Forced client-created and client-edited calendar items to stay `planned`, client-visible, organization-scoped, and creator-owned from server context.
-- Added `/client/calendar` add/edit/delete controls and date-click creation against the same FullCalendar surface as admin Client Operations.
-
-### Files Changed
-
-- `backend/src/clients/clients.controller.ts`
-- `backend/src/clients/clients.serializers.ts`
-- `backend/src/clients/clients.service.ts`
-- `backend/src/clients/clients.validation.ts`
-- `backend/tests/clients.routes.test.ts`
-- `frontend/src/app/client/calendar/page.tsx`
-- `frontend/src/lib/client-portal.ts`
-- `docs/api.md`
-- `docs/database.md`
-- `docs/features.md`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Use existing `ClientCalendarItem.createdById` ownership instead of adding a new table or route family.
-- Keep admin-created schedule items read-only for clients so clients cannot accidentally change the team's production calendar.
-- Keep client calendar items simple and visible by default instead of exposing admin workflow status or visibility controls.
-
-### How to Test
-
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- Browser smoke: sign in as a client, open `/client/calendar`, add an item, edit it, delete it, and confirm admin-created calendar items do not show client edit/delete controls.
-
-## 2026-05-27 - Client Workspace Safe CRUD
-
-### Completed
-
-- Added client-owned resource ownership with an additive `ClientResourceLink.createdById` field and migration.
-- Added client-safe update/delete API routes for resources, scoped so clients can only edit or delete links they personally shared.
-- Added client-safe ticket update/delete API routes. Clients can edit request details for tickets in their assigned organization, and delete requests only before conversation history exists.
-- Added edit/delete controls on `/client/resources` and `/client/tickets` with server-side authorization as the source of truth.
-
-### Files Changed
-
-- `backend/prisma/schema.prisma`
-- `backend/prisma/migrations/202605270003_client_resource_ownership/migration.sql`
-- `backend/src/clients/clients.activity.ts`
-- `backend/src/clients/clients.controller.ts`
-- `backend/src/clients/clients.serializers.ts`
-- `backend/src/clients/clients.service.ts`
-- `backend/src/clients/clients.validation.ts`
-- `backend/tests/clients.access.test.ts`
-- `backend/tests/clients.routes.test.ts`
-- `frontend/src/app/client/resources/page.tsx`
-- `frontend/src/app/client/tickets/page.tsx`
-- `frontend/src/lib/client-portal.ts`
-- `docs/api.md`
-- `docs/database.md`
-- `docs/features.md`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Do not give clients admin-style CRUD over reports, billing, delivery tasks, approvals, roadmap, or published calendar records.
-- Make client resource mutation ownership explicit with `createdById` instead of relying on frontend filtering or resource type alone.
-- Keep destructive ticket deletion limited to requests with no comments so conversation history stays intact.
-
-### How to Test
-
-- `cd backend && npm run prisma:deploy`
-- `cd backend && npm run prisma:generate`
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- Browser smoke: `/client/resources` and `/client/tickets`.
-
-### Next Steps
-
-- Add optional activity/notification rules for client-shared resource edits if operations wants them in the action queue.
-
-## 2026-05-27 - Client Portal Calendar, Resources, And Messages Polish
-
-### Completed
-
-- Reworked `/client/calendar` to use the same FullCalendar month/week/day schedule surface as admin Client Operations, with client-readable detail and item list panels.
-- Added a client-safe resource sharing form on `/client/resources` for title and link submission.
-- Allowed assigned client users to create resource links for their own active organization while forcing client-safe `client_link` type, visible resource status, and http/https URLs.
-- Updated `/client/messages` so ticket request details appear in conversation history even before replies exist.
-- Suppressed the employee time clock on client portal routes to keep client pages focused and avoid payroll fetch noise for external client users.
-
-### Files Changed
-
-- `backend/src/clients/clients.controller.ts`
-- `backend/src/clients/clients.validation.ts`
-- `backend/tests/clients.access.test.ts`
-- `backend/tests/clients.routes.test.ts`
-- `frontend/src/app/client/calendar/page.tsx`
-- `frontend/src/app/client/resources/page.tsx`
-- `frontend/src/app/client/messages/page.tsx`
-- `frontend/src/components/Header.tsx`
-- `frontend/src/lib/client-portal.ts`
-- `docs/api.md`
-- `docs/features.md`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Keep client calendar read-only, but visually aligned with the admin planning calendar.
-- Reuse the existing resource endpoint with stricter client-side authorization and server-derived client-visible fields instead of adding a duplicate route.
-- Treat the original ticket description as the first client-visible conversation entry.
-
-### How to Test
-
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- Browser smoke: `/client/calendar`, `/client/resources`, and `/client/messages`.
-
-### Next Steps
-
-- Consider adding activity events for client-shared resources if the team wants resource uploads to appear in the action queue.
-
-## 2026-05-27 - Client Activity And Action Queue Foundation
-
-### Completed
-
-- Added an additive `ClientActivity` audit table with scoped visibility for internal and client-visible client-operations events.
-- Added activity and action-queue API endpoints with tenant checks, bounded filters, explicit serialization, and route-level tests.
-- Recorded audit-significant activity in the same transaction as request replies, approval decisions, billing updates, calendar scheduling/deletion, account archive/restore, work updates, and report publishing.
-- Added shared frontend activity and queue helpers, reusable timeline/queue components, and dashboard integrations for admin Client Operations, the client command center, and client Messages.
-- Preserved client privacy by forcing client activity reads to `client` visibility and omitting internal metadata from client responses.
-- Browser-smoked admin Client Operations, client command center, and mobile client Messages against the local production build with no horizontal overflow.
-
-### Files Changed
-
-- `backend/prisma/schema.prisma`
-- `backend/prisma/migrations/202605270002_client_activity/migration.sql`
-- `backend/src/clients/clients.activity.ts`
-- `backend/src/clients/clients.controller.ts`
-- `backend/src/clients/clients.serializers.ts`
-- `backend/src/clients/clients.service.ts`
-- `backend/src/clients/clients.validation.ts`
-- `backend/tests/clients.activity.test.ts`
-- `backend/tests/clients.routes.test.ts`
-- `backend/tests/run-tests.ts`
-- `frontend/src/lib/client-activity.ts`
-- `frontend/src/hooks/useClientOperationsWorkspace.ts`
-- `frontend/src/hooks/useClientPortalWorkspace.ts`
-- `frontend/src/components/client-portal/ClientActionQueue.tsx`
-- `frontend/src/components/client-portal/ClientActivityTimeline.tsx`
-- `frontend/src/app/operations/clients/page.tsx`
-- `frontend/src/app/client/page.tsx`
-- `frontend/src/app/client/messages/page.tsx`
-- `frontend/tests/client-activity.test.mjs`
-- `docs/api.md`
-- `docs/database.md`
-- `docs/features.md`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Keep the action queue derived from existing operational records instead of creating another persistent queue table.
-- Store activity events as append-only records and enforce visibility at both query and serializer layers.
-- Put the shared queue/timeline UI into reusable client-portal components so admin and client pages can stay visually consistent.
-
-### How to Test
-
-- `cd backend && npm run prisma:deploy`
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd frontend && npm test`
-- `cd frontend && npm run build`
-- Browser smoke: `/operations/clients`, `/client`, and `/client/messages` at desktop/mobile widths.
-
-### Next Steps
-
-- Consider adding notification rules on top of `ClientActivity` once the queue behavior is validated with real client workflows.
-
-## 2026-05-27 - Client Operations Production Readiness
-
-### Completed
-
-- Added a phased production-readiness plan for Client Operations security, backend validation, frontend polish, browser QA, deployment smoke checks, and final release review.
-- Added route-level tenant isolation tests so client users cannot read another organization, list another organization's tickets, create internal work items, or respond to another organization's approvals.
-- Hardened production-record validation for priority values, non-negative report and billing numbers, and calendar date ordering.
-- Reduced unnecessary Client Operations data fetching by loading approved users only on the Accounts route where user assignment controls need them.
-- Cleaned production startup output by making request logging quiet in normal production mode and replacing emoji startup logs with ASCII text.
-- Verified local and Cloudflare preview health, CORS origin handling, protected auth behavior, admin/client communication flows, layout responsiveness, and critical workspace accessibility.
-
-### Files Changed
-
-- `backend/src/clients/clients.validation.ts`
-- `backend/src/config/env.config.ts`
-- `backend/src/main.ts`
-- `backend/tests/clients.production-records.test.ts`
-- `backend/tests/clients.routes.test.ts`
-- `frontend/next.config.ts`
-- `frontend/src/hooks/useClientOperationsWorkspace.ts`
-- `docs/dev-notes.md`
-- `docs/superpowers/plans/2026-05-27-client-operations-production-readiness.md`
-
-### Decisions Made
-
-- Keep full-production readiness as the priority instead of trimming scope to an MVP pass.
-- Preserve client history through scoped visibility, archives, and role checks while using targeted validation to block bad production records before they hit the database.
-- Keep broad browser QA based on mocked tenant data for repeatability, and use live local/Cloudflare smoke checks for deployment reachability.
-- Treat high or critical dependency audit findings as release blockers before any push or production handoff.
-
-### How to Test
-
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd backend && npx prisma validate`
-- `cd backend && npx prisma generate`
-- `cd backend && npm audit --audit-level=high`
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- `cd frontend && npm audit --audit-level=high`
-- `docker compose config` with local `JWT_SECRET` and `REFRESH_TOKEN_SECRET`
-- `git diff --check`
-- Browser smoke: verify `/operations/clients/*` and `/client/*` pages at desktop and mobile widths, plus local `/login`, `/health`, and the Cloudflare preview URL.
-
-### Next Steps
-
-- Before production launch, set real production `DATABASE_URL`, `JWT_SECRET`, `REFRESH_TOKEN_SECRET`, `CORS_ORIGIN`, `BACKEND_URL`, `NEXT_PUBLIC_API_URL`, and `NEXT_PUBLIC_WS_URL` in the hosting environment.
-- Replace the temporary Cloudflare preview with the final Vercel/production URL once billing and deployment configuration are complete.
-- Run this same release check suite immediately before committing, pushing, or deploying.
-
-## 2026-05-27 - Calendar Date-Only And Hard Delete
-
-### Completed
-
-- Changed Client Calendar form inputs, list labels, and FullCalendar events to use date-only scheduling instead of showing start/end times.
-- Added a management-only hard-delete API route for calendar items while keeping archive/restore available for history-preserving cases.
-- Added a destructive Delete action to calendar item cards with a confirmation prompt before permanent removal.
-- Added backend route coverage for unauthorized calendar deletes, successful deletes, missing-item deletes, and overview removal.
-
-### Files Changed
-
-- `backend/src/clients/clients.controller.ts`
-- `backend/src/clients/clients.service.ts`
-- `backend/tests/clients.routes.test.ts`
-- `frontend/src/components/client-portal/production-records/CalendarPanel.tsx`
-- `frontend/src/lib/client-planning-records.ts`
-- `frontend/src/lib/client-portal.ts`
-- `frontend/tests/client-planning-records.test.mjs`
-- `frontend/tests/client-production-record-forms.test.mjs`
-- `docs/api.md`
-- `docs/dev-notes.md`
-- `docs/features.md`
-
-### Decisions Made
-
-- Keep the existing `ClientCalendarItem.startAt`/`endAt` DateTime fields, but submit date-only values from the UI.
-- Limit hard delete to calendar items for now because the user explicitly asked for this calendar behavior.
-- Keep archive/restore for reversible history and add Delete for records that should be removed entirely.
-
-### How to Test
-
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- `git diff --check`
-- Browser smoke: open `/operations/clients/calendar`, create a date-only item, confirm the event/list show only dates, then delete a test item and verify it disappears instead of moving to history.
-
-## 2026-05-27 - Profile Drawer Layout Fix
-
-### Completed
-
-- Fixed the profile drawer so its background and content fill the viewport instead of inheriting the fixed header height.
-- Moved profile footer metadata into normal drawer flow so it no longer jumps near the top or overlays page content.
-- Applied the same viewport-height drawer foundation to notifications because it used the same sidebar pattern.
-
-### Files Changed
-
-- `frontend/src/components/ProfileSidebar.tsx`
-- `frontend/src/components/NotificationSidebar.tsx`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Keep the existing slideout interaction, but portal drawer roots to `document.body` with `inset-y-0`, internal scrolling, and lower z-index than shared modals.
-- Keep the profile avatar inside the drawer flow with responsive dimensions instead of allowing it to overflow over the workspace.
-
-### How to Test
-
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- `git diff --check`
-- Browser smoke: open the profile and notification drawers at desktop and narrow widths, confirm drawer backgrounds cover their content and the page behind remains visually separated.
-
-## 2026-05-27 - Requests Workspace Layout Polish
-
-### Completed
-
-- Reworked the Requests workspace split so the ticket list and detail panel keep useful widths on desktop.
-- Changed ticket filters to a wrapping grid so search, status, priority, and type controls do not clip in the left column.
-- Replaced the detail panel's desktop top divider with a left divider and converted long reply presets into two-column wrapped buttons.
-
-### Files Changed
-
-- `frontend/src/components/client-portal/AdminClientRequestsPanel.tsx`
-- `frontend/src/components/client-portal/AdminTicketPanel.tsx`
-- `frontend/src/components/client-portal/ClientTicketFilterControls.tsx`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Keep the side-by-side admin workflow on desktop, but make filter controls container-safe.
-- Use wrapped quick-reply buttons so canned replies remain readable in dark mode and narrow panes.
-
-### How to Test
-
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- `git diff --check`
-- Browser smoke: open `/operations/clients/requests`, verify filters, selected ticket detail, reply visibility, and quick replies in desktop and mobile widths.
-
-## 2026-05-27 - Client Operations Layout Polish
-
-### Completed
-
-- Fixed the shared modal overlay offset so desktop dialogs align with the 288px sidebar instead of starting 32px too far left.
-- Reworked the Roadmap board and Client Operations work-area grids to use responsive minimum column widths instead of forcing cramped five-column layouts.
-- Delayed the Calendar page two-column split until wider screens so the calendar grid no longer collapses beside the scheduled-work list on standard desktop widths.
-- Moved app toast notifications below the fixed header and downgraded expected socket auth failures from console errors to warnings to avoid the local Next.js issue badge covering the UI during development.
-
-### Files Changed
-
-- `frontend/src/app/operations/clients/page.tsx`
-- `frontend/src/components/Modal.tsx`
-- `frontend/src/components/ToastProvider.tsx`
-- `frontend/src/components/client-portal/production-records/CalendarPanel.tsx`
-- `frontend/src/components/client-portal/production-records/RoadmapPanel.tsx`
-- `frontend/src/context/SocketContext.tsx`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Keep the existing client-operations shell and sidebar structure, but make dense internal panels wrap based on available content width.
-- Treat invalid local socket tokens as recoverable connection warnings, not page-blocking development errors.
-
-### How to Test
-
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- `git diff --check`
-- Browser smoke: verify `/operations/clients/calendar` and `/operations/clients/roadmap` at desktop and mobile widths, open a calendar modal, and confirm no horizontal overflow or Next.js issue badge appears.
-
-## 2026-05-27 - Roadmap And Calendar Planning UI
-
-### Completed
-
-- Replaced always-visible Roadmap form inputs with modal-based create/edit controls and a board layout on the dedicated Roadmap page.
-- Added modal create/edit/archive/restore actions for roadmap recommendations while keeping compact cards in shared production-record views.
-- Replaced the dedicated Client Calendar page with an actual month/week/day calendar powered by the existing calendar records.
-- Added date-click scheduling, event-click editing, side-list CRUD controls, archive/restore behavior, and compact modal-based calendar controls.
-- Added focused frontend helper coverage for roadmap grouping, calendar event mapping, date sorting, and date-click draft times.
-
-### Files Changed
-
-- `frontend/src/app/operations/clients/calendar/page.tsx`
-- `frontend/src/app/operations/clients/roadmap/page.tsx`
-- `frontend/src/components/client-portal/production-records/CalendarPanel.tsx`
-- `frontend/src/components/client-portal/production-records/RoadmapPanel.tsx`
-- `frontend/src/components/client-portal/production-records/types.ts`
-- `frontend/src/lib/client-planning-records.ts`
-- `frontend/tests/client-planning-records.test.mjs`
-- `docs/dev-notes.md`
-- `docs/features.md`
-
-### Decisions Made
-
-- Keep the current backend API and soft-delete archive pattern; CRUD delete behavior remains archive/restore.
-- Use the full calendar only on the dedicated Calendar page while keeping shared production-record panels compact.
-- Use modals for create/edit so the working surfaces stay scannable and client planning records remain editable.
-
-### How to Test
-
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- `git diff --check`
-- Browser smoke: open `/operations/clients/roadmap` and `/operations/clients/calendar`, create/edit through modals, archive/restore an item, and confirm the calendar event reflects the saved schedule.
-
-## 2026-05-27 - Client Account Archive Controls
-
-### Completed
-
-- Added a management-only client organization status endpoint for archiving and restoring client accounts.
-- Scoped client-user organization visibility to active organizations with active memberships, so archived clients no longer appear in the client portal.
-- Added typed-confirmation archive controls and restore action on Client Operations Accounts.
-- Split the Client Operations picker into current clients and an archived history section so removed clients are still recoverable without crowding daily workflow.
-- Added route-level coverage for unauthorized archive attempts, invalid statuses, client visibility after archive, and restore behavior.
-
-### Files Changed
-
-- `backend/src/clients/clients.access.ts`
-- `backend/src/clients/clients.controller.ts`
-- `backend/src/clients/clients.service.ts`
-- `backend/src/clients/clients.validation.ts`
-- `backend/tests/clients.access.test.ts`
-- `backend/tests/clients.routes.test.ts`
-- `frontend/src/app/operations/clients/accounts/page.tsx`
-- `frontend/src/components/client-portal/AdminClientArchivePanel.tsx`
-- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
-- `frontend/src/hooks/useClientOperationsWorkspace.ts`
-- `frontend/src/lib/client-organization-history.ts`
-- `frontend/src/lib/client-portal-options.ts`
-- `frontend/src/lib/client-portal.ts`
-- `frontend/tests/client-organization-history.test.mjs`
-- `docs/api.md`
-- `docs/architecture.md`
-- `docs/database.md`
-- `docs/dev-notes.md`
-- `docs/features.md`
-
-### Decisions Made
-
-- Treat removing a client as `status: archived`, not a hard delete, so historical records, files, billing notes, and conversations remain available.
-- Keep restore available to internal client-management roles from the Accounts page.
-- Keep archived organizations visible to internal managers/admins/web developers but hidden from client users.
-
-### How to Test
-
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- Browser smoke: open `/operations/clients/accounts`, archive a test client by typing its exact name, confirm it shows as archived internally, then restore it.
-
-## 2026-05-27 - Sidebar-First Workspace Navigation
-
-### Completed
-
-- Removed duplicate in-page Client Operations section navigation now that the **Client Side** sidebar exposes all focused Client Operations routes.
-- Removed duplicate client portal section navigation from the client command center, ticket center, and shared client workspace frame.
-- Deleted the unused `ClientPortalSectionNav` component to avoid maintaining two route-navigation systems.
-
-### Files Changed
-
-- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
-- `frontend/src/components/client-portal/ClientPortalWorkspaceFrame.tsx`
-- `frontend/src/app/client/page.tsx`
-- `frontend/src/app/client/tickets/page.tsx`
-- `frontend/src/components/client-portal/ClientPortalSectionNav.tsx`
-- `docs/architecture.md`
-- `docs/dev-notes.md`
-- `docs/features.md`
-
-### Decisions Made
-
-- Keep the sidebar as the primary workspace navigation source.
-- Keep client selectors and page-specific actions inside the workspace because those are context controls, not duplicate navigation.
-
-### How to Test
-
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- Browser smoke: client workspace pages and Client Operations pages still load, sidebar route links remain available, and no duplicate section nav appears above content.
-
-## 2026-05-27 - Client Operations Route Split
-
-### Completed
-
-- Split the crowded Client Operations workspace into focused routes for overview, accounts, delivery, requests, approvals, reports, assets, billing, roadmap, and calendar.
-- Added shared Client Operations navigation, route metadata, selected-client query links, role-guarded shell, client picker, summary header, and workspace loading hook.
-- Reused existing backend APIs and production-record panels instead of changing schema or duplicating server routes.
-- Updated the **Client Side** sidebar to expose focused Client Operations pages while keeping Web Developer access limited to client operations.
-
-### Files Changed
-
-- `frontend/src/app/operations/clients/page.tsx`
-- `frontend/src/app/operations/clients/accounts/page.tsx`
-- `frontend/src/app/operations/clients/delivery/page.tsx`
-- `frontend/src/app/operations/clients/requests/page.tsx`
-- `frontend/src/app/operations/clients/approvals/page.tsx`
-- `frontend/src/app/operations/clients/reports/page.tsx`
-- `frontend/src/app/operations/clients/assets/page.tsx`
-- `frontend/src/app/operations/clients/billing/page.tsx`
-- `frontend/src/app/operations/clients/roadmap/page.tsx`
-- `frontend/src/app/operations/clients/calendar/page.tsx`
-- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
-- `frontend/src/hooks/useClientOperationsWorkspace.ts`
-- `frontend/src/lib/client-operations-navigation.ts`
-- `frontend/tests/client-operations-navigation.test.mjs`
-- `docs/architecture.md`
-- `docs/dev-notes.md`
-- `docs/features.md`
-
-### Decisions Made
-
-- Keep existing backend endpoints and use route-level frontend separation first.
-- Preserve selected client context with `?client=:id` so admins can move between pages without losing the active account.
-- Keep `/operations/clients` as the command center instead of another dense editing surface.
-
-### How to Test
-
-- `cd frontend && node --test tests/client-operations-navigation.test.mjs tests/role-access.test.mjs`
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- Browser smoke: admin and web developer can navigate every **Client Side** route; ordinary client users do not see Client Side.
-
-### Next Steps
-
-- Consider smaller route-specific backend endpoints later if the overview payload becomes too heavy with real production data.
-
-## 2026-05-27 - Client Side Sidebar Separation
-
-### Completed
-
-- Added a dedicated **Client Side** sidebar section that links directly to Client Operations.
-- Allowed Web Developer/webdev role variants to use Client Operations without adding them to the broader management/admin role set.
-- Kept the base Operations page focused on departments and roles by removing the Client Operations shortcut card.
-- Updated Client Operations header copy to frame the area as client workspaces, requests, approvals, reports, and delivery progress.
-
-### Files Changed
-
-- `backend/src/clients/clients.access.ts`
-- `backend/tests/clients.access.test.ts`
-- `frontend/src/app/operations/page.tsx`
-- `frontend/src/app/operations/clients/page.tsx`
-- `frontend/src/components/Header.tsx`
-- `frontend/src/components/Sidebar.tsx`
-- `frontend/src/lib/role-access.ts`
-- `frontend/tests/role-access.test.mjs`
-- `docs/api.md`
-- `docs/architecture.md`
-- `docs/dev-notes.md`
-- `docs/features.md`
-
-### Decisions Made
-
-- Keep the existing `/operations/clients` route to avoid breaking current links.
-- Use sidebar grouping to separate client work from company Operations before doing a larger Client Operations page split.
-- Treat Web Developer as client-operations-capable only, not as a general management role.
-
-### How to Test
-
-- `cd backend && npx ts-node tests/run-tests.ts`
-- `cd frontend && node --test tests/role-access.test.mjs`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- Browser smoke: Web Developer and Operations Manager see **Client Side > Client Operations**; ordinary employees and client users do not.
-
-### Next Steps
-
-- Split the Client Operations page into clearer tabs or routes for Accounts, Delivery, Requests, Reporting, Assets, Billing, and Calendar.
-
-## 2026-05-27 - Client Invite Onboarding And Route Coverage
-
-### Completed
-
-- Added a management-only client invitation endpoint that creates or updates a client user, assigns the global `client` role, upserts organization membership, and creates a setup token for first-time users.
-- Added route-level integration coverage for unauthenticated invites, unauthorized client invites, protected-field handling, reset-password onboarding, login, and client organization scoping.
-- Added an external-client invite form to Client Operations with role/status controls and a copyable setup link when email delivery is disabled.
-- Added frontend invite helpers and tests for sanitized invite payloads and delivery-state labels.
-
-### Files Changed
-
-- `backend/src/clients/clients.controller.ts`
-- `backend/src/clients/clients.serializers.ts`
-- `backend/src/clients/clients.service.ts`
-- `backend/src/clients/clients.validation.ts`
-- `backend/tests/clients.routes.test.ts`
-- `backend/tests/run-tests.ts`
-- `frontend/src/components/client-portal/AdminClientMembersPanel.tsx`
-- `frontend/src/lib/client-invitations.ts`
-- `frontend/src/lib/client-portal.ts`
-- `frontend/tests/client-invitations.test.mjs`
-- `docs/api.md`
-- `docs/architecture.md`
-- `docs/database.md`
-- `docs/dev-notes.md`
-- `docs/features.md`
-
-### Decisions Made
-
-- Keep invites inside Client Operations instead of adding a separate onboarding route.
-- Reuse the existing password reset flow for setup links so first-time client onboarding does not require a new credential system.
-- Return a setup link only when email delivery is not configured or fails, so local/manual workflows remain usable without exposing tokens in normal email-sent responses.
-
-### How to Test
-
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- Browser smoke: invite a temporary client from `/operations/clients`, copy the setup link if shown, complete `/reset-password`, then confirm the new client can log in and only sees assigned client organizations.
-
-### Next Steps
-
-- Decide whether production email should use the current password-reset template or a dedicated client-invite template before public launch.
-
-## 2026-05-27 - Client Team CRUD And Communication Next Actions
-
-### Completed
-
-- Added safe client membership update support for role/status changes and deactivation without destructive deletion.
-- Exposed active client-safe membership details in client overview responses so `/client/account` can show team access.
-- Replaced the inline Client Operations member form with a focused admin member panel for adding users, editing roles/status, deactivating, and reactivating access.
-- Added shared client ticket next-action helpers so admin ticket panels, client tickets, and client messages show whether the team or client is expected to respond.
-- Added regression tests for membership payloads and communication next-action behavior.
-
-### Files Changed
-
-- `backend/src/clients/clients.controller.ts`
-- `backend/src/clients/clients.serializers.ts`
-- `backend/src/clients/clients.service.ts`
-- `backend/src/clients/clients.validation.ts`
-- `backend/tests/clients.access.test.ts`
-- `frontend/src/app/client/account/page.tsx`
-- `frontend/src/app/client/messages/page.tsx`
-- `frontend/src/app/client/tickets/page.tsx`
-- `frontend/src/app/operations/clients/page.tsx`
-- `frontend/src/components/client-portal/AdminClientMembersPanel.tsx`
-- `frontend/src/components/client-portal/AdminTicketList.tsx`
-- `frontend/src/components/client-portal/AdminTicketPanel.tsx`
-- `frontend/src/lib/client-communication.ts`
-- `frontend/src/lib/client-memberships.ts`
-- `frontend/src/lib/client-portal.ts`
-- `frontend/tests/client-communication.test.mjs`
-- `frontend/tests/client-memberships.test.mjs`
-- `docs/api.md`
-- `docs/architecture.md`
-- `docs/database.md`
-- `docs/dev-notes.md`
-- `docs/features.md`
-
-### Decisions Made
-
-- Treat membership deletion as status deactivation so tenant history and access audit context remain intact.
-- Canonicalize legacy membership roles like `owner`, `admin`, and `member` into `client_owner`, `client_admin`, and `client_member`.
-- Derive communication next actions from existing ticket status, client-visible comments, and ticket ownership rather than adding another schema field.
-
-### How to Test
-
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- Browser smoke: `/operations/clients` member add/edit/deactivate controls, `/client/account` team access list, `/client/tickets` next-action panel, and `/client/messages` next-action labels.
-
-### Next Steps
-
-- Expand route-level coverage around membership update permissions if management role rules change.
-
-## 2026-05-27 - Production Record Panel Refactor And Edit Forms
-
-### Completed
-
-- Split the oversized Client Operations production-record component into focused panels under `frontend/src/components/client-portal/production-records`.
-- Added reusable production-record form helpers for date formatting, numeric coercion, trimming, and update payload creation.
-- Added richer edit forms for existing work items, approvals, reports, roadmap recommendations, assets, billing status, and calendar records.
-- Preserved quick status/visibility controls and archive behavior while adding detail edits.
-- Added frontend tests for production-record edit payload behavior.
-
-### Files Changed
-
-- `frontend/src/components/client-portal/AdminClientProductionRecords.tsx`
-- `frontend/src/components/client-portal/production-records/ApprovalsPanel.tsx`
-- `frontend/src/components/client-portal/production-records/AssetsPanel.tsx`
-- `frontend/src/components/client-portal/production-records/BillingPanel.tsx`
-- `frontend/src/components/client-portal/production-records/CalendarPanel.tsx`
-- `frontend/src/components/client-portal/production-records/ReportsPanel.tsx`
-- `frontend/src/components/client-portal/production-records/RoadmapPanel.tsx`
-- `frontend/src/components/client-portal/production-records/WorkItemsPanel.tsx`
-- `frontend/src/components/client-portal/production-records/shared.tsx`
-- `frontend/src/components/client-portal/production-records/types.ts`
-- `frontend/src/lib/client-production-record-forms.ts`
-- `frontend/tests/client-production-record-forms.test.mjs`
-- `docs/architecture.md`
-- `docs/dev-notes.md`
-- `docs/features.md`
-
-### Decisions Made
-
-- Keep one production-record panel per domain so the admin workflow can keep expanding without rebuilding a large shared component.
-- Keep rich edits inline inside each record card to avoid routing admins away from Client Operations during active client-management work.
-- Keep deletion as archive/status changes rather than destructive deletes.
-
-### How to Test
-
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- Browser smoke: open `/operations/clients`, expand Edit on records, confirm fields render without layout overlap, and save a harmless temporary record edit.
-
-### Next Steps
-
-- Add client team/user CRUD controls after confirming invite/deactivation permissions.
-- Add stronger support-request/message workflow polish so production records and conversations feel connected.
-
-## 2026-05-27 - Client Approval Response And Record Polish
-
-### Completed
-
-- Added a client approval response endpoint so visible approvals can be approved or returned with requested changes.
-- Exposed approval response notes in client-visible approval data.
-- Added client-side approval buttons with response-note validation and workspace refresh after submission.
-- Added inline status and visibility controls for existing admin production records.
-- Added multi-origin local CORS handling so `localhost:3001` can connect to Socket.io during development without broadening production origins.
-- Browser-smoked the admin production-record panel and client approval response loop against the local app.
-
-### Files Changed
-
-- `backend/src/config/cors.config.ts`
-- `backend/src/config/env.config.ts`
-- `backend/src/main.ts`
-- `backend/src/notifications/socket.service.ts`
-- `backend/src/clients/clients.controller.ts`
-- `backend/src/clients/clients.serializers.ts`
-- `backend/src/clients/clients.validation.ts`
-- `backend/tests/clients.production-records.test.ts`
-- `backend/tests/cors.config.test.ts`
-- `backend/tests/run-tests.ts`
-- `frontend/src/app/client/approvals/page.tsx`
-- `frontend/src/components/client-portal/AdminClientProductionRecords.tsx`
-- `frontend/src/lib/client-approval-actions.ts`
-- `frontend/src/lib/client-portal.ts`
-- `frontend/src/lib/client-portal-options.ts`
-- `frontend/tests/client-approval-actions.test.mjs`
-- `docs/api.md`
-- `docs/dev-notes.md`
-- `docs/features.md`
-
-### Decisions Made
-
-- Keep client approval responses separate from the admin approval update route.
-- Require a response note when a client requests changes, but keep it optional for approval.
-- Keep destructive delete out of the UI and continue using archive/status transitions.
-
-### How to Test
-
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- Browser smoke: log in, create a temporary approval from Client Operations/API, answer it from `/client/approvals`, and confirm no Socket.io CORS console errors on `localhost:3001`.
-
-### Next Steps
-
-- Add richer edit forms for title/body/date fields on existing production records.
-- Add client team/user self-service controls after confirming who may invite or deactivate users.
-
-## 2026-05-27 - Client Portal Frontend Wiring And Admin Records
-
-### Completed
-
-- Extended frontend client portal types and API helpers for work items, approvals, reports, roadmap recommendations, assets, billing status, and calendar items.
-- Updated the client command-center helper to prefer production records over temporary ticket/update fallbacks.
-- Wired client Work, Approvals, Reports, Resources, Account, and Calendar pages to the new backend overview records.
-- Added the Client Operations production-records panel for creating and archiving work items, approvals, reports, roadmap recommendations, assets, billing status, and calendar items.
-- Applied the additive local Prisma migration for the production client records.
-- Browser-smoked Client Operations and client portal sections against the local app.
-
-### Files Changed
-
-- `frontend/src/app/client/work/page.tsx`
-- `frontend/src/app/client/approvals/page.tsx`
-- `frontend/src/app/client/reports/page.tsx`
-- `frontend/src/app/client/resources/page.tsx`
-- `frontend/src/app/client/account/page.tsx`
-- `frontend/src/app/client/calendar/page.tsx`
-- `frontend/src/app/operations/clients/page.tsx`
-- `frontend/src/components/client-portal/AdminClientProductionRecords.tsx`
-- `frontend/src/lib/client-portal.ts`
-- `frontend/src/lib/client-portal-command.ts`
-- `frontend/src/lib/client-portal-options.ts`
-- `frontend/tests/client-portal-command.test.mjs`
-- `docs/dev-notes.md`
-- `docs/features.md`
-
-### Decisions Made
-
-- Keep delete behavior as archive/status transitions for production client records.
-- Keep the admin CRUD panel inside Client Operations rather than creating a separate management route.
-- Preserve ticket/update fallbacks in command-center data so older client workspaces still render useful content before production records are populated.
-
-### How to Test
-
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd backend && npx prisma migrate status`
-- Browser smoke: `/operations/clients`, `/client/work`, `/client/approvals`, `/client/reports`, `/client/resources`, `/client/account`, and `/client/calendar`.
-
-### Next Steps
-
-- Add richer edit forms for existing production records beyond status/visibility changes.
-- Add client team/user management controls after defining permissions.
-
-## 2026-05-27 - Client Portal Production Backend Records
-
-### Completed
-
-- Added additive Prisma models and migration SQL for client work items, approvals, reports, roadmap recommendations, assets, billing status, and calendar items.
-- Added validation and serializer coverage for the new production client records.
-- Added backend service methods and management API routes for creating, updating, and archiving production client records.
-- Extended client overview serialization so the frontend can consume the new production sections without separate list calls.
-- Preserved tenant boundaries through organization-scoped relations and existing client-management authorization checks.
-
-### Files Changed
-
-- `backend/prisma/schema.prisma`
-- `backend/prisma/migrations/202605270001_client_portal_production_records/migration.sql`
-- `backend/src/clients/clients.controller.ts`
-- `backend/src/clients/clients.service.ts`
-- `backend/src/clients/clients.serializers.ts`
-- `backend/src/clients/clients.validation.ts`
-- `backend/tests/clients.production-records.test.ts`
-- `backend/tests/run-tests.ts`
-- `docs/api.md`
-- `docs/architecture.md`
-- `docs/database.md`
-- `docs/dev-notes.md`
-- `docs/features.md`
-
-### Decisions Made
-
-- Keep Phase 2A backend-first so the frontend can wire against real production records next.
-- Use additive tables instead of overloading tickets or project notes for approvals, reports, roadmap, assets, billing, and calendar data.
-- Treat archive as a status transition for production records instead of destructive delete.
-- Keep client-facing visibility server-filtered through `visibleToClient` and status checks.
-
-### How to Test
-
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd backend && npx prisma validate`
-- `cd backend && npx prisma generate`
-- `git diff --check`
-
-### Next Steps
-
-- Wire the new backend records into the client pages from Phase 1.
-- Add admin CRUD controls in Client Operations for the new production records.
-- Add client-side approval response handling once the approval UX is designed.
-
-## 2026-05-27 - Client Portal Production Frontend Shell
-
-### Completed
-
-- Added shared client portal navigation metadata for the production client-side route structure.
-- Added command-center derivation helpers for review requests, open requests, latest updates, latest messages, completed work, and report metrics.
-- Added reusable client portal shell and panel components.
-- Added client-facing pages for Work, Approvals, Messages, Reports, Resources, Account, and Calendar using the existing overview API.
-- Added client command center and ticket center support for the production route structure.
-- Expanded the client sidebar and header route metadata to recognize the new client portal sections.
-- Browser-smoked the new client portal sections and Client Operations at desktop and mobile widths against the current local server.
-
-### Files Changed
-
-- `frontend/src/app/client/page.tsx`
-- `frontend/src/app/client/tickets/page.tsx`
-- `frontend/src/app/client/work/page.tsx`
-- `frontend/src/app/client/approvals/page.tsx`
-- `frontend/src/app/client/messages/page.tsx`
-- `frontend/src/app/client/reports/page.tsx`
-- `frontend/src/app/client/resources/page.tsx`
-- `frontend/src/app/client/account/page.tsx`
-- `frontend/src/app/client/calendar/page.tsx`
-- `frontend/src/components/client-portal/ClientPortalPanel.tsx`
-- `frontend/src/components/client-portal/ClientPortalWorkspaceFrame.tsx`
-- `frontend/src/hooks/useClientPortalWorkspace.ts`
-- `frontend/src/lib/client-portal-command.ts`
-- `frontend/src/lib/client-portal-navigation.ts`
-- `frontend/tests/client-portal-command.test.mjs`
-- `frontend/tests/client-portal-navigation.test.mjs`
-- `frontend/src/components/Sidebar.tsx`
-- `frontend/src/components/Header.tsx`
-- `docs/architecture.md`
-- `docs/dev-notes.md`
-- `docs/features.md`
-
-### Decisions Made
-
-- Keep the first production portal phase frontend-only and powered by the existing client overview API.
-- Use review-stage tickets as the current approval queue until dedicated approval records exist.
-- Use ticket comments as the current client-visible message source until dedicated client conversations exist.
-- Keep calendar and client-safe team directory as real route surfaces with empty states, while backend models remain a later phase.
-
-### How to Test
-
-- `cd frontend && node --test tests/client-portal-navigation.test.mjs tests/client-portal-command.test.mjs tests/client-ticket-filters.test.mjs`
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- `git diff --check`
-
-### Next Steps
-
-- Add backend approval, work item, report period, roadmap, and conversation models.
-- Wire admin CRUD/archive controls for the new production client portal records.
-- Clean up local Socket.io CORS configuration for alternate frontend dev ports when using ports other than `3000`.
-
-## 2026-05-26 - Client Portal Ticket Filtering Polish
-
-### Completed
-
-- Added shared client-ticket filtering logic for search, status, priority, and request type.
-- Added reusable ticket filter controls for both admin Client Operations and the client-facing ticket center.
-- Added an extracted admin ticket list component so `/operations/clients` is less dense around ticket handling.
-- Wired admin and client ticket views to show matching ticket counts, empty states, and clear-filter behavior.
-- Added regression coverage for ticket filtering and compact filter summary copy.
-
-### Files Changed
-
-- `frontend/src/app/client/tickets/page.tsx`
-- `frontend/src/app/operations/clients/page.tsx`
-- `frontend/src/components/client-portal/AdminTicketList.tsx`
-- `frontend/src/components/client-portal/ClientTicketFilterControls.tsx`
-- `frontend/src/lib/client-ticket-filters.ts`
-- `frontend/tests/client-ticket-filters.test.mjs`
-- `docs/dev-notes.md`
-- `docs/features.md`
-
-### Decisions Made
-
-- Use shared frontend filtering so admin and client ticket lists behave consistently.
-- Keep ticket filtering local for now because the backend list is already capped and scoped by organization/access rules.
-- Defer destructive delete controls until product rules are clear for archive, recovery, audit history, and client visibility.
-- Keep Vercel preview and Square purchase automation listed as external/future work because they depend on billing/provider setup.
-
-### How to Test
-
-- `cd frontend && node --test tests/client-ticket-filters.test.mjs tests/client-portal-options.test.mjs tests/client-portal-summary.test.mjs`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-
-### Next Steps
-
-- Add hosted preview QA after Vercel billing/payment is complete.
-- Define Square purchase automation requirements: source event, customer matching, client organization defaults, membership owner, and idempotency key.
-- Add non-destructive archive controls for client records after lifecycle and audit expectations are confirmed.
-
-## 2026-05-25 - Client Portal Communication Flow Polish
-
-### Completed
-
-- Routed client-role users to `/client` after login instead of sending them to the internal dashboard.
-- Redirected authenticated client users away from `/dashboard` and into the client portal shell.
-- Added an admin ticket conversation panel to `/operations/clients` so internal users can review ticket context and reply from the client operations workflow.
-- Added explicit reply visibility controls for client-visible replies versus internal notes.
-- Added regression coverage for authenticated landing paths, admin ticket visibility options, and mixed string/number comment author IDs.
-
-### Files Changed
-
-- `frontend/src/app/login/page.tsx`
-- `frontend/src/app/operations/clients/page.tsx`
-- `frontend/src/components/AuthGuard.tsx`
-- `frontend/src/components/client-portal/AdminTicketPanel.tsx`
-- `frontend/src/lib/client-portal-display.ts`
-- `frontend/src/lib/client-portal-options.ts`
-- `frontend/src/lib/role-access.ts`
-- `frontend/tests/client-portal-display.test.mjs`
-- `frontend/tests/client-portal-options.test.mjs`
-- `frontend/tests/role-access.test.mjs`
-- `docs/dev-notes.md`
-- `docs/features.md`
-
-### Decisions Made
-
-- Keep clients out of employee dashboard views and send them directly to the dedicated portal.
-- Keep admin ticket replies inside Client Operations so managers can act without switching to the client-facing ticket route.
-- Make reply visibility a deliberate admin choice while preserving the existing server-owned permission and serialization rules.
-
-### How to Test
-
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- Browser smoke: admin `/operations/clients` shows ticket reply visibility controls; client login lands on `/client`; client `/dashboard` redirects to `/client`.
-
-### Next Steps
-
-- Split `frontend/src/app/operations/clients/page.tsx` into smaller client-management sections as the admin workflow grows.
-- Add stronger ticket filters or a dedicated management ticket route if the Operations ticket list becomes too dense.
-
-## 2026-05-24 - Client Portal Access And Ticket Polish
-
-### Completed
-
-- Split frontend client portal navigation from internal client operations navigation.
-- Restricted client-user sidebars to Client Portal, Tickets, and Profile only.
-- Added client operations gating for the Operations sidebar entry, Operations client card, and `/operations/clients` page.
-- Added a ticket detail panel on `/client/tickets` with visible conversation history and client comment submission.
-- Replaced client ticket title/category/priority typing with request-type buttons, priority buttons, generated ticket titles, and one required details box.
-- Added quick reply buttons for client ticket comments.
-- Reduced internal client setup typing by auto-generating slugs and replacing client role, status, project status, and project progress fields with constrained controls.
-- Added internal ticket status controls for New, Review, In Progress, and Done.
-- Added automatic client-visible updates when internal users move ticket status.
-- Refined automatic ticket-update language so client-facing status updates read naturally.
-- Added internal project progress/status editing controls.
-- Added project pills to update publishing so updates can target a specific project or general account work.
-- Made client ticket forms more compact with pill-style request and priority choices.
-- Added one-click request detail starters so clients can submit common requests with less typing.
-- Improved the Operations member assignment form so the user selector does not collapse in two-column admin layouts.
-- Browser-smoked admin and client sessions across desktop and mobile viewports, including adding a client ticket reply.
-
-### Files Changed
-
-- `backend/src/clients/clients.controller.ts`
-- `backend/src/clients/clients.service.ts`
-- `backend/src/clients/clients.validation.ts`
-- `backend/tests/clients.access.test.ts`
-- `docs/api.md`
-- `frontend/src/app/client/tickets/page.tsx`
-- `frontend/src/app/operations/clients/page.tsx`
-- `frontend/src/app/operations/page.tsx`
-- `frontend/src/components/Sidebar.tsx`
-- `frontend/src/components/client-portal/ChoiceGroup.tsx`
-- `frontend/src/components/client-portal/TicketDetailPresets.tsx`
-- `frontend/src/lib/client-portal.ts`
-- `frontend/src/lib/client-portal-options.ts`
-- `frontend/src/lib/client-portal-summary.ts`
-- `frontend/src/lib/role-access.ts`
-- `frontend/tests/client-portal-summary.test.mjs`
-- `frontend/tests/client-portal-options.test.mjs`
-- `frontend/tests/role-access.test.mjs`
-- `docs/dev-notes.md`
-
-### Decisions Made
-
-- Keep internal multi-client administration under Operations and keep client users scoped to `/client` and `/client/tickets`.
-- Use backend membership lookup as the sidebar signal for client workspaces when the auth role remains a generic member.
-- Do not show employee/company/admin navigation while a non-management user's client workspace membership is still being checked.
-- Keep management/admin users out of the client-facing sidebar path; they can manage clients from Operations.
-- Generate client ticket titles from request type plus details so clients do not need to invent ticket names.
-- Treat `done` tickets as closed for portal summary counts.
-- Keep ticket status changes server-owned and publish status movement as visible client updates.
-
-### How to Test
-
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd backend && npx prisma validate`
-- `cd backend && npx prisma generate`
-- Browser smoke: admin `/operations` and `/operations/clients`; client `/client`, restricted sidebar, `/operations/clients` access denial, and `/client/tickets` comment workflow at desktop and mobile sizes.
-- Browser smoke: client request type/priority buttons, quick replies, admin constrained setup controls, project update pills, project progress edits, and ticket status updates.
-- Browser smoke: compact client ticket forms, request detail starters, and visible Operations user selector.
-
-### Next Steps
-
-- Add management-side ticket detail replies when the client operations workflow needs full ticket handling.
-- Decide whether management users need an explicit client-preview mode instead of manually opening `/client`.
-
-## 2026-05-24 - Client Portal UI Slice
-
-### Completed
-
-- Expanded the client portal backend API with internal management routes for memberships, projects, updates, metrics, resources, and ticket comments.
-- Added a frontend client portal API layer and summary helper with focused test coverage.
-- Added `/operations/clients` as the internal multi-client management surface under Operations.
-- Added `/client` as the client-facing overview for progress, tickets, updates, metrics, resources, and ticket submission.
-- Added `/client/tickets` as the focused client request center.
-- Added Client Portal navigation and route titles.
-- Browser-smoked `/operations/clients`, `/client`, and `/client/tickets` with temporary local data and role-scoped JWT sessions.
-
-### Files Changed
-
-- `backend/src/clients/clients.controller.ts`
-- `backend/src/clients/clients.serializers.ts`
-- `backend/src/clients/clients.service.ts`
-- `backend/src/clients/clients.validation.ts`
-- `backend/tests/clients.access.test.ts`
-- `docs/api.md`
-- `docs/architecture.md`
-- `docs/dev-notes.md`
-- `docs/features.md`
-- `frontend/src/app/client/page.tsx`
-- `frontend/src/app/client/tickets/page.tsx`
-- `frontend/src/app/operations/clients/page.tsx`
-- `frontend/src/app/operations/page.tsx`
-- `frontend/src/components/Header.tsx`
-- `frontend/src/components/Sidebar.tsx`
-- `frontend/src/lib/client-portal.ts`
-- `frontend/src/lib/client-portal-summary.ts`
-- `frontend/tests/client-portal-summary.test.mjs`
-
-### Decisions Made
-
-- Keep Client Operations as a separate route under Operations so the existing department/role admin page does not become a large mixed-responsibility file.
-- Keep the first client-facing portal practical and data-driven: overview, ticket intake, visible progress, published updates, metrics, and resource links.
-- Use existing app components and visual tokens instead of introducing a new UI kit.
-
-### How to Test
-
-- `cd backend && npm test`
-- `cd backend && npm run build`
-- `cd frontend && npm test`
-- `cd frontend && npm run lint`
-- `cd frontend && npm run build`
-- Browser smoke with local backend/frontend: `/operations/clients`, `/client`, and `/client/tickets`.
-
-### Next Steps
-
-- Add edit/delete controls for client projects, updates, metrics, resources, memberships, and tickets.
-- Add richer ticket detail views with threaded comments and internal/client visibility controls.
-- Decide how Square purchase automation will create the initial client organization and membership after payment.
-
-## 2026-05-24 - Client Portal Backend Foundation
-
-### Completed
-
-- Added the additive Prisma data model for Deskii client organizations, memberships, service tiers, projects, tickets, ticket comments, updates, metric snapshots, and resource links.
-- Added client portal access helpers that scope client users to active memberships while allowing internal manager/admin access across clients.
-- Added client-safe serializers so internal notes, assignment fields, internal comments, and protected tier details are not returned to client users.
-- Added `/api/clients` backend routes for listing organizations, creating organizations, reading an organization overview, creating client tickets, and listing visible tickets.
-- Added backend regression coverage for client organization visibility, ticket creation access, protected-field parsing, and client-safe serialization.
-
-### Files Changed
-
-- `backend/prisma/schema.prisma`
-- `backend/prisma/migrations/202605240001_client_portal_foundation/migration.sql`
-- `backend/src/clients/clients.access.ts`
-- `backend/src/clients/clients.controller.ts`
-- `backend/src/clients/clients.serializers.ts`
-- `backend/src/clients/clients.service.ts`
-- `backend/src/clients/clients.validation.ts`
-- `backend/src/main.ts`
-- `backend/tests/clients.access.test.ts`
-- `backend/tests/run-tests.ts`
-- `docs/api.md`
-- `docs/architecture.md`
-- `docs/database.md`
-- `docs/dev-notes.md`
-- `docs/features.md`
-
-### Decisions Made
-
-- Keep the client portal inside the existing Deskii/internal portal backend instead of creating a separate app surface.
-- Use `ClientOrganization` as the tenant boundary and require active `ClientMembership` records for client users.
-- Keep the first checkpoint backend-only so the UI can be built against explicit API contracts.
-- Reuse existing Express/Prisma patterns and helper-level tests instead of adding a new backend test framework.
-
-### How to Test
-
-- `cd backend && npm test`
-- `cd backend && npx prisma validate`
-- `cd backend && npm run prisma:generate`
-- `cd backend && npm run build`
-- From repo root: `git diff --check`
-
-### Next Steps
-
-- Build the internal Operations client management screens under the existing Operations area.
-- Build the client-facing `/client` portal screens using the new scoped `/api/clients` endpoints.
-- Add create/update routes for projects, updates, metrics, resources, memberships, and ticket comments as the UI requires them.
 
 ## 2026-05-24 - Documentation Cleanup Before Client Portal
 

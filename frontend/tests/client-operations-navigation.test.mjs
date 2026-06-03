@@ -48,6 +48,7 @@ test('defines focused client operations pages in admin workflow order', () => {
 test('resolves nested client operations route titles and preserves selected client links', () => {
   const {
     getClientOperationsRouteTitle,
+    isClientOperationsNavItemActive,
     withClientOperationsClientParam,
   } = loadClientOperationsNavigation();
 
@@ -64,4 +65,8 @@ test('resolves nested client operations route titles and preserves selected clie
     '/operations/clients/reports?client=client%201',
   );
   assert.equal(withClientOperationsClientParam('/operations/clients/reports', ''), '/operations/clients/reports');
+  assert.equal(isClientOperationsNavItemActive('/operations/clients', '/operations/clients'), true);
+  assert.equal(isClientOperationsNavItemActive('/operations/clients', '/operations/clients/accounts'), false);
+  assert.equal(isClientOperationsNavItemActive('/operations/clients/accounts', '/operations/clients/accounts'), true);
+  assert.equal(isClientOperationsNavItemActive('/operations/clients/accounts', '/operations/clients/accounts/member-1'), true);
 });

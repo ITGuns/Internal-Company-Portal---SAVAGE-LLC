@@ -1,5 +1,10 @@
 import { STORAGE_KEYS } from './constants';
 import type { LoginCredentials, AuthResponse } from './types/auth';
+import {
+    clearAuthSession,
+    isAuthFailureResponse,
+    SESSION_EXPIRED_MESSAGE,
+} from './auth-session';
 
 const API_URL = '/api';
 const AUTH_URL = '/backend-auth';
@@ -32,14 +37,6 @@ export const setRefreshToken = (token?: string | null) => {
         } else {
             localStorage.removeItem(STORAGE_KEYS.LEGACY_REFRESH_TOKEN)
         }
-    }
-}
-
-export const clearAuthSession = () => {
-    if (typeof window !== 'undefined') {
-        localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
-        localStorage.removeItem(STORAGE_KEYS.LEGACY_REFRESH_TOKEN);
-        localStorage.removeItem(STORAGE_KEYS.USER);
     }
 }
 
@@ -174,14 +171,6 @@ interface APIOptions extends RequestInit {
     _isRetry?: boolean;
 }
 
-async function shouldRefreshAuth(response: Response): Promise<boolean> {
-    if (response.status === 401) return true
-    if (response.status !== 403) return false
-
-    const data = await response.clone().json().catch(() => null)
-    return data?.error === 'Invalid or expired token'
-}
-
 export const apiFetch = async (endpoint: string, options: APIOptions = {}): Promise<Response> => {
     const token = getAuthToken()
 
@@ -198,8 +187,12 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
         headers,
     })
 
-    // If auth is missing or expired, try refreshing the token once before giving up.
-    if ((await shouldRefreshAuth(response)) && !options._isRetry) {
+    const isAuthFailure = await isAuthFailureResponse(response);
+
+    // If auth failed, try refreshing the token once before giving up.
+    // The backend returns 403 for expired JWTs, while role failures also use 403.
+    // `isAuthFailureResponse` only treats token-specific 403 payloads as auth expiry.
+    if (isAuthFailure && !options._isRetry) {
         const newToken = await refreshAccessToken()
         if (newToken) {
             return apiFetch(endpoint, { ...options, _isRetry: true })
@@ -209,12 +202,16 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
         // DO NOT redirect here: window.location.href cancels all in-flight fetches
         // with TypeError("Failed to fetch"), flooding the UI with error toasts.
         // UserContext will detect the 401 on its next /auth/me poll and handle logout.
-        if (typeof window !== 'undefined') {
-            clearAuthSession()
-        }
+        clearAuthSession()
+        throw new Error(SESSION_EXPIRED_MESSAGE)
     }
 
-    if (!response.ok && response.status !== 401) {
+    if (isAuthFailure) {
+        clearAuthSession()
+        throw new Error(SESSION_EXPIRED_MESSAGE)
+    }
+
+    if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const message = errorData.details || errorData.error || `Request failed with status ${response.status}`;
         throw new Error(message);

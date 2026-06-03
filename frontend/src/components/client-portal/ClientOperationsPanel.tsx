@@ -3,10 +3,10 @@
 import React from "react";
 import { ProductionPanel } from "@/components/workspace/ProductionWorkspace";
 
-export const clientOperationsSelectClass = "w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
-export const clientOperationsTextareaClass = "min-h-24 w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
+export const clientOperationsSelectClass = "min-h-10 w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
+export const clientOperationsTextareaClass = "min-h-24 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
 export const clientOperationsCheckboxLabelClass = "inline-flex min-h-10 items-center gap-2 rounded-md border border-[var(--border)] px-3 text-sm text-[var(--foreground)]";
-export const clientOperationsCheckboxClass = "h-4 w-4 shrink-0 accent-[var(--accent)]";
+export const clientOperationsCheckboxClass = "h-5 w-5 shrink-0 accent-[var(--accent)]";
 
 export default function ClientOperationsPanel({
   children,

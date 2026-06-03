@@ -6,6 +6,7 @@ import { Lock } from 'lucide-react';
 import LoginInput from '@/components/LoginInput';
 import { useUser } from '@/contexts/UserContext';
 import { resetPassword } from '@/lib/api';
+import { getAuthenticatedLandingPath } from '@/lib/role-access';
 import styles from '../login/login.module.css';
 
 function ResetPasswordForm() {
@@ -24,7 +25,7 @@ function ResetPasswordForm() {
 
   useEffect(() => {
     if (user) {
-      router.push('/dashboard');
+      router.push(getAuthenticatedLandingPath(user));
     }
   }, [user, router]);
 

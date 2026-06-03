@@ -29,7 +29,6 @@ Use **Vibe Auto Research** instead:
 
 4. **Verification finishes the loop.**
    - Run relevant tests, lint, builds, Prisma checks, browser checks, or focused smoke checks when available.
-   - For UI, auth, workflow, navigation, form, dashboard, or client-facing changes, include a fresh manual click-through item in the finish checklist. Mark it done, blocked, or explicitly not applicable before calling the work complete.
    - If verification cannot be run, state exactly what was not run and why.
 
 The working loop is:
@@ -41,6 +40,18 @@ The working loop is:
 5. Verification.
 
 Do not present meaningful work as complete if the evidence or verification step is missing.
+
+For implementation prompts, run the stricter **Prompt-to-Quality Cycle**:
+
+1. Prompt intake.
+2. Skill plan.
+3. Repo applicability check.
+4. Plan quality gate.
+5. Implementation.
+6. Reviewer pass.
+7. Fix/replan cycle until no material findings remain or a real blocker is reached.
+
+The first plan is not automatically trusted. If repo evidence shows the plan is weak, too broad, not applicable, risky, or hard to verify, replan before editing.
 
 ## Research Depth
 
@@ -92,6 +103,7 @@ Always start meaningful repo work with the `vibe-auto-research` workflow. It is 
 Use the strongest relevant skill or workflow for the task:
 
 - New or ambiguous feature: use `brainstorming`, then `writing-plans` before implementation.
+- PRD or issue-ready artifact: use `to-prd` only when the user asks for a PRD/issue-tracker artifact or approves publication.
 - Bug or failing test: use `systematic-debugging`; use `test-driven-development` for behavior fixes.
 - Frontend or UI work: use `frontend-visual-quality`, `web-design-guidelines`, and Browser/in-app browser verification when practical.
 - Windows desktop/app-surface work: use Computer Use when the real visible app window matters.
@@ -107,6 +119,7 @@ When inspecting repo-local skills, use `rg --hidden --files skills` because the 
 
 Task-specific gates:
 
+- Prompt-to-implementation: select skills, check repo applicability, pass a plan quality gate, implement, review, and replan/fix until material findings are resolved.
 - Frontend/UI: inspect existing components, state patterns, routes, loading/error/empty states, responsive behavior, and browser experience-review needs.
 - Desktop/app-surface: use Computer Use when the true Windows app/window state matters and code/browser inspection cannot answer the question.
 - Backend/API: inspect route contracts, validation, auth/authorization, service boundaries, error responses, and tests.
@@ -127,9 +140,25 @@ Use Browser/in-app browser when a local or reachable app can be rendered. Review
 - mobile and desktop responsive behavior
 - text clipping, overflow, overlap, awkward wrapping, and touch target size
 - console errors, missing assets, broken links, and obvious network/API failures
-- a fresh manual click-through of the changed user path when the local app can be rendered safely
 
 If Browser is unavailable, the app cannot start, auth blocks access, or verification would be unsafe, state that clearly and use the best fallback: static code review, screenshots, existing visual tests, or manual browser verification steps.
+
+## Reviewer Pass
+
+After implementation, review before final response.
+
+Technical review must check the relevant subset of:
+
+- current diff and accidental unrelated edits
+- tests, lint, build, type, Prisma, dependency, and repo checks
+- API contracts, validation, auth, authorization, serialization, and sensitive outputs
+- database/query behavior, migrations, seeds, and relationship ownership when touched
+- security boundaries, uploads, secrets, logs, permissions, and abuse cases
+- performance, duplication, maintainability, file-size pressure, and docs accuracy
+
+User-flow review must check whether the workflow is understandable, client/user friendly, efficient, and easy to complete. For UI work, manually click through the affected routes, buttons, forms, dialogs, navigation paths, and important states in Browser when practical.
+
+If the reviewer pass finds material issues, create a focused fix plan, implement it, and rerun the relevant review. Repeat until no material issues remain or a real blocker prevents progress.
 
 ## Computer Use Efficiency
 
@@ -205,8 +234,8 @@ When finishing work, include:
 - What changed.
 - Where it changed.
 - What verification ran.
+- What reviewer pass found and whether a fix cycle was needed.
 - What browser review found for UI/user-flow changes.
-- Whether the fresh manual click-through was completed, blocked, or not applicable.
 - What Computer Use found for desktop/app-surface checks.
 - Known limitations or follow-up work.
 

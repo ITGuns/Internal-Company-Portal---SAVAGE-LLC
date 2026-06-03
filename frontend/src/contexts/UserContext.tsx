@@ -8,6 +8,7 @@ import {
   refreshAccessToken,
   setCurrentUser as saveCurrentUser,
 } from '@/lib/api';
+import { AUTH_SESSION_CLEARED_EVENT } from '@/lib/auth-session';
 
 export interface User {
   id: string | number;
@@ -44,7 +45,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     setUser(null);
+    setError(null);
+    setIsLoading(false);
     endAuthSession();
+  }, []);
+
+  useEffect(() => {
+    const handleAuthCleared = () => {
+      setUser(null);
+      setError(null);
+      setIsLoading(false);
+    };
+
+    window.addEventListener(AUTH_SESSION_CLEARED_EVENT, handleAuthCleared);
+    return () => window.removeEventListener(AUTH_SESSION_CLEARED_EVENT, handleAuthCleared);
   }, []);
 
   const refreshUser = useCallback(async () => {

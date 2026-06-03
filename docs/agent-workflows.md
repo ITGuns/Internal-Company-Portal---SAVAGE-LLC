@@ -10,9 +10,25 @@ Use this loop for feature work, bug fixes, reviews, release checks, and document
 2. Evidence: inspect the relevant repo files, docs, tests, scripts, and current git state.
 3. Decision: revise the plan based on what the repo actually shows.
 4. Edit: make the smallest scoped change that solves the verified need.
-5. Verification: run the commands, browser checks, and fresh manual click-through item that prove the result, or state exactly what could not be verified.
+5. Verification: run the commands or browser checks that prove the result, or state exactly what could not be verified.
 
 Do not present work as complete if the evidence or verification step is missing.
+
+## Prompt-to-Quality Cycle
+
+Use this cycle when the user gives a prompt and expects the agent to plan, implement, review, and iterate without stopping at a proposal.
+
+1. **Prompt intake**: restate the desired outcome, target user, product goal, likely repo area, risk, and assumptions to verify.
+2. **Skill plan**: choose relevant skills/tools before implementation planning.
+3. **Repo applicability check**: prove the request fits the current repo, product direction, architecture, contracts, and verification surface.
+4. **Plan quality gate**: accept the plan only if it has success criteria, files/modules/routes, steps, contracts, browser/manual paths for UI work, tests, docs, and risks.
+5. **Implementation**: make scoped changes using existing patterns.
+6. **Reviewer pass**: review technical quality, affected repo behavior, browser/manual workflow, usability, and verification evidence.
+7. **Fix cycle**: if material findings remain, replan the fix, implement it, rerun focused checks, and rerun the reviewer pass.
+
+The first plan is not automatically good. Replan before editing when repo evidence shows the plan is weak, broad, risky, not applicable, or hard to verify.
+
+The cycle ends when no material reviewer findings remain, the user stops the work, or a real blocker prevents progress.
 
 ## Repo Memory
 
@@ -48,7 +64,7 @@ Current repo-local skills:
 - `gsap-frameworks`: animation guidance for GSAP framework work; use only if GSAP becomes relevant.
 - `ai-image-generation`: visual asset generation guidance; do not use for private/sensitive screenshots, employee/client data, or normal portal implementation work unless explicitly approved.
 
-Repo-local skills should be committed when they are useful for repeated portal work, useful for review by future agents, or needed for portability across machines. Experimental or user-personal skills should stay global unless the repo has a clear reason to own them.
+Repo-local skills should be committed only when they are useful for repeated portal work, useful for review by future agents, or needed for portability across machines. Keep experimental, rarely used, or user-personal skills global unless the repo has a clear reason to own them.
 
 Do not create or depend on a repo `.codex/` directory unless Codex repo-local `.codex` behavior has been verified first. The current repo contract is `AGENTS.md` plus `docs/` plus the curated `skills/` snapshot.
 
@@ -59,11 +75,13 @@ Use this matrix after the Vibe Auto Research classification step:
 | Task type | Primary skills or tools | Required evidence | Verification |
 | --- | --- | --- | --- |
 | Planning a new or ambiguous feature | `brainstorming`, `writing-plans`, `product-requirements-quality` | `PRODUCT.md`, `DESIGN.md`, relevant docs, related routes/components/models | Written plan or approved scope before code |
+| Prompt-to-implementation cycle | `vibe-auto-research`, relevant planning/review skills, Browser for UI, Computer Use for desktop surfaces | Prompt goal, repo applicability evidence, selected skills, affected files/contracts | Plan quality gate, implementation, reviewer pass, fix/review cycle |
+| PRD or issue-ready artifact | `to-prd` only when requested or approved | Current context, repo/product evidence, issue tracker expectations | PRD/issue content reviewed before publication when publication has side effects |
 | Bug or failing test | `systematic-debugging`, `test-driven-development` | Error output, reproduction path, recent diffs, related tests/code | Focused failing test first, then passing focused and broader checks |
 | Backend/API change | `api-service-quality`, `auth-access-control` when permissions are involved | Controllers, services, validation helpers, serializers, tests, `docs/api.md` | Backend tests, build, and targeted API checks |
 | Security-sensitive work | `security-production-readiness`, `auth-access-control`, `integrations-webhooks-safety` when relevant | Trust boundaries, untrusted inputs, auth checks, sensitive outputs, logs, docs | Focused security tests plus build and release gates |
 | Database/schema/query work | `database-safety`, `supabase-postgres-best-practices` | Prisma schema, migrations, seed data, query callers, `docs/database.md` | `npx prisma validate`, `npx prisma generate`, tests that cover changed queries |
-| Frontend/UI work | `frontend-visual-quality`, `web-design-guidelines`, Browser/in-app browser | `DESIGN.md`, route/component code, state/loading/error paths, responsive constraints | Frontend tests, lint, build, browser smoke for affected routes, and fresh manual click-through of the changed path |
+| Frontend/UI work | `frontend-visual-quality`, `web-design-guidelines`, Browser/in-app browser | `DESIGN.md`, route/component code, state/loading/error paths, responsive constraints | Frontend tests, lint, build, browser smoke for affected routes |
 | Architecture review | `project-architecture-standards`, `improve-codebase-architecture` | Docs, module ownership, duplication, test seams, high-friction files | Findings with file references; implementation only after approval |
 | Code review | `requesting-code-review`, `receiving-code-review`, CodeRabbit when explicitly requested | Current diff, `docs/code-review.md`, related tests/docs/contracts | Findings first, then focused fixes and re-verification when asked |
 | Release/publish readiness | `verification-before-completion`, release gates in `docs/architecture.md` | Branch, dirty worktree, CI config, lockfiles, package scripts, dependency audit surface | `npm run check`, Prisma checks when relevant, `docker compose config`, `git diff --check` |
@@ -135,7 +153,26 @@ git diff --check
 npm audit --audit-level=high
 ```
 
-For UI/user-flow changes, add browser verification against affected routes when the app can be rendered locally. Always add a fresh manual click-through item for changed user paths; report it as done, blocked, or not applicable before finishing. For release/publish decisions, inspect branch state and remote sync before recommending a push.
+For UI/user-flow changes, add browser verification against affected routes when the app can be rendered locally. For release/publish decisions, inspect branch state and remote sync before recommending a push.
+
+## Reviewer Pass
+
+Every implementation cycle should include a reviewer pass before final response.
+
+Technical review:
+
+- Inspect the current diff for scope, accidental edits, dead code, unused imports, and broken contracts.
+- Check API, auth, authorization, validation, serialization, database, security, performance, and docs impact where relevant.
+- Run focused checks first, then broaden based on risk.
+
+User-flow review:
+
+- For UI work, use Browser/in-app browser when practical.
+- Click through affected routes, buttons, forms, modals, navigation paths, and important states.
+- Judge whether the workflow is understandable, efficient, client/user friendly, and easy to complete.
+- Check mobile and desktop behavior for visual or workflow changes.
+
+When findings remain, create a focused fix plan and repeat implementation plus review. Do not call the cycle complete until material findings are resolved or blocked.
 
 ## Skill Trust and Maintenance
 
@@ -156,7 +193,7 @@ Trust policy:
 - Prefer source repositories maintained by framework authors, vendors, established teams, or widely reviewed community maintainers.
 - Do not auto-update or replace third-party skill snapshots without explicit intent and verification.
 - Do not send private portal data, screenshots, credentials, employee records, or client records into media-generation, browser-sharing, or external workflow skills unless explicitly approved and safe for that data.
-- Keep the curated repo-local skills available unless the user asks to prune them or a specific entry becomes unsafe.
+- Remove stale or unused repo-local skills instead of keeping a large snapshot that future agents will misread as active guidance.
 
 Before adding a new third-party skill:
 
@@ -166,3 +203,10 @@ Before adding a new third-party skill:
 4. Record the purpose in this file or `docs/dev-notes.md`.
 5. Update `skills/skills-lock.json` with the repo-relative path and SHA-256 of the `SKILL.md`.
 6. Verify with `rg --hidden --files skills`, `npm run check:skills`, and, when using global installs, `npx skills list -g --agent codex --json`.
+
+Before removing a skill:
+
+1. Confirm no current workflow depends on it.
+2. Remove the snapshot and lock entry together.
+3. Update the current repo-local skills list above.
+4. Run `npm run check:skills` and `git diff --check`.

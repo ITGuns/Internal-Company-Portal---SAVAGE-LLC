@@ -3,9 +3,11 @@ import fs from 'fs'
 import path from 'path'
 import { authenticateToken } from '../auth/auth.middleware'
 import {
+    buildStoredUploadMetadata,
     decodeBase64Payload,
     isGeneralUploadMimeType,
     normalizeMimeType,
+    validateStoredUploadFilename,
     validateAvatarContent,
     validateUploadContent,
 } from './upload.validation'
@@ -30,11 +32,12 @@ export class UploadsController {
 
         router.get('/files/:filename', authenticateToken, async (req: Request, res: Response) => {
             try {
-                const filename = path.basename(String(req.params.filename || ''))
-                if (!filename) {
-                    return res.status(400).json({ error: 'Filename required' })
+                const fileValidation = validateStoredUploadFilename(req.params.filename)
+                if (!fileValidation.valid || !fileValidation.filename || !fileValidation.contentType) {
+                    return res.status(400).json({ error: fileValidation.error || 'Invalid filename' })
                 }
 
+                const filename = fileValidation.filename
                 const filepath = path.join(uploadDir, filename)
                 const resolvedUploadDir = path.resolve(uploadDir)
                 const resolvedFilepath = path.resolve(filepath)
@@ -43,6 +46,8 @@ export class UploadsController {
                     return res.status(404).json({ error: 'File not found' })
                 }
 
+                res.setHeader('X-Content-Type-Options', 'nosniff')
+                res.type(fileValidation.contentType)
                 res.sendFile(resolvedFilepath)
             } catch (error) {
                 console.error('File fetch error:', error)
@@ -83,15 +88,23 @@ export class UploadsController {
                     return res.status(400).json({ error: 'File content does not match declared file type' })
                 }
 
-                const timestamp = Date.now()
-                const safeName = name.replace(/[^a-z0-9.]/gi, '_').toLowerCase()
-                const filename = `${timestamp}-${safeName}`
-                const filepath = path.join(uploadDir, filename)
+                const uploadMetadata = buildStoredUploadMetadata(name, validatedType)
+                if (!uploadMetadata) {
+                    return res.status(400).json({ error: 'Invalid file name' })
+                }
+
+                const filepath = path.join(uploadDir, uploadMetadata.filename)
 
                 fs.writeFileSync(filepath, buffer)
 
-                const url = `/api/uploads/files/${filename}`
-                res.status(201).json({ url, name: safeName, type: validatedType, size: sizeInBytes })
+                const url = `/api/uploads/files/${uploadMetadata.filename}`
+                res.status(201).json({
+                    url,
+                    filename: uploadMetadata.filename,
+                    name: uploadMetadata.safeName,
+                    type: uploadMetadata.contentType,
+                    size: sizeInBytes,
+                })
             } catch (error) {
                 console.error('Upload error:', error)
                 res.status(500).json({ error: 'Failed to upload file' })

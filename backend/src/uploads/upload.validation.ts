@@ -11,11 +11,29 @@ export const GENERAL_UPLOAD_MIME_TYPES = [
 export type GeneralUploadMimeType = typeof GENERAL_UPLOAD_MIME_TYPES[number]
 export type AvatarImageType = 'jpeg' | 'png' | 'gif' | 'webp'
 
-export interface StoredAvatarValidationResult {
-    valid: boolean
-    error?: string
-    sizeBytes?: number
-    avatarType?: AvatarImageType
+const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024
+const MAX_STORED_AVATAR_LENGTH = 2048
+const MAX_UPLOAD_BASENAME_LENGTH = 120
+
+const GENERAL_UPLOAD_EXTENSION_BY_TYPE: Record<GeneralUploadMimeType, string> = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/gif': 'gif',
+    'application/pdf': 'pdf',
+    'text/plain': 'txt',
+    'application/msword': 'doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+}
+
+const GENERAL_UPLOAD_TYPE_BY_EXTENSION: Record<string, GeneralUploadMimeType> = {
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    pdf: 'application/pdf',
+    txt: 'text/plain',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 }
 
 interface DecodedBase64Payload {
@@ -23,12 +41,33 @@ interface DecodedBase64Payload {
     mediaType?: string
 }
 
+export interface AvatarValueValidationResult {
+    valid: boolean
+    value?: string
+    type?: AvatarImageType
+    avatarType?: AvatarImageType
+    sizeBytes?: number
+    error?: string
+}
+
+interface StoredUploadMetadata {
+    filename: string
+    safeName: string
+    contentType: GeneralUploadMimeType
+}
+
+interface StoredUploadFilenameValidationResult {
+    valid: boolean
+    filename?: string
+    contentType?: GeneralUploadMimeType
+    error?: string
+}
+
 const DATA_URI_PATTERN = /^data:([A-Za-z0-9][A-Za-z0-9.+/-]*);base64,([\s\S]+)$/
 const BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/
-const DEFAULT_AVATAR_MAX_BYTES = 5 * 1024 * 1024
-const MAX_STORED_AVATAR_LENGTH = 2048
+const STORED_UPLOAD_FILENAME_PATTERN = /^\d{10,}-[a-z0-9](?:[a-z0-9._-]{0,119}[a-z0-9])?\.([a-z0-9]+)$/
 const AVATAR_INITIALS_PATTERN = /^[A-Za-z0-9]{1,3}$/
-const UNSAFE_AVATAR_PATH_PATTERN = /[\s\\\u0000-\u001f\u007f]/
+const UNSAFE_AVATAR_REFERENCE_PATTERN = /[\s\\\u0000-\u001f\u007f]/
 
 export function normalizeMimeType(type: unknown): string {
     if (typeof type !== 'string') return ''
@@ -77,6 +116,69 @@ export function validateUploadContent(type: unknown, buffer: Buffer): GeneralUpl
         : null
 }
 
+export function getUploadExtensionForMimeType(type: unknown): string | null {
+    const normalizedType = normalizeMimeType(type)
+    if (!isGeneralUploadMimeType(normalizedType)) return null
+
+    return GENERAL_UPLOAD_EXTENSION_BY_TYPE[normalizedType]
+}
+
+export function getUploadContentTypeForFilename(filename: unknown): GeneralUploadMimeType | null {
+    if (typeof filename !== 'string') return null
+
+    const extension = filename.trim().toLowerCase().match(/\.([a-z0-9]+)$/)?.[1]
+    if (!extension) return null
+
+    return GENERAL_UPLOAD_TYPE_BY_EXTENSION[extension] ?? null
+}
+
+export function buildStoredUploadMetadata(
+    originalName: unknown,
+    contentType: unknown,
+    timestamp = Date.now()
+): StoredUploadMetadata | null {
+    const normalizedType = normalizeMimeType(contentType)
+    if (!isGeneralUploadMimeType(normalizedType)) return null
+
+    const extension = getUploadExtensionForMimeType(normalizedType)
+    if (!extension) return null
+
+    const baseName = sanitizeUploadBaseName(originalName)
+    if (!baseName) return null
+
+    const safeName = `${baseName}.${extension}`
+    const safeTimestamp = Number.isFinite(timestamp) ? Math.trunc(timestamp) : Date.now()
+
+    return {
+        filename: `${safeTimestamp}-${safeName}`,
+        safeName,
+        contentType: normalizedType,
+    }
+}
+
+export function validateStoredUploadFilename(filename: unknown): StoredUploadFilenameValidationResult {
+    if (typeof filename !== 'string') {
+        return { valid: false, error: 'Filename must be a string' }
+    }
+
+    const normalized = filename.trim()
+    if (!normalized || normalized.includes('/') || normalized.includes('\\') || normalized.includes('..')) {
+        return { valid: false, error: 'Invalid filename' }
+    }
+
+    const match = normalized.match(STORED_UPLOAD_FILENAME_PATTERN)
+    if (!match) {
+        return { valid: false, error: 'Invalid filename' }
+    }
+
+    const contentType = getUploadContentTypeForFilename(normalized)
+    if (!contentType) {
+        return { valid: false, error: 'Unsupported file type' }
+    }
+
+    return { valid: true, filename: normalized, contentType }
+}
+
 export function validateAvatarContent(type: unknown, buffer: Buffer): AvatarImageType | null {
     const normalizedType = normalizeAvatarImageType(type)
     const isAllowed = ['jpeg', 'png', 'gif', 'webp'].includes(normalizedType)
@@ -87,73 +189,48 @@ export function validateAvatarContent(type: unknown, buffer: Buffer): AvatarImag
         : null
 }
 
-export function validateStoredAvatarValue(
-    value: unknown,
-    maxBytes = DEFAULT_AVATAR_MAX_BYTES
-): StoredAvatarValidationResult {
+export function validateStoredAvatarValue(value: unknown): AvatarValueValidationResult {
     if (typeof value !== 'string') {
-        return { valid: false, error: 'Avatar data must be a string' }
+        return { valid: false, error: 'Avatar must be a string' }
     }
 
-    const trimmedValue = value.trim()
-    if (!trimmedValue) {
-        return { valid: true }
+    const avatar = value.trim()
+    if (avatar === '') {
+        return { valid: true, value: '' }
     }
 
-    if (!trimmedValue.startsWith('data:image/')) {
-        if (trimmedValue.length > MAX_STORED_AVATAR_LENGTH) {
-            return { valid: false, error: 'Avatar value is too long' }
+    if (avatar.startsWith('data:')) {
+        const decoded = decodeBase64Payload(avatar)
+        const mediaType = decoded?.mediaType || ''
+        if (!decoded || !mediaType.startsWith('image/')) {
+            return { valid: false, error: 'Avatar data must be a base64 image data URI' }
         }
 
-        if (isSafeStoredAvatarReference(trimmedValue)) {
-            return { valid: true }
+        if (decoded.buffer.length > MAX_AVATAR_SIZE_BYTES) {
+            return { valid: false, error: 'Avatar image must be less than 5MB' }
         }
 
-        return {
-            valid: false,
-            error: 'Avatar must be initials, a safe URL/path, or a supported image data URI',
+        const type = validateAvatarContent(mediaType, decoded.buffer)
+        if (!type) {
+            return { valid: false, error: 'Avatar content does not match a supported image type' }
         }
+
+        return { valid: true, value: avatar, type, avatarType: type, sizeBytes: decoded.buffer.length }
     }
 
-    const decoded = decodeBase64Payload(trimmedValue)
-    const mediaType = decoded?.mediaType || ''
-    if (!decoded || !mediaType.startsWith('image/')) {
-        return { valid: false, error: 'Invalid base64 image format' }
+    if (avatar.length > MAX_STORED_AVATAR_LENGTH) {
+        return { valid: false, error: 'Avatar value is too long' }
     }
 
-    const sizeBytes = decoded.buffer.length
-    if (sizeBytes > maxBytes) {
-        return { valid: false, error: 'Avatar image must be less than 5MB', sizeBytes }
+    if (isAllowedAvatarReference(avatar)) {
+        return { valid: true, value: avatar }
     }
 
-    const avatarType = validateAvatarContent(mediaType, decoded.buffer)
-    if (!avatarType) {
-        return { valid: false, error: 'Avatar content does not match a supported image type', sizeBytes }
-    }
-
-    return { valid: true, sizeBytes, avatarType }
+    return { valid: false, error: 'Avatar must be initials, an http(s) URL, relative path, or supported image data URI' }
 }
 
-function isSafeStoredAvatarReference(value: string): boolean {
-    if (UNSAFE_AVATAR_PATH_PATTERN.test(value)) {
-        return false
-    }
-
-    if (AVATAR_INITIALS_PATTERN.test(value)) {
-        return true
-    }
-
-    if (value.startsWith('/')) {
-        return !value.startsWith('//')
-    }
-
-    try {
-        const url = new URL(value)
-        const hasSafeProtocol = url.protocol === 'https:' || url.protocol === 'http:'
-        return hasSafeProtocol && !url.username && !url.password
-    } catch {
-        return false
-    }
+export function validateAvatarValue(value: unknown): AvatarValueValidationResult {
+    return validateStoredAvatarValue(value)
 }
 
 function hasExpectedSignature(type: GeneralUploadMimeType, buffer: Buffer): boolean {
@@ -215,6 +292,41 @@ function isLikelyText(buffer: Buffer): boolean {
 
     const decoded = sample.toString('utf8')
     return !decoded.includes('\ufffd')
+}
+
+function isAllowedAvatarReference(value: string): boolean {
+    if (UNSAFE_AVATAR_REFERENCE_PATTERN.test(value)) {
+        return false
+    }
+
+    if (AVATAR_INITIALS_PATTERN.test(value)) {
+        return true
+    }
+
+    if (value.startsWith('/') && !value.startsWith('//')) {
+        return true
+    }
+
+    try {
+        const url = new URL(value)
+        return (url.protocol === 'http:' || url.protocol === 'https:') && !url.username && !url.password
+    } catch {
+        return false
+    }
+}
+
+function sanitizeUploadBaseName(originalName: unknown): string | null {
+    if (typeof originalName !== 'string') return null
+
+    const fileName = originalName.trim().split(/[\\/]/).pop() || ''
+    const baseName = fileName.replace(/\.[^.]*$/, '')
+    const sanitized = baseName
+        .replace(/[^a-z0-9_-]+/gi, '_')
+        .replace(/^_+|_+$/g, '')
+        .toLowerCase()
+        .slice(0, MAX_UPLOAD_BASENAME_LENGTH)
+
+    return sanitized || 'upload'
 }
 
 function startsWith(buffer: Buffer, signature: number[]): boolean {

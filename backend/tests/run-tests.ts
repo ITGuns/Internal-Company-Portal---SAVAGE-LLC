@@ -1,19 +1,39 @@
-import './tasks.permissions.test'
-import './daily-logs.department.test'
-import './signup.requests.test'
-import './payroll.permissions.test'
-import './users.security.test'
-import './auth.security.test'
-import './auth.routes.test'
-import './employees.security.test'
-import './employees.routes.test'
-import './chat.permissions.test'
-import './socket.authorization.test'
-import './clients.access.test'
-import './clients.activity.test'
-import './clients.production-records.test'
-import './cors.config.test'
-import './security.middleware.test'
-import './json-body-limits.test'
-import './upload.validation.test'
-import './clients.routes.test'
+import 'dotenv/config'
+
+process.env.DATABASE_URL ||= 'postgresql://test:test@localhost:5432/test?schema=public'
+process.env.JWT_SECRET ||= 'test-runner-jwt-secret'
+process.env.REFRESH_TOKEN_SECRET ||= 'test-runner-refresh-secret'
+
+const tests = [
+  './tasks.permissions.test',
+  './daily-logs.department.test',
+  './signup.requests.test',
+  './payroll.permissions.test',
+  './users.security.test',
+  './auth.security.test',
+  './auth.routes.test',
+  './employees.security.test',
+  './employees.routes.test',
+  './chat.permissions.test',
+  './socket.authorization.test',
+  './clients.access.test',
+  './clients.activity.test',
+  './clients.production-records.test',
+  './cors.config.test',
+  './security.middleware.test',
+  './json-body-limits.test',
+  './upload.validation.test',
+  './clients.routes.test',
+  './uploads.routes.test',
+]
+
+async function runTests() {
+  for (const test of tests) {
+    await import(test)
+  }
+}
+
+runTests().catch((error) => {
+  console.error(error)
+  process.exitCode = 1
+})

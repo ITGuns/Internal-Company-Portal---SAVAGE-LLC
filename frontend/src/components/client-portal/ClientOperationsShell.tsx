@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
@@ -31,7 +32,12 @@ import {
 } from "@/components/workspace/ProductionWorkspace";
 import { useClientOperationsWorkspace, type ClientOperationsWorkspace } from "@/hooks/useClientOperationsWorkspace";
 import { splitClientOrganizationsByHistory } from "@/lib/client-organization-history";
-import { getClientOperationsRouteTitle } from "@/lib/client-operations-navigation";
+import {
+  CLIENT_OPERATIONS_NAV_ITEMS,
+  getClientOperationsRouteTitle,
+  isClientOperationsNavItemActive,
+  withClientOperationsClientParam,
+} from "@/lib/client-operations-navigation";
 import { buildClientCommandCenter } from "@/lib/client-portal-command";
 import { getClientBillingTierLabel } from "@/lib/client-portal-display";
 import { cn } from "@/lib/utils";
@@ -151,6 +157,45 @@ function ClientOperationsClientPicker({ workspace }: { workspace: ClientOperatio
   );
 }
 
+function ClientOperationsTopNav({
+  pathname,
+  selectedId,
+}: {
+  pathname: string;
+  selectedId: string;
+}) {
+  return (
+    <nav
+      aria-label="Client operations sections"
+      className="mt-4 border-y border-[var(--border)] bg-[var(--surface-raised)]/70 px-2 py-2 shadow-[0_18px_42px_-38px_var(--accent)] backdrop-blur"
+    >
+      <div className="flex gap-2 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {CLIENT_OPERATIONS_NAV_ITEMS.map((item) => {
+          const isActive = isClientOperationsNavItemActive(item.href, pathname);
+
+          return (
+            <Link
+              key={item.href}
+              href={withClientOperationsClientParam(item.href, selectedId)}
+              aria-current={isActive ? "page" : undefined}
+              className={cn(
+                "inline-flex min-h-10 shrink-0 items-center justify-center rounded-[var(--radius-md)] border px-3 text-xs font-semibold",
+                "transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-out)]",
+                "focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]",
+                isActive
+                  ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[0_0_24px_-16px_var(--accent)]"
+                  : "border-[var(--border)] bg-[var(--card-bg)] text-[var(--muted)] hover:border-[var(--accent)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]",
+              )}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
 function ClientOperationsClientHeader({ workspace }: { workspace: ClientOperationsWorkspace }) {
   const organization = workspace.selectedOrganization;
   if (!organization || !workspace.overview) return null;
@@ -168,20 +213,25 @@ function ClientOperationsClientHeader({ workspace }: { workspace: ClientOperatio
       title={organization.name}
       description="Admin control for the client-facing communication loop: delivery progress, requests, approvals, reports, assets, billing, and scheduled work."
       icon={BriefcaseBusiness}
-      status={<StatusBadge label={organization.status} size="sm" className="border border-cyan-300/25 bg-cyan-300/10 text-cyan-50" />}
+      status={<StatusBadge label={organization.status} size="sm" className="border border-[var(--workspace-ink-border)] bg-[var(--workspace-ink-accent-soft)] text-[var(--workspace-ink-accent)]" />}
       metrics={summaryItems}
     >
       <div className="space-y-4">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.08em] text-cyan-100/70">Client slug</div>
-          <div className="mt-1 truncate text-sm font-semibold text-cyan-50">{organization.slug}</div>
+          <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--workspace-ink-muted)]">Client slug</div>
+          <div className="mt-1 truncate text-sm font-semibold text-[var(--workspace-ink-foreground)]">{organization.slug}</div>
         </div>
 
         <div className="border-t border-[var(--workspace-ink-border)] pt-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.08em] text-cyan-100/70">Website</div>
+          <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--workspace-ink-muted)]">Website</div>
           <div className="mt-2">
             {organization.websiteUrl ? (
-              <a className="inline-flex min-w-0 items-center gap-2 text-sm font-medium text-cyan-50 hover:text-cyan-200" href={organization.websiteUrl} target="_blank" rel="noreferrer">
+              <a
+                className="inline-flex min-h-10 min-w-0 max-w-full items-center gap-2 rounded-[var(--radius-sm)] px-2 text-sm font-medium text-[var(--workspace-ink-foreground)] transition-colors hover:bg-[var(--workspace-ink-accent-soft)] hover:text-[var(--workspace-ink-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--workspace-ink-accent)]"
+                href={organization.websiteUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
                 <span className="truncate">{organization.websiteUrl}</span>
                 <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               </a>
@@ -193,12 +243,12 @@ function ClientOperationsClientHeader({ workspace }: { workspace: ClientOperatio
 
         <div className="grid gap-3 border-t border-[var(--workspace-ink-border)] pt-4 sm:grid-cols-2">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.08em] text-cyan-100/70">Service tier</div>
-            <div className="mt-1 text-sm font-semibold text-cyan-50">{organization.tier?.name || "No tier set"}</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--workspace-ink-muted)]">Service tier</div>
+            <div className="mt-1 text-sm font-semibold text-[var(--workspace-ink-foreground)]">{organization.tier?.name || "No tier set"}</div>
           </div>
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.08em] text-cyan-100/70">Members</div>
-            <div className="mt-1 text-sm font-semibold text-cyan-50">{organization.counts?.memberships || workspace.memberships.length || 0}</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--workspace-ink-muted)]">Members</div>
+            <div className="mt-1 text-sm font-semibold text-[var(--workspace-ink-foreground)]">{organization.counts?.memberships || workspace.memberships.length || 0}</div>
           </div>
         </div>
       </div>
@@ -372,6 +422,7 @@ export default function ClientOperationsShell({
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-6 pt-0">
         <Header title={routeTitle.title} subtitle={routeTitle.subtitle} />
+        <ClientOperationsTopNav pathname={pathname} selectedId={workspace.selectedId} />
 
         <div className="mt-6 space-y-5">
           {workspace.loading ? (

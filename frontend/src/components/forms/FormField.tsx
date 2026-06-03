@@ -6,6 +6,8 @@ import { LucideIcon } from 'lucide-react';
 export interface FormFieldProps {
   /** Unique identifier for the input */
   id: string;
+  /** Input name, defaults to id when omitted */
+  name?: string;
   /** Field label text */
   label: string;
   /** Input type (text, email, password, date, number, etc.) */
@@ -46,6 +48,7 @@ export interface FormFieldProps {
  */
 export default function FormField({
   id,
+  name,
   label,
   type = 'text',
   value,
@@ -82,6 +85,7 @@ export default function FormField({
       {/* Input */}
       <input
         id={id}
+        name={name ?? id}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}

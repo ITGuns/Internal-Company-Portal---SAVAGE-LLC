@@ -125,7 +125,7 @@ function PayslipModal({
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2 rounded-lg hover:bg-[var(--card-surface)] transition-colors text-[var(--muted)]"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[var(--muted)] transition-colors hover:bg-[var(--card-surface)]"
                         aria-label="Close payslip details"
                     >
                         <X className="w-5 h-5" />
@@ -261,29 +261,30 @@ export default function MyPayslipsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[var(--background)]">
+        <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
             <Header
                 title="My Payslips"
                 subtitle="Your complete payroll history from SAVAGE LLC"
             />
 
-            <div className="ml-64 px-8 mt-4 flex justify-end">
-                <Button
-                    variant="outline"
-                    icon={<Download className="w-4 h-4" />}
-                    onClick={() => {
-                        ytdPayslips.forEach((ps, i) => {
-                            setTimeout(() => handleDownload(ps), i * 1000); // Stagger downloads
-                        });
-                        toast.info(`Starting download of ${ytdPayslips.length} slips...`);
-                    }}
-                    disabled={ytdPayslips.length === 0}
-                >
-                    Download All (YTD)
-                </Button>
-            </div>
+            <div className="p-4 pt-3 sm:p-6 lg:p-8">
+                <div className="mx-auto flex max-w-5xl justify-end">
+                    <Button
+                        variant="outline"
+                        icon={<Download className="w-4 h-4" />}
+                        onClick={() => {
+                            ytdPayslips.forEach((ps, i) => {
+                                setTimeout(() => handleDownload(ps), i * 1000); // Stagger downloads
+                            });
+                            toast.info(`Starting download of ${ytdPayslips.length} slips...`);
+                        }}
+                        disabled={ytdPayslips.length === 0}
+                    >
+                        Download All (YTD)
+                    </Button>
+                </div>
 
-            <main className="ml-64 pt-28 px-8 pb-10">
+                <section className="pt-6 pb-10">
                 {loading ? (
                     <div className="flex items-center justify-center py-32">
                         <PageSkeleton />
@@ -384,7 +385,7 @@ export default function MyPayslipsPage() {
                                                 <div className="flex items-center gap-2 flex-shrink-0">
                                                     <button
                                                         onClick={() => setSelectedPayslip(ps)}
-                                                        className="p-2 rounded-lg hover:bg-[var(--card-surface)] text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                                                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[var(--muted)] transition-colors hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]"
                                                         title="View details"
                                                         aria-label="View payslip details"
                                                     >
@@ -392,7 +393,7 @@ export default function MyPayslipsPage() {
                                                     </button>
                                                     <button
                                                         onClick={() => handleDownload(ps)}
-                                                        className="p-2 rounded-lg hover:bg-[var(--card-surface)] text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                                                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[var(--muted)] transition-colors hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]"
                                                         title="Download PDF"
                                                         aria-label="Download payslip PDF"
                                                     >
@@ -407,7 +408,8 @@ export default function MyPayslipsPage() {
                         </div>
                     </div>
                 )}
-            </main>
+                </section>
+            </div>
 
             {/* Detail modal */}
             {selectedPayslip && (
@@ -420,6 +422,6 @@ export default function MyPayslipsPage() {
                     }}
                 />
             )}
-        </div>
+        </main>
     );
 }

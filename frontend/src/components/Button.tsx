@@ -22,12 +22,12 @@ const sizeStyles: Record<ButtonSize, string> = {
 };
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'border border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)] hover:brightness-95',
-  secondary: 'border border-[var(--border)] bg-[var(--card-surface)] text-[var(--foreground)] hover:border-[var(--muted)] hover:bg-[var(--surface-hover)]',
-  success: 'border border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800',
-  danger: 'border border-red-700 bg-red-700 text-white hover:bg-red-800',
+  primary: 'border border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[0_12px_32px_-22px_var(--accent)] hover:brightness-105 hover:shadow-[0_16px_38px_-20px_var(--accent)]',
+  secondary: 'border border-[var(--border)] bg-[var(--card-surface)] text-[var(--foreground)] hover:border-[var(--accent)] hover:bg-[var(--surface-hover)]',
+  success: 'border border-[var(--status-completed)] bg-[var(--status-completed)] text-white hover:brightness-105',
+  danger: 'border border-[var(--status-blocked)] bg-[var(--status-blocked)] text-white hover:brightness-105',
   ghost: 'border border-transparent bg-transparent text-[var(--foreground)] hover:bg-[var(--card-surface)]',
-  outline: 'border border-[var(--border)] bg-transparent text-[var(--foreground)] hover:border-[var(--muted)] hover:bg-[var(--card-surface)]',
+  outline: 'border border-[var(--border)] bg-transparent text-[var(--foreground)] hover:border-[var(--accent)] hover:bg-[var(--card-surface)]',
 };
 
 export default function Button({

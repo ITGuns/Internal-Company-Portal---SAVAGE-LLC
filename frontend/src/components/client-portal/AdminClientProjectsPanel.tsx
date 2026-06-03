@@ -97,11 +97,11 @@ export default function AdminClientProjectsPanel({
         }}
         className="space-y-3"
       >
-        <FormField id="project-name" label="Project Name" value={projectForm.name} onChange={(name) => setProjectForm((form) => ({ ...form, name }))} required />
+        <FormField id="project-name" name="project-name" label="Project Name" value={projectForm.name} onChange={(name) => setProjectForm((form) => ({ ...form, name }))} autoComplete="off" required />
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label htmlFor="project-status" className="mb-2 block text-sm font-medium">Status</label>
-            <select id="project-status" className={clientOperationsSelectClass} value={projectForm.status} onChange={(event) => setProjectForm((form) => ({ ...form, status: event.target.value }))}>
+            <select id="project-status" name="project-status" className={clientOperationsSelectClass} value={projectForm.status} onChange={(event) => setProjectForm((form) => ({ ...form, status: event.target.value }))}>
               {CLIENT_PROJECT_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
             </select>
           </div>
@@ -112,6 +112,7 @@ export default function AdminClientProjectsPanel({
             </div>
             <input
               id="project-progress"
+              name="project-progress"
               type="range"
               min={0}
               max={100}
@@ -122,10 +123,10 @@ export default function AdminClientProjectsPanel({
             />
           </div>
         </div>
-        <textarea className={clientOperationsTextareaClass} value={projectForm.summary} onChange={(event) => setProjectForm((form) => ({ ...form, summary: event.target.value }))} placeholder="Client-visible summary" aria-label="Project summary" />
+        <textarea className={clientOperationsTextareaClass} name="project-summary" autoComplete="off" value={projectForm.summary} onChange={(event) => setProjectForm((form) => ({ ...form, summary: event.target.value }))} placeholder="Add a client-visible summary…" aria-label="Project summary" />
         <div className="grid gap-3 sm:grid-cols-2">
-          <FormField id="project-live" label="Live URL" value={projectForm.liveUrl} onChange={(liveUrl) => setProjectForm((form) => ({ ...form, liveUrl }))} />
-          <FormField id="project-preview" label="Preview URL" value={projectForm.previewUrl} onChange={(previewUrl) => setProjectForm((form) => ({ ...form, previewUrl }))} />
+          <FormField id="project-live" name="project-live" label="Live URL" type="url" inputMode="url" autoComplete="off" value={projectForm.liveUrl} onChange={(liveUrl) => setProjectForm((form) => ({ ...form, liveUrl }))} />
+          <FormField id="project-preview" name="project-preview" label="Preview URL" type="url" inputMode="url" autoComplete="off" value={projectForm.previewUrl} onChange={(previewUrl) => setProjectForm((form) => ({ ...form, previewUrl }))} />
         </div>
         <Button type="submit" loading={saving}>Create Project</Button>
       </form>
@@ -143,8 +144,8 @@ export default function AdminClientProjectsPanel({
               return (
                 <div key={project.id} className="rounded-[var(--radius-md)] border border-[var(--border)] p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">{project.name}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="break-words text-sm font-medium leading-6">{project.name}</div>
                       <div className="mt-1 text-xs text-[var(--muted)]">{project.progress || 0}% current progress</div>
                     </div>
                     <StatusBadge label={getClientPortalOptionLabel(CLIENT_PROJECT_STATUSES, project.status)} size="sm" />
@@ -154,6 +155,7 @@ export default function AdminClientProjectsPanel({
                       <label htmlFor={`project-status-${project.id}`} className="mb-2 block text-sm font-medium">Status</label>
                       <select
                         id={`project-status-${project.id}`}
+                        name={`project-status-${project.id}`}
                         className={clientOperationsSelectClass}
                         value={edit.status}
                         onChange={(event) => setProjectEdits((current) => ({
@@ -171,6 +173,7 @@ export default function AdminClientProjectsPanel({
                       </div>
                       <input
                         id={`project-progress-${project.id}`}
+                        name={`project-progress-${project.id}`}
                         type="range"
                         min={0}
                         max={100}

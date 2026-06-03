@@ -6,10 +6,10 @@ import Button from "@/components/Button";
 import { ProductionPanel } from "@/components/workspace/ProductionWorkspace";
 import type { ClientPortalOption } from "@/lib/client-portal-options";
 
-export const selectClass = "w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
-export const textareaClass = "min-h-20 w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
+export const selectClass = "min-h-10 w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
+export const textareaClass = "min-h-20 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]";
 const visibilityCheckboxLabelClass = "inline-flex min-h-10 items-center gap-2 rounded-md border border-[var(--border)] px-3 text-sm text-[var(--foreground)]";
-const visibilityCheckboxClass = "h-4 w-4 shrink-0 accent-[var(--accent)]";
+const visibilityCheckboxClass = "h-5 w-5 shrink-0 accent-[var(--accent)]";
 
 export function MiniPanel({
   title,
@@ -32,13 +32,15 @@ export function MiniPanel({
 export function VisibilityCheckbox({
   checked,
   onChange,
+  name = "visible-to-client",
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
+  name?: string;
 }) {
   return (
     <label className={visibilityCheckboxLabelClass}>
-      <input className={visibilityCheckboxClass} type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      <input className={visibilityCheckboxClass} type="checkbox" name={name} checked={checked} onChange={(event) => onChange(event.target.checked)} />
       Visible to client
     </label>
   );
@@ -49,12 +51,18 @@ export function TextareaField({
   onChange,
   placeholder,
   ariaLabel,
+  name,
+  autoComplete = "off",
+  rows,
   required,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
   ariaLabel: string;
+  name?: string;
+  autoComplete?: string;
+  rows?: number;
   required?: boolean;
 }) {
   return (
@@ -62,6 +70,9 @@ export function TextareaField({
       className={textareaClass}
       value={value}
       onChange={(event) => onChange(event.target.value)}
+      name={name}
+      autoComplete={autoComplete}
+      rows={rows}
       placeholder={placeholder}
       aria-label={ariaLabel}
       required={required}
@@ -77,6 +88,8 @@ export function InlineRecordControls({
   onSave,
   onArchive,
   archiveDisabled,
+  statusName = "record-status",
+  visibilityName = "record-visible-to-client",
 }: {
   status: string;
   statusOptions: ClientPortalOption[];
@@ -85,6 +98,8 @@ export function InlineRecordControls({
   onSave: (data: { status: string; visibleToClient: boolean }) => void;
   onArchive?: () => void;
   archiveDisabled?: boolean;
+  statusName?: string;
+  visibilityName?: string;
 }) {
   const [nextStatus, setNextStatus] = useState(status);
   const [nextVisible, setNextVisible] = useState(visibleToClient);
@@ -102,17 +117,19 @@ export function InlineRecordControls({
         className="min-h-10 rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-2 text-xs text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
         value={nextStatus}
         onChange={(event) => setNextStatus(event.target.value)}
+        name={statusName}
         aria-label="Record status"
       >
         {statusOptions.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
         ))}
       </select>
-      <label className="inline-flex min-h-10 items-center gap-2 rounded-md border border-[var(--border)] px-2 text-xs">
+      <label className="inline-flex min-h-10 items-center gap-2 rounded-md border border-[var(--border)] px-3 text-xs text-[var(--foreground)]">
         <input
           type="checkbox"
           className={visibilityCheckboxClass}
           checked={nextVisible}
+          name={visibilityName}
           onChange={(event) => setNextVisible(event.target.checked)}
         />
         Client-visible
@@ -158,9 +175,9 @@ export function RecordHeader({
 }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div className="min-w-0">
-        <div className="truncate font-medium">{title}</div>
-        {subtitle ? <div className="text-xs text-[var(--muted)]">{subtitle}</div> : null}
+      <div className="min-w-0 flex-1">
+        <div className="break-words font-medium leading-6">{title}</div>
+        {subtitle ? <div className="break-words text-xs text-[var(--muted)]">{subtitle}</div> : null}
       </div>
       <Button
         type="button"

@@ -63,8 +63,8 @@ User directory endpoints sanitize sensitive fields before returning data to the 
 
 - `POST /api/users` is admin-only.
 - `PATCH /api/users/:id` allows self updates for permitted profile fields.
+- User avatar writes through `POST /api/users`, `PATCH /api/users/:id`, and `POST /api/users/:id/avatar` accept only http(s) URLs, relative paths, empty removal values where profile updates allow them, or supported image data URIs that pass signature validation and the 5 MB avatar limit.
 - Non-privileged users cannot update protected fields such as `status`, `appliedDate`, `salary`, `role`, `department`, `departmentId`, or `isApproved`.
-- User create/profile update avatar fields accept empty values, short initials, safe relative paths, and `http(s)` URLs. The direct avatar upload route requires a non-empty value. Base64 `data:image/*` values must decode successfully, stay under 5 MB, and match a supported JPEG, PNG, GIF, or WebP file signature.
 - `DELETE /api/users/:id` requires admin or operations-manager access.
 - `POST /api/users/:id/roles` and `DELETE /api/users/:id/roles/:role` are admin-only role assignment routes.
 
@@ -181,67 +181,31 @@ Client portal management access recognizes normalized admin, administrator, mana
 
 ### Client Organization Access
 
-- Internal managers/admins can list and manage all client organizations, including archived client accounts.
+- Internal managers and admins can list and manage all client organizations, including archived client accounts.
 - Client users can only list or read active organizations where they have an active `ClientMembership`.
 - Client-facing serializers omit internal organization notes, raw `tierId`, internal tier price/priority, ticket assignment fields, internal ticket comments, and inactive client memberships.
 
-### Routes
+### Client Routes
 
 - `GET /api/clients/organizations` lists client organizations visible to the requester.
 - `POST /api/clients/organizations` creates a client organization and is restricted to client-management access.
-- `GET /api/clients/service-tiers` lists service tiers for internal client-management users.
-- `POST /api/clients/service-tiers` creates a service tier for internal client-management users.
-- `PATCH /api/clients/service-tiers/:id` updates service tier name, description, monthly price, or priority rank for internal client-management users.
-- `PATCH /api/clients/organizations/:id/service-tier` assigns or clears a service tier on a client organization for internal client-management users.
+- `GET /api/clients/service-tiers`, `POST /api/clients/service-tiers`, `PATCH /api/clients/service-tiers/:id`, and `PATCH /api/clients/organizations/:id/service-tier` manage service tiers for internal client-management users.
 - `PATCH /api/clients/organizations/:id/status` updates a client organization status (`active`, `paused`, or `archived`) for internal management. Archiving removes client-facing access without deleting history.
-- `GET /api/clients/organizations/:id/overview` returns one organization with scoped memberships, projects, tickets, updates, metrics, and resources.
-- `GET /api/clients/organizations/:id/activity` returns scoped activity history for one client organization. Internal users can receive internal and client-visible events; client users only receive client-visible events for assigned active organizations.
-- `GET /api/clients/activity/queue` returns derived action queue items from tickets, approvals, work items, draft reports, and recent completions. Optional `organizationId` is authorization-checked.
-- `GET /api/clients/organizations/:id/memberships` lists client memberships for internal management.
-- `POST /api/clients/organizations/:id/memberships` creates or updates a client membership for internal management.
-- `POST /api/clients/organizations/:id/invitations` creates or updates a client user, grants the portal role, upserts the organization membership, and returns setup delivery status for internal management.
-- `PATCH /api/clients/memberships/:id` updates a client membership role/status for internal management. Deactivation uses `status: inactive` instead of destructive deletion.
-- `POST /api/clients/organizations/:id/projects` creates a client project for internal management.
-- `PATCH /api/clients/projects/:id` updates a client project's management-controlled fields such as status and progress.
-- `POST /api/clients/organizations/:id/updates` publishes or stages a client update for internal management.
-- `POST /api/clients/organizations/:id/metrics` creates a client-visible or internal metric snapshot for internal management.
-- `POST /api/clients/organizations/:id/resources` creates a client resource link. Internal management can attach normal resource metadata; assigned client users can share an http/https title and link for their own active client organization, with `type` forced to `client_link` and `visibleToClient` forced to `true`.
-- `PATCH /api/clients/resources/:id` updates a resource link. Internal management can update managed resource metadata; client users can only edit links they personally shared in their active client organization.
-- `DELETE /api/clients/resources/:id` deletes a resource link. Client users can only delete links they personally shared.
-- `POST /api/clients/organizations/:id/work-items` creates a client-visible or internal work item for internal management.
-- `PATCH /api/clients/work-items/:id` updates or archives a client work item for internal management.
-- `POST /api/clients/organizations/:id/approvals` creates a client approval request for internal management.
-- `PATCH /api/clients/approvals/:id` updates or archives a client approval for internal management.
-- `PATCH /api/clients/approvals/:id/respond` lets an assigned client submit an approval decision or change request for a visible approval.
-- `POST /api/clients/organizations/:id/reports/draft` generates a draft client report from visible work, requests, updates, metric snapshots, approvals, roadmap items, and calendar records for the requested period. Internal management can edit and publish the draft before clients see it.
-- `POST /api/clients/organizations/:id/reports` creates a monthly/client report period for internal management.
-- `PATCH /api/clients/reports/:id` updates or archives a client report period for internal management.
-- `POST /api/clients/organizations/:id/roadmap` creates a roadmap recommendation for internal management.
-- `PATCH /api/clients/roadmap/:id` updates or archives a roadmap recommendation for internal management.
-- `POST /api/clients/organizations/:id/assets` creates a client asset/file link for internal management.
-- `PATCH /api/clients/assets/:id` updates or archives a client asset/file link for internal management.
-- `PATCH /api/clients/organizations/:id/billing-status` upserts client billing/payment status for internal management. Service tier assignment stays on the client organization.
-- `POST /api/clients/organizations/:id/calendar-items` creates a campaign/content calendar item. Internal management can attach normal calendar metadata; assigned client users can add date-only items for their own active client organization, with `status` forced to `planned` and `visibleToClient` forced to `true`.
-- `PATCH /api/clients/calendar-items/:id` updates or archives a campaign/content calendar item. Client users can only edit items they personally added, and client edits keep the item client-visible and planned.
-- `DELETE /api/clients/calendar-items/:id` permanently deletes a campaign/content calendar item. Client users can only delete items they personally added.
-- `POST /api/clients/organizations/:id/tickets` creates a ticket for that organization. The server derives `organizationId` from the URL and `createdById` from the authenticated requester.
-- `GET /api/clients/tickets` lists visible tickets. Non-privileged users are limited to active client memberships, and `organizationId` query access is checked server-side.
-- `PATCH /api/clients/tickets/:id` updates client-safe ticket fields (`title`, `description`, `category`, `priority`) for tickets in the requester's assigned client organization.
-- `DELETE /api/clients/tickets/:id` deletes a ticket only when the requester can access the client organization and the ticket has no conversation history.
-- `PATCH /api/clients/tickets/:id/status` updates ticket status for internal management and creates a published client-visible update when the status changes.
-- `POST /api/clients/tickets/:id/comments` adds a ticket comment. Client users can only create client-visible comments; internal users can create internal comments.
+- `GET /api/clients/organizations/:id/overview` returns scoped memberships, projects, tickets, updates, metrics, resources, production records, and billing/calendar data for one organization.
+- `GET /api/clients/organizations/:id/activity` returns scoped activity history. Internal users can receive internal and client-visible events; client users only receive client-visible events for assigned active organizations.
+- `GET /api/clients/activity/queue` returns derived action queue items from tickets, approvals, work items, draft reports, and recent completions.
+- Membership and invitation routes manage active client access without destructive deletion: `GET/POST /api/clients/organizations/:id/memberships`, `POST /api/clients/organizations/:id/invitations`, and `PATCH /api/clients/memberships/:id`.
+- Project, update, metric, resource, work item, approval, report, roadmap, asset, billing-status, and calendar-item routes support client production records with server-derived ownership and visibility checks.
+- `POST /api/clients/organizations/:id/reports/draft` generates an editable draft report from existing client operations records before internal users publish it.
+- Ticket routes support client requests and conversations: `POST /api/clients/organizations/:id/tickets`, `GET /api/clients/tickets`, `PATCH /api/clients/tickets/:id`, `DELETE /api/clients/tickets/:id`, `PATCH /api/clients/tickets/:id/status`, and `POST /api/clients/tickets/:id/comments`.
 
 Protected fields:
 
 - Clients cannot set `organizationId`, `createdById`, `assignedToId`, or `internalNotes` through ticket creation.
-- Client-created resources cannot set `projectId`, internal-only visibility, creator ownership, or custom protected metadata; the server derives safe client-visible resource fields.
-- Client-created calendar items cannot set `projectId`, internal-only visibility, creator ownership, or admin workflow status; the server derives safe client-visible calendar fields.
+- Client-created resources and calendar items cannot set internal-only visibility, creator ownership, project ownership, or admin workflow status.
 - Client ticket updates cannot set organization, creator, assignment, status, project, comments, or internal notes.
-- Client invitations accept only email, optional name, membership role, and membership status. User approval, global `client` role, reset/setup tokens, tenant assignment, and timestamps are derived server-side.
-- Production record create/update routes derive `organizationId`, creator/requester IDs, and publish timestamps server-side.
-- Client approval response routes only accept decision fields and derive the responder and decision timestamp server-side.
-- Client-visible overview data only returns updates, metrics, and resources marked visible to the client.
-- Client-visible overview data also filters work items, approvals, reports, roadmap recommendations, assets, billing status, and calendar items through their `visibleToClient` and status flags.
+- Client invitations derive user approval, global client role, setup token, tenant assignment, and timestamps server-side.
+- Production record routes derive organization, creator/requester IDs, publish timestamps, and client-visible filtering server-side.
 - Internal comments stay hidden from client ticket responses.
 - Client activity responses strip internal events and internal metadata from client users. Activity creation is transactional for audit-significant events such as request replies, approval decisions, billing changes, service tier assignment changes, calendar deletion, and account archive/restore.
 
@@ -342,8 +306,9 @@ Configured admin bypass emails also receive payroll management access.
 - Upload routes require authentication.
 - `POST /api/uploads` stores a file and returns an authenticated file URL under `/api/uploads/files/:filename`.
 - Upload payloads must be valid base64 and the decoded file signature must match the declared allowed content type. Supported generic uploads are PNG, JPEG, GIF, PDF, plain text, DOC, and DOCX.
+- Stored generic upload filenames use a server-generated timestamp plus a sanitized basename and canonical extension derived from the validated content type, not from the user-supplied extension.
+- `GET /api/uploads/files/:filename` requires authentication, only serves supported stored upload filenames, rejects path traversal or missing files, sets the response content type from the canonical extension, and sends `X-Content-Type-Options: nosniff`.
 - Avatar data URI uploads and stored user avatar updates are limited to JPEG, PNG, GIF, and WebP signatures and remain capped at 5 MB. Stored avatar references are restricted to short initials, safe relative paths, or `http(s)` URLs.
-- `GET /api/uploads/files/:filename` requires authentication, normalizes the basename, and rejects path traversal or missing files.
 - File-directory list and children routes require authentication.
 - File-directory create/delete routes are protected by the feature's admin/manager access checks.
 

@@ -51,7 +51,7 @@ export default function ChatSidebar({
                     <button
                         type="button"
                         onClick={onCreateChannel}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] text-[var(--muted)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)]"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--muted)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                         title="Create Channel"
                         aria-label="Create Channel"
                     >
@@ -64,7 +64,7 @@ export default function ChatSidebar({
                             <button
                                 type="button"
                                 onClick={() => onSelectConversation(c.id)}
-                                className={`flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-[background-color,color,box-shadow] ${selectedId === c.id
+                                className={`flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 pr-11 text-left text-sm transition-all ${selectedId === c.id
                                     ? 'bg-[var(--accent)] text-white shadow-sm'
                                     : 'text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'
                                     }`}
@@ -80,10 +80,10 @@ export default function ChatSidebar({
                             <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); onDeleteConversation(c.id); }}
-                                className={`absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-red-500 text-white opacity-0 transition-opacity group-hover:opacity-100 ${selectedId === c.id ? 'bg-white text-red-500 hover:bg-red-50' : ''}`}
+                                className={`absolute right-1 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-red-500 text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${selectedId === c.id ? 'bg-white text-red-500 hover:bg-red-50' : ''}`}
                                 aria-label="Delete channel"
                             >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-3 h-3" />
                             </button>
                         </div>
                     ))}
@@ -99,7 +99,7 @@ export default function ChatSidebar({
                     <button
                         type="button"
                         onClick={onNewChat}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] text-[var(--muted)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)]"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--muted)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                         title="New Message"
                         aria-label="New Message"
                     >
@@ -117,7 +117,7 @@ export default function ChatSidebar({
                                 <button
                                     type="button"
                                     onClick={() => onSelectConversation(c.id)}
-                                    className={`flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-[background-color,color,box-shadow] ${isActive
+                                    className={`flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2 pr-11 text-left text-sm transition-all ${isActive
                                         ? 'bg-[var(--accent)] text-white shadow-md'
                                         : 'text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'
                                         }`}
@@ -152,10 +152,10 @@ export default function ChatSidebar({
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); onDeleteConversation(c.id); }}
-                                    className={`absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full opacity-0 transition-[background-color,color,box-shadow,opacity] group-hover:opacity-100 ${isActive ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-red-500 text-white shadow-sm'}`}
+                                    className={`absolute right-1 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full opacity-0 transition-all group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isActive ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-red-500 text-white shadow-sm'}`}
                                     aria-label="Delete conversation"
                                 >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-3 h-3" />
                                 </button>
                             </div>
                         )

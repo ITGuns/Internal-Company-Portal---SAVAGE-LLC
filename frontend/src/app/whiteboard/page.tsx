@@ -138,10 +138,10 @@ export default function WhiteboardPage() {
           {/* Back button removed as we have breadcrumbs/nav in sidebar and header can handle title */}
         </div>
 
-        <div className="flex items-center gap-2 p-1 bg-[var(--background)] rounded-xl border border-[var(--border)]">
+        <div className="flex flex-wrap items-center gap-2 p-1 bg-[var(--background)] rounded-xl border border-[var(--border)]">
           <button
             onClick={() => setTool('pencil')}
-            className={`p-2 rounded-lg transition-all ${tool === 'pencil' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)] hover:bg-[var(--card-surface)]'}`}
+            className={`inline-flex h-10 w-10 items-center justify-center rounded-lg transition-all ${tool === 'pencil' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)] hover:bg-[var(--card-surface)]'}`}
             title="Pencil"
             aria-label="Pencil tool"
             aria-pressed={tool === 'pencil'}
@@ -150,7 +150,7 @@ export default function WhiteboardPage() {
           </button>
           <button
             onClick={() => setTool('eraser')}
-            className={`p-2 rounded-lg transition-all ${tool === 'eraser' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)] hover:bg-[var(--card-surface)]'}`}
+            className={`inline-flex h-10 w-10 items-center justify-center rounded-lg transition-all ${tool === 'eraser' ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)] hover:bg-[var(--card-surface)]'}`}
             title="Eraser"
             aria-label="Eraser tool"
             aria-pressed={tool === 'eraser'}
@@ -163,7 +163,7 @@ export default function WhiteboardPage() {
               <button
                 key={c}
                 onClick={() => { setColor(c); if (tool === 'eraser') setTool('pencil'); }}
-                className={`w-6 h-6 rounded-full border border-black/10 transition-transform hover:scale-110 ${color === c ? 'ring-2 ring-[var(--accent)] ring-offset-2 dark:ring-offset-black' : ''}`}
+              className={`h-10 w-10 rounded-full border border-black/10 transition-transform hover:scale-105 ${color === c ? 'ring-2 ring-[var(--accent)] ring-offset-2 dark:ring-offset-black' : ''}`}
                 style={{ backgroundColor: c }}
                 aria-label={`Select color ${c}`}
                 aria-pressed={color === c}
@@ -181,7 +181,7 @@ export default function WhiteboardPage() {
               max="50"
               value={brushSize}
               onChange={(e) => setBrushSize(parseInt(e.target.value))}
-              className="w-24 accent-[var(--accent)]"
+              className="h-10 w-32 accent-[var(--accent)]"
               aria-label="Brush size"
             />
           </div>

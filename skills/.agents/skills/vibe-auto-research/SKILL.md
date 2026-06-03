@@ -29,6 +29,18 @@ For every meaningful repo task, maintain this loop:
 
 If steps 2 or 5 are missing, do not present the work as complete.
 
+For implementation prompts, use the stricter Prompt-to-Quality Cycle:
+
+1. **Prompt intake** - restate the requested outcome, assumptions, and user-facing goal.
+2. **Skill plan** - choose the relevant skills/tools before planning code.
+3. **Repo applicability check** - prove the request fits the current repo, architecture, data model, and product direction.
+4. **Plan quality gate** - reject and rework weak plans before editing.
+5. **Implementation** - apply the approved evidence-backed plan.
+6. **Reviewer pass** - review technical quality, affected repo areas, browser/user flow, usability, and verification evidence.
+7. **Fix cycle** - if reviewer findings remain, replan the fix, implement, and rerun the reviewer pass.
+
+Read [prompt-to-quality-cycle.md](references/prompt-to-quality-cycle.md) before broad feature work, workflow polish, repo review, or any prompt where the user expects the agent to plan, implement, review, and iterate autonomously.
+
 ## Research Depth
 
 Choose the smallest depth that makes the task safe:
@@ -47,6 +59,7 @@ Escalate depth when research finds shared behavior, hidden contracts, security r
 - Simple factual command or one-line answer: answer directly.
 - Planning request: inspect relevant context and propose a plan; do not code.
 - Implementation request: run the full research-to-verification loop.
+- Prompt-to-implementation request: run the Prompt-to-Quality Cycle before code and after implementation.
 - Review request: use a code-review stance; findings first, then fixes only if asked.
 - Bug/failure: switch to systematic debugging.
 - Publish/release request: verify the current branch, dirty worktree, dependency/security checks, and project-specific gates before recommending or pushing.
@@ -108,6 +121,7 @@ If research contradicts the hypothesis, follow the evidence.
 Use other skills when the task calls for them:
 
 - `brainstorming` or planning workflows for ambiguous features
+- `writing-plans`, `make-plan`, or `to-prd` when the user asks for a durable plan, PRD, issue-ready scope, or multi-step implementation artifact
 - `systematic-debugging` for bugs, failing tests, or unexplained behavior
 - `test-driven-development` when adding behavior with clear expected outcomes
 - `frontend-visual-quality` and Browser/in-app browser workflows for UI changes, visual review, or user-flow verification
@@ -117,6 +131,8 @@ Use other skills when the task calls for them:
 - verification guidance before claiming completion
 
 Do not use a skill ceremonially. Use it because it changes the work quality.
+
+Do not use `to-prd` to publish an issue unless the user explicitly asks for a PRD/issue-tracker artifact or approves publication.
 
 ### 6. Apply task-specific gates
 
@@ -188,6 +204,8 @@ If a command cannot be run, state that clearly and explain the residual risk.
 
 For high-risk work, passing only a narrow check is not enough. Add broader checks when touching shared code, auth, data, CI, build config, or public UX.
 
+After implementation, perform a reviewer pass before final response. The reviewer pass must inspect the diff and affected behavior, not just test output. For UI/user-flow work, include browser click-through of the affected routes and controls when the app can be rendered.
+
 ### 11. Close out
 
 Final response should include:
@@ -196,6 +214,7 @@ Final response should include:
 - edited files
 - evidence used, when useful
 - verification run
+- reviewer pass result and whether a fix cycle was needed
 - browser review result for UI/user-flow changes
 - Computer Use result for desktop/app-surface checks
 - known limitations
@@ -218,6 +237,9 @@ Avoid these failure modes:
 - changing API/database contracts without checking docs and callers
 - hiding unrun verification behind vague wording
 - using a supporting skill just to name it, without following its workflow
+- accepting the first plan when repo evidence shows it is too broad, too vague, risky, or not applicable
+- stopping after implementation without a reviewer pass
+- calling a workflow user-friendly without walking the actual user path when practical
 
 ## Progress Updates
 

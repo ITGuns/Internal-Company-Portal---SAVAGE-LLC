@@ -54,7 +54,7 @@ export default function ClientDeliveryPage() {
                   <div className="space-y-2">
                     {completedWork.map((item) => (
                       <article key={item.id} className="rounded-[var(--radius-md)] border border-[var(--border)] p-3">
-                        <div className="text-sm font-semibold">{item.title}</div>
+                        <div className="break-words text-sm font-semibold leading-6">{item.title}</div>
                         <div className="mt-1 text-xs text-[var(--muted)]">Completed {formatClientPortalDate(item.completedAt || item.updatedAt)}</div>
                       </article>
                     ))}

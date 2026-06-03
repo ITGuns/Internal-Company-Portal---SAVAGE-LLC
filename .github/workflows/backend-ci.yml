@@ -5,12 +5,12 @@ env:
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "v2-improvements" ]
     paths:
       - '.github/workflows/backend-ci.yml'
       - 'backend/**'
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "v2-improvements" ]
     paths:
       - '.github/workflows/backend-ci.yml'
       - 'backend/**'
