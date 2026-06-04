@@ -42,6 +42,7 @@ export default function UnifiedChatPage() {
     const scrollRef = useRef<HTMLDivElement>(null)
     const initialLoadDone = useRef(false)
     const currentUserRef = useRef(currentUser)
+    const joinedConversationIdsRef = useRef<Set<string>>(new Set())
     currentUserRef.current = currentUser
 
     // Phase 5.1 — Chat enhancements
@@ -212,6 +213,27 @@ export default function UnifiedChatPage() {
         loadMessages()
     }, [selectedId, socket, clearChatBadge, toast])
 
+    useEffect(() => {
+        joinedConversationIdsRef.current.clear()
+    }, [socket])
+
+    useEffect(() => {
+        if (!isConnected) {
+            joinedConversationIdsRef.current.clear()
+        }
+    }, [isConnected])
+
+    useEffect(() => {
+        if (!socket || !isConnected || conversations.length === 0) return
+
+        for (const conversation of conversations) {
+            if (joinedConversationIdsRef.current.has(conversation.id)) continue
+
+            socket.emit('join:conversation', conversation.id)
+            joinedConversationIdsRef.current.add(conversation.id)
+        }
+    }, [socket, isConnected, conversations])
+
     // Listen for real-time events
     useEffect(() => {
         if (!socket) return
@@ -265,6 +287,10 @@ export default function UnifiedChatPage() {
                 if (prev.some(c => c.id === conv.id)) return prev;
                 return [conv, ...prev];
             });
+            if (socket && isConnected && !joinedConversationIdsRef.current.has(conv.id)) {
+                socket.emit('join:conversation', conv.id)
+                joinedConversationIdsRef.current.add(conv.id)
+            }
         }
 
         const handleUserLeft = ({ userId, conversationId }: { userId: string; conversationId: string }) => {
@@ -300,7 +326,7 @@ export default function UnifiedChatPage() {
             socket.off('chat:message_edited', handleMessageEdited)
             socket.off('chat:read', handleChatRead)
         }
-    }, [socket, selectedId, currentUser, clearChatBadge])
+    }, [socket, isConnected, selectedId, currentUser, clearChatBadge])
 
     // Scroll to bottom
     useEffect(() => {

@@ -6,6 +6,13 @@ import { prisma } from '../database/prisma.service'
 import { isAdminEmail } from '../config/env.config'
 import { hasEmployeeManagementAccess } from '../employees/employees.security'
 import { canCreateConversation } from './chat.permissions'
+import {
+    normalizeAttachment,
+    normalizeChatCursor,
+    normalizeChatLimit,
+    normalizeMessageContent,
+    normalizeSearchQuery,
+} from './chat.limits'
 
 export class ChatController {
     private service = new ChatService()
@@ -44,7 +51,7 @@ export class ChatController {
             try {
                 // @ts-ignore
                 const userId = (req as AuthRequest).user.userId
-                const query = typeof req.query.q === 'string' ? req.query.q.trim() : ''
+                const query = normalizeSearchQuery(req.query.q)
 
                 if (!query) {
                     return res.json([])
@@ -121,8 +128,8 @@ export class ChatController {
                 const conversationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
                 // @ts-ignore
                 const userId = (req as AuthRequest).user.userId
-                const limit = req.query.limit ? parseInt(req.query.limit as string) : 50
-                const cursor = req.query.cursor as string
+                const limit = normalizeChatLimit(req.query.limit)
+                const cursor = normalizeChatCursor(req.query.cursor)
 
                 // Verify user is participant of conversation (security)
                 const isParticipant = await this.service.isParticipant(conversationId, userId)
@@ -144,7 +151,8 @@ export class ChatController {
                 // @ts-ignore
                 const userId = (req as AuthRequest).user.userId
                 const conversationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
-                const { content, attachment } = req.body
+                const content = normalizeMessageContent(req.body?.content)
+                const attachment = normalizeAttachment(req.body?.attachment)
 
                 // Verify user is participant
                 const isParticipant = await this.service.isParticipant(conversationId, userId)
@@ -156,32 +164,32 @@ export class ChatController {
                     return res.status(400).json({ error: 'Content or attachment required' })
                 }
 
-                const message = await this.service.sendMessage(conversationId, userId, content, attachment)
+                const { message, participantIds } = await this.service.sendMessage(conversationId, userId, content, attachment)
 
                 // Broadcast to conversation room (real-time chat update)
                 notificationService.emitToRoom(`conversation:${conversationId}`, 'chat:message', message);
 
                 // Also notify offline/online users via user room (for push notifications/badges)
-                const conversation = await this.service.getConversationById(conversationId);
-                if (conversation) {
-                    conversation.participants.forEach((p: { userId: string }) => {
-                        if (p.userId !== userId) {
-                            notificationService.notifyUser(p.userId, {
-                                type: 'info',
-                                title: 'New Message',
-                                message: `New message from ${message.sender.name || 'someone'}`,
-                                link: `/chat/${conversationId}`,
-                                id: message.id
-                            });
-                        }
+                participantIds.forEach((participantId) => {
+                    if (participantId === userId) return
+
+                    notificationService.emitToRoom(`user:${participantId}`, 'chat:message_notification', {
+                        conversationId,
+                        messageId: message.id,
+                        senderId: userId,
+                        createdAt: message.createdAt,
+                    })
+                    notificationService.notifyUser(participantId, {
+                        type: 'info',
+                        title: 'New Message',
+                        message: `New message from ${message.sender.name || 'someone'}`,
+                        link: `/chat/${conversationId}`,
+                        id: message.id
                     });
-                }
+                });
 
                 res.status(201).json(message)
             } catch (error) {
-                const fs = require('fs');
-                const logMsg = `\n[${new Date().toISOString()}] ERROR SENDING MESSAGE:\n${error instanceof Error ? error.stack : error}\n`;
-                fs.appendFileSync('chat_error.log', logMsg);
                 console.error(error)
                 res.status(500).json({ error: 'Failed to send message' })
             }

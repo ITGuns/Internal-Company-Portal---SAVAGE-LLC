@@ -53,6 +53,7 @@ import {
   taskMatchesDeepLinkFilter,
   type TaskDeepLinkFilter,
 } from "@/lib/task-deep-links";
+import { getReopenedTaskProgress, type TaskQuickAction } from "@/lib/task-status-actions";
 
 // Lazy-loaded heavy components
 const LogReportModal = dynamic(() => import("@/components/tasks/LogReportModal"), { ssr: false });
@@ -149,8 +150,8 @@ export default function TaskTrackingPage() {
     appliedDefaultUserFilterRef.current = true;
   }, [canManageAssignments, currentUserId]);
 
-  // Action hander for Play/Pause/Complete
-  const handleTaskAction = async (e: React.MouseEvent, taskId: string, action: 'play' | 'pause' | 'complete') => {
+  // Action hander for Play/Pause/Complete/Reopen
+  const handleTaskAction = async (e: React.MouseEvent, taskId: string, action: TaskQuickAction) => {
     e.stopPropagation();
 
     // Find local task
@@ -199,6 +200,13 @@ export default function TaskTrackingPage() {
         timerStart: undefined, // Will be set to null in backend
         totalElapsed: finalElapsed
       };
+    } else if (action === 'reopen') {
+      updates = {
+        status: 'in_progress',
+        progress: getReopenedTaskProgress(task),
+        timerStatus: 'paused',
+        timerStart: undefined,
+      };
     }
 
     try {
@@ -206,7 +214,7 @@ export default function TaskTrackingPage() {
       if (updatedTask) {
         queryClient.invalidateQueries({ queryKey: ['tasks'] });
         queryClient.invalidateQueries({ queryKey: ['tasks', 'detail', taskId] });
-        toast.success(`Task ${action === 'complete' ? 'completed' : (action === 'play' ? 'started' : 'paused')}`);
+        toast.success(`Task ${action === 'complete' ? 'completed' : action === 'reopen' ? 'reopened' : (action === 'play' ? 'started' : 'paused')}`);
       }
     } catch {
       toast.error("Failed to update task action");
@@ -1142,6 +1150,7 @@ export default function TaskTrackingPage() {
           task={selectedTask}
           onClose={closeTaskDetails}
           onEdit={openEditFromDetails}
+          onAction={handleTaskAction}
         />
       )}
 

@@ -1,0 +1,197 @@
+name: Production Deploy
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to verify or deploy.
+        required: true
+        default: main
+      run_migrations:
+        description: Run Prisma deployment migrations on the remote host.
+        required: true
+        type: boolean
+        default: true
+      deploy_over_ssh:
+        description: Deploy to the configured SSH Docker host after the release gate passes.
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  release-gate:
+    name: Release Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+      JWT_SECRET: local-ci-jwt-secret
+      REFRESH_TOKEN_SECRET: local-ci-refresh-secret
+      NODE_ENV: test
+      CORS_ORIGIN: http://localhost:3000
+      AUTH_RATE_LIMIT_STORE: memory
+      POSTGRES_PASSWORD: local-compose-check-password
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      NEXT_PUBLIC_WS_URL: ws://localhost:4000
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.sha }}
+          fetch-depth: 0
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Repository Checks
+        run: |
+          npm run check:skills
+          npm audit --audit-level=high
+          docker compose config
+
+      - name: Backend Dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Backend Prisma And Tests
+        working-directory: ./backend
+        run: |
+          npx prisma validate
+          npx prisma generate
+          npx prisma db push
+          npm test
+          npm run build
+          npm audit --audit-level=high
+
+      - name: Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Frontend Tests And Build
+        working-directory: ./frontend
+        run: |
+          npm test
+          npm run lint
+          npm run build
+          npm audit --audit-level=high
+
+      - name: Docker Build
+        run: docker compose build backend frontend
+
+      - name: Release Summary
+        run: |
+          {
+            echo "## Release Gate"
+            echo ""
+            echo "- Repository checks passed."
+            echo "- Backend Prisma validation, generated client, disposable schema provisioning, tests, build, and audit passed."
+            echo "- Frontend tests, lint, build, and audit passed."
+            echo "- Docker Compose config and image builds passed."
+            echo ""
+            echo "Production migration command: npm --prefix backend run prisma:deploy"
+            echo "Production smoke path: /health plus login, chat socket, uploads, and primary dashboard routes."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  ssh-deploy:
+    name: SSH Docker Deploy
+    needs: release-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_over_ssh == true }}
+
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      RUN_MIGRATIONS: ${{ inputs.run_migrations }}
+      PRODUCTION_BACKEND_URL: ${{ vars.PRODUCTION_BACKEND_URL }}
+      PRODUCTION_FRONTEND_URL: ${{ vars.PRODUCTION_FRONTEND_URL }}
+
+    steps:
+      - name: Validate Deployment Secrets
+        shell: bash
+        run: |
+          missing=()
+          for key in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_SSH_KEY; do
+            if [ -z "${!key}" ]; then
+              missing+=("$key")
+            fi
+          done
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf 'Missing required deployment secrets: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/mydeskii_deploy_key
+          chmod 600 ~/.ssh/mydeskii_deploy_key
+          ssh-keyscan -p "${DEPLOY_PORT:-22}" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy On Remote Docker Host
+        shell: bash
+        run: |
+          ssh -p "${DEPLOY_PORT:-22}" -i ~/.ssh/mydeskii_deploy_key "$DEPLOY_USER@$DEPLOY_HOST" \
+            "DEPLOY_PATH='$DEPLOY_PATH' RUN_MIGRATIONS='$RUN_MIGRATIONS' bash -se" <<'REMOTE'
+          set -euo pipefail
+
+          cd "$DEPLOY_PATH"
+          git fetch origin main
+          git checkout main
+          git pull --ff-only origin main
+
+          if [ "$RUN_MIGRATIONS" = "true" ]; then
+            npm --prefix backend ci
+            npm --prefix backend run prisma:deploy
+          fi
+
+          docker compose up -d --build
+          docker compose ps
+          curl -fsS http://localhost:4000/health
+          REMOTE
+
+      - name: Public Smoke Checks
+        shell: bash
+        run: |
+          if [ -n "$PRODUCTION_BACKEND_URL" ]; then
+            curl -fsS "$PRODUCTION_BACKEND_URL/health"
+          fi
+
+          if [ -n "$PRODUCTION_FRONTEND_URL" ]; then
+            curl -fsS "$PRODUCTION_FRONTEND_URL"
+          fi

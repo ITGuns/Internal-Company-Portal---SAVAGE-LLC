@@ -118,11 +118,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             setNotifications(prev => [newNotification, ...prev])
         })
 
-        // Listen for chat messages globally to show badges
-        newSocket.on('chat:message', (msg: { senderId: string }) => {
+        // Lightweight user-room event for chat badges, even when the current page has not joined a conversation room.
+        newSocket.on('chat:message_notification', (msg: { senderId: string }) => {
             if (String(msg.senderId) !== String(userId)) {
-                // Only increment if we are not on the chat page OR message is for a different conversation
-                // For simplicity, we increment globally and the chat page will clear it when viewed
                 setUnreadChatCount(prev => prev + 1)
             }
         })

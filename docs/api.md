@@ -299,6 +299,8 @@ Configured admin bypass emails also receive payroll management access.
 - The requester is always added to the participant list server-side.
 - Channel conversations and privileged conversation names such as `General` or `Global` require employee-management access.
 - Conversation room access is checked server-side for Socket.io joins.
+- Message list limits are capped server-side and message/search content is normalized before database queries.
+- Live chat sends full message events to authorized conversation rooms and lightweight badge events to recipient user rooms.
 - Message edit/delete routes are authenticated and handled through chat service rules.
 
 ### Uploads And File Directory

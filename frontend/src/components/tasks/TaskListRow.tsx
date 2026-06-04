@@ -1,9 +1,14 @@
 "use client";
 
 import React from "react";
-import { Play, Pause, CheckCircle2 } from "lucide-react";
+import { Play, Pause, CheckCircle2, RotateCcw } from "lucide-react";
 import type { Task, TaskPriority, TaskStatus } from "@/lib/tasks";
 import { useLiveElapsed } from "@/hooks/useLiveElapsed";
+import {
+  getActiveTaskProgress,
+  TASK_QUICK_ACTION_LABELS,
+  type TaskQuickAction,
+} from "@/lib/task-status-actions";
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
   Low: "var(--priority-low)",
@@ -30,17 +35,14 @@ const formatTime = (seconds: number) => {
 interface TaskListRowProps {
   task: Task;
   onClick: () => void;
-  onAction: (e: React.MouseEvent, taskId: string, action: "play" | "pause" | "complete") => void;
-}
-
-function calcProgress(elapsedSecs: number, estimatedMinutes: number | undefined): number {
-  if (!estimatedMinutes) return 0;
-  return Math.min(100, Math.round((elapsedSecs / (estimatedMinutes * 60)) * 100));
+  onAction: (e: React.MouseEvent, taskId: string, action: TaskQuickAction) => void;
 }
 
 export default function TaskListRow({ task, onClick, onAction }: TaskListRowProps) {
   const liveElapsed = useLiveElapsed(task.timerStatus, task.timerStart, task.totalElapsed || 0);
-  const autoProgress = task.status === 'completed' ? 100 : calcProgress(liveElapsed, task.estimatedTime);
+  const autoProgress = task.status === 'completed' ? 100 : getActiveTaskProgress({ ...task, totalElapsed: liveElapsed });
+  const actionButtonClass =
+    "inline-flex min-h-8 items-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-xs font-medium transition hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
 
   return (
     <div
@@ -81,19 +83,47 @@ export default function TaskListRow({ task, onClick, onAction }: TaskListRowProp
       <div className="flex items-center gap-6">
         {/* Inline Controls */}
         <div className="flex items-center gap-1">
-          {task.status !== 'completed' && (
+          {task.status === 'completed' ? (
+            <button
+              onClick={(e) => onAction(e, task.id, 'reopen')}
+              className={`${actionButtonClass} text-amber-500 hover:border-amber-500/30 hover:bg-amber-500/10`}
+              aria-label={`Reopen ${task.title}`}
+              title="Reopen task"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>{TASK_QUICK_ACTION_LABELS.reopen}</span>
+            </button>
+          ) : (
             <>
               {task.timerStatus === 'playing' ? (
-                <button onClick={(e) => onAction(e, task.id, 'pause')} className="inline-flex h-10 w-10 items-center justify-center rounded text-[var(--accent)] hover:bg-[var(--card-bg)]" aria-label="Pause task">
+                <button
+                  onClick={(e) => onAction(e, task.id, 'pause')}
+                  className={`${actionButtonClass} text-[var(--accent)]`}
+                  aria-label={`Pause ${task.title}`}
+                  title="Pause task"
+                >
                   <Pause className="w-3.5 h-3.5 fill-current" />
+                  <span>{TASK_QUICK_ACTION_LABELS.pause}</span>
                 </button>
               ) : (
-                <button onClick={(e) => onAction(e, task.id, 'play')} className="inline-flex h-10 w-10 items-center justify-center rounded text-emerald-500 hover:bg-[var(--card-bg)]" aria-label="Start task">
+                <button
+                  onClick={(e) => onAction(e, task.id, 'play')}
+                  className={`${actionButtonClass} text-emerald-500`}
+                  aria-label={`Start ${task.title}`}
+                  title="Start task"
+                >
                   <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>{TASK_QUICK_ACTION_LABELS.play}</span>
                 </button>
               )}
-              <button onClick={(e) => onAction(e, task.id, 'complete')} className="inline-flex h-10 w-10 items-center justify-center rounded text-blue-500 hover:bg-[var(--card-bg)]" aria-label="Complete task">
+              <button
+                onClick={(e) => onAction(e, task.id, 'complete')}
+                className={`${actionButtonClass} text-blue-500 hover:border-blue-500/30 hover:bg-blue-500/10`}
+                aria-label={`Mark ${task.title} done`}
+                title="Mark done"
+              >
                 <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>{TASK_QUICK_ACTION_LABELS.complete}</span>
               </button>
             </>
           )}
