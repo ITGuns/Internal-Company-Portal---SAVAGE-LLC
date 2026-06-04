@@ -91,8 +91,7 @@ export const refreshAccessToken = async (): Promise<string | null> => {
  * @returns Auth response with user data and tokens
  * @throws Error if login fails
  * 
- * NOTE: Email/password authentication not yet implemented in backend.
- * This is a placeholder for future implementation.
+ * Access tokens are stored client-side; refresh tokens are held in the backend httpOnly cookie.
  */
 export const loginWithEmail = async (credentials: LoginCredentials): Promise<AuthResponse> => {
     try {

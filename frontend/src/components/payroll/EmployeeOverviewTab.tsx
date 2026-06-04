@@ -55,7 +55,7 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
             const normalize = (emp: ApiEmployee): Employee => ({
                 ...emp,
                 hoursThisWeek: emp.hoursThisWeek || 0,
-                performance: emp.performance || 0,
+                performance: typeof emp.performance === "number" ? emp.performance : null,
                 salary: emp.salary || (emp.employeeProfile?.baseSalary) || 0,
                 department: emp.department || (emp.employeeProfile?.department?.name) || "Operations",
                 role: emp.role || (emp.employeeProfile?.jobTitle) || "Member",
@@ -191,11 +191,13 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
             : 0
     );
 
-    const avgPerformance = Math.round(
-        employees.length > 0
-            ? employees.reduce((acc, emp) => acc + emp.performance, 0) / employees.length
-            : 0
-    );
+    const trackedPerformance = employees
+        .map((emp) => emp.performance)
+        .filter((value): value is number => typeof value === "number");
+
+    const avgPerformance = trackedPerformance.length > 0
+        ? Math.round(trackedPerformance.reduce((acc, value) => acc + value, 0) / trackedPerformance.length)
+        : null;
 
     const displayEmployees = view === "deployed" ? employees : pendingEmployees;
 
@@ -258,7 +260,7 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                     <StatCard
                         icon={<Award className="w-5 h-5" aria-hidden="true" />}
                         label="Avg Performance"
-                        value={`${avgPerformance}%`}
+                        value={avgPerformance === null ? "Not tracked" : `${avgPerformance}%`}
                         bgColor="bg-purple-500"
                     />
                 </div>
@@ -344,6 +346,7 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                                                 onClick={() => handleEdit(employee)}
                                                 className="p-1.5 rounded-lg hover:bg-[var(--card-surface)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
                                                 title="Edit Employee"
+                                                aria-label={`Edit ${employee.name}`}
                                             >
                                                 <Edit2 className="w-4 h-4" />
                                             </button>

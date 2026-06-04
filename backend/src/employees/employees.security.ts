@@ -99,7 +99,7 @@ export function serializeDeployedEmployee(employee: EmployeeLike) {
     department: employee.department || primaryRole?.department?.name || 'Operations',
     salary: employee.salary ?? employee.employeeProfile?.baseSalary ?? 0,
     hoursThisWeek: employee.hoursThisWeek ?? 0,
-    performance: employee.performance ?? 0,
+    performance: employee.performance ?? null,
   }
 }
 

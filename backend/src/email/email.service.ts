@@ -356,7 +356,7 @@ export class EmailService {
             salary: number;
             status: string;
             hoursThisWeek: number;
-            performance: number;
+            performance: number | null;
         }
     ): Promise<EmailResult> {
         return await this.sendEmail({

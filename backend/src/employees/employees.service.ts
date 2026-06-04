@@ -99,7 +99,7 @@ export class EmployeesService {
             hoursThisWeek: parseFloat(((minutesByUser[u.id] || 0) / 60).toFixed(2)),
             role: u.employeeProfile?.jobTitle || null,
             salary: u.employeeProfile?.baseSalary || 0,
-            performance: 0, // placeholder — no performance model yet
+            performance: null,
         }))
     }
 

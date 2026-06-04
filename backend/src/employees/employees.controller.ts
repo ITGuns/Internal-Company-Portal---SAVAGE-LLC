@@ -157,7 +157,7 @@ export class EmployeesController {
                 salary: typeof employeeData.salary === 'string' ? parseFloat(employeeData.salary) : (employeeData.salary || 0),
                 status: 'Pending Verification',
                 hoursThisWeek: 0,
-                performance: 0
+                performance: null
             });
 
             const emailStatus = {

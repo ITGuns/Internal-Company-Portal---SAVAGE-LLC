@@ -21,6 +21,8 @@ export default function EmployeeCard({
   onEdit,
   onDelete,
 }: EmployeeCardProps) {
+  const hasPerformance = typeof employee.performance === "number";
+
   return (
     <div className="p-4 rounded border border-[var(--border)] bg-[var(--card-bg)] hover:shadow-sm transition">
       <div className="flex items-start gap-3">
@@ -76,10 +78,14 @@ export default function EmployeeCard({
             {/* Performance */}
             <div className="flex items-center justify-between text-sm">
               <span className="text-[var(--muted)]">Performance</span>
-              <div className="flex items-center gap-1">
-                <TrendingUp className="w-3 h-3 text-emerald-500" />
-                <span className="font-medium">{employee.performance}%</span>
-              </div>
+              {hasPerformance ? (
+                <div className="flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3 text-emerald-500" />
+                  <span className="font-medium">{employee.performance}%</span>
+                </div>
+              ) : (
+                <span className="font-medium text-[var(--muted)]">Not tracked</span>
+              )}
             </div>
 
             {/* Salary Display Section - Optimized for Monthly PHP */}
@@ -110,6 +116,7 @@ export default function EmployeeCard({
               size="sm"
               variant="ghost"
               onClick={onDelete}
+              aria-label={`Remove ${employee.name}`}
               className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
             >
               <Trash2 className="w-3.5 h-3.5" />

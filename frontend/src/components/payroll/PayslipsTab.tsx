@@ -83,7 +83,7 @@ export default function PayslipsTab() {
       const normalizedEmployees = empData.map((emp: ApiEmployee) => ({
         ...emp,
         hoursThisWeek: emp.hoursThisWeek || 0,
-        performance: emp.performance || 0,
+        performance: typeof emp.performance === "number" ? emp.performance : null,
         salary: emp.salary || (emp.employeeProfile?.baseSalary) || 0,
         department: emp.department || (emp.employeeProfile?.department?.name) || "Operations",
         role: emp.role || (emp.employeeProfile?.jobTitle) || "Member",

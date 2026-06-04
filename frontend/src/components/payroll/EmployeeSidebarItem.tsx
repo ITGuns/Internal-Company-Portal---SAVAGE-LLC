@@ -17,6 +17,8 @@ export default function EmployeeSidebarItem({
   isSelected,
   onClick,
 }: EmployeeSidebarItemProps) {
+  const performance = typeof employee.performance === "number" ? employee.performance : 0;
+
   return (
     <button
       onClick={onClick}
@@ -57,12 +59,12 @@ export default function EmployeeSidebarItem({
         {/* Work hours - yellow segment */}
         <div
           className="bg-amber-400 rounded-l-full"
-          style={{ width: `${employee.performance * 0.4}%` }}
+          style={{ width: `${performance * 0.4}%` }}
         />
         {/* Active hours - dark segment */}
         <div
           className="bg-gray-600"
-          style={{ width: `${employee.performance * 0.35}%` }}
+          style={{ width: `${performance * 0.35}%` }}
         />
         {/* Remaining - light gray segment */}
         <div

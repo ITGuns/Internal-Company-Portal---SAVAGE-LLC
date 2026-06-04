@@ -119,6 +119,57 @@
 - If chat volume grows further, revisit full-text search for message content; current `contains` search remains bounded but not trigram/full-text indexed.
 - Confirm final product naming separately if the target is `Deskii` instead of the repo-documented `MyDeskii`.
 
+## 2026-06-03 - Full Audit And Usability Fix Cycle
+
+### Completed
+
+- Ran Vibe Auto Research audit coverage across repo instructions, docs, automated gates, static scans, visual smoke, interaction sweeps, and in-app Browser public auth checks.
+- Fixed mobile task tracking overflow when opening the Organize popover.
+- Removed fake profile-sidebar fallback identity when no current user is available.
+- Replaced placeholder employee performance `0%` with an explicit `Not tracked` state until a real performance model exists.
+- Added accessible labels for employee edit/remove icon actions.
+- Updated stale auth/password-reset implementation comments.
+
+### Files Changed
+
+- `backend/src/email/email.service.ts`
+- `backend/src/employees/employees.controller.ts`
+- `backend/src/employees/employees.security.ts`
+- `backend/src/employees/employees.service.ts`
+- `frontend/src/app/forgot-password/page.tsx`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/ProfileSidebar.tsx`
+- `frontend/src/components/payroll/AddEmployeeModal.tsx`
+- `frontend/src/components/payroll/EmployeeCard.tsx`
+- `frontend/src/components/payroll/EmployeeOverviewTab.tsx`
+- `frontend/src/components/payroll/EmployeeSidebarItem.tsx`
+- `frontend/src/components/payroll/PayslipsTab.tsx`
+- `frontend/src/lib/api.ts`
+- `frontend/src/lib/payroll-calendar/types.ts`
+- `frontend/src/lib/types/api.ts`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Keep the repo visual-smoke harness as the broad authenticated clickthrough surface because it safely mocks API state and avoids real data mutation.
+- Use in-app Browser for directly renderable public/local checks and focused visible review.
+- Treat missing employee performance data as unknown, not as a numeric zero.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `npm --prefix backend run build`
+- `dotenv -e backend/.env -- npm --prefix backend test`
+- `npm --prefix frontend run test:visual` with focused changed-route and interaction route groups
+- `git diff --check`
+
+### Next Steps
+
+- Add a real employee performance model before reintroducing percentage metrics.
+- Consider pagination/aggregation for large chat, employee, and payroll archive datasets.
+
 ## 2026-06-02 - Main Merge And Release Verification
 
 ### Completed
