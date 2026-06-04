@@ -17,10 +17,12 @@ import {
   CheckCircle2,
   Clock3,
   Edit3,
+  RotateCcw,
   Timer,
   UserRound,
   X,
 } from "lucide-react";
+import { getActiveTaskProgress, type TaskQuickAction } from "@/lib/task-status-actions";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "To Do",
@@ -46,6 +48,7 @@ interface TaskDetailModalProps {
   task: Task;
   onClose: () => void;
   onEdit: (task: Task) => void;
+  onAction?: (e: React.MouseEvent, taskId: string, action: TaskQuickAction) => void;
 }
 
 function formatDate(value?: string | null) {
@@ -82,7 +85,7 @@ function getInitials(name?: string | null) {
     .join("");
 }
 
-export default function TaskDetailModal({ task, onClose, onEdit }: TaskDetailModalProps) {
+export default function TaskDetailModal({ task, onClose, onEdit, onAction }: TaskDetailModalProps) {
   const {
     data: taskDetail,
     isLoading,
@@ -103,9 +106,7 @@ export default function TaskDetailModal({ task, onClose, onEdit }: TaskDetailMod
   });
   const progress = activeTask.status === "completed"
     ? 100
-    : activeTask.estimatedTime
-      ? Math.min(100, Math.round((liveElapsed / (activeTask.estimatedTime * 60)) * 100))
-      : activeTask.progress || 0;
+    : getActiveTaskProgress({ ...activeTask, totalElapsed: liveElapsed });
   const assigneeName = activeTask.assignee?.name || activeTask.assignee?.email || "Unassigned";
   const remainingLabel = summary.isOverEstimate
     ? `${formatDurationSeconds(summary.trackedSeconds - summary.estimatedSeconds)} over`
@@ -141,6 +142,17 @@ export default function TaskDetailModal({ task, onClose, onEdit }: TaskDetailMod
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
+            {activeTask.status === "completed" && onAction && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                icon={<RotateCcw className="h-4 w-4" />}
+                onClick={(event) => onAction(event, activeTask.id, "reopen")}
+              >
+                Reopen Task
+              </Button>
+            )}
             <Button
               type="button"
               variant="secondary"

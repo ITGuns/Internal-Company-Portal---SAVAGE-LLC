@@ -55,16 +55,13 @@ export class ChatService {
      * Find existing direct conversation between two users
      */
     async findDirectConversation(user1Id: string, user2Id: string) {
-        // Find conversations where both users are participants and type is 'direct'
-        // This is a bit complex in Prisma, simplified approach:
         const conversations = await this.prisma.conversation.findMany({
             where: {
                 type: 'direct',
-                participants: {
-                    every: {
-                        userId: { in: [user1Id, user2Id] },
-                    },
-                },
+                AND: [
+                    { participants: { some: { userId: user1Id } } },
+                    { participants: { some: { userId: user2Id } } },
+                ],
             },
             include: {
                 participants: {
@@ -125,25 +122,12 @@ export class ChatService {
             },
         })
 
-        // Compute unread count per conversation
-        const result = await Promise.all(
-            conversations.map(async (conv) => {
-                const myParticipant = conv.participants.find(p => p.userId === userId)
-                const lastReadAt = myParticipant?.lastReadAt || new Date(0)
+        const unreadCounts = await this.getUnreadCountsByConversation(conversations, userId)
 
-                const unreadCount = await this.prisma.message.count({
-                    where: {
-                        conversationId: conv.id,
-                        createdAt: { gt: lastReadAt },
-                        senderId: { not: userId },
-                    },
-                })
-
-                return { ...conv, unreadCount }
-            })
-        )
-
-        return result
+        return conversations.map((conv) => ({
+            ...conv,
+            unreadCount: unreadCounts.get(conv.id) || 0,
+        }))
     }
 
     /**
@@ -200,38 +184,61 @@ export class ChatService {
      * Add a message to a conversation
      */
     async sendMessage(conversationId: string, senderId: string, content: string, attachment?: string) {
-        const message = await this.prisma.message.create({
-            data: {
-                conversationId,
-                senderId,
-                content,
-                attachment,
-            },
-            include: {
-                sender: {
-                    select: {
-                        id: true,
-                        name: true,
-                        avatar: true,
-                        email: true,
+        const [message, conversation] = await this.prisma.$transaction([
+            this.prisma.message.create({
+                data: {
+                    conversationId,
+                    senderId,
+                    content,
+                    attachment,
+                },
+                include: {
+                    sender: {
+                        select: {
+                            id: true,
+                            name: true,
+                            avatar: true,
+                            email: true,
+                        },
                     },
                 },
-            },
-        })
+            }),
+            this.prisma.conversation.update({
+                where: { id: conversationId },
+                data: { updatedAt: new Date() },
+                select: {
+                    participants: {
+                        select: {
+                            userId: true,
+                        },
+                    },
+                },
+            }),
+        ])
 
-        // Update conversation updatedAt
-        await this.prisma.conversation.update({
-            where: { id: conversationId },
-            data: { updatedAt: new Date() },
-        })
-
-        return message
+        return {
+            message,
+            participantIds: conversation.participants.map((participant) => participant.userId),
+        }
     }
 
     /**
      * Mark conversation as read for a user. Returns the updated lastReadAt timestamp.
      */
     async markAsRead(conversationId: string, userId: string): Promise<Date | null> {
+        const now = new Date()
+        const result = await this.prisma.participant.updateMany({
+            where: { conversationId, userId },
+            data: { lastReadAt: now },
+        })
+
+        return result.count > 0 ? now : null
+    }
+
+    /**
+     * Check if user is a participant of a conversation
+     */
+    async isParticipant(conversationId: string, userId: string): Promise<boolean> {
         const participant = await this.prisma.participant.findUnique({
             where: {
                 conversationId_userId: {
@@ -239,30 +246,9 @@ export class ChatService {
                     userId,
                 },
             },
+            select: { id: true },
         })
-
-        if (!participant) return null
-
-        const now = new Date()
-        await this.prisma.participant.update({
-            where: { id: participant.id },
-            data: { lastReadAt: now },
-        })
-
-        return now
-    }
-
-    /**
-     * Check if user is a participant of a conversation
-     */
-    async isParticipant(conversationId: string, userId: string): Promise<boolean> {
-        const count = await this.prisma.participant.count({
-            where: {
-                conversationId,
-                userId,
-            },
-        })
-        return count > 0
+        return Boolean(participant)
     }
 
     /**
@@ -272,7 +258,7 @@ export class ChatService {
     async deleteMessage(messageId: string, userId: string): Promise<Message | null> {
         const message = await this.prisma.message.findUnique({
             where: { id: messageId },
-            include: { sender: true }
+            select: { id: true, senderId: true },
         })
 
         if (!message) return null
@@ -354,7 +340,6 @@ export class ChatService {
      * Get total unread messages count across all conversations
      */
     async getUnreadCount(userId: string): Promise<number> {
-        // Query all participant records for this user
         const participants = await this.prisma.participant.findMany({
             where: { userId },
             select: { conversationId: true, lastReadAt: true }
@@ -362,20 +347,45 @@ export class ChatService {
 
         if (participants.length === 0) return 0;
 
-        let total = 0;
-        // This could be optimized into a raw SQL query, but loop + find count is fine for now
-        // since active conversations per user is typically small.
-        await Promise.all(participants.map(async (p) => {
-            const count = await this.prisma.message.count({
-                where: {
-                    conversationId: p.conversationId,
-                    createdAt: { gt: p.lastReadAt },
-                    senderId: { not: userId } // Don't count their own messages
-                }
-            });
-            total += count;
-        }));
+        const unreadCounts = await this.getUnreadCountsByParticipantReadState(participants, userId)
 
-        return total;
+        return Array.from(unreadCounts.values()).reduce((total, count) => total + count, 0);
+    }
+
+    private async getUnreadCountsByConversation(
+        conversations: Array<{ id: string; participants: Array<{ userId: string; lastReadAt: Date }> }>,
+        userId: string,
+    ): Promise<Map<string, number>> {
+        const participantReadState = conversations.flatMap((conversation) => {
+            const participant = conversation.participants.find((item) => item.userId === userId)
+            return participant
+                ? [{ conversationId: conversation.id, lastReadAt: participant.lastReadAt }]
+                : []
+        })
+
+        return this.getUnreadCountsByParticipantReadState(participantReadState, userId)
+    }
+
+    private async getUnreadCountsByParticipantReadState(
+        participantReadState: Array<{ conversationId: string; lastReadAt: Date }>,
+        userId: string,
+    ): Promise<Map<string, number>> {
+        if (participantReadState.length === 0) return new Map()
+
+        const unreadFilters = participantReadState.map((participant) => ({
+            conversationId: participant.conversationId,
+            createdAt: { gt: participant.lastReadAt },
+            senderId: { not: userId },
+        }))
+
+        const unreadCounts = await this.prisma.message.groupBy({
+            by: ['conversationId'],
+            where: { OR: unreadFilters },
+            _count: { _all: true },
+        })
+
+        return new Map(
+            unreadCounts.map((item) => [item.conversationId, item._count._all]),
+        )
     }
 }

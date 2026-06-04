@@ -129,6 +129,7 @@ Client portal data is tenant-scoped by `ClientOrganization`.
 Chat, announcements, notifications, uploads, and file-directory records are part of the same Prisma schema.
 
 - Chat room authorization depends on conversation participation.
+- Chat performance indexes support conversation type lookup, recently updated conversation ordering, participant lookup by user, message pagination, and unread-count scans.
 - File-directory permissions are enforced in the controller/service layer; do not expose unsafe file tree mutations from unauthenticated routes.
 - Uploaded files are served through authenticated `/api/uploads/files/:filename` routes.
 - Uploaded file metadata and served files should be treated as authenticated portal data unless a route explicitly makes them public.

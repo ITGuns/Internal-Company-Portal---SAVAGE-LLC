@@ -30,6 +30,10 @@ npm --prefix frontend run dev
 
 See `backend/README.md`, `frontend/README.md`, and `docs/architecture.md` for package-specific setup and architecture details.
 
+## Deployment
+
+CI/CD runs through GitHub Actions. See `docs/deployment.md` for release gates, required GitHub secrets, production environment variables, the manual SSH Docker deploy path, migration command, smoke checks, and rollback notes.
+
 ## Verification
 
 Run focused checks for changed areas first, then broaden before release or publish decisions.

@@ -5,6 +5,9 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
+ARG DATABASE_URL=postgresql://user:password@localhost:5432/portal?schema=public
+ENV DATABASE_URL=$DATABASE_URL
+
 RUN npm ci
 
 COPY . .

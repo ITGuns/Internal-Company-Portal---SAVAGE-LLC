@@ -827,6 +827,9 @@ model Conversation {
   // Relations
   participants Participant[]
   messages     Message[]
+
+  @@index([type])
+  @@index([updatedAt])
 }
 
 model Participant {
@@ -843,6 +846,7 @@ model Participant {
   @@unique([conversationId, userId])
   @@index([userId])
   @@index([conversationId])
+  @@index([userId, conversationId])
 }
 
 model Message {
@@ -861,6 +865,8 @@ model Message {
 
   @@index([conversationId])
   @@index([senderId])
+  @@index([conversationId, createdAt])
+  @@index([senderId, createdAt])
 }
 
 // ============================================

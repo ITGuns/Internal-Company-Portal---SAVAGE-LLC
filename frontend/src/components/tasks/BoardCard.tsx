@@ -7,9 +7,15 @@ import {
   Play,
   Pause,
   CheckCircle2,
+  RotateCcw,
 } from "lucide-react";
 import type { Task, TaskPriority } from "@/lib/tasks";
 import { useLiveElapsed } from "@/hooks/useLiveElapsed";
+import {
+  getActiveTaskProgress,
+  TASK_QUICK_ACTION_LABELS,
+  type TaskQuickAction,
+} from "@/lib/task-status-actions";
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
   Low: "var(--priority-low)",
@@ -37,18 +43,15 @@ const formatMinutes = (minutes: number) => {
 interface BoardCardProps {
   task: Task;
   onClick?: () => void;
-  onAction?: (e: React.MouseEvent, taskId: string, action: "play" | "pause" | "complete") => void;
-}
-
-function calcProgress(elapsedSecs: number, estimatedMinutes: number | undefined): number {
-  if (!estimatedMinutes) return 0;
-  return Math.min(100, Math.round((elapsedSecs / (estimatedMinutes * 60)) * 100));
+  onAction?: (e: React.MouseEvent, taskId: string, action: TaskQuickAction) => void;
 }
 
 export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
   const assigneeName = task.assignee?.name || task.assignee?.email || "Unassigned";
   const liveElapsed = useLiveElapsed(task.timerStatus, task.timerStart, task.totalElapsed || 0);
-  const progress = task.status === 'completed' ? 100 : calcProgress(liveElapsed, task.estimatedTime);
+  const progress = task.status === 'completed' ? 100 : getActiveTaskProgress({ ...task, totalElapsed: liveElapsed });
+  const actionButtonClass =
+    "inline-flex min-h-10 items-center gap-1 rounded-md px-3 py-2 text-[11px] font-medium transition hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
 
   return (
     <Card
@@ -132,34 +135,47 @@ export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
 
             {/* Timer Controls */}
             <div className="flex items-center gap-1">
-              {task.status !== "completed" && (
+              {task.status === "completed" ? (
+                <button
+                  onClick={(e) => onAction?.(e, task.id, "reopen")}
+                  className={`${actionButtonClass} text-amber-500`}
+                  title="Reopen task"
+                  aria-label="Reopen task"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>{TASK_QUICK_ACTION_LABELS.reopen}</span>
+                </button>
+              ) : (
                 <>
                   {task.timerStatus === "playing" ? (
                     <button
                       onClick={(e) => onAction?.(e, task.id, "pause")}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded text-[var(--accent)] hover:bg-[var(--card-bg)]"
+                      className={`${actionButtonClass} text-[var(--accent)]`}
                       title="Pause Task"
                       aria-label="Pause task"
                     >
                       <Pause className="w-3.5 h-3.5 fill-current" />
+                      <span>{TASK_QUICK_ACTION_LABELS.pause}</span>
                     </button>
                   ) : (
                     <button
                       onClick={(e) => onAction?.(e, task.id, "play")}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded text-emerald-500 hover:bg-[var(--card-bg)]"
+                      className={`${actionButtonClass} text-emerald-500`}
                       title="Start Task"
                       aria-label="Start task"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>{TASK_QUICK_ACTION_LABELS.play}</span>
                     </button>
                   )}
                   <button
                     onClick={(e) => onAction?.(e, task.id, "complete")}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded text-blue-500 hover:bg-[var(--card-bg)]"
+                    className={`${actionButtonClass} text-blue-500`}
                     title="Complete Task"
                     aria-label="Complete task"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{TASK_QUICK_ACTION_LABELS.complete}</span>
                   </button>
                 </>
               )}

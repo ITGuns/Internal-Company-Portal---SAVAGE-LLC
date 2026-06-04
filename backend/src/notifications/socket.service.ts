@@ -22,6 +22,12 @@ class NotificationService {
     private io: SocketIOServer | null = null
     private userSockets: Map<string, Set<string>> = new Map()
 
+    private logDebug(message: string) {
+        if (config.nodeEnv !== 'production' || config.logLevel.toLowerCase() === 'debug') {
+            console.log(message)
+        }
+    }
+
     initialize(httpServer: HttpServer) {
         console.log('Initializing Socket.io...')
         this.io = new SocketIOServer(httpServer, {
@@ -65,11 +71,11 @@ class NotificationService {
                 return
             }
 
-            console.log(`Client connected: ${socket.id}`)
+            this.logDebug(`Client connected: ${socket.id}`)
 
             socket.on('authenticate', () => {
                 this.registerUserSocket(socketUser.userId, socket.id)
-                console.log(`User authenticated on socket: ${socketUser.userId}`)
+                this.logDebug(`User authenticated on socket: ${socketUser.userId}`)
             })
 
             socket.on('join:conversation', async (conversationId: string) => {
@@ -88,7 +94,7 @@ class NotificationService {
                     }
 
                     socket.join(`conversation:${normalizedConversationId}`)
-                    console.log(`Socket ${socket.id} joined conversation room: ${normalizedConversationId}`)
+                    this.logDebug(`Socket ${socket.id} joined conversation room: ${normalizedConversationId}`)
                 } catch (error) {
                     console.error('Socket conversation join failed:', error)
                     socket.emit('error', { message: 'Unable to join conversation' })
@@ -137,7 +143,7 @@ class NotificationService {
             })
 
             socket.on('disconnect', () => {
-                console.log(`Client disconnected: ${socket.id}`)
+                this.logDebug(`Client disconnected: ${socket.id}`)
                 this.removeSocket(socket.id)
             })
         })
@@ -188,7 +194,7 @@ class NotificationService {
         }
 
         this.io.to(`user:${userId}`).emit('notification', notification)
-        console.log(`Notification sent to user ${userId}: ${payload.title}`)
+        this.logDebug(`Notification sent to user ${userId}: ${payload.title}`)
     }
 
     broadcast(payload: NotificationPayload) {
@@ -201,7 +207,7 @@ class NotificationService {
         }
 
         this.io.emit('notification', notification)
-        console.log(`Broadcast sent: ${payload.title}`)
+        this.logDebug(`Broadcast sent: ${payload.title}`)
     }
 
     emitToRoom(room: string, event: string, payload: unknown) {

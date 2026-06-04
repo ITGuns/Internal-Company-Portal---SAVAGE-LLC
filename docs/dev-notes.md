@@ -1,5 +1,124 @@
 # Development Notes
 
+## 2026-06-04 - CI/CD And Deployment Readiness
+
+### Completed
+
+- Added `v3-improvements` coverage to GitHub Actions CI and backend CI.
+- Added a production release-gate/manual SSH Docker deploy workflow with required secret validation.
+- Added a backend Docker build-time placeholder `DATABASE_URL` for Prisma client generation without committing production secrets.
+- Added Docker Compose service health checks and frontend Docker build args for `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL`.
+- Added Dependabot coverage for GitHub Actions and root/backend/frontend npm packages.
+- Added a deployment runbook with release flow, secrets, migration command, smoke checks, and rollback guidance.
+
+### Files Changed
+
+- `.github/workflows/ci.yml`
+- `.github/workflows/backend-ci.yml`
+- `.github/workflows/deploy.yml`
+- `.github/dependabot.yml`
+- `docker-compose.yml`
+- `backend/Dockerfile`
+- `frontend/Dockerfile`
+- `README.md`
+- `docs/architecture.md`
+- `docs/deployment.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept CI using `npx prisma db push` for disposable PostgreSQL test databases because the migration directory is not yet a clean empty-database baseline.
+- Kept production migration application as `npm --prefix backend run prisma:deploy`.
+- Made remote deployment manual and secret-gated instead of auto-deploying to an unknown host.
+
+### How to Test
+
+- `npm run check:skills`
+- `docker compose config` with temporary local placeholders for required secrets.
+- GitHub Actions should run CI on `v3-improvements` pushes and PRs into `main`.
+
+### Next Steps
+
+- Configure GitHub branch protection to require CI before merging to `main`.
+- Add `DEPLOY_*` secrets and optional production smoke URL variables before using manual SSH deployment.
+- Run the `Production Deploy` workflow in release-gate mode first, then enable `deploy_over_ssh` after the remote host is prepared.
+
+## 2026-06-04 - v3 Task Controls, Seed Safety, And Chat Review
+
+### Completed
+
+- Ported task-tracking UX fixes onto the isolated `v3-improvements` worktree.
+- Replaced native-looking select controls with theme-stable portal select styling.
+- Fixed manual task-role entry so `Other / type a role` uses manual-entry mode instead of storing `Other` as the editable value.
+- Added labeled task quick actions: `Start`, `Pause`, `Done`, and `Reopen`.
+- Added completed-task reopen behavior through the existing task update contract.
+- Capped active/reopened task progress below `100%` so only completed tasks render as complete.
+- Hardened Prisma seeding so normal seed runs preserve existing accounts unless `SEED_RESET_USERS=true` is explicitly set against a localhost database URL.
+- Reviewed the chat/messaging Prisma models, API route guards, socket room authorization, and existing permission tests for main-readiness risk.
+- Tightened chat live-readiness with capped message/query inputs, batched unread-count queries, transactional message send/update, recipient user-room badge events, and authenticated conversation-room joins for visible chats.
+- Added additive chat indexes for conversation ordering/type lookup, participant lookup, message pagination, and unread-count scans.
+- Made the backend test runner execute async test files in isolated child processes so route tests cannot close Prisma connections under one another.
+- Reduced noisy Socket.io per-connection/per-room logs outside production debug logging.
+
+### Files Changed
+
+- `backend/prisma/seed.ts`
+- `backend/prisma/schema.prisma`
+- `backend/prisma/migrations/202606040001_chat_performance_indexes/migration.sql`
+- `backend/src/chat/chat.controller.ts`
+- `backend/src/chat/chat.limits.ts`
+- `backend/src/chat/chat.service.ts`
+- `backend/src/notifications/socket.service.ts`
+- `backend/tests/chat.limits.test.ts`
+- `backend/tests/run-tests.ts`
+- `docs/api.md`
+- `docs/database.md`
+- `frontend/src/app/globals.css`
+- `frontend/src/app/chat/page.tsx`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/tasks/BoardCard.tsx`
+- `frontend/src/components/tasks/TaskDetailModal.tsx`
+- `frontend/src/components/tasks/TaskListRow.tsx`
+- `frontend/src/components/tasks/TaskModal.tsx`
+- `frontend/src/context/SocketContext.tsx`
+- `frontend/src/lib/task-status-actions.ts`
+- `frontend/tests/task-status-actions.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Do not add the missing legacy `backend/seed-manual.js` script to v3; v3 should only harden scripts that exist on this branch.
+- Preserve existing accounts during normal seed runs; destructive local resets must be explicit.
+- Keep chat schema changes additive and index-only for this pass; no destructive data changes or relation renames.
+- Use lightweight user-room chat badge events instead of relying on every page to join every conversation room.
+- Keep chat pages joining authorized conversation rooms so sidebar unread state and ordering update live while the user is on the chat surface.
+- Keep backend tests isolated by process because several legacy async test files launch work during module import.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix backend test`
+- `cd backend; npx prisma validate`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `npm --prefix backend run build`
+- `cd backend; npx prisma generate`
+- `npm --prefix backend audit --audit-level=high`
+- `npm --prefix frontend audit --audit-level=high`
+- `npm audit --audit-level=high`
+- `npm run check:skills`
+- `$env:VISUAL_SMOKE_ROUTES = '/dashboard,/chat,/task-tracking'; $env:VISUAL_SMOKE_INTERACTIONS = '1'; $env:VISUAL_SMOKE_ROUTE_CONTROLS_ONLY = '1'; npm --prefix frontend run test:visual`
+- Live socket/API check against a temporary local direct conversation verified `chat:message` room delivery and `chat:message_notification` user-room badge delivery, then deleted the temporary records.
+- `docker compose config` with temporary local placeholders for required secrets.
+- `git diff --check`
+- Browser affected-flow audit: `/task-tracking` modal role entry, select styling, `Done`/`Reopen` controls, and `/chat` render/access surface.
+
+### Next Steps
+
+- For production deployment, apply `202606040001_chat_performance_indexes` before or with the app deploy.
+- If chat volume grows further, revisit full-text search for message content; current `contains` search remains bounded but not trigram/full-text indexed.
+- Confirm final product naming separately if the target is `Deskii` instead of the repo-documented `MyDeskii`.
+
 ## 2026-06-03 - Full Audit And Usability Fix Cycle
 
 ### Completed

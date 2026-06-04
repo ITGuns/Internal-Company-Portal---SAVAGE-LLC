@@ -7,7 +7,7 @@ The portal is a full-stack internal company application with a TypeScript Expres
 - `backend/` owns API routes, authentication, authorization, Prisma access, payroll logic, email, uploads, file directory, chat, and notifications.
 - `frontend/` owns authenticated portal pages, workflow UI, shared React helpers, route-level deep links, and focused utility tests.
 - `docs/` is the project memory for architecture, API behavior, database notes, feature behavior, project decisions, and session notes.
-- `docker-compose.yml` provides local service wiring for the app stack and requires explicit database and auth secrets.
+- `docker-compose.yml` provides local service wiring for the app stack, service health checks, and explicit database/auth secrets.
 
 The backend and frontend are developed and verified separately. The root `package.json` is a no-dependency command helper for cross-package checks; app dependencies stay in `backend/` and `frontend/`.
 
@@ -144,6 +144,8 @@ npm audit --audit-level=high
 `docker compose config` requires explicit local values for `POSTGRES_PASSWORD`, `JWT_SECRET`, and `REFRESH_TOKEN_SECRET`. Use temporary local placeholders for config validation only; production must use real deployment secrets.
 
 GitHub Actions backend jobs provision their disposable test PostgreSQL schema with `npx prisma db push` after Prisma validation and generation. The current migration directory is not an empty-database baseline, so migration deployment should be handled as a separate production release concern until a baseline migration cleanup is planned.
+
+See `docs/deployment.md` for CI/CD workflow ownership, production deployment secrets, release gates, post-deploy smoke checks, and rollback notes.
 
 Security-related runtime notes:
 

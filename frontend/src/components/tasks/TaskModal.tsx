@@ -2,7 +2,7 @@
 
 import React from "react";
 import Button from "@/components/Button";
-import { Trash2 } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import type { TaskPriority, TaskStatus, TaskDepartment, TaskUser, Task } from "@/lib/tasks";
 import { getPrimaryTaskAssignmentFromRoles } from "@/lib/task-access";
 
@@ -12,6 +12,11 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   review: "Review",
   completed: "Completed",
 };
+
+const OTHER_ROLE_VALUE = "__manual_role__";
+const fieldControlClass =
+  "w-full min-h-10 rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
+const selectControlClass = `${fieldControlClass} portal-select`;
 
 interface TaskModalProps {
   editTaskData: Task | null;
@@ -88,12 +93,12 @@ export default function TaskModal({
   onDelete,
   onClose,
 }: TaskModalProps) {
+  const [isManualRoleMode, setIsManualRoleMode] = React.useState(false);
   const selectedDepartment = departments.find(
     (department) => department.id?.toString() === departmentId?.toString(),
   );
   const availableRoles = selectedDepartment?.availableRoles?.map((availableRole) => availableRole.name) || [];
-  const roleOptions =
-    role && role !== "Other" && !availableRoles.includes(role) ? [role, ...availableRoles] : availableRoles;
+  const showManualRoleInput = isManualRoleMode || Boolean(role && selectedDepartment && !availableRoles.includes(role));
 
   function handleAssigneeChange(nextAssigneeId: string) {
     setAssigneeId(nextAssigneeId);
@@ -106,6 +111,23 @@ export default function TaskModal({
       setDepartmentId(selectedAssignment.departmentId);
     }
     setRole(selectedAssignment.role);
+    setIsManualRoleMode(false);
+  }
+
+  function handleRoleSelect(nextRole: string) {
+    if (nextRole === OTHER_ROLE_VALUE) {
+      setIsManualRoleMode(true);
+      setRole("");
+      return;
+    }
+
+    setIsManualRoleMode(false);
+    setRole(nextRole);
+  }
+
+  function clearManualRole() {
+    setIsManualRoleMode(false);
+    setRole("");
   }
 
   return (
@@ -126,10 +148,10 @@ export default function TaskModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-[var(--muted)] hover:text-[var(--foreground)]"
+            className="rounded p-2 text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]"
             aria-label="Close task modal"
           >
-            x
+            <X className="h-4 w-4" />
           </button>
         </div>
 
@@ -143,7 +165,7 @@ export default function TaskModal({
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="What needs to be done?"
-                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                className={fieldControlClass}
                 required
               />
             </div>
@@ -157,7 +179,7 @@ export default function TaskModal({
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               placeholder="Tell us more about this task..."
-              className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] h-24 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              className={`${fieldControlClass} min-h-24`}
               required
             />
           </div>
@@ -174,8 +196,9 @@ export default function TaskModal({
                     onChange={(event) => {
                       setDepartmentId(event.target.value);
                       setRole("");
+                      setIsManualRoleMode(false);
                     }}
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                    className={selectControlClass}
                     required
                     aria-label="Department"
                   >
@@ -195,7 +218,7 @@ export default function TaskModal({
                   <select
                     value={priority}
                     onChange={(event) => setPriority(event.target.value as TaskPriority)}
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                    className={selectControlClass}
                     aria-label="Priority"
                     required
                   >
@@ -225,7 +248,7 @@ export default function TaskModal({
                   <select
                     value={assigneeId}
                     onChange={(event) => handleAssigneeChange(event.target.value)}
-                    className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                    className={selectControlClass}
                     aria-label="Assign To"
                     required
                   >
@@ -242,37 +265,48 @@ export default function TaskModal({
                   <label className="block text-sm mb-1 font-medium">
                     Role <span className="text-red-500">*</span>
                   </label>
-                  {role === "Other" ? (
+                  {showManualRoleInput ? (
                     <div className="flex gap-2">
                       <input
                         type="text"
                         value={role}
-                        onChange={(event) => setRole(event.target.value)}
-                        placeholder="Enter role manually..."
-                        className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                        onChange={(event) => {
+                          setIsManualRoleMode(true);
+                          setRole(event.target.value);
+                        }}
+                        placeholder="Type a role..."
+                        className={fieldControlClass}
                         autoFocus
                         required
+                        aria-label="Manual role"
                       />
-                      <Button type="button" variant="ghost" onClick={() => setRole("")} className="px-3">
-                        x
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={clearManualRole}
+                        className="px-3"
+                        aria-label="Return to role dropdown"
+                        title="Return to role dropdown"
+                      >
+                        <X className="h-4 w-4" />
                       </Button>
                     </div>
                   ) : (
                     <select
                       value={role}
-                      onChange={(event) => setRole(event.target.value)}
+                      onChange={(event) => handleRoleSelect(event.target.value)}
                       disabled={!departmentId}
-                      className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] disabled:opacity-50"
+                      className={selectControlClass}
                       aria-label="Role"
                       required
                     >
                       <option value="">Select role</option>
-                      {roleOptions.map((roleOption) => (
+                      {availableRoles.map((roleOption) => (
                         <option key={roleOption} value={roleOption}>
                           {roleOption}
                         </option>
                       ))}
-                      <option value="Other">Other (Manual Entry)...</option>
+                      <option value={OTHER_ROLE_VALUE}>Other / type a role</option>
                     </select>
                   )}
                 </div>
@@ -300,7 +334,7 @@ export default function TaskModal({
                 <select
                   value={priority}
                   onChange={(event) => setPriority(event.target.value as TaskPriority)}
-                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                  className={selectControlClass}
                   aria-label="Priority"
                   required
                 >
@@ -319,7 +353,7 @@ export default function TaskModal({
                 type="date"
                 value={startDate}
                 onChange={(event) => setStartDate(event.target.value)}
-                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                className={fieldControlClass}
                 aria-label="Start Date"
               />
             </div>
@@ -332,7 +366,7 @@ export default function TaskModal({
                 type="date"
                 value={dueDate}
                 onChange={(event) => setDueDate(event.target.value)}
-                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                className={fieldControlClass}
                 aria-label="Due Date"
                 required
               />
@@ -347,7 +381,7 @@ export default function TaskModal({
               <select
                 value={status}
                 onChange={(event) => setStatus(event.target.value as TaskStatus)}
-                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)]"
+                className={selectControlClass}
                 aria-label="Status"
                 required
               >
@@ -367,7 +401,7 @@ export default function TaskModal({
                 value={estimatedTime}
                 onChange={(event) => setEstimatedTime(event.target.value)}
                 placeholder="e.g. 60"
-                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                className={fieldControlClass}
                 required
               />
             </div>
@@ -395,7 +429,7 @@ export default function TaskModal({
                 value={progressNotes}
                 onChange={(event) => setProgressNotes(event.target.value)}
                 placeholder="Add a note about recent progress..."
-                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] h-20"
+                className={`${fieldControlClass} h-20`}
               />
             </div>
           )}
