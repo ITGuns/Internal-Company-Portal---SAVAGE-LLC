@@ -63,7 +63,7 @@ jobs:
       NEXT_PUBLIC_WS_URL: ws://localhost:4000
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.inputs.ref || github.sha }}
           fetch-depth: 0
