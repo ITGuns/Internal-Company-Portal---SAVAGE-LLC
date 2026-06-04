@@ -403,6 +403,17 @@ select:disabled,
     linear-gradient(135deg, color-mix(in srgb, var(--muted) 55%, transparent) 50%, transparent 50%);
 }
 
+.portal-number-input {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.portal-number-input::-webkit-inner-spin-button,
+.portal-number-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* Utility classes for tokens */
 .card {
   background: var(--card-bg);

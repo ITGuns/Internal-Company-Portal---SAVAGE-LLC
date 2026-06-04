@@ -17,6 +17,8 @@ const OTHER_ROLE_VALUE = "__manual_role__";
 const fieldControlClass =
   "w-full min-h-10 rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
 const selectControlClass = `${fieldControlClass} portal-select`;
+const inlineClearButtonClass =
+  "absolute right-1.5 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-[var(--muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] active:translate-y-[calc(-50%+1px)] active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
 
 interface TaskModalProps {
   editTaskData: Task | null;
@@ -266,7 +268,7 @@ export default function TaskModal({
                     Role <span className="text-red-500">*</span>
                   </label>
                   {showManualRoleInput ? (
-                    <div className="flex gap-2">
+                    <div className="relative">
                       <input
                         type="text"
                         value={role}
@@ -275,21 +277,20 @@ export default function TaskModal({
                           setRole(event.target.value);
                         }}
                         placeholder="Type a role..."
-                        className={fieldControlClass}
+                        className={`${fieldControlClass} pr-11`}
                         autoFocus
                         required
                         aria-label="Manual role"
                       />
-                      <Button
+                      <button
                         type="button"
-                        variant="ghost"
                         onClick={clearManualRole}
-                        className="px-3"
+                        className={inlineClearButtonClass}
                         aria-label="Return to role dropdown"
                         title="Return to role dropdown"
                       >
-                        <X className="h-4 w-4" />
-                      </Button>
+                        <X className="size-4" />
+                      </button>
                     </div>
                   ) : (
                     <select
@@ -401,7 +402,9 @@ export default function TaskModal({
                 value={estimatedTime}
                 onChange={(event) => setEstimatedTime(event.target.value)}
                 placeholder="e.g. 60"
-                className={fieldControlClass}
+                className={`${fieldControlClass} portal-number-input`}
+                min="1"
+                step="1"
                 required
               />
             </div>
