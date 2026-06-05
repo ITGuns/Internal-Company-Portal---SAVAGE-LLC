@@ -43,7 +43,7 @@ export default function TaskListRow({ task, onClick, onAction }: TaskListRowProp
   const liveElapsed = useLiveElapsed(task.timerStatus, task.timerStart, task.totalElapsed || 0);
   const autoProgress = task.status === 'completed' ? 100 : calcProgress(liveElapsed, task.estimatedTime);
   const actionButtonClass =
-    "inline-flex min-h-8 items-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-xs font-medium transition hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
+    "inline-flex min-h-10 items-center gap-1.5 rounded-md border border-transparent px-2.5 py-1.5 text-xs font-medium transition hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
 
   return (
     <div

@@ -52,7 +52,7 @@ export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
   const liveElapsed = useLiveElapsed(task.timerStatus, task.timerStart, task.totalElapsed || 0);
   const progress = task.status === 'completed' ? 100 : calcProgress(liveElapsed, task.estimatedTime);
   const actionButtonClass =
-    "inline-flex min-h-8 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
+    "inline-flex min-h-10 items-center gap-1 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
 
   return (
     <Card
