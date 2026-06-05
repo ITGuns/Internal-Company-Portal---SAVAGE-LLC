@@ -474,15 +474,15 @@ export default function UnifiedChatPage() {
 
     if (loading) {
         return (
-            <div className="flex flex-col h-[calc(100vh-112px)]">
+            <main className="flex flex-col h-[calc(100vh-112px)]">
                 <Header title="Company Chat" />
                 <PageSkeleton />
-            </div>
+            </main>
         )
     }
 
     return (
-        <div className="flex flex-col h-[calc(100vh-112px)] overflow-hidden">
+        <main className="flex flex-col h-[calc(100vh-112px)] overflow-hidden">
             <Header
                 title="Chat & Messages"
                 subtitle={isDirect ? `Direct Message with ${otherUser?.name}` : `# ${selectedConv?.name || "Select a channel"}`}
@@ -492,10 +492,10 @@ export default function UnifiedChatPage() {
             <div className="flex items-center justify-end px-4 py-1 border-b border-[var(--border)] bg-[var(--card-surface)]">
                 <button
                     onClick={() => setSearchOpen(prev => !prev)}
-                    className={`flex min-h-10 items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${searchOpen ? 'bg-[var(--accent)] text-white' : 'text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'}`}
+                    className={`flex min-h-10 items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${searchOpen ? 'bg-[var(--accent)] text-[var(--accent-foreground)]' : 'text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'}`}
                     aria-label="Search messages"
                 >
-                    <Search className="w-4 h-4" />
+                    <Search className="w-4 h-4" aria-hidden="true" />
                     <span className="text-xs">Search</span>
                 </button>
             </div>
@@ -507,10 +507,11 @@ export default function UnifiedChatPage() {
                             onChange={e => setSearchTerm(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleSearch()}
                             placeholder="Search messages..."
+                            aria-label="Search messages"
                             className="min-h-10 flex-1 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                             autoFocus
                         />
-                        <button onClick={handleSearch} disabled={searching} className="min-h-10 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm text-white disabled:opacity-50">
+                        <button onClick={handleSearch} disabled={searching} className="min-h-10 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm text-[var(--accent-foreground)] disabled:opacity-50">
                             {searching ? '...' : 'Search'}
                         </button>
                         <button onClick={() => { setSearchOpen(false); setSearchTerm(''); setSearchResults([]) }} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]" aria-label="Close search">
@@ -563,9 +564,9 @@ export default function UnifiedChatPage() {
                     {!selectedId ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-[var(--muted)] p-8 text-center">
                             <div className="w-20 h-20 bg-[var(--card-surface)] rounded-full flex items-center justify-center mb-6 shadow-sm">
-                                <MessageSquare className="w-10 h-10 opacity-20" />
+                                <MessageSquare className="w-10 h-10 opacity-20" aria-hidden="true" />
                             </div>
-                            <h3 className="text-xl font-bold text-[var(--foreground)] mb-2">Your Conversations</h3>
+                            <h2 className="text-xl font-bold text-[var(--foreground)] mb-2">Your Conversations</h2>
                             <p className="max-w-xs text-sm">Select a channel or message from the sidebar to start chatting with your team.</p>
                             <Button variant="primary" size="md" className="mt-6" onClick={() => setShowNewChat(true)}>
                                 Start a New Discussion
@@ -600,7 +601,7 @@ export default function UnifiedChatPage() {
                                                 {!isMe && !showHeader && <div className="w-10 flex-shrink-0" />}
 
                                                 <div className={`relative px-4 py-2.5 rounded-2xl text-sm shadow-sm transition-all ${isMe
-                                                    ? 'bg-[var(--accent)] text-white rounded-tr-none'
+                                                    ? 'bg-[var(--accent)] text-[var(--accent-foreground)] rounded-tr-none'
                                                     : 'bg-[var(--card-surface)] text-[var(--foreground)] border border-[var(--border)] rounded-tl-none'
                                                     }`}>
                                                     {editingMessageId === msg.id ? (
@@ -620,7 +621,7 @@ export default function UnifiedChatPage() {
                                                         <>
                                                             {msg.content}
                                                             {msg.editedAt && (
-                                                                <span className={`text-[10px] ml-1.5 ${isMe ? 'text-white/60' : 'text-[var(--muted)]'}`}>(edited)</span>
+                                                                <span className={`text-[10px] ml-1.5 ${isMe ? 'text-[var(--accent-foreground)] opacity-60' : 'text-[var(--muted)]'}`}>(edited)</span>
                                                             )}
                                                         </>
                                                     )}
@@ -682,7 +683,7 @@ export default function UnifiedChatPage() {
                                 {messages.length === 0 && (
                                     <div className="flex flex-col items-center justify-center py-20 text-[var(--muted)]">
                                         <div className="p-4 bg-[var(--card-surface)] rounded-full mb-4">
-                                            <MessageSquare className="w-8 h-8 opacity-20" />
+                                            <MessageSquare className="w-8 h-8 opacity-20" aria-hidden="true" />
                                         </div>
                                         <p className="font-medium">No messages yet</p>
                                         <p className="text-xs">Be the first to say hello!</p>
@@ -737,6 +738,6 @@ export default function UnifiedChatPage() {
                     onCreateChannel={handleCreateChannel}
                 />
             </div>
-        </div>
+        </main>
     )
 }

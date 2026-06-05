@@ -62,6 +62,7 @@ User directory endpoints sanitize sensitive fields before returning data to the 
 ### User Mutation
 
 - `POST /api/users` is admin-only.
+- `POST /api/users/onboarding-invitations` is admin-only and creates or completes an approved user setup record from `email` and `roleId`. It returns a reset-password setup link; users with an existing password return `409` and should use password reset instead.
 - `PATCH /api/users/:id` allows self updates for permitted profile fields.
 - User avatar writes through `POST /api/users`, `PATCH /api/users/:id`, and `POST /api/users/:id/avatar` accept only http(s) URLs, relative paths, empty removal values where profile updates allow them, or supported image data URIs that pass signature validation and the 5 MB avatar limit.
 - Non-privileged users cannot update protected fields such as `status`, `appliedDate`, `salary`, `role`, `department`, `departmentId`, or `isApproved`.
@@ -188,8 +189,8 @@ Client portal management access recognizes normalized admin, administrator, mana
 ### Client Routes
 
 - `GET /api/clients/organizations` lists client organizations visible to the requester.
-- `POST /api/clients/organizations` creates a client organization and is restricted to client-management access.
-- `GET /api/clients/service-tiers`, `POST /api/clients/service-tiers`, `PATCH /api/clients/service-tiers/:id`, and `PATCH /api/clients/organizations/:id/service-tier` manage service tiers for internal client-management users.
+- `POST /api/clients/organizations` creates a client organization and is restricted to client-management access. Optional `websiteWorkType` values are `existing_site_improvement` and `new_build`.
+- `GET /api/clients/service-tiers`, `POST /api/clients/service-tiers`, `PATCH /api/clients/service-tiers/:id`, `DELETE /api/clients/service-tiers/:id`, and `PATCH /api/clients/organizations/:id/service-tier` manage service tiers for internal client-management users. Deleting a service tier clears it from assigned client organizations through the existing database relation.
 - `PATCH /api/clients/organizations/:id/status` updates a client organization status (`active`, `paused`, or `archived`) for internal management. Archiving removes client-facing access without deleting history.
 - `GET /api/clients/organizations/:id/overview` returns scoped memberships, projects, tickets, updates, metrics, resources, production records, and billing/calendar data for one organization.
 - `GET /api/clients/organizations/:id/activity` returns scoped activity history. Internal users can receive internal and client-visible events; client users only receive client-visible events for assigned active organizations.

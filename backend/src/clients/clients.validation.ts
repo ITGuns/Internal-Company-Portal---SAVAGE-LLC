@@ -9,6 +9,7 @@ export interface CreateClientOrganizationInput {
   name: string
   slug: string
   websiteUrl?: string
+  websiteWorkType?: string
   tierId?: string
   notes?: string
 }
@@ -309,6 +310,7 @@ export interface ClientActivityQueryInput {
 type InputRecord = Record<string, unknown>
 
 const CLIENT_ORGANIZATION_STATUSES = new Set(['active', 'paused', 'archived'])
+const CLIENT_WEBSITE_WORK_TYPES = new Set(['new_build', 'existing_site_improvement'])
 const PROJECT_STATUSES = new Set(['planning', 'in_progress', 'review', 'live', 'paused'])
 const TICKET_STATUSES = new Set(['new', 'review', 'in_progress', 'done'])
 const CLIENT_MEMBERSHIP_ROLES = new Set(['client_owner', 'client_admin', 'client_member', 'client'])
@@ -555,6 +557,7 @@ export function parseCreateClientOrganizationInput(input: InputRecord): CreateCl
     name,
     slug,
     websiteUrl: readTrimmedString(input, 'websiteUrl'),
+    websiteWorkType: readOptionalStatus(input, 'websiteWorkType', CLIENT_WEBSITE_WORK_TYPES),
     tierId: readTrimmedString(input, 'tierId'),
     notes: readTrimmedString(input, 'notes'),
   }

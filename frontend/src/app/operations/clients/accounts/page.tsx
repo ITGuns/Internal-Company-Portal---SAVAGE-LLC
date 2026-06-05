@@ -19,15 +19,34 @@ import { useToast } from "@/components/ToastProvider";
 import {
   createClientOrganization,
   createClientServiceTier,
+  deleteClientServiceTier,
   fetchClientServiceTiers,
   updateClientOrganizationServiceTier,
   updateClientOrganizationStatus,
   updateClientServiceTier,
   type ClientServiceTier,
 } from "@/lib/client-portal";
-import { sortClientServiceTiers, upsertClientServiceTier } from "@/lib/client-service-tiers";
+import {
+  getClientServiceTierDisplayName,
+  removeClientServiceTier,
+  sortClientServiceTiers,
+  upsertClientServiceTier,
+} from "@/lib/client-service-tiers";
+import {
+  CLIENT_WEBSITE_WORK_TYPES,
+  getClientWebsiteUrlHelperText,
+  getClientWebsiteUrlLabel,
+  type ClientWebsiteWorkType,
+} from "@/lib/client-website-work";
 
-const emptyOrg = { name: "", slug: "", websiteUrl: "", tierId: "", notes: "" };
+const emptyOrg = {
+  name: "",
+  slug: "",
+  websiteUrl: "",
+  websiteWorkType: "existing_site_improvement" as ClientWebsiteWorkType,
+  tierId: "",
+  notes: "",
+};
 
 export default function ClientAccountsPage() {
   const { error: showError, success: showSuccess } = useToast();
@@ -63,6 +82,7 @@ export default function ClientAccountsPage() {
               name: orgForm.name,
               slug: orgForm.slug || undefined,
               websiteUrl: orgForm.websiteUrl || undefined,
+              websiteWorkType: orgForm.websiteWorkType,
               tierId: orgForm.tierId || undefined,
               notes: orgForm.notes || undefined,
             });
@@ -141,6 +161,25 @@ export default function ClientAccountsPage() {
           }
         }
 
+        async function handleDeleteServiceTier(tierId: string) {
+          workspace.setSaving(true);
+          try {
+            await deleteClientServiceTier(tierId);
+            setServiceTiers((tiers) => removeClientServiceTier(tiers, tierId));
+            setOrgForm((form) => (form.tierId === tierId ? { ...form, tierId: "" } : form));
+            await workspace.refreshOrganizations();
+            if (workspace.selectedId) {
+              await workspace.refreshClient(workspace.selectedId);
+            }
+            showSuccess("Service tier deleted");
+          } catch (error) {
+            showError(error instanceof Error ? error.message : "Failed to delete service tier");
+            throw error;
+          } finally {
+            workspace.setSaving(false);
+          }
+        }
+
         async function handleTierAssignmentChange(tierId: string) {
           if (!workspace.selectedId) return;
 
@@ -164,7 +203,41 @@ export default function ClientAccountsPage() {
                 <form onSubmit={handleCreateOrganization} className="space-y-3">
                   <FormField id="client-name" label="Client Name" value={orgForm.name} onChange={(name) => setOrgForm((form) => ({ ...form, name }))} placeholder="Gem Field HVAC" required />
                   <FormField id="client-slug" label="Slug" value={orgForm.slug} onChange={(slug) => setOrgForm((form) => ({ ...form, slug }))} placeholder="gem-field-hvac" />
-                  <FormField id="client-website" label="Website URL" value={orgForm.websiteUrl} onChange={(websiteUrl) => setOrgForm((form) => ({ ...form, websiteUrl }))} placeholder="https://example.com" />
+                  <div className="grid gap-2 text-sm">
+                    <label htmlFor="client-website-work" className="font-medium">
+                      Website Work
+                    </label>
+                    <select
+                      id="client-website-work"
+                      className={clientOperationsSelectClass}
+                      value={orgForm.websiteWorkType}
+                      onChange={(event) =>
+                        setOrgForm((form) => ({
+                          ...form,
+                          websiteWorkType: event.target.value as ClientWebsiteWorkType,
+                        }))
+                      }
+                    >
+                      {CLIENT_WEBSITE_WORK_TYPES.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p id="client-website-work-helper" className="text-xs leading-5 text-[var(--muted)]">
+                      {CLIENT_WEBSITE_WORK_TYPES.find((option) => option.value === orgForm.websiteWorkType)?.description}
+                    </p>
+                  </div>
+                  <FormField
+                    id="client-website"
+                    label={getClientWebsiteUrlLabel(orgForm.websiteWorkType)}
+                    value={orgForm.websiteUrl}
+                    onChange={(websiteUrl) => setOrgForm((form) => ({ ...form, websiteUrl }))}
+                    placeholder="https://example.com"
+                    helperText={getClientWebsiteUrlHelperText(orgForm.websiteWorkType)}
+                    type="url"
+                    inputMode="url"
+                  />
                   <label className="grid gap-2 text-sm">
                     <span className="font-medium">Service Tier</span>
                     <select
@@ -175,7 +248,7 @@ export default function ClientAccountsPage() {
                       <option value="">Not assigned</option>
                       {serviceTiers.map((tier) => (
                         <option key={tier.id} value={tier.id}>
-                          {tier.name}
+                          {getClientServiceTierDisplayName(tier)}
                         </option>
                       ))}
                     </select>
@@ -206,6 +279,7 @@ export default function ClientAccountsPage() {
                   saving={workspace.saving}
                   onCreate={handleCreateServiceTier}
                   onUpdate={handleUpdateServiceTier}
+                  onDelete={handleDeleteServiceTier}
                 />
               </ClientOperationsPanel>
 

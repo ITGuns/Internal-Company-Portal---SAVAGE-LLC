@@ -17,6 +17,7 @@ interface ClientOrganizationLike {
   slug: string
   status: string
   websiteUrl?: string | null
+  websiteWorkType?: string | null
   createdAt: SerializableDate
   updatedAt: SerializableDate
   tier?: ClientServiceTierLike | null
@@ -320,6 +321,7 @@ export function serializeClientOrganizationForClient(organization: ClientOrganiz
     slug: organization.slug,
     status: organization.status,
     websiteUrl: organization.websiteUrl || null,
+    websiteWorkType: organization.websiteWorkType || null,
     createdAt: serializeDate(organization.createdAt),
     updatedAt: serializeDate(organization.updatedAt),
     tier: organization.tier ? serializeClientServiceTierForClient(organization.tier) : null,

@@ -3,6 +3,7 @@
 import React from 'react'
 import Card from '@/components/Card'
 import Image from 'next/image'
+import { useDialogA11y } from '@/hooks/useDialogA11y'
 import { X, Search } from 'lucide-react'
 import type { User } from '@/lib/users'
 
@@ -25,7 +26,10 @@ export default function NewChatModal({
     currentUserId,
     onStartChat,
 }: NewChatModalProps) {
-    if (!isOpen) return null
+    const dialogTitleId = React.useId()
+    const dialogDescriptionId = React.useId()
+    const searchId = React.useId()
+    const { dialogRef, handleDialogKeyDown } = useDialogA11y({ isOpen, onClose })
 
     const filteredUsers = users.filter(
         u => u.id !== currentUserId &&
@@ -33,23 +37,41 @@ export default function NewChatModal({
                 u.email?.toLowerCase().includes(searchQuery.toLowerCase()))
     )
 
+    if (!isOpen) return null
+
     return (
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <Card className="w-full max-w-md h-[450px] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={dialogTitleId}
+                aria-describedby={dialogDescriptionId}
+                tabIndex={-1}
+                onKeyDown={handleDialogKeyDown}
+                className="w-full max-w-md"
+            >
+            <Card className="h-[450px] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
                 <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--card-surface)]">
-                    <h3 className="font-bold text-lg">Send a Message</h3>
+                    <h2 id={dialogTitleId} className="font-bold text-lg">Send a Message</h2>
+                    <p id={dialogDescriptionId} className="sr-only">
+                        Search for a teammate and start a direct message conversation.
+                    </p>
                     <button
+                        type="button"
                         onClick={onClose}
                         className="p-1 hover:bg-[var(--background)] rounded-full transition-colors"
                         aria-label="Close"
                     >
-                        <X className="w-6 h-6" />
+                        <X className="w-6 h-6" aria-hidden="true" />
                     </button>
                 </div>
                 <div className="p-4 bg-[var(--card-surface)]">
                     <div className="relative">
-                        <Search className="absolute left-3 top-3 w-4 h-4 text-[var(--muted)]" />
+                        <Search className="absolute left-3 top-3 w-4 h-4 text-[var(--muted)]" aria-hidden="true" />
+                        <label htmlFor={searchId} className="sr-only">Search people by name or email</label>
                         <input
+                            id={searchId}
                             autoFocus
                             placeholder="Search people by name or email..."
                             className="w-full pl-10 pr-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-[var(--accent)] outline-none"
@@ -62,6 +84,7 @@ export default function NewChatModal({
                     {filteredUsers.map(u => (
                         <button
                             key={u.id}
+                            type="button"
                             onClick={() => onStartChat(u)}
                             className="w-full text-left p-3 hover:bg-[var(--background)] rounded-xl flex items-center gap-4 transition-all hover:translate-x-1"
                         >
@@ -87,6 +110,7 @@ export default function NewChatModal({
                     )}
                 </div>
             </Card>
+            </div>
         </div>
     )
 }

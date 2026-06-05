@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Ticket,
   UserCircle,
+  UserPlus,
   Users,
   X,
 } from 'lucide-react';
@@ -25,7 +26,7 @@ import UserAvatar from '../assets/icons/UserAvatar';
 import { useSocket } from '@/context/SocketContext';
 import { useUser } from '@/contexts/UserContext';
 import { useSidebar } from '@/contexts/SidebarContext';
-import { hasClientOperationsAccess, hasClientPortalAccess } from '@/lib/role-access';
+import { getUserRoleNames, hasClientOperationsAccess, hasClientPortalAccess } from '@/lib/role-access';
 import { CLIENT_PORTAL_NAV_ITEMS } from '@/lib/client-portal-navigation';
 import { isSidebarNavItemActive, type SidebarNavActiveMode } from '@/lib/sidebar-navigation';
 import { cn } from '@/lib/utils';
@@ -106,7 +107,7 @@ export default function Sidebar() {
   const { user } = useUser();
   const { unreadChatCount } = useSocket();
   const { desktopCollapsed, mobileOpen, closeMobileSidebar } = useSidebar();
-  const isAdmin = user?.role?.toLowerCase() === 'admin';
+  const isAdmin = getUserRoleNames(user).includes('admin');
   const isClientPortalUser = hasClientPortalAccess(user);
   const canAccessClientOperations = hasClientOperationsAccess(user);
 
@@ -118,7 +119,6 @@ export default function Sidebar() {
     { href: '/dashboard', icon: Home, label: 'Dashboard' },
     { href: '/task-tracking', icon: Grid, label: 'Task Tracking' },
     { href: '/daily-logs', icon: Users, label: 'Daily Logs' },
-    { href: '/client', icon: BriefcaseBusiness, label: 'Client Portal' },
     { href: '/payroll-calendar', icon: CalendarDays, label: 'Payroll Calendar' },
     { href: '/my-payslips', icon: DollarSign, label: 'My Payslips' },
   ];
@@ -138,6 +138,7 @@ export default function Sidebar() {
 
   const adminItems: NavItemConfig[] = canAccessClientOperations ? [
     { href: '/operations', icon: ShieldCheck, label: 'Operations', activeMode: 'exact' },
+    ...(isAdmin ? [{ href: '/operations/onboarding', icon: UserPlus, label: 'Onboarding' }] : []),
     { href: '/operations/clients', icon: BriefcaseBusiness, label: 'Clients' },
     ...(isAdmin ? [{ href: '/whiteboard', icon: Grid, label: 'Whiteboard' }] : []),
   ] : [];

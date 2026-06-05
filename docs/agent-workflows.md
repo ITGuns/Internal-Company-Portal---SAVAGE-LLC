@@ -2,6 +2,40 @@
 
 This repository uses Vibe Auto Research as the default workflow for meaningful agent work. Product instinct can form a hypothesis, but repository evidence decides the plan and verification decides whether the work is complete.
 
+## Always-On Activation
+
+For this repo, `vibe-auto-research` is the first workflow for every meaningful task, even when the user does not mention it. A meaningful task is any request that may change code, docs, tests, configuration, database behavior, release state, UI flow, or repo workflow.
+
+At task start:
+
+1. Announce `vibe-auto-research` and the likely research depth.
+2. Run a memory quick pass when repo history, workflow preferences, product context, or prior decisions may matter.
+3. Locate the repo root when the session starts in a subfolder.
+4. Read the applicable `AGENTS.md` and the smallest relevant docs/files.
+5. Choose supporting skills from the task type before implementation planning.
+6. If the supporting skill is not available, use the missing-skill protocol below instead of widening the plan.
+
+Depth 0 direct answers and trivial commands may skip the full loop, but they must not make repository changes.
+
+## Anti-Hallucination Evidence Gate
+
+Vibe Auto Research must start with evidence, not confidence. Before accepting a plan or making meaningful edits:
+
+- Use memory as a pointer to likely context, not as current truth. Verify anything that may drift.
+- Inspect current repo files, docs, package scripts, tests, and `git status --short`.
+- For UI or workflow work, inspect the rendered app when it can be started or reached.
+- Capture enough evidence to name the owning files, affected personas/routes, contracts, test surface, browser/manual paths, and blockers.
+- Escalate to deeper research when the user asks to overanalyze, when the change touches shared behavior, or when a broad plan would be hard to verify.
+- Do not invent app behavior, route health, data shape, auth state, or visual quality. If evidence is blocked, say what is blocked and what fallback was used.
+
+Rendered website tool routing:
+
+- Browser/in-app browser is the default for local web apps, localhost routes, DOM inspection, console/network-visible issues, and responsive checks.
+- Chrome plugin is for explicit Chrome/Google Chrome requests, existing Chrome tabs, logged-in Chrome profiles, cookies/sessions, extensions, or remote authenticated sites.
+- Computer Use is for real Windows desktop/app surfaces: native apps, occluded windows, file pickers, Office/export checks, or browser UI that DOM/browser tools cannot inspect.
+- Repo visual-smoke scripts are preferred for broad, safe route/persona coverage when they exist; use Browser, Chrome, or Computer Use to inspect visible issues and workflows directly.
+- If the requested surface is unavailable, report `blocked` or `not applicable` with the fallback evidence used.
+
 ## Operating Loop
 
 Use this loop for feature work, bug fixes, reviews, release checks, and documentation updates:
@@ -30,6 +64,27 @@ The first plan is not automatically good. Replan before editing when repo eviden
 
 The cycle ends when no material reviewer findings remain, the user stops the work, or a real blocker prevents progress.
 
+## Completion Audit Cycle
+
+Every implementation must end with self-review before the final response. The agent should catch and fix its own mistakes first, then report the final result.
+
+Run this cycle after implementation:
+
+1. Inspect the final diff as if another engineer wrote it.
+2. Map the change to affected personas, routes, feature workflows, API/data contracts, controls, and docs.
+3. Run the relevant automated checks.
+4. Run manual Browser/in-app browser click-through when the app can be rendered.
+5. Classify findings by severity, create a focused fix plan, implement fixes, and rerun focused verification.
+6. Repeat review and fixes until no material findings remain or a real blocker prevents progress.
+
+Manual audit scope:
+
+- **Affected-flow audit**: required for focused UI, workflow, auth, route, form, dashboard, or client-facing changes. Click every changed route, important button/control, form path, dialog, state transition, and navigation path.
+- **Full-feature audit**: required for cross-cutting shell/navigation/theme/auth/role/routing/shared-state changes, broad redesigns, release/publish readiness, or any user request to check "all features". Walk the primary admin, employee, client, and anonymous/auth workflows across desktop and mobile where practical.
+- **Not applicable**: allowed only for docs-only, non-rendered backend, CLI-only, or unreachable-app work. State why and use the best fallback verification.
+
+Completion is not allowed if material reviewer findings are known and fixable. If verification is blocked, report the blocker, what was still reviewed, and the residual risk instead of calling the work fully complete.
+
 ## Repo Memory
 
 Durable project memory belongs in these files:
@@ -54,6 +109,35 @@ Global skills are available from the user's Codex skill folders. Repo-local skil
 
 Use the repo-local snapshot only when the skill is relevant. Do not load every skill for every task.
 
+The repo-local snapshot is not the full skill universe. Supporting skills may come from:
+
+- The active skill list in the current Codex session.
+- Global Codex skill folders such as `C:\Users\yatzv\.agents\skills` and `C:\Users\yatzv\.codex\skills`.
+- Repo-local snapshots under `skills/.agents/skills`.
+- Installed plugin skills when the current task clearly matches them.
+
+Do not assume a task has no support skill just because it is absent from `skills/.agents/skills`.
+
+## Frontend Craft Stack
+
+For MyDeskii product UI, do not default to `frontend-visual-quality` as the taste driver. Use the approved frontend craft stack instead:
+
+1. `impeccable`: primary product UI craft, information hierarchy, layout, responsive behavior, accessibility, hardening, and polish.
+2. `emil-design-eng`: component feel, small interaction details, motion restraint, button feedback, and transition quality.
+3. `design-taste-frontend`: anti-generic layout checks, dependency verification, responsive guardrails, state quality, and dashboard-appropriate density.
+4. `motion-web-design`: purposeful animation planning, CSS-first motion systems, reduced-motion behavior, and dependency choice. For MyDeskii product surfaces, prefer CSS/Tailwind motion before adding runtime animation libraries.
+5. `web-design-guidelines`: semantic HTML, accessibility, labels, landmarks, keyboard/focus, and UI guideline review.
+6. Browser/in-app browser, Chrome when requested, and repo visual-smoke scripts: rendered verification and manual click-through.
+
+Use official GSAP skills as an add-on only when the task genuinely needs GSAP-level animation:
+
+- `gsap-react`: React/Next.js GSAP setup, `useGSAP`, scoped refs, cleanup, and SSR-safe patterns.
+- `gsap-performance`: animation performance, transform/opacity discipline, batching, `will-change`, and jank/FPS cleanup.
+- `gsap-scrolltrigger`: scroll-linked, pinned, scrubbed, or parallax motion.
+- `gsap-core`, `gsap-timeline`, `gsap-plugins`, and `gsap-utils`: core tweens, sequencing, plugins, and utilities when the specific GSAP implementation requires them.
+
+Use `gpt-taste` only for marketing, landing-page, portfolio, campaign, or brand-heavy surfaces where AIDA structure, cinematic spacing, GSAP-style motion, and rich visual assets are appropriate. Do not apply its landing-page defaults to internal operations dashboards, admin tools, dense tables, auth workflows, or accessibility remediation unless the user explicitly asks for that direction.
+
 Current repo-local skills:
 
 - `vibe-auto-research`: default evidence-first workflow for this repo.
@@ -61,7 +145,7 @@ Current repo-local skills:
 - `web-design-guidelines`: external UI/accessibility review guidance for frontend work.
 - `improve-codebase-architecture`: deeper architecture review and refactor candidate reporting.
 - `supabase-postgres-best-practices`: Postgres guidance for query, schema, indexing, locking, and performance work; do not assume Supabase hosting unless verified.
-- `gsap-frameworks`: animation guidance for GSAP framework work; use only if GSAP becomes relevant.
+- `gsap-frameworks`: repo-local GSAP framework snapshot; global Codex also has the official GreenSock pack (`gsap-core`, `gsap-react`, `gsap-performance`, `gsap-scrolltrigger`, `gsap-timeline`, `gsap-plugins`, `gsap-utils`, `gsap-frameworks`). Use those global GSAP skills only when GSAP is relevant.
 - `ai-image-generation`: visual asset generation guidance; do not use for private/sensitive screenshots, employee/client data, or normal portal implementation work unless explicitly approved.
 
 Repo-local skills should be committed only when they are useful for repeated portal work, useful for review by future agents, or needed for portability across machines. Keep experimental, rarely used, or user-personal skills global unless the repo has a clear reason to own them.
@@ -81,12 +165,37 @@ Use this matrix after the Vibe Auto Research classification step:
 | Backend/API change | `api-service-quality`, `auth-access-control` when permissions are involved | Controllers, services, validation helpers, serializers, tests, `docs/api.md` | Backend tests, build, and targeted API checks |
 | Security-sensitive work | `security-production-readiness`, `auth-access-control`, `integrations-webhooks-safety` when relevant | Trust boundaries, untrusted inputs, auth checks, sensitive outputs, logs, docs | Focused security tests plus build and release gates |
 | Database/schema/query work | `database-safety`, `supabase-postgres-best-practices` | Prisma schema, migrations, seed data, query callers, `docs/database.md` | `npx prisma validate`, `npx prisma generate`, tests that cover changed queries |
-| Frontend/UI work | `frontend-visual-quality`, `web-design-guidelines`, Browser/in-app browser | `DESIGN.md`, route/component code, state/loading/error paths, responsive constraints | Frontend tests, lint, build, browser smoke for affected routes |
+| Frontend/UI work | Approved frontend craft stack: `impeccable`, `emil-design-eng`, `design-taste-frontend`, `motion-web-design`, `web-design-guidelines`, Browser/in-app browser or Chrome when requested. Add official GSAP skills only for GSAP-specific implementation or performance work | `PRODUCT.md`, `DESIGN.md`, route/component code, state/loading/error paths, responsive constraints, existing components/tokens, motion/reduced-motion requirements | Frontend tests, lint, build, browser smoke for affected routes, reduced-motion check, manual affected-flow audit |
 | Architecture review | `project-architecture-standards`, `improve-codebase-architecture` | Docs, module ownership, duplication, test seams, high-friction files | Findings with file references; implementation only after approval |
 | Code review | `requesting-code-review`, `receiving-code-review`, CodeRabbit when explicitly requested | Current diff, `docs/code-review.md`, related tests/docs/contracts | Findings first, then focused fixes and re-verification when asked |
 | Release/publish readiness | `verification-before-completion`, release gates in `docs/architecture.md` | Branch, dirty worktree, CI config, lockfiles, package scripts, dependency audit surface | `npm run check`, Prisma checks when relevant, `docker compose config`, `git diff --check` |
 | Desktop/Office/document work | Documents/Spreadsheets/Presentations skills, Computer Use only when visible app state matters | Source docs/data, requested output path, existing layout rules | Structural validation and app/Word/Excel/PowerPoint verification when available |
 | Skill discovery | `find-skills` | Capability gap, current global skills, repo-local snapshot | Install only trusted skills with clear source and task fit |
+
+## Missing Skill Protocol
+
+When the selected task-specific skill is not visible in the current session:
+
+1. Check the active skill list and the global Codex skill inventory before assuming it is missing.
+2. Inspect the repo-local snapshot with `rg --hidden --files skills`.
+3. Use `find-skills` or `npx skills find "<domain> <task>"` to search for an installable skill.
+4. Evaluate source reputation, install count, and task fit before recommending it.
+5. Do not install or copy a skill into this repo unless the user asks for installation or the repo has a clear repeated need.
+6. If no trusted match exists, state the fallback explicitly and continue with Vibe Auto Research at a narrow, evidence-backed scope.
+
+Recent search note: `npx skills find "agent workflow repo research"` returned low-install uninstalled workflow skills, including `jwynia/agent-skills@research-workflow` and several `repo-research-analyst` variants. They overlap with this repo's existing workflow, so they should be reviewed carefully before any install.
+
+## Codex Personalization Bridge
+
+Repo instructions are the source of truth inside this checkout. Codex personalization is useful for other repos that do not have this `AGENTS.md`, or when a session starts somewhere that has not yet adopted this workflow.
+
+Recommended personalization snippet:
+
+```text
+For meaningful repository work, always start with Vibe Auto Research even if I do not ask for it by name. Treat intuition as a hypothesis only. Use memory as a search hint, then verify against current repo files, docs, scripts, tests, git state, and rendered app state when relevant. Select task-specific skills before implementation planning. If a useful skill is not installed or visible, search with find-skills / npx skills find, evaluate trust and install count, and tell me the fallback instead of going broad. For website/UI/workflow work, use Browser/in-app browser by default, Chrome when existing Chrome profile/session/tab/extension context matters or I ask for Chrome, and Computer Use when the actual Windows app surface matters. Before calling work complete, run verification plus a self-review/fix cycle. For UI or workflow changes, manually click through affected flows; for cross-cutting or "all features" requests, run a full-feature audit across primary personas and desktop/mobile where practical.
+```
+
+Keep personalization short and general. Put repo-specific rules, validation commands, and product constraints in `AGENTS.md` and `docs/`.
 
 ## Agent Delegation
 
@@ -169,8 +278,10 @@ User-flow review:
 
 - For UI work, use Browser/in-app browser when practical.
 - Click through affected routes, buttons, forms, modals, navigation paths, and important states.
+- Escalate to full-feature audit for cross-cutting shell, auth, role, navigation, dashboard, release, or all-feature requests.
 - Judge whether the workflow is understandable, efficient, client/user friendly, and easy to complete.
 - Check mobile and desktop behavior for visual or workflow changes.
+- Fix material issues found by the reviewer pass before final response, then rerun focused verification.
 
 When findings remain, create a focused fix plan and repeat implementation plus review. Do not call the cycle complete until material findings are resolved or blocked.
 

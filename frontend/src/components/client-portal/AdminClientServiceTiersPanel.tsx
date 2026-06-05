@@ -2,10 +2,11 @@
 
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, RotateCcw, Save } from "lucide-react";
+import { AlertTriangle, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
 import Button from "@/components/Button";
 import FormField from "@/components/forms/FormField";
 import type { ClientServiceTier } from "@/lib/client-portal";
+import { getClientServiceTierDisplayName, getClientServiceTierLevel } from "@/lib/client-service-tiers";
 import {
   clientOperationsSelectClass,
   clientOperationsTextareaClass,
@@ -60,19 +61,23 @@ export default function AdminClientServiceTiersPanel({
   saving,
   onCreate,
   onUpdate,
+  onDelete,
 }: {
   tiers: ClientServiceTier[];
   saving: boolean;
   onCreate: (payload: CreateTierPayload) => Promise<ClientServiceTier>;
   onUpdate: (tierId: string, payload: UpdateTierPayload) => Promise<ClientServiceTier>;
+  onDelete: (tierId: string) => Promise<void>;
 }) {
   const [selectedTierId, setSelectedTierId] = useState("");
   const [tierForm, setTierForm] = useState<ServiceTierDraft>(emptyTierDraft);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   const selectedTier = useMemo(
     () => tiers.find((tier) => tier.id === selectedTierId) || null,
     [selectedTierId, tiers],
   );
+  const canDeleteSelectedTier = Boolean(selectedTier) && deleteConfirmation.trim() === selectedTier?.name;
 
   useEffect(() => {
     if (!selectedTierId) return;
@@ -84,6 +89,10 @@ export default function AdminClientServiceTiersPanel({
 
     setTierForm(toTierDraft(selectedTier));
   }, [selectedTier, selectedTierId]);
+
+  useEffect(() => {
+    setDeleteConfirmation("");
+  }, [selectedTier?.id, selectedTier?.name]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -123,6 +132,17 @@ export default function AdminClientServiceTiersPanel({
     setTierForm(emptyTierDraft);
   }
 
+  async function handleDelete() {
+    if (!selectedTier || !canDeleteSelectedTier) return;
+
+    try {
+      await onDelete(selectedTier.id);
+      resetForm();
+    } catch {
+      return;
+    }
+  }
+
   return (
     <div className="space-y-4">
       <label className="grid gap-2 text-sm">
@@ -141,7 +161,7 @@ export default function AdminClientServiceTiersPanel({
           <option value="">New service tier</option>
           {tiers.map((tier) => (
             <option key={tier.id} value={tier.id}>
-              {tier.name}
+              {getClientServiceTierDisplayName(tier)}
             </option>
           ))}
         </select>
@@ -204,25 +224,63 @@ export default function AdminClientServiceTiersPanel({
         </div>
       </form>
 
+      {selectedTier ? (
+        <div className="space-y-3 rounded-[var(--radius-md)] border border-red-500/30 bg-red-500/10 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-red-600" aria-hidden="true" />
+            <div className="text-sm font-semibold text-red-700">Delete {selectedTier.name}</div>
+          </div>
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Existing clients using this tier will be set to not assigned.
+          </p>
+          <label htmlFor="service-tier-delete-confirmation" className="grid gap-2 text-sm">
+            <span className="font-medium">Type &quot;{selectedTier.name}&quot; to confirm</span>
+            <input
+              id="service-tier-delete-confirmation"
+              className="min-h-10 w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+              value={deleteConfirmation}
+              onChange={(event) => setDeleteConfirmation(event.target.value)}
+              placeholder={selectedTier.name}
+              disabled={saving}
+            />
+          </label>
+          <Button
+            type="button"
+            variant="danger"
+            disabled={!canDeleteSelectedTier || saving}
+            icon={<Trash2 className="h-4 w-4" />}
+            onClick={handleDelete}
+            fullWidth
+          >
+            Delete Tier
+          </Button>
+        </div>
+      ) : null}
+
       {tiers.length > 0 ? (
         <div className="grid gap-2">
-          {tiers.map((tier) => (
-            <button
-              key={tier.id}
-              type="button"
-              onClick={() => {
-                setSelectedTierId(tier.id);
-                setTierForm(toTierDraft(tier));
-              }}
-              className="grid gap-1 rounded-[var(--radius-md)] border border-[var(--border)] p-3 text-left text-sm transition-colors hover:bg-[var(--surface-hover)]"
-            >
-              <span className="font-medium">{tier.name}</span>
-              <span className="text-xs text-[var(--muted)]">
-                Priority {tier.priorityRank ?? 0}
-                {tier.monthlyPrice === null || tier.monthlyPrice === undefined ? "" : ` - $${tier.monthlyPrice}`}
-              </span>
-            </button>
-          ))}
+          {tiers.map((tier) => {
+            const tierLevel = getClientServiceTierLevel(tier);
+
+            return (
+              <button
+                key={tier.id}
+                type="button"
+                onClick={() => {
+                  setSelectedTierId(tier.id);
+                  setTierForm(toTierDraft(tier));
+                }}
+                className="grid gap-1 rounded-[var(--radius-md)] border border-[var(--border)] p-3 text-left text-sm transition-colors hover:bg-[var(--surface-hover)]"
+              >
+                <span className="font-medium">{getClientServiceTierDisplayName(tier)}</span>
+                <span className="text-xs text-[var(--muted)]">
+                  {tierLevel ? `Tier ${tierLevel} - ` : ""}
+                  Priority {tier.priorityRank ?? 0}
+                  {tier.monthlyPrice === null || tier.monthlyPrice === undefined ? "" : ` - $${tier.monthlyPrice}`}
+                </span>
+              </button>
+            );
+          })}
         </div>
       ) : null}
     </div>

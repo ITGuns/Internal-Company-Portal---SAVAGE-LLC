@@ -330,11 +330,11 @@ export default function OperationsPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="inline-flex rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card-surface)] px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--accent)]">
-                      Client Side
+                      Client Operations
                     </div>
-                    <h2 className="mt-3 text-xl font-semibold">Client Operations is now available.</h2>
+                    <h2 className="mt-3 text-xl font-semibold">Manage clients from the admin workspace.</h2>
                     <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-                      Use this section to review the client portal shell, client-safe publishing rules, and the next backend slice needed for real client accounts.
+                      Use this section for client accounts, delivery, requests, approvals, reports, assets, billing, roadmap, and calendar work.
                     </p>
                     <div className="mt-5 flex flex-wrap gap-3">
                       <Link
@@ -344,12 +344,6 @@ export default function OperationsPage() {
                         Open Client Operations
                         <ArrowRight className="h-4 w-4" aria-hidden="true" />
                       </Link>
-                      <Link
-                        href="/client"
-                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-[background-color,border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--accent)] hover:bg-[var(--surface-hover)] active:translate-y-px"
-                      >
-                        Open Client Portal
-                      </Link>
                     </div>
                   </div>
                 </div>
@@ -358,7 +352,7 @@ export default function OperationsPage() {
               <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-5">
                 <h3 className="text-sm font-semibold">Current state</h3>
                 <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                  This checkout has no client database models or API routes yet, so the client side starts as a visible shell and setup hub.
+                  Client management stays in Operations so admins do not need to jump between the internal workspace and the client-facing portal.
                 </p>
               </div>
             </div>

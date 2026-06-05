@@ -51,6 +51,7 @@ import {
   taskMatchesDeepLinkFilter,
   type TaskDeepLinkFilter,
 } from "@/lib/task-deep-links";
+import { getReopenedTaskProgress, type TaskQuickAction } from "@/lib/task-status-actions";
 
 // Lazy-loaded heavy components
 const LogReportModal = dynamic(() => import("@/components/tasks/LogReportModal"), { ssr: false });
@@ -148,7 +149,7 @@ export default function TaskTrackingPage() {
   }, [canManageAssignments, currentUserId]);
 
   // Action hander for Play/Pause/Complete
-  const handleTaskAction = async (e: React.MouseEvent, taskId: string, action: 'play' | 'pause' | 'complete') => {
+  const handleTaskAction = async (e: React.MouseEvent, taskId: string, action: TaskQuickAction) => {
     e.stopPropagation();
 
     // Find local task
@@ -197,6 +198,13 @@ export default function TaskTrackingPage() {
         timerStart: undefined, // Will be set to null in backend
         totalElapsed: finalElapsed
       };
+    } else if (action === 'reopen') {
+      updates = {
+        status: 'in_progress',
+        progress: getReopenedTaskProgress(task),
+        timerStatus: 'paused',
+        timerStart: undefined,
+      };
     }
 
     try {
@@ -204,7 +212,7 @@ export default function TaskTrackingPage() {
       if (updatedTask) {
         queryClient.invalidateQueries({ queryKey: ['tasks'] });
         queryClient.invalidateQueries({ queryKey: ['tasks', 'detail', taskId] });
-        toast.success(`Task ${action === 'complete' ? 'completed' : (action === 'play' ? 'started' : 'paused')}`);
+        toast.success(`Task ${action === 'complete' ? 'completed' : action === 'reopen' ? 'reopened' : (action === 'play' ? 'started' : 'paused')}`);
       }
     } catch {
       toast.error("Failed to update task action");
@@ -661,7 +669,7 @@ export default function TaskTrackingPage() {
 
   return (
     <main className="h-[calc(100vh-112px)] bg-[var(--background)] text-[var(--foreground)] flex flex-col overflow-hidden">
-      <div className="p-6 pt-0 flex flex-col flex-1 min-h-0">
+      <div className="motion-content-enter p-6 pt-0 flex flex-col flex-1 min-h-0">
         <Header
           title="Task Tracking"
           subtitle="Track and manage tasks, assignments, and progress."
@@ -744,7 +752,7 @@ export default function TaskTrackingPage() {
                                 setSortOrder("asc");
                               }
                             }}
-                            className={`px-3 py-2 text-xs rounded border transition-all flex items-center justify-between ${sortBy === opt.val
+                            className={`motion-interactive px-3 py-2 text-xs rounded border flex items-center justify-between ${sortBy === opt.val
                               ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)] font-medium'
                               : 'bg-[var(--background)] text-[var(--muted)] border-[var(--border)] hover:border-[var(--muted)]'
                               }`}
@@ -770,7 +778,7 @@ export default function TaskTrackingPage() {
                           <button
                             key={opt.val}
                             onClick={() => setGroupBy(opt.val as any)}
-                            className={`px-3 py-2 text-xs rounded border transition-all flex items-center justify-between ${groupBy === opt.val
+                            className={`motion-interactive px-3 py-2 text-xs rounded border flex items-center justify-between ${groupBy === opt.val
                               ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)] font-medium'
                               : 'bg-[var(--background)] text-[var(--muted)] border-[var(--border)] hover:border-[var(--muted)]'
                               }`}
@@ -870,7 +878,7 @@ export default function TaskTrackingPage() {
                   placeholder="Search tasks..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="min-h-10 w-48 rounded-full border border-[var(--border)] bg-[var(--card-bg)] py-2 pl-8 pr-3 text-xs outline-none transition-all focus:w-64 focus:ring-1 focus:ring-[var(--accent)]"
+                  className="motion-interactive min-h-10 w-48 rounded-full border border-[var(--border)] bg-[var(--card-bg)] py-2 pl-8 pr-3 text-xs outline-none focus:ring-1 focus:ring-[var(--accent)]"
                 />
               </div>
               <Button
@@ -1068,6 +1076,7 @@ export default function TaskTrackingPage() {
           task={selectedTask}
           onClose={closeTaskDetails}
           onEdit={openEditFromDetails}
+          onAction={handleTaskAction}
         />
       )}
 

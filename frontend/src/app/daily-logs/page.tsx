@@ -307,7 +307,7 @@ export default function DailyLogsPage() {
           <div className="w-full lg:w-64 lg:flex-shrink-0">
             <div className="bg-[var(--card-bg)] border border-[var(--border)] rounded-lg p-4 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-sm">Filters</h3>
+                <h2 className="font-semibold text-sm">Filters</h2>
                 <Button
                   variant="ghost"
                   size="sm"

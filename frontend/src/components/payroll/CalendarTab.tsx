@@ -231,7 +231,7 @@ export default function CalendarTab({
                   // Direction-specific colours: green=in, red=out, blue=total
                   const bg =
                     direction === "in"
-                      ? "bg-emerald-600 dark:bg-emerald-700"
+                      ? "bg-emerald-700 dark:bg-emerald-700"
                       : direction === "out"
                         ? "bg-red-600 dark:bg-red-700"
                         : "bg-sky-600 dark:bg-sky-700";
@@ -277,7 +277,7 @@ export default function CalendarTab({
                   Audit View
                 </div>
               ) : clockedIn && (
-                <div className="inline-flex items-center gap-2 bg-emerald-600 text-white text-xs px-2 py-1 rounded-full">
+                <div className="inline-flex items-center gap-2 bg-emerald-700 text-white text-xs px-2 py-1 rounded-full">
                   <span className="w-2 h-2 rounded-full bg-white/90 animate-pulse inline-block" />
                   <span>Clocked In</span>
                 </div>
@@ -290,7 +290,7 @@ export default function CalendarTab({
                 !clockedIn ? (
                   <button
                     onClick={onClockIn}
-                    className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 transition-colors"
+                    className="px-4 py-2 rounded bg-emerald-700 hover:bg-emerald-800 text-white flex items-center gap-2 transition-colors"
                   >
                     <Clock className="w-4 h-4" aria-hidden="true" />
                     Clock In

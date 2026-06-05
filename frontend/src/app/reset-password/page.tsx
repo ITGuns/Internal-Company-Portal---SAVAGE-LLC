@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, FormEvent, useEffect, Suspense } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Lock } from 'lucide-react';
 import LoginInput from '@/components/LoginInput';
@@ -78,7 +79,7 @@ function ResetPasswordForm() {
   if (user) return null;
 
   return (
-    <div className={styles.loginContainer}>
+    <main className={styles.loginContainer}>
       <div className={styles.card}>
         <div className={styles.header}>
           <h1 className={styles.title}>Set New Password</h1>
@@ -187,20 +188,16 @@ function ResetPasswordForm() {
 
         <div className={styles.signUpSection}>
           <p className={styles.signUpText}>
-            <a
+            <Link
               href="/login"
               className={styles.signUpLink}
-              onClick={(e) => {
-                e.preventDefault();
-                router.push('/login');
-              }}
             >
               Back to Sign In
-            </a>
+            </Link>
           </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 

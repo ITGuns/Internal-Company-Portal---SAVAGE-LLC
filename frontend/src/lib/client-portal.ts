@@ -1,4 +1,5 @@
 import { apiFetch } from './api';
+import type { ClientWebsiteWorkType } from './client-website-work';
 
 export interface ClientServiceTier {
   id: string;
@@ -16,6 +17,7 @@ export interface ClientOrganization {
   slug: string;
   status: string;
   websiteUrl?: string | null;
+  websiteWorkType?: ClientWebsiteWorkType | string | null;
   tier?: ClientServiceTier | null;
   tierId?: string | null;
   notes?: string | null;
@@ -298,10 +300,17 @@ export async function updateClientServiceTier(
   return response.json();
 }
 
+export async function deleteClientServiceTier(tierId: string): Promise<void> {
+  await apiFetch(`/clients/service-tiers/${tierId}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function createClientOrganization(data: {
   name: string;
   slug?: string;
   websiteUrl?: string;
+  websiteWorkType?: ClientWebsiteWorkType;
   notes?: string;
   tierId?: string;
 }): Promise<ClientOrganization> {

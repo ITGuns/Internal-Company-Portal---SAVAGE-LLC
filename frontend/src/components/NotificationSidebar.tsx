@@ -66,15 +66,15 @@ export default function NotificationSidebar({
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-300"
+                className="fixed inset-0 bg-black/30 backdrop-blur-sm motion-fade-in"
                 onClick={onClose}
                 style={{ zIndex: 9998 }}
             />
 
             {/* Sidebar */}
             <div
-                className="fixed top-0 right-0 h-full w-[420px] bg-[var(--card-bg)] border-l border-[var(--border)] shadow-2xl flex flex-col"
-                style={{ zIndex: 10000, isolation: 'isolate', animation: 'slideInRight 0.25s cubic-bezier(0.16,1,0.3,1)' }}
+                className="fixed top-0 right-0 h-full w-[420px] max-w-[calc(100vw-1rem)] bg-[var(--card-bg)] border-l border-[var(--border)] shadow-2xl flex flex-col motion-drawer-right-in"
+                style={{ zIndex: 10000, isolation: 'isolate' }}
             >
                 {/* Header */}
                 <div className="p-5 border-b border-[var(--border)] bg-[var(--card-surface)]">
@@ -92,7 +92,7 @@ export default function NotificationSidebar({
                         </div>
                         <button
                             onClick={onClose}
-                            className="p-2 rounded-lg hover:bg-[var(--background)] text-[var(--muted)] hover:text-[var(--foreground)] transition"
+                            className="motion-interactive p-2 rounded-lg hover:bg-[var(--background)] text-[var(--muted)] hover:text-[var(--foreground)]"
                             aria-label="Close notifications"
                         >
                             <X className="w-5 h-5" />
@@ -142,7 +142,7 @@ export default function NotificationSidebar({
                                 const content = (
                                     <div
                                         key={notification.id}
-                                        className={`group relative rounded-xl border p-3.5 transition-all cursor-pointer ${typeBg(notification)} ${!notification.read ? 'opacity-100' : 'opacity-60'}`}
+                                        className={`motion-interactive group relative rounded-xl border p-3.5 cursor-pointer ${typeBg(notification)} ${!notification.read ? 'opacity-100' : 'opacity-60'}`}
                                         onClick={() => !notification.read && onMarkAsRead(notification.id)}
                                     >
                                         <div className="flex items-start gap-3">
@@ -176,7 +176,7 @@ export default function NotificationSidebar({
                                         {!notification.read && (
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onMarkAsRead(notification.id) }}
-                                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-[var(--background)] text-[var(--muted)] hover:text-[var(--foreground)] transition"
+                                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-[var(--background)] text-[var(--muted)] hover:text-[var(--foreground)] transition-opacity"
                                                 title="Mark as read"
                                             >
                                                 <Check className="w-3 h-3" />
@@ -199,12 +199,6 @@ export default function NotificationSidebar({
                 </div>
             </div>
 
-            <style jsx global>{`
-                @keyframes slideInRight {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-            `}</style>
         </>
     )
 }

@@ -6,6 +6,7 @@ Use this checklist for human review, agent review, and pre-release self-review. 
 
 - Start with the current branch, dirty worktree, and exact diff.
 - Read `AGENTS.md` and the relevant docs before reviewing meaningful changes.
+- Use memory only as a pointer; verify drift-prone claims against the current repo, commands, rendered app, or browser state.
 - Prioritize defects, regressions, security issues, missing validation, missing tests, and broken contracts.
 - Ground each finding in a file and line reference when possible.
 - Do not report speculative style preferences as blockers.
@@ -53,10 +54,15 @@ Use this checklist for human review, agent review, and pre-release self-review. 
 - Forms have clear labels, validation feedback, and accessible controls.
 - Management-only UI remains convenience only; backend authorization remains authoritative.
 - Browser verification covers changed routes when the app can be rendered locally.
+- Manual click-through covers affected routes, buttons, forms, dialogs, navigation paths, and important states.
+- Full-feature audit is completed for cross-cutting shell, auth, role, navigation, dashboard, release, broad redesign, or explicit "all features" requests.
+- Tool choice is justified: Browser/in-app browser for local web DOM and responsive checks, Chrome for user Chrome session/profile/tab/extension needs, and Computer Use for real Windows app surfaces.
 
 ## Agent and Skill Workflow
 
 - Meaningful work follows Vibe Auto Research: hypothesis, evidence, decision, edit, verification.
+- Anti-hallucination evidence is named before completion: memory checked, repo files inspected, commands run, rendered routes or desktop surfaces checked, and blockers stated.
+- Implementation work ends with a self-review/fix cycle before final response.
 - Repo-local skill changes update `skills/skills-lock.json`.
 - `npm run check:skills` passes after skill snapshot or lockfile changes.
 - Third-party skills are reviewed before import, kept only when useful for repeated portal work, and not used with private portal data unless explicitly approved.

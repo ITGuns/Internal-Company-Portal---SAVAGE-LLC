@@ -59,5 +59,8 @@ This repo uses Vibe Auto Research for meaningful work:
 3. Decide from evidence.
 4. Make scoped edits.
 5. Verify with tests, builds, audits, browser checks, or focused smoke checks.
+6. Run a self-review/fix cycle before the final response. UI and workflow changes require manual click-through of affected flows; cross-cutting or "all features" requests require a full-feature audit when the app can be rendered.
+
+Use memory as a search hint, not proof. For website work, verify the rendered app with Browser/in-app browser by default, Chrome when the user's Chrome profile/session/tab matters, and Computer Use when the real Windows app surface matters.
 
 Read `AGENTS.md` before agent-driven work. Use `docs/agent-workflows.md` for skill selection, repo-local skill maintenance, delegation rules, and verification gates.

@@ -7,9 +7,11 @@ import {
   Play,
   Pause,
   CheckCircle2,
+  RotateCcw,
 } from "lucide-react";
 import type { Task, TaskPriority } from "@/lib/tasks";
 import { useLiveElapsed } from "@/hooks/useLiveElapsed";
+import { TASK_QUICK_ACTION_LABELS, type TaskQuickAction } from "@/lib/task-status-actions";
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
   Low: "var(--priority-low)",
@@ -37,7 +39,7 @@ const formatMinutes = (minutes: number) => {
 interface BoardCardProps {
   task: Task;
   onClick?: () => void;
-  onAction?: (e: React.MouseEvent, taskId: string, action: "play" | "pause" | "complete") => void;
+  onAction?: (e: React.MouseEvent, taskId: string, action: TaskQuickAction) => void;
 }
 
 function calcProgress(elapsedSecs: number, estimatedMinutes: number | undefined): number {
@@ -49,11 +51,13 @@ export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
   const assigneeName = task.assignee?.name || task.assignee?.email || "Unassigned";
   const liveElapsed = useLiveElapsed(task.timerStatus, task.timerStart, task.totalElapsed || 0);
   const progress = task.status === 'completed' ? 100 : calcProgress(liveElapsed, task.estimatedTime);
+  const actionButtonClass =
+    "inline-flex min-h-8 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
 
   return (
     <Card
       padding="sm"
-      className="mb-3 cursor-pointer hover:shadow-md transition-shadow group"
+      className="mb-3 cursor-pointer motion-interactive motion-list-in hover:shadow-md group"
       onClick={onClick}
       data-task-id={task.id}
     >
@@ -95,7 +99,7 @@ export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
             </div>
             <div className="w-full bg-[var(--border)] h-1 rounded-full overflow-hidden">
               <div
-                className="bg-[var(--accent)] h-full transition-all duration-300"
+                className="bg-[var(--accent)] h-full motion-progress"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -132,34 +136,47 @@ export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
 
             {/* Timer Controls */}
             <div className="flex items-center gap-1">
-              {task.status !== "completed" && (
+              {task.status === "completed" ? (
+                <button
+                  onClick={(e) => onAction?.(e, task.id, "reopen")}
+                  className={`${actionButtonClass} text-amber-500`}
+                  title="Reopen task"
+                  aria-label="Reopen task"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>{TASK_QUICK_ACTION_LABELS.reopen}</span>
+                </button>
+              ) : (
                 <>
                   {task.timerStatus === "playing" ? (
                     <button
                       onClick={(e) => onAction?.(e, task.id, "pause")}
-                      className="p-1 hover:bg-[var(--card-bg)] rounded text-[var(--accent)]"
+                      className={`${actionButtonClass} text-[var(--accent)]`}
                       title="Pause Task"
                       aria-label="Pause task"
                     >
                       <Pause className="w-3.5 h-3.5 fill-current" />
+                      <span>{TASK_QUICK_ACTION_LABELS.pause}</span>
                     </button>
                   ) : (
                     <button
                       onClick={(e) => onAction?.(e, task.id, "play")}
-                      className="p-1 hover:bg-[var(--card-bg)] rounded text-emerald-500"
+                      className={`${actionButtonClass} text-emerald-500`}
                       title="Start Task"
                       aria-label="Start task"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>{TASK_QUICK_ACTION_LABELS.play}</span>
                     </button>
                   )}
                   <button
                     onClick={(e) => onAction?.(e, task.id, "complete")}
-                    className="p-1 hover:bg-[var(--card-bg)] rounded text-blue-500"
+                    className={`${actionButtonClass} text-blue-500`}
                     title="Complete Task"
                     aria-label="Complete task"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{TASK_QUICK_ACTION_LABELS.complete}</span>
                   </button>
                 </>
               )}

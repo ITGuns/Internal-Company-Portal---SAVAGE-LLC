@@ -67,6 +67,7 @@ async function runClientRouteTests() {
   const adminEmail = uniqueEmail('route-admin')
   const clientEmail = uniqueEmail('route-client')
   const inviteEmail = uniqueEmail('route-invite')
+  let createdOrganizationId: string | undefined
   const organization = await prisma.clientOrganization.create({
     data: {
       name: `Route Test Client ${suffix}`,
@@ -134,6 +135,34 @@ async function runClientRouteTests() {
         },
       )
       assert.equal(missingToken.status, 401)
+
+      const createdOrganization = await requestJson(baseUrl, '/api/clients/organizations', {
+        method: 'POST',
+        token: adminToken,
+        body: {
+          name: `Route Created Client ${suffix}`,
+          slug: `route-created-client-${suffix}`,
+          websiteUrl: 'https://route-created.example.com',
+          websiteWorkType: 'new-build',
+          notes: 'Created through route test.',
+        },
+      })
+      assert.equal(createdOrganization.status, 201)
+      assert.equal(createdOrganization.body.websiteUrl, 'https://route-created.example.com')
+      assert.equal(createdOrganization.body.websiteWorkType, 'new_build')
+      assert.equal(createdOrganization.body.notes, 'Created through route test.')
+      createdOrganizationId = createdOrganization.body.id
+
+      const invalidWebsiteWorkType = await requestJson(baseUrl, '/api/clients/organizations', {
+        method: 'POST',
+        token: adminToken,
+        body: {
+          name: `Route Invalid Website Work ${suffix}`,
+          slug: `route-invalid-website-work-${suffix}`,
+          websiteWorkType: 'quick refresh',
+        },
+      })
+      assert.equal(invalidWebsiteWorkType.status, 400)
 
       const unauthorized = await requestJson(
         baseUrl,
@@ -414,6 +443,68 @@ async function runClientRouteTests() {
         clientServiceTierActivity.body.some((activity: JsonRecord) => activity.type === 'organization_service_tier_updated'),
         false,
       )
+
+      const deletableTier = await requestJson(baseUrl, '/api/clients/service-tiers', {
+        method: 'POST',
+        token: adminToken,
+        body: {
+          name: `Delete Me ${suffix}`,
+          monthlyPrice: 2500,
+          priorityRank: 5,
+        },
+      })
+      assert.equal(deletableTier.status, 201)
+
+      const assignedDeletableTier = await requestJson(
+        baseUrl,
+        `/api/clients/organizations/${organization.id}/service-tier`,
+        {
+          method: 'PATCH',
+          token: adminToken,
+          body: { tierId: deletableTier.body.id },
+        },
+      )
+      assert.equal(assignedDeletableTier.status, 200)
+      assert.equal(assignedDeletableTier.body.tierId, deletableTier.body.id)
+
+      const clientTierDeleteAttempt = await requestJson(baseUrl, `/api/clients/service-tiers/${deletableTier.body.id}`, {
+        method: 'DELETE',
+        token: clientToken,
+      })
+      assert.equal(clientTierDeleteAttempt.status, 403)
+
+      const deletedTier = await requestJson(baseUrl, `/api/clients/service-tiers/${deletableTier.body.id}`, {
+        method: 'DELETE',
+        token: adminToken,
+      })
+      assert.equal(deletedTier.status, 200)
+      assert.equal(deletedTier.body.deleted, true)
+      assert.equal(deletedTier.body.id, deletableTier.body.id)
+
+      const tiersAfterDelete = await requestJson(baseUrl, '/api/clients/service-tiers', {
+        token: adminToken,
+      })
+      assert.equal(tiersAfterDelete.status, 200)
+      assert.equal(
+        tiersAfterDelete.body.some((item: JsonRecord) => item.id === deletableTier.body.id),
+        false,
+      )
+
+      const organizationsAfterTierDelete = await requestJson(baseUrl, '/api/clients/organizations', {
+        token: adminToken,
+      })
+      assert.equal(organizationsAfterTierDelete.status, 200)
+      const organizationAfterTierDelete = organizationsAfterTierDelete.body.find(
+        (item: JsonRecord) => item.id === organization.id,
+      )
+      assert.equal(organizationAfterTierDelete.tierId, null)
+      assert.equal(organizationAfterTierDelete.tier, null)
+
+      const missingTierDelete = await requestJson(baseUrl, `/api/clients/service-tiers/${deletableTier.body.id}`, {
+        method: 'DELETE',
+        token: adminToken,
+      })
+      assert.equal(missingTierDelete.status, 404)
 
       const invalidTier = await requestJson(baseUrl, '/api/clients/service-tiers', {
         method: 'POST',
@@ -1218,11 +1309,14 @@ async function runClientRouteTests() {
       )
     })
   } finally {
+    const organizationIds = [organization.id, otherOrganization.id, createdOrganizationId].filter(
+      (id): id is string => Boolean(id),
+    )
     await prisma.clientMembership.deleteMany({
-      where: { organizationId: { in: [organization.id, otherOrganization.id] } },
+      where: { organizationId: { in: organizationIds } },
     })
     await prisma.clientOrganization.deleteMany({
-      where: { id: { in: [organization.id, otherOrganization.id] } },
+      where: { id: { in: organizationIds } },
     })
     await prisma.clientServiceTier.deleteMany({
       where: { name: { in: [`Growth Care ${suffix}`, `Premium Care ${suffix}`] } },

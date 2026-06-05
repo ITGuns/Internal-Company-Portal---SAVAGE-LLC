@@ -291,6 +291,26 @@ export class ClientsController {
       }
     })
 
+    router.delete('/service-tiers/:id', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+        if (!canManageClientOrganization(access)) {
+          return res.status(403).json({ error: 'Only operations managers and admins can manage service tiers' })
+        }
+
+        const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        res.json(await this.service.deleteServiceTier(id))
+      } catch (error) {
+        if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2025') {
+          return res.status(404).json({ error: 'Service tier not found' })
+        }
+
+        console.error('[Clients] Error deleting service tier:', error)
+        res.status(500).json({ error: 'Failed to delete service tier' })
+      }
+    })
+
     router.post('/organizations', authenticateToken, async (req: Request, res: Response) => {
       try {
         const access = await this.getAccessContext(req)

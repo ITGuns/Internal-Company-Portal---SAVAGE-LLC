@@ -63,16 +63,14 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
     <>
       {/* Backdrop with blur */}
       <div
-        className="fixed inset-0 bg-black/20 backdrop-blur-sm transition-opacity duration-300"
+        className="fixed inset-0 bg-black/20 backdrop-blur-sm motion-fade-in"
         onClick={onClose}
         style={{ zIndex: 9998 }}
       />
 
       {/* Slide-in sidebar from right */}
       <div
-        className={`fixed top-0 right-0 h-full w-96 bg-[var(--card-bg)] shadow-2xl transform transition-transform duration-300 ease-out ${
-          isOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        className="fixed top-0 right-0 h-full w-96 max-w-[calc(100vw-1rem)] bg-[var(--card-bg)] shadow-2xl motion-drawer-right-in"
         style={{
           borderLeft: "1px solid var(--border)",
           zIndex: 10000,
@@ -84,7 +82,7 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
           <h2 className="text-lg font-semibold text-[var(--foreground)]">Profile</h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-md hover:bg-[var(--card-surface)] transition-colors"
+            className="motion-interactive p-2 rounded-md hover:bg-[var(--card-surface)]"
             aria-label="Close profile"
           >
             <X className="w-5 h-5 text-[var(--muted)]" />

@@ -35,11 +35,13 @@ import { splitClientOrganizationsByHistory } from "@/lib/client-organization-his
 import {
   CLIENT_OPERATIONS_NAV_ITEMS,
   getClientOperationsRouteTitle,
+  isClientOperationsOverviewRoute,
   isClientOperationsNavItemActive,
   withClientOperationsClientParam,
 } from "@/lib/client-operations-navigation";
 import { buildClientCommandCenter } from "@/lib/client-portal-command";
 import { getClientBillingTierLabel } from "@/lib/client-portal-display";
+import { getClientWebsiteWorkTypeLabel } from "@/lib/client-website-work";
 import { cn } from "@/lib/utils";
 
 function ClientOrganizationButton({
@@ -56,7 +58,7 @@ function ClientOrganizationButton({
       type="button"
       onClick={onSelect}
       className={cn(
-        "w-full rounded-[var(--radius-md)] border px-3 py-3 text-left transition-colors",
+        "motion-interactive w-full rounded-[var(--radius-md)] border px-3 py-3 text-left",
         isSelected
           ? "border-[var(--accent)] bg-[var(--card-surface)]"
           : "border-[var(--border)] hover:bg-[var(--surface-hover)]",
@@ -180,7 +182,7 @@ function ClientOperationsTopNav({
               aria-current={isActive ? "page" : undefined}
               className={cn(
                 "inline-flex min-h-10 shrink-0 items-center justify-center rounded-[var(--radius-md)] border px-3 text-xs font-semibold",
-                "transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-out)]",
+                "motion-interactive",
                 "focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]",
                 isActive
                   ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[0_0_24px_-16px_var(--accent)]"
@@ -238,6 +240,9 @@ function ClientOperationsClientHeader({ workspace }: { workspace: ClientOperatio
             ) : (
               <span className="text-sm text-[var(--workspace-ink-muted)]">No website URL</span>
             )}
+          </div>
+          <div className="mt-2 text-sm font-semibold text-[var(--workspace-ink-foreground)]">
+            {getClientWebsiteWorkTypeLabel(organization.websiteWorkType)}
           </div>
         </div>
 
@@ -389,6 +394,7 @@ export default function ClientOperationsShell({
   const workspace = useClientOperationsWorkspace();
   const pathname = usePathname() || "/operations/clients";
   const routeTitle = getClientOperationsRouteTitle(pathname);
+  const showOverviewBanners = isClientOperationsOverviewRoute(pathname);
 
   if (workspace.userLoading) {
     return (
@@ -420,7 +426,7 @@ export default function ClientOperationsShell({
 
   return (
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
-      <div className="p-6 pt-0">
+      <div className="motion-content-enter p-6 pt-0">
         <Header title={routeTitle.title} subtitle={routeTitle.subtitle} />
         <ClientOperationsTopNav pathname={pathname} selectedId={workspace.selectedId} />
 
@@ -431,8 +437,12 @@ export default function ClientOperationsShell({
             <div className="grid min-w-0 gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
               <ClientOperationsClientPicker workspace={workspace} />
               <div className="min-w-0 space-y-5">
-                <ClientOperationsClientHeader workspace={workspace} />
-                <ClientOperationsRouteSummary pathname={pathname} routeTitle={routeTitle} workspace={workspace} />
+                {showOverviewBanners ? (
+                  <>
+                    <ClientOperationsClientHeader workspace={workspace} />
+                    <ClientOperationsRouteSummary pathname={pathname} routeTitle={routeTitle} workspace={workspace} />
+                  </>
+                ) : null}
                 {children(workspace)}
               </div>
             </div>

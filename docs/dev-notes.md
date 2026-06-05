@@ -1,5 +1,511 @@
 # Development Notes
 
+## 2026-06-05 - Frontend Skill Routing And Motion Stack
+
+### Completed
+
+- Installed the official GreenSock GSAP skill pack globally for Codex.
+- Updated frontend workflow routing so frontend/UI work uses the approved craft stack plus `motion-web-design`.
+- Documented when to add GSAP-specific skills for React/Next.js animation, ScrollTrigger, timelines, plugins, utilities, and animation performance.
+
+### Files Changed
+
+- `AGENTS.md`
+- `docs/agent-workflows.md`
+- `docs/dev-notes.md`
+- `skills/.agents/skills/vibe-auto-research/SKILL.md`
+- `skills/.agents/skills/vibe-auto-research/references/prompt-to-quality-cycle.md`
+- `skills/skills-lock.json`
+
+### Decisions Made
+
+- Keep `motion-web-design` as the default motion skill for MyDeskii product UI.
+- Use GSAP skills only when the task needs GSAP-level motion, not for ordinary dashboard hover, press, modal, drawer, or reduced-motion work.
+- Keep the full GSAP pack global instead of copying every GSAP skill into the curated repo-local snapshot.
+
+### How to Test
+
+- `npx --yes skills list -g --agent codex --json`
+- `npm run check:skills`
+
+### Next Steps
+
+- Restart Codex if newly installed global skills do not appear in a future active skill list.
+
+## 2026-06-05 - Client Website Work Type Intake
+
+### Completed
+
+- Added a client organization website-work type for choosing whether the client needs a new website build or improvement to an existing website.
+- Added the Website Work selector to the admin Create Client form and adjusted Website URL helper copy based on the selected intake type.
+- Displayed the saved website-work type in the admin account profile and client operations header.
+
+### Files Changed
+
+- `backend/prisma/schema.prisma`
+- `backend/prisma/migrations/202606050001_client_website_work_type/migration.sql`
+- `backend/src/clients/clients.validation.ts`
+- `backend/src/clients/clients.service.ts`
+- `backend/src/clients/clients.serializers.ts`
+- `backend/tests/clients.routes.test.ts`
+- `frontend/src/app/operations/clients/accounts/page.tsx`
+- `frontend/src/components/client-portal/AdminClientAccountProfilePanel.tsx`
+- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
+- `frontend/src/lib/client-portal.ts`
+- `frontend/src/lib/client-website-work.ts`
+- `frontend/tests/client-website-work.test.mjs`
+- `docs/api.md`
+- `docs/database.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Use an additive nullable string field instead of storing the choice in internal notes.
+- Keep the accepted values narrow: `existing_site_improvement` and `new_build`.
+
+### How to Test
+
+- `npm --prefix backend test`
+- `npm --prefix backend run build`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- Browser affected-flow audit: `/operations/clients/accounts`
+
+### Next Steps
+
+- Add an edit flow for existing client website profile details if admins need to change this after client creation.
+
+## 2026-06-05 - Accessibility Remediation Pass
+
+### Completed
+
+- Added a global skip link and skip target for keyboard users.
+- Added semantic `main` landmarks to auth and chat surfaces that were missing them.
+- Added accessible status semantics to the auth-loading state.
+- Added dialog roles, unique labels, escape handling, focus restoration, and tab containment to task/chat modals.
+- Fixed heading-order issues on Chat, Daily Logs, and File Directory.
+- Replaced low-contrast accent/emerald text combinations with existing foreground-safe tokens.
+- Disabled FullCalendar toolbar icons in the shared wrapper so calendar navigation buttons render with text labels.
+
+### Files Changed
+
+- `frontend/src/app/globals.css`
+- `frontend/src/app/login/page.tsx`
+- `frontend/src/app/signup/page.tsx`
+- `frontend/src/app/forgot-password/page.tsx`
+- `frontend/src/app/reset-password/page.tsx`
+- `frontend/src/app/chat/page.tsx`
+- `frontend/src/app/daily-logs/page.tsx`
+- `frontend/src/app/file-directory/page.tsx`
+- `frontend/src/components/LayoutWrapper.tsx`
+- `frontend/src/components/AuthGuard.tsx`
+- `frontend/src/components/chat/ChatSidebar.tsx`
+- `frontend/src/components/chat/CreateChannelModal.tsx`
+- `frontend/src/components/chat/NewChatModal.tsx`
+- `frontend/src/components/tasks/TaskModal.tsx`
+- `frontend/src/components/payroll/CalendarTab.tsx`
+- `frontend/src/components/ui/LazyFullCalendar.tsx`
+- `frontend/src/hooks/useDialogA11y.ts`
+
+### Decisions Made
+
+- Keep the remediation scoped to concrete WCAG/axe findings instead of redesigning the affected screens.
+- Put FullCalendar icon remediation in the shared wrapper so task, client, and operations calendar routes stay consistent.
+- Reuse current design tokens and components rather than adding accessibility dependencies.
+
+### How to Test
+
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- Browser affected-flow audit: login, signup, forgot/reset password, chat modals, task modal, task calendar, payroll calendar, daily logs, and file directory.
+
+### Next Steps
+
+- Run a broader authenticated axe sweep after any remaining route-specific UI cleanup.
+
+## 2026-06-05 - SOP Client Tier Presets
+
+### Completed
+
+- Added the approved SOP-derived client tier presets as a backend source of truth for MyDeskii service tiers.
+- Added a standalone `npm run seed:client-service-tiers` command to apply the five presets without running the full demo user seed.
+- Included the presets in the normal Prisma seed flow.
+- Added shared frontend labels so SOP presets display as `Name (Tier N)` in service-tier selectors and tier lists.
+- Updated visual-smoke client tier mock data so rendered client operations routes use the SOP tier names.
+
+### Files Changed
+
+- `backend/src/clients/client-service-tier-presets.ts`
+- `backend/prisma/seed-client-service-tiers.ts`
+- `backend/prisma/seed.ts`
+- `backend/package.json`
+- `backend/tests/client-service-tier-presets.test.ts`
+- `backend/tests/run-tests.ts`
+- `frontend/scripts/visual-smoke.mjs`
+- `frontend/src/app/operations/clients/accounts/page.tsx`
+- `frontend/src/components/client-portal/AdminClientAccountProfilePanel.tsx`
+- `frontend/src/components/client-portal/AdminClientServiceTiersPanel.tsx`
+- `frontend/src/components/client-portal/production-records/BillingPanel.tsx`
+- `frontend/src/lib/client-service-tiers.ts`
+- `frontend/tests/client-service-tiers.test.mjs`
+- `docs/database.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Upsert presets by tier name so existing matching presets are refreshed while unrelated custom tiers remain untouched.
+- Store the `$9,997+` premium tier as `9997` in the existing numeric price field and keep the plus qualifier in the description.
+- Avoid a schema migration because `ClientServiceTier` already supports name, description, price, and rank.
+
+### How to Test
+
+- `npm --prefix backend run seed:client-service-tiers`
+- `npm --prefix backend test`
+- `npm --prefix backend run build`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- Browser affected-flow audit: open `/operations/clients/accounts` and confirm the five SOP tier names appear in the Service Tiers panel and client tier selectors.
+
+### Next Steps
+
+- If the business later separates one-time package price from recurring maintenance price, add a dedicated price field instead of overloading the existing service-tier price field.
+
+## 2026-06-05 - Frontend Craft Stack Routing
+
+### Completed
+
+- Replaced `frontend-visual-quality` as the default frontend taste driver in repo workflow instructions.
+- Documented the approved MyDeskii frontend craft stack: `impeccable`, `emil-design-eng`, `design-taste-frontend`, `web-design-guidelines`, and Browser/Chrome rendered verification.
+- Reserved `gpt-taste` for marketing, landing-page, portfolio, campaign, or brand-heavy surfaces instead of internal operations dashboards or accessibility remediation.
+- Updated the repo-local `vibe-auto-research` skill and prompt-to-quality reference so future frontend work follows the same routing.
+
+### Files Changed
+
+- `AGENTS.md`
+- `docs/agent-workflows.md`
+- `skills/.agents/skills/vibe-auto-research/SKILL.md`
+- `skills/.agents/skills/vibe-auto-research/references/prompt-to-quality-cycle.md`
+- `skills/skills-lock.json`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Keep the global `frontend-visual-quality` skill unchanged to avoid affecting other repositories.
+- Treat `impeccable` as the primary product UI quality skill for MyDeskii frontend work.
+- Use `emil-design-eng` and `design-taste-frontend` as supporting checks rather than blindly loading every frontend skill.
+
+### How to Test
+
+- `npm run check:skills`
+- Search workflow docs for stale `frontend-visual-quality` default routing.
+
+### Next Steps
+
+- Apply the new craft stack on the next frontend remediation or redesign task and verify with a rendered affected-flow audit.
+
+## 2026-06-05 - Admin Onboarding Setup Links
+
+### Completed
+
+- Added an admin-only onboarding endpoint that creates or completes approved internal user accounts from an email and role selection.
+- Reused the existing reset-password token flow so admins generate setup links without seeing or setting user passwords.
+- Added `/operations/onboarding` with email, role, generate-link, read-only setup link, and copy-link controls.
+- Added admin navigation and command-palette access for the onboarding page.
+- Added backend route coverage and frontend helper coverage for onboarding link generation.
+
+### Files Changed
+
+- `backend/src/users/users.controller.ts`
+- `backend/src/users/users.service.ts`
+- `backend/tests/run-tests.ts`
+- `backend/tests/users.onboarding.test.ts`
+- `frontend/src/app/operations/onboarding/page.tsx`
+- `frontend/src/components/CommandPalette.tsx`
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/lib/admin-onboarding.ts`
+- `frontend/tests/admin-onboarding.test.mjs`
+- `docs/api.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Use existing `AvailableRole` records for the visible role dropdown; department assignment is derived from the selected role.
+- Reject onboarding generation for users that already have a password so active accounts use password reset instead of admin-generated setup links.
+- Keep the setup link copyable even though email delivery can be added later.
+
+### How to Test
+
+- `npm --prefix backend test`
+- `npm --prefix backend run build`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- Browser affected-flow audit: open `/operations/onboarding`, select a role, generate a setup link, copy it, then open the link and confirm the reset-password form renders.
+
+### Next Steps
+
+- Add optional email delivery if admins should both copy the link and send the onboarding email from the same form.
+
+## 2026-06-05 - Client Service Tier Delete
+
+### Completed
+
+- Added an admin-only `DELETE /api/clients/service-tiers/:id` route for removing client service tiers.
+- Wired a selected-tier delete action into the Client Accounts service-tier panel with typed-name confirmation.
+- Kept tier deletion non-destructive to clients by relying on the existing `ClientOrganization.tierId` `onDelete: SetNull` relation.
+- Added backend route coverage and frontend helper coverage for deleting service tiers.
+
+### Files Changed
+
+- `backend/src/clients/clients.controller.ts`
+- `backend/src/clients/clients.service.ts`
+- `backend/tests/clients.routes.test.ts`
+- `frontend/src/app/operations/clients/accounts/page.tsx`
+- `frontend/src/components/client-portal/AdminClientServiceTiersPanel.tsx`
+- `frontend/src/lib/client-portal.ts`
+- `frontend/src/lib/client-service-tiers.ts`
+- `frontend/tests/client-service-tiers.test.mjs`
+- `docs/api.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Use a direct delete endpoint instead of soft-deleting service tiers because the existing schema already preserves client organizations by clearing assigned `tierId` values.
+- Refresh client organization data after deletion so the selected client and account profile reflect the cleared tier assignment.
+
+### How to Test
+
+- `npm --prefix backend test`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- Browser affected-flow audit: create or select a service tier in `/operations/clients/accounts`, type the tier name into the delete confirmation field, confirm on a disposable tier, and verify it disappears from tier lists.
+
+### Next Steps
+
+- If service tiers need historical reporting later, add an archived/inactive tier status instead of deleting records.
+
+## 2026-06-05 - Client Operations Overview Banners
+
+### Completed
+
+- Limited the large client operations hero and control-surface metric banner to the `/operations/clients` overview route.
+- Kept the client selector and section tabs available on focused client admin pages such as Accounts, Delivery, Requests, Reports, Billing, Roadmap, and Calendar.
+- Added focused navigation-helper coverage for identifying the Client Operations overview route.
+
+### Files Changed
+
+- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
+- `frontend/src/lib/client-operations-navigation.ts`
+- `frontend/tests/client-operations-navigation.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Treat the banners as overview context only so focused client admin sections start closer to their working controls.
+- Preserve the selected-client picker across subpages because it remains needed for scoped client work.
+
+### How to Test
+
+- `npm --prefix frontend test -- client-operations-navigation.test.mjs`
+- `npm --prefix frontend run lint`
+- Browser or visual-smoke affected-flow audit: `/operations/clients` shows overview banners; `/operations/clients/accounts` does not show the repeated hero/control-surface banners.
+
+### Next Steps
+
+- If focused subpages still feel too tall, review the client picker density separately instead of removing client switching.
+
+## 2026-06-05 - Admin Client Navigation Cleanup
+
+### Completed
+
+- Removed the client-facing `/client` portal entry from internal/admin sidebar navigation.
+- Removed client-facing portal commands from the internal command palette while keeping client users on their dedicated client portal command set.
+- Updated the Operations client card so admins are directed to Client Operations instead of the client-facing portal.
+
+### Files Changed
+
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/CommandPalette.tsx`
+- `frontend/src/app/operations/page.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Preserve the `/client` routes for actual client users; this pass only removes duplicate internal/admin navigation.
+- Keep admin client work centralized under `/operations/clients`.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- Browser affected-flow audit: confirm admin sidebar and command palette show `Clients` under Admin but no `Client Portal` work item, then confirm client-user navigation still uses the client portal section.
+
+### Next Steps
+
+- If the client-facing portal should be fully removed later, plan that as a separate auth, routing, docs, and data-visibility change.
+
+## 2026-06-04 - Anti-Hallucination Evidence Gate
+
+### Completed
+
+- Made memory and current repo evidence an explicit first step for meaningful Vibe Auto Research work.
+- Added an anti-hallucination evidence gate that requires current files, docs, commands, git state, and rendered-app evidence when relevant.
+- Clarified rendered website tool routing: Browser/in-app browser for local web evidence, Chrome plugin for user Chrome profile/session/tab/extension needs, Computer Use for real Windows app surfaces, and visual-smoke scripts for broad safe coverage.
+- Updated the repo-local Vibe Auto Research skill and references so global copies can carry the same behavior.
+
+### Files Changed
+
+- `AGENTS.md`
+- `README.md`
+- `docs/agent-workflows.md`
+- `docs/code-review.md`
+- `docs/dev-notes.md`
+- `skills/.agents/skills/vibe-auto-research/SKILL.md`
+- `skills/.agents/skills/vibe-auto-research/references/browser-experience-review.md`
+- `skills/.agents/skills/vibe-auto-research/references/prompt-to-quality-cycle.md`
+- `skills/skills-lock.json`
+
+### Decisions Made
+
+- Do not force Computer Use or Chrome for every website task; use the surface that gives the strongest evidence with the least risk.
+- Treat memory as a search hint and require current verification for anything that may have changed.
+- If a requested browser or desktop surface is unavailable, report `blocked` or `not applicable` instead of guessing.
+
+### How to Test
+
+- `npm run check:skills`
+- `git diff --check`
+- Confirm global `vibe-auto-research` files include the anti-hallucination gate.
+
+### Next Steps
+
+- Future UI/workflow implementation should report memory, repo, rendered-route, browser/Chrome/Computer Use, and blocker evidence as applicable.
+
+## 2026-06-04 - Task Controls And Seed Safety
+
+### Completed
+
+- Replaced the task modal's native-looking select controls with theme-stable select styling so macOS does not show the glossy system dropdown treatment.
+- Fixed manual task-role entry by separating manual-entry mode from the actual role value; selecting `Other / type a role` now starts with an empty text field and keeps the field visible while typing.
+- Added labeled task quick actions so list and board controls read as `Start`, `Pause`, `Done`, and `Reopen` instead of icon-only actions.
+- Added a completed-task `Reopen` path in list rows and task details; reopening moves the task back to `in_progress` so the backend clears `completedAt`.
+- Hardened normal Prisma seeding to preserve existing users unless `SEED_RESET_USERS=true` is explicitly set against localhost.
+- Added an explicit local-only confirmation gate to the legacy manual seed script and removed its hardcoded password.
+
+### Files Changed
+
+- `backend/prisma/seed.ts`
+- `backend/seed-manual.js`
+- `frontend/src/app/globals.css`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/tasks/BoardCard.tsx`
+- `frontend/src/components/tasks/TaskDetailModal.tsx`
+- `frontend/src/components/tasks/TaskListRow.tsx`
+- `frontend/src/components/tasks/TaskModal.tsx`
+- `frontend/src/lib/task-status-actions.ts`
+- `frontend/tests/task-status-actions.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Preserve existing accounts during normal seed runs; destructive local resets must be explicit instead of the default.
+- Leave branding unchanged in this pass because repo docs say `MyDeskii` while the provided conversation screenshot says `Deskii`.
+- Use the existing task `PATCH /api/tasks/:id` contract for undoing completion rather than adding a new endpoint.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix backend test`
+- `cd backend && npx prisma validate`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `npm --prefix backend run build`
+- `cd backend && npx prisma generate`
+- `$env:VISUAL_SMOKE_ROUTES = '/task-tracking'; npm --prefix frontend run test:visual`
+- `git diff --check`
+- Browser affected-flow audit: task modal manual role entry, task list `Done`/`Reopen`, completed task detail `Reopen Task`, and task cleanup through the API.
+
+### Next Steps
+
+- Confirm whether the product name should remain `MyDeskii` or switch to `Deskii` before making branding edits.
+- If real user passwords need recovery, reset only the requested accounts through an explicit recovery step and verify login afterward.
+
+## 2026-06-03 - Completion Audit Cycle Hardening
+
+### Completed
+
+- Added a mandatory Completion Audit Cycle after Vibe Auto Research implementations.
+- Defined affected-flow audit versus full-feature audit so narrow changes stay focused and cross-cutting or "all features" requests get broader manual coverage.
+- Required the reviewer pass to find and fix material issues before the final response when verification is possible.
+- Updated the repo-local Vibe Auto Research skill references, code review checklist, and README workflow summary.
+
+### Files Changed
+
+- `AGENTS.md`
+- `README.md`
+- `docs/agent-workflows.md`
+- `docs/code-review.md`
+- `docs/dev-notes.md`
+- `skills/.agents/skills/vibe-auto-research/SKILL.md`
+- `skills/.agents/skills/vibe-auto-research/references/browser-experience-review.md`
+- `skills/.agents/skills/vibe-auto-research/references/prompt-to-quality-cycle.md`
+- `skills/skills-lock.json`
+
+### Decisions Made
+
+- Use affected-flow audit for focused implementation work.
+- Escalate to full-feature audit for cross-cutting shell, auth, role, navigation, dashboard, broad redesign, release/publish, or explicit "all features" requests.
+- Allow `not applicable` only for docs-only, non-rendered backend, CLI-only, or unreachable-app work, with the reason stated.
+
+### How to Test
+
+- `npm run check:skills`
+- `git diff --check`
+
+### Next Steps
+
+- When future UI/workflow implementation changes land, report audit scope as affected-flow, full-feature, blocked, or not applicable.
+
+## 2026-06-03 - Vibe Auto Research Activation Hardening
+
+### Completed
+
+- Made Vibe Auto Research explicitly always-on for meaningful repo work, even when the user does not name the workflow.
+- Clarified that supporting skills can come from the active session, global Codex skills, repo-local snapshots, or plugin skills.
+- Added a missing-skill protocol that uses `find-skills` / `npx skills find` before falling back to broad general work.
+- Added a concise Codex personalization snippet for carrying the same default into repos that do not have this `AGENTS.md`.
+
+### Files Changed
+
+- `AGENTS.md`
+- `docs/agent-workflows.md`
+- `skills/.agents/skills/vibe-auto-research/SKILL.md`
+- `skills/skills-lock.json`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Do not copy every global skill into the repo-local snapshot; use the snapshot for curated repeatable repo workflows and route to global skills when available.
+- Do not install low-install overlapping repo-research skills without a clearer capability gap.
+- Keep personalization general and repo docs specific.
+
+### How to Test
+
+- `npm run check:skills`
+- `git diff --check`
+- `npx --yes skills list -g --agent codex --json`
+- `npx --yes skills find "agent workflow repo research"`
+
+### Next Steps
+
+- Paste the personalization snippet into Codex settings if this behavior should apply outside this repository.
+- Add a new repo-local skill only when a repeated workflow gap is proven by actual portal work.
+
 ## 2026-06-02 - Exhaustive Interaction Audit Fix Cycle
 
 ### Completed

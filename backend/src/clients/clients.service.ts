@@ -102,6 +102,14 @@ export class ClientsService {
     })
   }
 
+  async deleteServiceTier(id: string) {
+    await this.prisma.clientServiceTier.delete({
+      where: { id },
+    })
+
+    return { id, deleted: true }
+  }
+
   async findOrganizations(where: Prisma.ClientOrganizationWhereInput = {}) {
     return this.prisma.clientOrganization.findMany({
       where,
@@ -127,6 +135,7 @@ export class ClientsService {
         name: data.name,
         slug: data.slug,
         websiteUrl: data.websiteUrl,
+        websiteWorkType: data.websiteWorkType,
         tierId: data.tierId,
         notes: data.notes,
       },

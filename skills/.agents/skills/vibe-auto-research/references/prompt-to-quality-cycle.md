@@ -16,6 +16,8 @@ Turn a user prompt into a complete engineering cycle:
 
 The loop ends only when no material reviewer findings remain, the user stops it, or a real blocker prevents progress.
 
+Before the final response, the agent should behave like a reviewer of its own work: find mistakes, fix them, rerun focused checks, and only then summarize the outcome.
+
 ## 1. Prompt Intake
 
 Before planning, identify:
@@ -27,6 +29,8 @@ Before planning, identify:
 - likely risk level
 - likely browser or desktop review needs
 - assumptions that must be verified from the repo
+- memory hints that need current repo or rendered-app verification
+- whether the user asked to overanalyze or avoid hallucination, which should raise research depth and evidence reporting
 
 If the request is ambiguous but a safe default exists, proceed with the default and say so. Ask only when a wrong assumption would be costly.
 
@@ -38,7 +42,9 @@ Select skills/tools before planning implementation:
 - PRD or issue-ready artifact: `to-prd`, only when the user asks for PRD/issue-tracker output.
 - Backend/API: `api-service-quality`, `auth-access-control` when permissions are involved.
 - Database/query/schema: `database-safety`, Postgres guidance when relevant.
-- Frontend/UI: `frontend-visual-quality`, `web-design-guidelines`, Browser/in-app browser.
+- Frontend/UI: approved frontend craft stack: `impeccable`, `emil-design-eng`, `design-taste-frontend`, `motion-web-design`, `web-design-guidelines`, Browser/in-app browser or Chrome when requested.
+- GSAP-specific frontend motion: add the official GSAP skills only when GSAP is actually needed: `gsap-react`, `gsap-performance`, `gsap-scrolltrigger`, `gsap-core`, `gsap-timeline`, `gsap-plugins`, or `gsap-utils` based on the implementation.
+- Marketing/brand-heavy frontend: add `gpt-taste` only when cinematic landing-page structure, rich visuals, or GSAP-style motion fit the product goal.
 - Bug/failure: `systematic-debugging`, `test-driven-development`.
 - Security/release: `security-production-readiness`, `verification-before-completion`.
 - Desktop/app surface: `computer-use` when the visible Windows app state is the source of truth.
@@ -55,6 +61,8 @@ Before accepting a plan, prove the request fits the repo:
 - Are there API, database, auth, role, or deployment contracts that constrain the work?
 - Is the requested workflow safe for client/user data?
 - Can the result be verified locally or through existing tests?
+- What current evidence disproves or updates memory, prior assumptions, or the first hypothesis?
+- For UI/workflow work, what rendered route, browser state, visual-smoke output, Chrome session, or Computer Use surface will verify it?
 
 If the request does not fit the repo, explain the mismatch and propose the closest safe plan.
 
@@ -107,6 +115,14 @@ Review user experience:
 - whether important buttons and navigation controls were clicked through
 
 For UI work, use Browser/in-app browser when practical. Do not claim the flow is good from code alone.
+
+Manual audit scope:
+
+- **Affected-flow audit**: use for focused UI, route, workflow, form, dashboard, auth, or client-facing changes. Click every changed route, important button/control, form path, dialog, state transition, and navigation path.
+- **Full-feature audit**: use for cross-cutting shell, navigation, theme, auth, role, routing, shared-state, dashboard, release/publish, broad redesign, or explicit "all features" requests. Walk the primary admin, employee, client, and anonymous/auth workflows across desktop and mobile where practical.
+- **Not applicable**: use only for docs-only, non-rendered backend, CLI-only, or unreachable-app work. State why and use the best fallback verification.
+
+Completion is not allowed when material reviewer findings are known and fixable.
 
 ## 7. Fix Cycle
 

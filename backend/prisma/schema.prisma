@@ -177,6 +177,7 @@ model ClientOrganization {
   status     String   @default("active")
   tierId     String?
   websiteUrl String?
+  websiteWorkType String?
   notes      String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

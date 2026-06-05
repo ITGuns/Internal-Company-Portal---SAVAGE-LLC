@@ -73,6 +73,7 @@ Signup creates a pending account and preserves the requested department/role wit
 - Approval deploys the employee, marks the account approved, and assigns the requested department/role.
 - Approval now requires an existing or requested role/department assignment; applications missing both are rejected with a clear error instead of creating approved users without roles.
 - Admins and authorized operations managers can approve pending employee applications.
+- Admin onboarding under `/operations/onboarding` lets admins generate approved setup links by entering an email and selecting a role. The user follows the link to set and confirm their password through the reset-password flow.
 
 ## Operations
 
@@ -81,9 +82,11 @@ Operations manages departments, role options, and client account administration.
 - Department and role deletes now require a typed confirmation modal.
 - The delete action stays disabled until the exact target name is typed.
 - Department delete confirmation displays linked task and user-role counts when provided by the API.
+- `/operations/onboarding` generates copyable setup links for approved internal users without exposing passwords to admins.
 - Operations includes a `Clients` tab that links to the client operations command center.
 - `/operations/clients` is the Client Operations command center for account health, open work, requests, approvals, latest updates, reports, and focused route links.
-- `/operations/clients/accounts` manages client setup, invitations, approved existing-user access, membership status changes, account profile details, service tiers, and archive/restore controls.
+- `/operations/clients/accounts` manages client setup, website work intake type, invitations, approved existing-user access, membership status changes, account profile details, service tiers, and archive/restore controls.
+- Client service tiers include the SOP-derived presets: Standard Business Website, Growth Business Website, Conversion and Local Growth System, Managed Growth Website System, and Premium Managed Growth System.
 - `/operations/clients/delivery`, `/operations/clients/requests`, `/operations/clients/approvals`, `/operations/clients/reports`, `/operations/clients/assets`, `/operations/clients/billing`, `/operations/clients/roadmap`, and `/operations/clients/calendar` split client production records into focused admin work areas.
 - Client Operations separates current client accounts from archived history so removed clients do not crowd the active working list.
 
@@ -93,7 +96,7 @@ MyDeskii includes the backend and frontend foundation for a client-facing portal
 
 - Client portal records are grouped under `ClientOrganization`.
 - Client users are scoped through active `ClientMembership` records on active client organizations and cannot see other organizations or archived clients.
-- Internal managers/admins can create client organizations, manage service tiers, invite client contacts, assign existing approved users, and review cross-client portal data.
+- Internal managers/admins can create client organizations, manage service tiers, delete unused tiers, invite client contacts, assign existing approved users, and review cross-client portal data.
 - Client-facing serializers omit internal organization notes, raw tier IDs, internal tier price/priority, ticket assignment fields, internal ticket comments, and inactive client memberships.
 - `/client` is the client command center for assigned clients.
 - `/client/work`, `/client/approvals`, `/client/messages`, `/client/reports`, `/client/resources`, `/client/account`, `/client/calendar`, and `/client/tickets` provide focused client-facing work, approval, communication, reporting, resource, account, schedule, and request surfaces.

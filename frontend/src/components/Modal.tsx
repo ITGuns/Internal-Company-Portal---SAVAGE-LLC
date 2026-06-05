@@ -134,7 +134,7 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-y-0 left-0 right-0 md:left-64 z-[9999] flex items-center justify-center p-3 sm:p-4 animate-fadeIn modal-print-wrapper"
+      className="fixed inset-y-0 left-0 right-0 md:left-64 z-[9999] flex items-center justify-center p-3 sm:p-4 motion-fade-in modal-print-wrapper"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
@@ -142,7 +142,7 @@ export default function Modal({
     >
       {/* Backdrop - covers the active content area and preserves the desktop sidebar. */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fadeIn"
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm motion-fade-in"
         onClick={closeOnBackdrop ? onClose : undefined}
         aria-hidden="true"
       />
@@ -152,7 +152,7 @@ export default function Modal({
         ref={modalRef}
         tabIndex={-1}
         className={cn(
-          'relative bg-[var(--card-surface)] rounded-xl shadow-2xl ring-1 ring-[var(--border)] w-full max-h-[calc(100vh-1.5rem)] overflow-hidden animate-slideUp',
+          'relative bg-[var(--card-surface)] rounded-xl shadow-2xl ring-1 ring-[var(--border)] w-full max-h-[calc(100vh-1.5rem)] overflow-hidden motion-panel-in',
           sizeClasses[size],
           className,
         )}
@@ -177,7 +177,7 @@ export default function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 -mt-2 -mr-2 rounded-lg hover:bg-[var(--card-bg)] transition-all duration-150 text-[var(--muted)] hover:text-[var(--foreground)] active:scale-90"
+            className="motion-interactive p-2 -mt-2 -mr-2 rounded-lg text-[var(--muted)] hover:bg-[var(--card-bg)] hover:text-[var(--foreground)] active:scale-90"
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />

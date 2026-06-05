@@ -3,9 +3,11 @@ import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import 'dotenv/config'
 import * as bcrypt from 'bcrypt'
+import { upsertClientServiceTierPresets } from '../src/clients/client-service-tier-presets'
 
 const connectionString = (process.env.DATABASE_URL || '').trim()
 const seedPassword = (process.env.SEED_DEFAULT_PASSWORD || '').trim()
+const resetUsers = process.env.SEED_RESET_USERS === 'true'
 
 if (!connectionString || connectionString.length < 10) {
     console.error('Error: DATABASE_URL is not defined or too short in your environment.')
@@ -23,6 +25,10 @@ console.log(`Connecting to: ${maskedUrl}`)
 const pool = new Pool({ connectionString })
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
+
+function isLocalDatabaseUrl(url: string): boolean {
+    return /\/\/(?:[^@/]+@)?(?:localhost|127\.0\.0\.1)(?::|\/)/i.test(url)
+}
 
 const DEMO_DEPARTMENTS = {
     engineering: {
@@ -79,6 +85,9 @@ async function main() {
     }
 
     console.log('Created available roles')
+
+    const seededServiceTiers = await upsertClientServiceTierPresets(prisma)
+    console.log(`Created/updated ${seededServiceTiers.length} default client service tiers`)
 
     const passwordHash = await bcrypt.hash(seedPassword, 10)
 
@@ -138,10 +147,18 @@ async function main() {
         return user
     }
 
-    console.log('Purging existing local user data before seeding synthetic users...')
-    await prisma.userRole.deleteMany({})
-    await prisma.employeeProfile.deleteMany({})
-    await prisma.user.deleteMany({})
+    if (resetUsers) {
+        if (!isLocalDatabaseUrl(connectionString)) {
+            throw new Error('SEED_RESET_USERS can only be used with a localhost DATABASE_URL.')
+        }
+
+        console.log('SEED_RESET_USERS=true detected. Purging local user data before seeding synthetic users...')
+        await prisma.userRole.deleteMany({})
+        await prisma.employeeProfile.deleteMany({})
+        await prisma.user.deleteMany({})
+    } else {
+        console.log('Preserving existing user accounts. Set SEED_RESET_USERS=true for an explicit localhost reset.')
+    }
 
     console.log('Seeding synthetic users...')
     await createUser('ops.manager@example.test', 'Demo Operations Manager', 'Operations Manager', operations.id, 'active', true)

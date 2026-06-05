@@ -182,11 +182,13 @@ assert.deepEqual(parseCreateClientOrganizationInput({
   name: '  Acme HVAC  ',
   slug: ' Acme Custom Slug! ',
   websiteUrl: ' https://example.com ',
+  websiteWorkType: ' new-build ',
   notes: '  Internal setup note  ',
 }), {
   name: 'Acme HVAC',
   slug: 'acme-custom-slug',
   websiteUrl: 'https://example.com',
+  websiteWorkType: 'new_build',
   tierId: undefined,
   notes: 'Internal setup note',
 })

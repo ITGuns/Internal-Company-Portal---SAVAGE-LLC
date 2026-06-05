@@ -21,6 +21,28 @@ npx prisma generate
 
 Use `npm run prisma:migrate` for local development migrations and `npm run prisma:deploy` for deployment migration application.
 
+## Client Service Tier Presets
+
+`ClientServiceTier` stores the client account tier catalog used by Client Operations account and billing views.
+
+Default SOP-derived tier presets are maintained in `backend/src/clients/client-service-tier-presets.ts` and can be applied with:
+
+```powershell
+cd backend
+npm run seed:client-service-tiers
+```
+
+The preset seed upserts by tier `name`, updates matching preset descriptions/prices/ranks, and leaves unrelated custom tiers untouched. No schema migration is required for the current tier catalog.
+
+## Client Website Work Type
+
+`ClientOrganization.websiteWorkType` stores the intake choice for website work:
+
+- `existing_site_improvement` when the client has a website the team will improve.
+- `new_build` when the team will build a new website or rebuild from scratch.
+
+The field is nullable so existing client organizations are not backfilled into an inaccurate category.
+
 ## Identity And Authorization
 
 `User` is the account record and owns authentication fields, roles, tasks, logs, time entries, notifications, and related profile data.

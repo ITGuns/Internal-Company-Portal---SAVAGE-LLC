@@ -2,8 +2,32 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 require('dotenv').config();
 
+const connectionString = (process.env.DATABASE_URL || '').trim();
+const seedPassword = (process.env.SEED_DEFAULT_PASSWORD || '').trim();
+const resetConfirm = process.env.SEED_MANUAL_RESET_CONFIRM;
+
+function isLocalDatabaseUrl(url = '') {
+    return /\/\/(?:[^@/]+@)?(?:localhost|127\.0\.0\.1)(?::|\/)/i.test(url);
+}
+
+if (resetConfirm !== 'TRUNCATE_LOCAL_DATABASE') {
+    console.error('Refusing to run seed-manual.js because it truncates user data.');
+    console.error('Set SEED_MANUAL_RESET_CONFIRM=TRUNCATE_LOCAL_DATABASE for an explicit localhost reset.');
+    process.exit(1);
+}
+
+if (!isLocalDatabaseUrl(connectionString)) {
+    console.error('Refusing to run seed-manual.js against a non-local DATABASE_URL.');
+    process.exit(1);
+}
+
+if (!seedPassword || seedPassword.length < 12) {
+    console.error('SEED_DEFAULT_PASSWORD must be set to a local-only password with at least 12 characters.');
+    process.exit(1);
+}
+
 async function runSeed() {
-    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    const client = new Client({ connectionString });
 
     try {
         console.log('🌱 Starting Full Manual Seed (Clean State)...');
@@ -13,7 +37,7 @@ async function runSeed() {
         console.log('🧹 Purging existing data...');
         await client.query('TRUNCATE TABLE "UserRole", "EmployeeProfile", "Message", "Participant", "Conversation", "DailyLog", "Task", "User", "Department" CASCADE');
 
-        const passwordHash = await bcrypt.hash('Savage2025!', 10);
+        const passwordHash = await bcrypt.hash(seedPassword, 10);
 
         // 1. Create Departments
         console.log('🏢 Creating Departments...');
@@ -77,7 +101,7 @@ async function runSeed() {
         await seedUser('gunsembacanan27@gmail.com', 'Guns\'n Full Embacanan', 'Web Developer', 'Engineering', 'pending', false);
 
         console.log('\n🚀 FULL SEED COMPLETE!');
-        console.log('All accounts available with password: Savage2025!');
+        console.log('All accounts available with the configured SEED_DEFAULT_PASSWORD.');
 
     } catch (err) {
         console.error('❌ Full Seed Failed!');
