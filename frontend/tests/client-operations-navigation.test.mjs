@@ -48,10 +48,14 @@ test('defines focused client operations pages in admin workflow order', () => {
 test('resolves nested client operations route titles and preserves selected client links', () => {
   const {
     getClientOperationsRouteTitle,
+    isClientOperationsOverviewRoute,
     isClientOperationsNavItemActive,
     withClientOperationsClientParam,
   } = loadClientOperationsNavigation();
 
+  assert.equal(isClientOperationsOverviewRoute('/operations/clients'), true);
+  assert.equal(isClientOperationsOverviewRoute('/operations/clients/accounts'), false);
+  assert.equal(isClientOperationsOverviewRoute('/operations/clients/delivery'), false);
   assert.deepEqual({ ...getClientOperationsRouteTitle('/operations/clients/requests/ticket-1') }, {
     title: 'Client Requests',
     subtitle: 'Website change requests, support tickets, replies, and internal notes',

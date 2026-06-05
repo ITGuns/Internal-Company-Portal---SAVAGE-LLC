@@ -7,6 +7,7 @@ import FormField from "@/components/forms/FormField";
 import type { ClientServiceTier } from "@/lib/client-portal";
 import { upsertClientBillingStatus } from "@/lib/client-portal";
 import { getClientBillingTierLabel } from "@/lib/client-portal-display";
+import { getClientServiceTierDisplayName } from "@/lib/client-service-tiers";
 import {
   buildBillingPayload,
   toDateInputValue,
@@ -77,7 +78,7 @@ export default function BillingPanel({
                 <option value="">Not assigned</option>
                 {serviceTiers.map((tier) => (
                   <option key={tier.id} value={tier.id}>
-                    {tier.name}
+                    {getClientServiceTierDisplayName(tier)}
                   </option>
                 ))}
               </select>

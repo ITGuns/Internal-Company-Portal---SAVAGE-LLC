@@ -1,11 +1,22 @@
+import crypto from 'node:crypto'
 import { PrismaClient, User, Prisma } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
+
+const ONBOARDING_SETUP_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000
 
 export interface CreateUserDto {
     email: string
     name?: string
     avatar?: string
 }
+
+export interface CreateUserOnboardingInvitationDto {
+    email: string
+    roleId: string
+}
+
+export class UserOnboardingValidationError extends Error {}
+export class UserOnboardingConflictError extends Error {}
 
 export interface UpdateUserDto {
     name?: string
@@ -115,6 +126,113 @@ export class UsersService {
                 avatar: data.avatar,
             },
         })
+    }
+
+    async createOnboardingInvitation(data: CreateUserOnboardingInvitationDto) {
+        const normalizedEmail = data.email.trim().toLowerCase()
+        const role = await this.prisma.availableRole.findUnique({
+            where: { id: data.roleId },
+            include: { department: true },
+        })
+
+        if (!role) {
+            throw new UserOnboardingValidationError('Invalid onboarding role')
+        }
+
+        const existingUser = await this.prisma.user.findUnique({
+            where: { email: normalizedEmail },
+            select: { id: true, password: true },
+        })
+
+        if (existingUser?.password) {
+            throw new UserOnboardingConflictError('This user already has login access. Use password reset instead.')
+        }
+
+        const setupToken = crypto.randomBytes(32).toString('hex')
+        const hashedSetupToken = crypto.createHash('sha256').update(setupToken).digest('hex')
+        const setupExpiresAt = new Date(Date.now() + ONBOARDING_SETUP_TOKEN_EXPIRY_MS)
+        const setupUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${setupToken}&email=${encodeURIComponent(normalizedEmail)}`
+        const fallbackName = normalizedEmail.split('@')[0]?.replace(/[._-]+/g, ' ').trim() || normalizedEmail
+
+        const user = await this.prisma.$transaction(async (tx) => {
+            const savedUser = existingUser
+                ? await tx.user.update({
+                    where: { id: existingUser.id },
+                    data: {
+                        status: 'verified',
+                        isApproved: true,
+                        passwordResetToken: hashedSetupToken,
+                        passwordResetExpiry: setupExpiresAt,
+                    },
+                })
+                : await tx.user.create({
+                    data: {
+                        email: normalizedEmail,
+                        name: fallbackName,
+                        status: 'verified',
+                        isApproved: true,
+                        passwordResetToken: hashedSetupToken,
+                        passwordResetExpiry: setupExpiresAt,
+                    },
+                })
+
+            await tx.employeeProfile.upsert({
+                where: { userId: savedUser.id },
+                update: {
+                    requestedRole: role.name,
+                    requestedDepartmentId: role.departmentId,
+                    jobTitle: role.name,
+                },
+                create: {
+                    userId: savedUser.id,
+                    requestedRole: role.name,
+                    requestedDepartmentId: role.departmentId,
+                    jobTitle: role.name,
+                },
+            })
+
+            const existingAssignment = await tx.userRole.findFirst({
+                where: {
+                    userId: savedUser.id,
+                    role: role.name,
+                    departmentId: role.departmentId,
+                },
+            })
+
+            if (!existingAssignment) {
+                await tx.userRole.create({
+                    data: {
+                        userId: savedUser.id,
+                        role: role.name,
+                        ...(role.departmentId ? { departmentId: role.departmentId } : {}),
+                    },
+                })
+            }
+
+            return tx.user.findUniqueOrThrow({
+                where: { id: savedUser.id },
+                include: {
+                    roles: {
+                        include: { department: true },
+                    },
+                    employeeProfile: true,
+                },
+            })
+        })
+
+        return {
+            user,
+            onboarding: {
+                setupUrl,
+                expiresAt: setupExpiresAt,
+                role: {
+                    id: role.id,
+                    name: role.name,
+                    departmentId: role.departmentId,
+                    department: role.department ? { id: role.department.id, name: role.department.name } : null,
+                },
+            },
+        }
     }
 
     /**

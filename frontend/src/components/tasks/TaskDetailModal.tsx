@@ -22,7 +22,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { getActiveTaskProgress, type TaskQuickAction } from "@/lib/task-status-actions";
+import { getReopenedTaskProgress, type TaskQuickAction } from "@/lib/task-status-actions";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "To Do",
@@ -106,7 +106,7 @@ export default function TaskDetailModal({ task, onClose, onEdit, onAction }: Tas
   });
   const progress = activeTask.status === "completed"
     ? 100
-    : getActiveTaskProgress({ ...activeTask, totalElapsed: liveElapsed });
+    : getReopenedTaskProgress({ ...activeTask, totalElapsed: liveElapsed });
   const assigneeName = activeTask.assignee?.name || activeTask.assignee?.email || "Unassigned";
   const remainingLabel = summary.isOverEstimate
     ? `${formatDurationSeconds(summary.trackedSeconds - summary.estimatedSeconds)} over`

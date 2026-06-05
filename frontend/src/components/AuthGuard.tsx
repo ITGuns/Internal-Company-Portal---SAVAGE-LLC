@@ -49,8 +49,8 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   if (isLoading) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-[var(--background)]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-[3px] border-[var(--foreground)] border-r-transparent" />
+        <div className="flex flex-col items-center gap-4" role="status" aria-live="polite" aria-busy="true">
+          <div className="h-12 w-12 animate-spin rounded-full border-[3px] border-[var(--foreground)] border-r-transparent" aria-hidden="true" />
           <p className="text-sm text-[var(--foreground)] opacity-70">Loading...</p>
         </div>
       </div>

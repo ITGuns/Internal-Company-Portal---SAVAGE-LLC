@@ -42,6 +42,12 @@ test('reopened task progress never stays visually complete', () => {
   assert.equal(getReopenedTaskProgress({ progress: 100 }), 99);
 });
 
+test('active task progress is calculated from elapsed work', () => {
+  const { getActiveTaskProgress } = loadTaskStatusActions();
+
+  assert.equal(getActiveTaskProgress({ estimatedTime: 60, totalElapsed: 900 }), 25);
+});
+
 test('active task progress is capped below complete until status changes', () => {
   const { getActiveTaskProgress } = loadTaskStatusActions();
 

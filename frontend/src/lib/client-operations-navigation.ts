@@ -84,6 +84,10 @@ export function isClientOperationsNavItemActive(href: string, pathname: string):
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+export function isClientOperationsOverviewRoute(pathname: string): boolean {
+  return pathname === "/operations/clients";
+}
+
 export function withClientOperationsClientParam(href: string, clientId?: string | null): string {
   if (!clientId) return href;
 

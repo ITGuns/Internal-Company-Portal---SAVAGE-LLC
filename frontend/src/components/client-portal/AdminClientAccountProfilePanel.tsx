@@ -4,6 +4,8 @@ import { ExternalLink, BriefcaseBusiness } from "lucide-react";
 import EmptyState from "@/components/ui/EmptyState";
 import StatusBadge from "@/components/ui/StatusBadge";
 import type { ClientOrganization, ClientServiceTier } from "@/lib/client-portal";
+import { getClientServiceTierDisplayName } from "@/lib/client-service-tiers";
+import { getClientWebsiteWorkTypeLabel } from "@/lib/client-website-work";
 import { clientOperationsSelectClass } from "./ClientOperationsPanel";
 
 export default function AdminClientAccountProfilePanel({
@@ -35,6 +37,10 @@ export default function AdminClientAccountProfilePanel({
           </div>
         </div>
         <div className="rounded-[var(--radius-md)] border border-[var(--border)] p-3">
+          <div className="text-xs text-[var(--muted)]">Website Work</div>
+          <div className="mt-2 text-sm font-medium">{getClientWebsiteWorkTypeLabel(organization.websiteWorkType)}</div>
+        </div>
+        <div className="rounded-[var(--radius-md)] border border-[var(--border)] p-3">
           <label className="grid gap-2 text-sm">
             <span className="text-xs text-[var(--muted)]">Service Tier</span>
             <select
@@ -46,7 +52,7 @@ export default function AdminClientAccountProfilePanel({
               <option value="">Not assigned</option>
               {serviceTiers.map((tier) => (
                 <option key={tier.id} value={tier.id}>
-                  {tier.name}
+                  {getClientServiceTierDisplayName(tier)}
                 </option>
               ))}
             </select>

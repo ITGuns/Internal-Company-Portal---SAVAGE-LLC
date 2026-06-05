@@ -33,7 +33,7 @@ const routeTitles: Record<string, { title: string; subtitle?: string }> = {
   '/private-messages': { title: 'Private Messages', subtitle: 'Direct conversations' },
   '/file-directory': { title: 'File Directory', subtitle: 'Shared documents and folders' },
   '/operations': { title: 'Operations', subtitle: 'Departments, roles, and approvals' },
-  '/operations/clients': { title: 'Client Operations', subtitle: 'Client workspaces, requests, approvals, reports, and delivery progress' },
+  '/operations/onboarding': { title: 'Onboarding', subtitle: 'Generate setup links for approved users' },
   '/profile': { title: 'Profile', subtitle: 'Account settings' },
   '/whiteboard': { title: 'Whiteboard', subtitle: 'Collaborative workspace' },
   '/discord': { title: 'Discord', subtitle: 'External team channel' },

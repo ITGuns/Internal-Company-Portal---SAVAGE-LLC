@@ -13,6 +13,7 @@
     "prisma:studio": "dotenv -e .env -- prisma studio",
     "prisma:reset": "dotenv -e .env -- prisma migrate reset",
     "prisma:seed": "dotenv -e .env -- ts-node prisma/seed.ts",
+    "seed:client-service-tiers": "dotenv -e .env -- ts-node prisma/seed-client-service-tiers.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

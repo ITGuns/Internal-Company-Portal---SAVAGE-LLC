@@ -63,15 +63,13 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
     <>
       {/* Backdrop with blur */}
       <div
-        className="fixed inset-0 z-[9997] bg-black/30 backdrop-blur-sm transition-opacity duration-300"
+        className="fixed inset-0 z-[9997] bg-black/30 backdrop-blur-sm motion-fade-in"
         onClick={onClose}
       />
 
       {/* Slide-in sidebar from right */}
       <div
-        className={`fixed inset-y-0 right-0 z-[9998] flex w-full max-w-sm transform flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--card-bg)] shadow-2xl transition-transform duration-300 ease-out ${
-          isOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        className="fixed top-0 right-0 z-[9998] flex h-[100dvh] w-full max-w-sm flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--card-bg)] shadow-2xl motion-drawer-right-in"
         role="dialog"
         aria-modal="true"
         aria-labelledby="profile-sidebar-title"
@@ -84,7 +82,7 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
           <h2 id="profile-sidebar-title" className="text-lg font-semibold text-[var(--foreground)]">Profile</h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-md hover:bg-[var(--card-surface)] transition-colors"
+            className="motion-interactive p-2 rounded-md hover:bg-[var(--card-surface)]"
             aria-label="Close profile"
           >
             <X className="w-5 h-5 text-[var(--muted)]" />

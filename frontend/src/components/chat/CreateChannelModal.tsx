@@ -4,6 +4,7 @@ import React from 'react'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import Image from 'next/image'
+import { useDialogA11y } from '@/hooks/useDialogA11y'
 import { X, Search } from 'lucide-react'
 import type { User } from '@/lib/users'
 
@@ -34,35 +35,56 @@ export default function CreateChannelModal({
     currentUserId,
     onCreateChannel,
 }: CreateChannelModalProps) {
-    if (!isOpen) return null
+    const dialogTitleId = React.useId()
+    const dialogDescriptionId = React.useId()
+    const channelNameId = React.useId()
+    const memberSearchId = React.useId()
+    const { dialogRef, handleDialogKeyDown } = useDialogA11y({ isOpen, onClose })
 
     const filteredUsers = users.filter(
         u => u.id !== currentUserId && u.name?.toLowerCase().includes(searchQuery.toLowerCase())
     )
     const selectableUsers = users.filter(u => u.id !== currentUserId)
 
+    if (!isOpen) return null
+
     return (
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <Card className="w-full max-w-md h-[550px] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={dialogTitleId}
+                aria-describedby={dialogDescriptionId}
+                tabIndex={-1}
+                onKeyDown={handleDialogKeyDown}
+                className="w-full max-w-md"
+            >
+            <Card className="h-[550px] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
                 <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--card-surface)]">
-                    <h3 className="font-bold text-lg text-[var(--foreground)]">Create Channel</h3>
+                    <h2 id={dialogTitleId} className="font-bold text-lg text-[var(--foreground)]">Create Channel</h2>
+                    <p id={dialogDescriptionId} className="sr-only">
+                        Name a channel and choose the members who should be included.
+                    </p>
                     <button
+                        type="button"
                         onClick={onClose}
                         className="p-1 hover:bg-[var(--background)] rounded-full transition-colors"
                         aria-label="Close"
                     >
-                        <X className="w-6 h-6" />
+                        <X className="w-6 h-6" aria-hidden="true" />
                     </button>
                 </div>
 
                 <div className="p-4 border-b border-[var(--border)] flex flex-col gap-4 bg-[var(--card-surface)]">
                     <div>
-                        <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
+                        <label htmlFor={channelNameId} className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
                             Channel Name
                         </label>
                         <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold">#</span>
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold" aria-hidden="true">#</span>
                             <input
+                                id={channelNameId}
                                 autoFocus
                                 placeholder="e.g. general-discussions"
                                 className="w-full pl-8 pr-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-[var(--accent)] outline-none"
@@ -77,10 +99,11 @@ export default function CreateChannelModal({
                     </div>
 
                     <div>
-                        <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">Search Members</label>
+                        <label htmlFor={memberSearchId} className="block text-sm font-semibold mb-2 text-[var(--foreground)]">Search Members</label>
                         <div className="relative">
-                            <Search className="absolute left-3 top-3 w-4 h-4 text-[var(--muted)]" />
+                            <Search className="absolute left-3 top-3 w-4 h-4 text-[var(--muted)]" aria-hidden="true" />
                             <input
+                                id={memberSearchId}
                                 placeholder="Search people..."
                                 className="w-full pl-10 pr-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-[var(--accent)] outline-none"
                                 value={searchQuery}
@@ -108,6 +131,7 @@ export default function CreateChannelModal({
                             <button
                                 key={u.id}
                                 type="button"
+                                aria-pressed={isSelected}
                                 onClick={() => {
                                     onSelectedUsersChange(
                                         isSelected
@@ -131,7 +155,7 @@ export default function CreateChannelModal({
                                     </div>
                                 </div>
                                 <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${isSelected ? 'bg-[var(--accent)] border-[var(--accent)]' : 'border-[var(--muted)]'}`}>
-                                    {isSelected && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                    {isSelected && <svg className="w-3 h-3 text-[var(--accent-foreground)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                                 </div>
                             </button>
                         )
@@ -152,6 +176,7 @@ export default function CreateChannelModal({
                     </Button>
                 </div>
             </Card>
+            </div>
         </div>
     )
 }

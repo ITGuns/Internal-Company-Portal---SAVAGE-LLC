@@ -115,7 +115,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className={styles.loginContainer}>
+    <main className={styles.loginContainer}>
       <div className={styles.card}>
         <div className={styles.header}>
           <h1 className={styles.title}>Create Account</h1>
@@ -281,6 +281,6 @@ export default function SignUpPage() {
           </div>
         )}
       </div>
-    </div>
+    </main>
   );
 }

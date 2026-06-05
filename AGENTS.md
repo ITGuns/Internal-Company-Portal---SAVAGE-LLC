@@ -10,6 +10,30 @@ For this project, "vibe coding" means making implementation changes from intuiti
 
 Use **Vibe Auto Research** instead:
 
+### Always-On Trigger
+
+Vibe Auto Research is mandatory for every meaningful repo task in this repository and any subdirectory, whether or not the user names the skill, asks for research, or says "vibe auto research".
+
+At the start of meaningful work:
+
+- Treat `vibe-auto-research` as the entry workflow, not an optional add-on.
+- Announce the workflow and likely research depth in one short update.
+- Run a memory quick pass when prior repo, product, workflow, or user-preference context may affect the task.
+- Locate the repo root when starting from a subfolder, then read the nearest applicable `AGENTS.md` before assuming scope.
+- Select task-specific supporting skills before implementation planning.
+- Skip the full loop only for Depth 0 direct answers or trivial commands that do not change files.
+
+### Anti-Hallucination Evidence Gate
+
+Before planning or editing meaningful work, collect enough current evidence to avoid guessing:
+
+- Treat memory as a search hint, not proof. Verify drift-prone facts against the current repo, running app, docs, commands, or browser state.
+- Inspect the current git state and relevant files before relying on older notes or assumptions.
+- Keep a short evidence trail: files/docs read, commands run, rendered routes checked, and tool limitations.
+- Escalate research depth when the user asks to overanalyze, when the request touches shared workflow, auth, navigation, UI, data, release, or when the first plan feels broad.
+- Do not claim website behavior, user-flow quality, or route health from code inspection alone when the app can be rendered.
+- If the required evidence cannot be gathered, state the blocker and residual risk instead of filling gaps with assumptions.
+
 1. **Vibe is only a hypothesis.**
    - Product instinct, UX taste, and engineering intuition may be used to form an initial direction.
    - They must not be treated as proof.
@@ -50,6 +74,18 @@ For implementation prompts, run the stricter **Prompt-to-Quality Cycle**:
 5. Implementation.
 6. Reviewer pass.
 7. Fix/replan cycle until no material findings remain or a real blocker is reached.
+
+After implementation, do not stop at a passing command or a first visual check. Run the **Completion Audit Cycle** before the final response:
+
+1. Inspect the final diff as a reviewer and identify accidental scope, broken contracts, dead code, missed docs, and likely regressions.
+2. Map the changed behavior to affected personas, routes, buttons, forms, dialogs, API endpoints, and background workflows.
+3. Run the relevant automated checks first.
+4. Run Browser/in-app browser manual click-through when the app can be rendered:
+   - **Affected-flow audit** for focused changes: click every changed route, important control, form path, dialog, state, and navigation path.
+   - **Full-feature audit** for cross-cutting UI, shell, auth, navigation, role, workflow, dashboard, release/publish, or "all features" requests: walk the primary admin, employee, client, and anonymous/auth workflows across desktop and mobile where practical.
+   - **Not applicable** only for docs-only, non-UI, or unreachable-app work; state why.
+5. Record findings internally, fix material issues before showing the user, rerun focused verification, and repeat the reviewer pass.
+6. Final response must report the audit scope, what was clicked or verified, findings fixed, blockers, and residual risk.
 
 The first plan is not automatically trusted. If repo evidence shows the plan is weak, too broad, not applicable, risky, or hard to verify, replan before editing.
 
@@ -105,13 +141,15 @@ Use the strongest relevant skill or workflow for the task:
 - New or ambiguous feature: use `brainstorming`, then `writing-plans` before implementation.
 - PRD or issue-ready artifact: use `to-prd` only when the user asks for a PRD/issue-tracker artifact or approves publication.
 - Bug or failing test: use `systematic-debugging`; use `test-driven-development` for behavior fixes.
-- Frontend or UI work: use `frontend-visual-quality`, `web-design-guidelines`, and Browser/in-app browser verification when practical.
+- Frontend or UI work: use the approved frontend craft stack by default: `impeccable` for product UI quality, `emil-design-eng` for component polish and motion restraint, `design-taste-frontend` for anti-generic layout/state checks, `motion-web-design` for purposeful animation and motion-system decisions, `web-design-guidelines` for semantic/accessibility review, and Browser/in-app browser verification when practical. Add the official GSAP skills only when the task truly needs GSAP: `gsap-react` for React/Next animation, `gsap-performance` for jank/FPS cleanup, `gsap-scrolltrigger` for scroll-driven motion, plus `gsap-core`, `gsap-timeline`, `gsap-plugins`, or `gsap-utils` as needed. Use `gpt-taste` only for marketing, landing-page, or brand-heavy surfaces where cinematic motion and AIDA structure fit the product goal.
 - Windows desktop/app-surface work: use Computer Use when the real visible app window matters.
 - API/backend work: use `api-service-quality`, inspect route contracts, validation, auth, authorization, and tests.
 - Database work: use `database-safety`; use `supabase-postgres-best-practices` as Postgres guidance without assuming Supabase-specific features.
 - Security-sensitive work: use `auth-access-control` or `security-production-readiness` where relevant.
 - Architecture or repo layout work: use `project-architecture-standards` or `improve-codebase-architecture`.
 - Release/publish work: use the repo validation gates and `verification-before-completion`.
+
+If a needed supporting skill is not visible in the active skill list, do not silently broaden the work. Check the global skill inventory, inspect the repo-local snapshot, and use `find-skills` / `npx skills find` to look for a trusted match. Evaluate source reputation, install count, and task fit before recommending installation. If no trusted skill exists, state the fallback and keep the research scope tight.
 
 Repo-local skill and workflow notes live in `docs/agent-workflows.md`. The `skills/` directory is a curated repo snapshot of selected third-party and project workflow skills; global skills remain available from the user's Codex skill folder. Do not create or rely on a repo `.codex/` directory unless Codex repo-local `.codex` behavior has been verified first.
 
@@ -141,6 +179,14 @@ Use Browser/in-app browser when a local or reachable app can be rendered. Review
 - text clipping, overflow, overlap, awkward wrapping, and touch target size
 - console errors, missing assets, broken links, and obvious network/API failures
 
+Rendered website tool routing:
+
+- Use Browser/in-app browser first for local web apps, localhost, normal DOM inspection, console/network-visible issues, and responsive checks.
+- Use the Chrome plugin when the user explicitly asks for Chrome/Google Chrome, when an existing Chrome tab/profile/cookie/session/extension matters, or when a remote authenticated site must be checked in the user's Chrome context.
+- Use Computer Use when the true Windows desktop/app surface matters, such as native app windows, file pickers, occluded windows, Office/export review, or browser UI that DOM tools cannot inspect.
+- Use repo visual-smoke or automated browser scripts for broad, safe route/persona coverage, then Browser/Chrome/Computer Use for targeted visible checks.
+- If Chrome or Computer Use is requested but unavailable, report the blocker and use the safest fallback rather than hallucinating a result.
+
 If Browser is unavailable, the app cannot start, auth blocks access, or verification would be unsafe, state that clearly and use the best fallback: static code review, screenshots, existing visual tests, or manual browser verification steps.
 
 ## Reviewer Pass
@@ -156,7 +202,7 @@ Technical review must check the relevant subset of:
 - security boundaries, uploads, secrets, logs, permissions, and abuse cases
 - performance, duplication, maintainability, file-size pressure, and docs accuracy
 
-User-flow review must check whether the workflow is understandable, client/user friendly, efficient, and easy to complete. For UI work, manually click through the affected routes, buttons, forms, dialogs, navigation paths, and important states in Browser when practical.
+User-flow review must check whether the workflow is understandable, client/user friendly, efficient, and easy to complete. For UI work, manually click through the affected routes, buttons, forms, dialogs, navigation paths, and important states in Browser when practical. For cross-cutting or full-feature requests, complete the full-feature audit before calling the implementation done.
 
 If the reviewer pass finds material issues, create a focused fix plan, implement it, and rerun the relevant review. Repeat until no material issues remain or a real blocker prevents progress.
 

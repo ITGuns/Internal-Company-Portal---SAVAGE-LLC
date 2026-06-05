@@ -150,7 +150,7 @@ export default function TaskTrackingPage() {
     appliedDefaultUserFilterRef.current = true;
   }, [canManageAssignments, currentUserId]);
 
-  // Action hander for Play/Pause/Complete/Reopen
+  // Action hander for Play/Pause/Complete
   const handleTaskAction = async (e: React.MouseEvent, taskId: string, action: TaskQuickAction) => {
     e.stopPropagation();
 
@@ -680,8 +680,8 @@ export default function TaskTrackingPage() {
   }
 
   return (
-    <main className="main-content-height bg-[var(--background)] text-[var(--foreground)] flex flex-col">
-      <div className="p-6 pt-0 flex flex-col flex-1 min-h-0">
+    <main className="h-[calc(100vh-112px)] bg-[var(--background)] text-[var(--foreground)] flex flex-col overflow-hidden">
+      <div className="motion-content-enter p-6 pt-0 flex flex-col flex-1 min-h-0">
         <Header
           title="Task Tracking"
           subtitle="Track and manage tasks, assignments, and progress."
@@ -787,7 +787,7 @@ export default function TaskTrackingPage() {
               </Button>
 
               {showDisplayMenu && (
-                <div className="absolute top-full right-0 mt-2 w-80 max-w-[calc(100vw-3rem)] bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-xl z-30 p-4 dropdown-glass glass overflow-hidden flex flex-col max-h-[85vh] sm:left-0 sm:right-auto">
+                <div className="motion-panel-in absolute top-full right-0 mt-2 w-80 max-w-[calc(100vw-3rem)] bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-xl z-30 p-4 dropdown-glass glass overflow-hidden flex flex-col max-h-[85vh] sm:left-0 sm:right-auto">
                   <div className="flex justify-between items-center mb-4 border-b border-[var(--border)] pb-2">
                     <span className="font-bold text-sm">Display & Filter</span>
                     <button
@@ -826,7 +826,7 @@ export default function TaskTrackingPage() {
                                 setSortOrder("asc");
                               }
                             }}
-                            className={`px-3 py-2 text-xs rounded border transition-[background-color,border-color,color] flex items-center justify-between ${sortBy === opt.val
+                            className={`motion-interactive px-3 py-2 text-xs rounded border flex items-center justify-between ${sortBy === opt.val
                               ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)] font-medium'
                               : 'bg-[var(--background)] text-[var(--muted)] border-[var(--border)] hover:border-[var(--muted)]'
                               }`}
@@ -852,7 +852,7 @@ export default function TaskTrackingPage() {
                           <button
                             key={opt.val}
                             onClick={() => setGroupBy(opt.val as any)}
-                            className={`px-3 py-2 text-xs rounded border transition-[background-color,border-color,color] flex items-center justify-between ${groupBy === opt.val
+                            className={`motion-interactive px-3 py-2 text-xs rounded border flex items-center justify-between ${groupBy === opt.val
                               ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)] font-medium'
                               : 'bg-[var(--background)] text-[var(--muted)] border-[var(--border)] hover:border-[var(--muted)]'
                               }`}
@@ -952,7 +952,7 @@ export default function TaskTrackingPage() {
                   placeholder="Search tasks..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="min-h-10 w-full rounded-full border border-[var(--border)] bg-[var(--card-bg)] py-2 pl-8 pr-3 text-sm outline-none transition-[border-color,box-shadow] focus:ring-1 focus:ring-[var(--accent)] sm:w-56"
+                  className="motion-interactive min-h-10 w-48 rounded-full border border-[var(--border)] bg-[var(--card-bg)] py-2 pl-8 pr-3 text-xs outline-none focus:ring-1 focus:ring-[var(--accent)]"
                 />
               </div>
               <Button
@@ -1027,7 +1027,7 @@ export default function TaskTrackingPage() {
           )}
 
           {view === "grid" && (
-            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+            <div key="task-grid-view" className="motion-view-enter flex-1 min-h-0 overflow-hidden flex flex-col">
               {sortedTasks.length === 0 && (
                 <EmptyState
                   icon={CheckSquare}
@@ -1078,7 +1078,7 @@ export default function TaskTrackingPage() {
           )}
 
           {view === "list" && (
-            <div className="flex-1 overflow-y-auto chat-scroll pr-2 pb-6">
+            <div key="task-list-view" className="motion-view-enter flex-1 overflow-y-auto chat-scroll pr-2 pb-6">
               {sortedTasks.length === 0 ? (
                 <EmptyState
                   icon={CheckSquare}
@@ -1103,15 +1103,17 @@ export default function TaskTrackingPage() {
           )}
 
           {view === "calendar" && (
-            <TaskCalendarView
-              events={events}
-              todaysTasks={todaysTasks}
-              overdueTasks={overdueTasks}
-              totalCount={filteredTasks.length}
-              completedCount={completedCount}
-              inProgressCount={inProgressCount}
-              onOpenTask={openTaskDetails}
-            />
+            <div key="task-calendar-view" className="motion-view-enter flex-1 min-h-0">
+              <TaskCalendarView
+                events={events}
+                todaysTasks={todaysTasks}
+                overdueTasks={overdueTasks}
+                totalCount={filteredTasks.length}
+                completedCount={completedCount}
+                inProgressCount={inProgressCount}
+                onOpenTask={openTaskDetails}
+              />
+            </div>
           )}
         </div>
       </div>

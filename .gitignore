@@ -1,5 +1,6 @@
 # Playwright MCP logs/screenshots
 .playwright-mcp/
+.codex-run-logs/
 
 # Temporary debug scripts
 tmp/

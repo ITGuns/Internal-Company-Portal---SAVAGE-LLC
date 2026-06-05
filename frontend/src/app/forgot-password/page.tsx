@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, FormEvent, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Mail } from 'lucide-react';
 import LoginInput from '@/components/LoginInput';
@@ -68,7 +69,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className={styles.loginContainer}>
+    <main className={styles.loginContainer}>
       <div className={styles.card}>
         {/* Header */}
         <div className={styles.header}>
@@ -162,19 +163,15 @@ export default function ForgotPasswordPage() {
         <div className={styles.signUpSection}>
           <p className={styles.signUpText}>
             Remember your password?
-            <a 
-              href="/login" 
+            <Link
+              href="/login"
               className={styles.signUpLink}
-              onClick={(e) => {
-                e.preventDefault();
-                router.push('/login');
-              }}
             >
               Sign in
-            </a>
+            </Link>
           </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

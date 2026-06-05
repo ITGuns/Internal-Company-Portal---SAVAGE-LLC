@@ -27,9 +27,14 @@ function AuthenticatedShell({ children }: LayoutWrapperProps) {
 
   return (
     <>
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
       {!hideSidebar && <Sidebar />}
       {!hideSidebar && <CommandPalette />}
       <div
+        id="main-content"
+        tabIndex={-1}
         className={cn(
           'transition-[padding-left,padding-top] duration-200 ease-[var(--ease-out)]',
           hideSidebar

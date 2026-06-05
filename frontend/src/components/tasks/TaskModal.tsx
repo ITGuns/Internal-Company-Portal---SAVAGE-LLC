@@ -2,6 +2,7 @@
 
 import React from "react";
 import Button from "@/components/Button";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { Trash2, X } from "lucide-react";
 import type { TaskPriority, TaskStatus, TaskDepartment, TaskUser, Task } from "@/lib/tasks";
 import { getPrimaryTaskAssignmentFromRoles } from "@/lib/task-access";
@@ -17,8 +18,6 @@ const OTHER_ROLE_VALUE = "__manual_role__";
 const fieldControlClass =
   "w-full min-h-10 rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
 const selectControlClass = `${fieldControlClass} portal-select`;
-const inlineClearButtonClass =
-  "absolute right-1.5 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-[var(--muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] active:translate-y-[calc(-50%+1px)] active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
 
 interface TaskModalProps {
   editTaskData: Task | null;
@@ -96,6 +95,10 @@ export default function TaskModal({
   onClose,
 }: TaskModalProps) {
   const [isManualRoleMode, setIsManualRoleMode] = React.useState(false);
+  const dialogTitleId = React.useId();
+  const dialogDescriptionId = React.useId();
+  const fieldIdPrefix = React.useId();
+  const { dialogRef, handleDialogKeyDown } = useDialogA11y({ onClose });
   const selectedDepartment = departments.find(
     (department) => department.id?.toString() === departmentId?.toString(),
   );
@@ -134,7 +137,7 @@ export default function TaskModal({
 
   return (
     <div
-      className="fixed z-50 flex items-start justify-center bg-gray-100/80 pt-20"
+      className="fixed z-50 flex items-start justify-center bg-gray-100/80 pt-20 motion-fade-in"
       style={{
         top: 0,
         left: "var(--sidebar-width, 16rem)",
@@ -142,28 +145,41 @@ export default function TaskModal({
         bottom: 0,
       }}
     >
-      <div className="bg-[var(--card-bg)] rounded-lg w-full max-w-2xl p-6 max-h-[80vh] overflow-y-auto shadow-lg border border-[var(--border)] chat-scroll">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={dialogTitleId}
+        aria-describedby={dialogDescriptionId}
+        tabIndex={-1}
+        onKeyDown={handleDialogKeyDown}
+        className="motion-panel-in bg-[var(--card-bg)] rounded-lg w-full max-w-2xl p-6 max-h-[80vh] overflow-y-auto shadow-lg border border-[var(--border)] chat-scroll"
+      >
         <div className="flex items-start justify-between mb-6">
-          <h3 className="text-lg font-semibold">
+          <h2 id={dialogTitleId} className="text-lg font-semibold">
             {editTaskData ? "Edit Task" : "Create New Task"}
-          </h3>
+          </h2>
+          <p id={dialogDescriptionId} className="sr-only">
+            Complete the task details, assignment, schedule, status, and progress fields.
+          </p>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-2 text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]"
+            className="motion-interactive rounded p-2 text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]"
             aria-label="Close task modal"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="block text-sm mb-1 font-medium">
+              <label htmlFor={`${fieldIdPrefix}-task-title`} className="block text-sm mb-1 font-medium">
                 Task Name <span className="text-red-500">*</span>
               </label>
               <input
+                id={`${fieldIdPrefix}-task-title`}
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="What needs to be done?"
@@ -174,10 +190,11 @@ export default function TaskModal({
           </div>
 
           <div>
-            <label className="block text-sm mb-1 font-medium">
+            <label htmlFor={`${fieldIdPrefix}-description`} className="block text-sm mb-1 font-medium">
               Description <span className="text-red-500">*</span>
             </label>
             <textarea
+              id={`${fieldIdPrefix}-description`}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               placeholder="Tell us more about this task..."
@@ -190,10 +207,11 @@ export default function TaskModal({
             <>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm mb-1 font-medium">
+                  <label htmlFor={`${fieldIdPrefix}-department`} className="block text-sm mb-1 font-medium">
                     Department <span className="text-red-500">*</span>
                   </label>
                   <select
+                    id={`${fieldIdPrefix}-department`}
                     value={departmentId}
                     onChange={(event) => {
                       setDepartmentId(event.target.value);
@@ -214,10 +232,11 @@ export default function TaskModal({
                 </div>
 
                 <div>
-                  <label className="block text-sm mb-1 font-medium">
+                  <label htmlFor={`${fieldIdPrefix}-priority`} className="block text-sm mb-1 font-medium">
                     Priority <span className="text-red-500">*</span>
                   </label>
                   <select
+                    id={`${fieldIdPrefix}-priority`}
                     value={priority}
                     onChange={(event) => setPriority(event.target.value as TaskPriority)}
                     className={selectControlClass}
@@ -234,7 +253,7 @@ export default function TaskModal({
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <div className="flex items-center justify-between gap-2">
-                    <label className="block text-sm mb-1 font-medium">
+                    <label htmlFor={`${fieldIdPrefix}-assignee`} className="block text-sm mb-1 font-medium">
                       Assign To <span className="text-red-500">*</span>
                     </label>
                     {onAssignToCurrentUser && (
@@ -248,6 +267,7 @@ export default function TaskModal({
                     )}
                   </div>
                   <select
+                    id={`${fieldIdPrefix}-assignee`}
                     value={assigneeId}
                     onChange={(event) => handleAssigneeChange(event.target.value)}
                     className={selectControlClass}
@@ -264,12 +284,13 @@ export default function TaskModal({
                 </div>
 
                 <div>
-                  <label className="block text-sm mb-1 font-medium">
+                  <label htmlFor={`${fieldIdPrefix}-role`} className="block text-sm mb-1 font-medium">
                     Role <span className="text-red-500">*</span>
                   </label>
                   {showManualRoleInput ? (
-                    <div className="relative">
+                    <div className="flex gap-2">
                       <input
+                        id={`${fieldIdPrefix}-role`}
                         type="text"
                         value={role}
                         onChange={(event) => {
@@ -277,23 +298,25 @@ export default function TaskModal({
                           setRole(event.target.value);
                         }}
                         placeholder="Type a role..."
-                        className={`${fieldControlClass} pr-11`}
+                        className={fieldControlClass}
                         autoFocus
                         required
                         aria-label="Manual role"
                       />
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
                         onClick={clearManualRole}
-                        className={inlineClearButtonClass}
+                        className="px-3"
                         aria-label="Return to role dropdown"
                         title="Return to role dropdown"
                       >
-                        <X className="size-4" />
-                      </button>
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
                   ) : (
                     <select
+                      id={`${fieldIdPrefix}-role`}
                       value={role}
                       onChange={(event) => handleRoleSelect(event.target.value)}
                       disabled={!departmentId}
@@ -329,10 +352,11 @@ export default function TaskModal({
               </div>
 
               <div>
-                <label className="block text-sm mb-1 font-medium">
+                <label htmlFor={`${fieldIdPrefix}-readonly-priority`} className="block text-sm mb-1 font-medium">
                   Priority <span className="text-red-500">*</span>
                 </label>
                 <select
+                  id={`${fieldIdPrefix}-readonly-priority`}
                   value={priority}
                   onChange={(event) => setPriority(event.target.value as TaskPriority)}
                   className={selectControlClass}
@@ -349,8 +373,9 @@ export default function TaskModal({
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="block text-sm mb-1 font-medium">Start Date</label>
+              <label htmlFor={`${fieldIdPrefix}-start-date`} className="block text-sm mb-1 font-medium">Start Date</label>
               <input
+                id={`${fieldIdPrefix}-start-date`}
                 type="date"
                 value={startDate}
                 onChange={(event) => setStartDate(event.target.value)}
@@ -360,10 +385,11 @@ export default function TaskModal({
             </div>
 
             <div>
-              <label className="block text-sm mb-1 font-medium">
+              <label htmlFor={`${fieldIdPrefix}-due-date`} className="block text-sm mb-1 font-medium">
                 Due Date <span className="text-red-500">*</span>
               </label>
               <input
+                id={`${fieldIdPrefix}-due-date`}
                 type="date"
                 value={dueDate}
                 onChange={(event) => setDueDate(event.target.value)}
@@ -376,10 +402,11 @@ export default function TaskModal({
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="block text-sm mb-1 font-medium">
+              <label htmlFor={`${fieldIdPrefix}-status`} className="block text-sm mb-1 font-medium">
                 Status <span className="text-red-500">*</span>
               </label>
               <select
+                id={`${fieldIdPrefix}-status`}
                 value={status}
                 onChange={(event) => setStatus(event.target.value as TaskStatus)}
                 className={selectControlClass}
@@ -394,17 +421,16 @@ export default function TaskModal({
               </select>
             </div>
             <div>
-              <label className="block text-sm mb-1 font-medium">
+              <label htmlFor={`${fieldIdPrefix}-estimated-time`} className="block text-sm mb-1 font-medium">
                 ETOC (Est. Minutes) <span className="text-red-500">*</span>
               </label>
               <input
+                id={`${fieldIdPrefix}-estimated-time`}
                 type="number"
                 value={estimatedTime}
                 onChange={(event) => setEstimatedTime(event.target.value)}
                 placeholder="e.g. 60"
-                className={`${fieldControlClass} portal-number-input`}
-                min="1"
-                step="1"
+                className={fieldControlClass}
                 required
               />
             </div>
@@ -412,8 +438,15 @@ export default function TaskModal({
 
           {editTaskData && (
             <div>
-              <label className="block text-sm mb-1 font-medium">Progress - {progress}%</label>
-              <div className="w-full bg-[var(--border)] h-2 rounded-full overflow-hidden">
+              <div className="block text-sm mb-1 font-medium">Progress - {progress}%</div>
+              <div
+                className="w-full bg-[var(--border)] h-2 rounded-full overflow-hidden"
+                role="progressbar"
+                aria-label="Task progress"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={progress}
+              >
                 <div
                   className="bg-[var(--accent)] h-full transition-all duration-300 rounded-full"
                   style={{ width: `${progress}%` }}
@@ -427,8 +460,9 @@ export default function TaskModal({
 
           {editTaskData && (
             <div>
-              <label className="block text-sm mb-1 font-medium">Add Progress Note</label>
+              <label htmlFor={`${fieldIdPrefix}-progress-notes`} className="block text-sm mb-1 font-medium">Add Progress Note</label>
               <textarea
+                id={`${fieldIdPrefix}-progress-notes`}
                 value={progressNotes}
                 onChange={(event) => setProgressNotes(event.target.value)}
                 placeholder="Add a note about recent progress..."
@@ -444,7 +478,7 @@ export default function TaskModal({
                 onClick={onDelete}
                 className="flex items-center gap-2 text-[var(--status-blocked)] hover:opacity-80 font-medium px-4 py-2 rounded hover:bg-[var(--status-blocked-bg)]"
               >
-                <Trash2 className="w-4 h-4" /> Delete Task
+                <Trash2 className="w-4 h-4" aria-hidden="true" /> Delete Task
               </button>
             ) : (
               <div />

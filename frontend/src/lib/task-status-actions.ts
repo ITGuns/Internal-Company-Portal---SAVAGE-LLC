@@ -11,7 +11,7 @@ function clampProgress(value: number): number {
   return Math.max(0, Math.min(99, Math.round(value)));
 }
 
-export function getActiveTaskProgress(task: ReopenProgressInput): number {
+export function getReopenedTaskProgress(task: ReopenProgressInput): number {
   if (task.estimatedTime && task.estimatedTime > 0 && task.totalElapsed && task.totalElapsed > 0) {
     return clampProgress((task.totalElapsed / (task.estimatedTime * 60)) * 100);
   }
@@ -19,8 +19,8 @@ export function getActiveTaskProgress(task: ReopenProgressInput): number {
   return clampProgress(task.progress || 0);
 }
 
-export function getReopenedTaskProgress(task: ReopenProgressInput): number {
-  return getActiveTaskProgress(task);
+export function getActiveTaskProgress(task: ReopenProgressInput): number {
+  return getReopenedTaskProgress(task);
 }
 
 export const TASK_QUICK_ACTION_LABELS: Record<TaskQuickAction, string> = {

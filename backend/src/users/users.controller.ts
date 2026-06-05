@@ -8,6 +8,7 @@ import { isAdminEmail } from '../config/env.config'
 import { canRequestAssigneeTasks, hasTaskAssignmentPrivilege } from '../tasks/tasks.permissions'
 import { validateAvatarValue } from '../uploads/upload.validation'
 import { sanitizeUserForDirectory, sanitizeUsersForDirectory } from './users.security'
+import { UserOnboardingConflictError, UserOnboardingValidationError } from './users.service'
 
 export class UsersController {
     private service = new UsersService()
@@ -136,6 +137,40 @@ export class UsersController {
                 res.json(tasks)
             } catch (error) {
                 res.status(500).json({ error: 'Failed to fetch user tasks' })
+            }
+        })
+
+        // Generate approved-user onboarding setup link (Admin only)
+        router.post('/onboarding-invitations', authenticateToken, requireRole('admin'), async (req: Request, res: Response) => {
+            try {
+                const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : ''
+                const roleId = typeof req.body.roleId === 'string' ? req.body.roleId.trim() : ''
+
+                if (!email) {
+                    return res.status(400).json({ error: 'Email is required' })
+                }
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                    return res.status(400).json({ error: 'Invalid email format' })
+                }
+                if (!roleId) {
+                    return res.status(400).json({ error: 'Role is required' })
+                }
+
+                const invitation = await this.service.createOnboardingInvitation({ email, roleId })
+                res.status(201).json({
+                    user: sanitizeUserForDirectory(invitation.user),
+                    onboarding: invitation.onboarding,
+                })
+            } catch (error) {
+                if (error instanceof UserOnboardingValidationError) {
+                    return res.status(400).json({ error: error.message })
+                }
+                if (error instanceof UserOnboardingConflictError) {
+                    return res.status(409).json({ error: error.message })
+                }
+
+                console.error('User onboarding invitation error:', error)
+                res.status(500).json({ error: 'Failed to create onboarding link' })
             }
         })
 

@@ -12,6 +12,8 @@ const tests = [
   'signup.requests.test.ts',
   'payroll.permissions.test.ts',
   'users.security.test.ts',
+  'users.onboarding.test.ts',
+  'client-service-tier-presets.test.ts',
   'auth.security.test.ts',
   'auth.routes.test.ts',
   'employees.security.test.ts',

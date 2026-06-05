@@ -320,9 +320,9 @@ export default function FileDirectoryPage() {
           /* Empty state */
           <div className="text-center py-20">
             <Folder className="w-16 h-16 mx-auto text-[var(--muted)] mb-4 opacity-50" />
-            <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
+            <h2 className="text-lg font-semibold text-[var(--foreground)] mb-2">
               No folders found
-            </h3>
+            </h2>
             <p className="text-sm text-[var(--muted)] mb-6">
               {searchQuery || (departmentFilter && departmentFilter !== 'All Departments')
                 ? 'Try adjusting your filters or search query'

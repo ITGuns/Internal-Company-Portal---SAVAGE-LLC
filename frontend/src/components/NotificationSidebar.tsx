@@ -73,17 +73,17 @@ export default function NotificationSidebar({
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 z-[9997] bg-black/30 backdrop-blur-sm transition-opacity duration-300"
+                className="fixed inset-0 z-[9997] bg-black/30 backdrop-blur-sm motion-fade-in"
                 onClick={onClose}
             />
 
             {/* Sidebar */}
             <div
-                className="fixed inset-y-0 right-0 z-[9998] flex w-full max-w-[420px] flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--card-bg)] shadow-2xl"
+                className="fixed top-0 right-0 z-[9998] flex h-[100dvh] w-full max-w-[420px] flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--card-bg)] shadow-2xl motion-drawer-right-in"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="notification-sidebar-title"
-                style={{ isolation: 'isolate', animation: 'slideInRight 0.25s cubic-bezier(0.16,1,0.3,1)' }}
+                style={{ isolation: 'isolate' }}
             >
                 {/* Header */}
                 <div className="p-5 border-b border-[var(--border)] bg-[var(--card-surface)]">
@@ -101,7 +101,7 @@ export default function NotificationSidebar({
                         </div>
                         <button
                             onClick={onClose}
-                            className="p-2 rounded-lg hover:bg-[var(--background)] text-[var(--muted)] hover:text-[var(--foreground)] transition"
+                            className="motion-interactive p-2 rounded-lg hover:bg-[var(--background)] text-[var(--muted)] hover:text-[var(--foreground)]"
                             aria-label="Close notifications"
                         >
                             <X className="w-5 h-5" />
@@ -151,7 +151,7 @@ export default function NotificationSidebar({
                                 const content = (
                                     <div
                                         key={notification.id}
-                                        className={`group relative rounded-xl border p-3.5 transition-all cursor-pointer ${typeBg(notification)} ${!notification.read ? 'opacity-100' : 'opacity-60'}`}
+                                        className={`motion-interactive group relative rounded-xl border p-3.5 cursor-pointer ${typeBg(notification)} ${!notification.read ? 'opacity-100' : 'opacity-60'}`}
                                         onClick={() => !notification.read && onMarkAsRead(notification.id)}
                                     >
                                         <div className="flex items-start gap-3">
@@ -185,7 +185,8 @@ export default function NotificationSidebar({
                                         {!notification.read && (
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onMarkAsRead(notification.id) }}
-                                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-[var(--background)] text-[var(--muted)] hover:text-[var(--foreground)] transition"
+                                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-[var(--background)] text-[var(--muted)] hover:text-[var(--foreground)] transition-opacity"
+                                                aria-label="Mark notification as read"
                                                 title="Mark as read"
                                             >
                                                 <Check className="w-3 h-3" />
@@ -208,12 +209,6 @@ export default function NotificationSidebar({
                 </div>
             </div>
 
-            <style jsx global>{`
-                @keyframes slideInRight {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-            `}</style>
         </>,
         document.body,
     )

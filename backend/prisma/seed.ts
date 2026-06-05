@@ -3,6 +3,7 @@ import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import 'dotenv/config'
 import * as bcrypt from 'bcrypt'
+import { upsertClientServiceTierPresets } from '../src/clients/client-service-tier-presets'
 
 const connectionString = (process.env.DATABASE_URL || '').trim()
 const seedPassword = (process.env.SEED_DEFAULT_PASSWORD || '').trim()
@@ -84,6 +85,9 @@ async function main() {
     }
 
     console.log('Created available roles')
+
+    const seededServiceTiers = await upsertClientServiceTierPresets(prisma)
+    console.log(`Created/updated ${seededServiceTiers.length} default client service tiers`)
 
     const passwordHash = await bcrypt.hash(seedPassword, 10)
 

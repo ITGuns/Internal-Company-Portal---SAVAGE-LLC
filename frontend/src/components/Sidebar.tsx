@@ -5,18 +5,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Activity,
   BarChart3,
   BriefcaseBusiness,
   CalendarDays,
   CheckCircle2,
-  CreditCard,
   DollarSign,
   Folder,
-  FolderOpen,
   Grid,
   Home,
-  Map,
   Megaphone,
   MessageSquare,
   ShieldCheck,
@@ -31,10 +27,10 @@ import { useSocket } from '@/context/SocketContext';
 import { useUser } from '@/contexts/UserContext';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { fetchClientOrganizations } from '@/lib/client-portal';
-import { CLIENT_OPERATIONS_NAV_ITEMS } from '@/lib/client-operations-navigation';
 import { CLIENT_PORTAL_NAV_ITEMS } from '@/lib/client-portal-navigation';
 import { isSidebarNavItemActive, type SidebarNavActiveMode } from '@/lib/sidebar-navigation';
 import {
+  getUserRoleNames,
   hasClientOperationsAccess,
   hasClientPortalAccess,
   hasClientWorkspaceShellAccess,
@@ -120,7 +116,7 @@ export default function Sidebar() {
   const { desktopCollapsed, mobileOpen, closeMobileSidebar } = useSidebar();
   const [hasClientWorkspace, setHasClientWorkspace] = useState(false);
   const [clientWorkspaceChecked, setClientWorkspaceChecked] = useState(false);
-  const isAdmin = user?.role?.toLowerCase() === 'admin';
+  const isAdmin = getUserRoleNames(user).includes('admin');
   const canAccessClientOperations = useMemo(() => hasClientOperationsAccess(user), [user]);
   const canUseOperationsAdmin = useMemo(() => hasManagementAccess(user), [user]);
   const hasRoleBasedClientPortalAccess = useMemo(() => hasClientPortalAccess(user), [user]);
@@ -193,34 +189,12 @@ export default function Sidebar() {
         { href: '/file-directory', icon: Folder, label: 'File Directory' },
       ];
 
-  const clientSideItems: NavItemConfig[] = usesClientShell || isResolvingClientWorkspace || !canAccessClientOperations
-    ? []
-    : CLIENT_OPERATIONS_NAV_ITEMS.map((item) => {
-        const icons: Record<string, React.ComponentType<{ className?: string }>> = {
-          '/operations/clients': BriefcaseBusiness,
-          '/operations/clients/accounts': UserPlus,
-          '/operations/clients/delivery': Activity,
-          '/operations/clients/requests': Ticket,
-          '/operations/clients/approvals': CheckCircle2,
-          '/operations/clients/reports': BarChart3,
-          '/operations/clients/assets': FolderOpen,
-          '/operations/clients/billing': CreditCard,
-          '/operations/clients/roadmap': Map,
-          '/operations/clients/calendar': CalendarDays,
-        };
-
-        return {
-          href: item.href,
-          icon: icons[item.href] || BriefcaseBusiness,
-          label: item.label,
-          activeMode: item.href === '/operations/clients' ? 'exact' as SidebarNavActiveMode : undefined,
-        };
-      });
-
   const adminItems: NavItemConfig[] = usesClientShell || isResolvingClientWorkspace
     ? []
     : [
         ...(canUseOperationsAdmin ? [{ href: '/operations', icon: ShieldCheck, label: 'Operations', activeMode: 'exact' as SidebarNavActiveMode }] : []),
+        ...(isAdmin ? [{ href: '/operations/onboarding', icon: UserPlus, label: 'Onboarding' }] : []),
+        ...(canAccessClientOperations ? [{ href: '/operations/clients', icon: BriefcaseBusiness, label: 'Clients' }] : []),
         ...(isAdmin ? [{ href: '/whiteboard', icon: Grid, label: 'Whiteboard' }] : []),
       ];
 
@@ -270,7 +244,6 @@ export default function Sidebar() {
             {mainItems.length > 0 ? (
               <NavSection title={usesClientShell ? 'Client Workspace' : 'Work'} items={mainItems} collapsed={desktopCollapsed} />
             ) : null}
-            {clientSideItems.length > 0 ? <NavSection title="Client Side" items={clientSideItems} collapsed={desktopCollapsed} /> : null}
             {collaborationItems.length > 0 ? <NavSection title="Company" items={collaborationItems} collapsed={desktopCollapsed} /> : null}
             {adminItems.length > 0 ? <NavSection title="Admin" items={adminItems} collapsed={desktopCollapsed} /> : null}
           </div>

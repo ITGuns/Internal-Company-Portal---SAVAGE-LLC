@@ -26,6 +26,7 @@ import {
   Ticket,
   Wallet,
   Wrench,
+  UserPlus,
 } from "lucide-react";
 
 interface CommandItem {
@@ -50,8 +51,6 @@ const INTERNAL_COMMANDS: CommandItem[] = [
   { id: "dashboard", label: "Dashboard", description: "Overview and stats", icon: Home, href: "/dashboard", keywords: ["home", "overview"] },
   { id: "tasks", label: "Task Tracking", description: "Manage and track tasks", icon: Grid, href: "/task-tracking", keywords: ["todo", "board", "kanban"] },
   { id: "task-calendar", label: "Task Calendar", description: "Task schedule and due dates", icon: CalendarDays, href: "/task-calendar", keywords: ["schedule", "due dates", "calendar"] },
-  { id: "client-portal", label: "Client Portal", description: "Client progress and next actions", icon: BriefcaseBusiness, href: "/client", keywords: ["client", "portal", "customer", "workspace"] },
-  { id: "client-requests", label: "Client Requests", description: "Submit and review client requests", icon: Ticket, href: "/client/tickets", keywords: ["client", "request", "ticket", "support"] },
   { id: "payroll", label: "Payroll Calendar", description: "Schedules and time entries", icon: DollarSign, href: "/payroll-calendar", keywords: ["salary", "pay", "time", "clock"] },
   { id: "payroll-dashboard", label: "Payroll Dashboard", description: "Payroll review and reporting", icon: LayoutDashboard, href: "/payroll-dashboard", keywords: ["salary", "payroll", "reports", "audit"] },
   { id: "payslips", label: "My Payslips", description: "Payslip history and downloads", icon: Wallet, href: "/my-payslips", keywords: ["pay", "salary", "history", "download"] },
@@ -81,6 +80,7 @@ const CLIENT_OPERATIONS_COMMANDS: CommandItem[] = [
 ];
 
 const ADMIN_COMMANDS: CommandItem[] = [
+  { id: "onboarding", label: "Onboarding", description: "Generate setup links for approved users", icon: UserPlus, href: "/operations/onboarding", keywords: ["invite", "setup", "password", "role", "employee"] },
   { id: "whiteboard", label: "Whiteboard", description: "Admin brainstorming workspace", icon: PencilRuler, href: "/whiteboard", keywords: ["draw", "canvas", "brainstorm"] },
 ];
 
@@ -192,7 +192,7 @@ export default function CommandPalette() {
 
   return (
     <div
-      className="fixed inset-0 z-[99999] flex items-start justify-center pt-[20vh] animate-fadeIn"
+      className="fixed inset-0 z-[99999] flex items-start justify-center pt-[20vh] motion-fade-in"
       onClick={close}
     >
       {/* Backdrop */}
@@ -200,7 +200,7 @@ export default function CommandPalette() {
 
       {/* Palette */}
       <div
-        className="relative w-full max-w-lg mx-4 bg-[var(--card-surface)] rounded-xl shadow-2xl ring-1 ring-[var(--border)] overflow-hidden animate-slideUp"
+        className="relative w-full max-w-lg mx-4 bg-[var(--card-surface)] rounded-xl shadow-2xl ring-1 ring-[var(--border)] overflow-hidden motion-panel-in"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -241,7 +241,7 @@ export default function CommandPalette() {
                   role="option"
                   aria-selected={index === selectedIndex}
                   className={cn(
-                    "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors duration-100",
+                    "motion-interactive motion-list-in w-full flex items-center gap-3 px-4 py-3 text-left",
                     index === selectedIndex
                       ? "bg-indigo-600/10 dark:bg-indigo-400/10 text-[var(--foreground)]"
                       : "text-[var(--foreground)] hover:bg-[var(--card-bg)]",

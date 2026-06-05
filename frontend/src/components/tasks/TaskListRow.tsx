@@ -4,11 +4,7 @@ import React from "react";
 import { Play, Pause, CheckCircle2, RotateCcw } from "lucide-react";
 import type { Task, TaskPriority, TaskStatus } from "@/lib/tasks";
 import { useLiveElapsed } from "@/hooks/useLiveElapsed";
-import {
-  getActiveTaskProgress,
-  TASK_QUICK_ACTION_LABELS,
-  type TaskQuickAction,
-} from "@/lib/task-status-actions";
+import { TASK_QUICK_ACTION_LABELS, type TaskQuickAction } from "@/lib/task-status-actions";
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
   Low: "var(--priority-low)",
@@ -38,16 +34,21 @@ interface TaskListRowProps {
   onAction: (e: React.MouseEvent, taskId: string, action: TaskQuickAction) => void;
 }
 
+function calcProgress(elapsedSecs: number, estimatedMinutes: number | undefined): number {
+  if (!estimatedMinutes) return 0;
+  return Math.min(100, Math.round((elapsedSecs / (estimatedMinutes * 60)) * 100));
+}
+
 export default function TaskListRow({ task, onClick, onAction }: TaskListRowProps) {
   const liveElapsed = useLiveElapsed(task.timerStatus, task.timerStart, task.totalElapsed || 0);
-  const autoProgress = task.status === 'completed' ? 100 : getActiveTaskProgress({ ...task, totalElapsed: liveElapsed });
+  const autoProgress = task.status === 'completed' ? 100 : calcProgress(liveElapsed, task.estimatedTime);
   const actionButtonClass =
-    "inline-flex min-h-10 items-center gap-1.5 rounded-md border border-transparent px-3 py-2 text-xs font-medium transition hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
+    "inline-flex min-h-8 items-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-xs font-medium transition hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
 
   return (
     <div
       onClick={onClick}
-      className="p-3 bg-[var(--card-surface)] border border-[var(--border)] rounded flex items-center justify-between cursor-pointer hover:bg-[var(--card-bg)] transition-all animate-in fade-in slide-in-from-left-2 duration-200 group"
+      className="motion-interactive motion-list-in p-3 bg-[var(--card-surface)] border border-[var(--border)] rounded flex items-center justify-between cursor-pointer hover:bg-[var(--card-bg)] group"
     >
       <div className="flex-1 flex items-center gap-4">
         <div className="flex items-center gap-2 min-w-[200px]">
@@ -61,7 +62,7 @@ export default function TaskListRow({ task, onClick, onAction }: TaskListRowProp
         {/* Progress Inline */}
         <div className="w-32 hidden sm:block">
           <div className="w-full bg-[var(--border)] h-1 rounded-full overflow-hidden">
-            <div className="bg-[var(--accent)] h-full transition-all" style={{ width: `${autoProgress}%` }} />
+            <div className="bg-[var(--accent)] h-full motion-progress" style={{ width: `${autoProgress}%` }} />
           </div>
         </div>
 

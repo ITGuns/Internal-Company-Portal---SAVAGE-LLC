@@ -11,11 +11,7 @@ import {
 } from "lucide-react";
 import type { Task, TaskPriority } from "@/lib/tasks";
 import { useLiveElapsed } from "@/hooks/useLiveElapsed";
-import {
-  getActiveTaskProgress,
-  TASK_QUICK_ACTION_LABELS,
-  type TaskQuickAction,
-} from "@/lib/task-status-actions";
+import { TASK_QUICK_ACTION_LABELS, type TaskQuickAction } from "@/lib/task-status-actions";
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
   Low: "var(--priority-low)",
@@ -46,17 +42,22 @@ interface BoardCardProps {
   onAction?: (e: React.MouseEvent, taskId: string, action: TaskQuickAction) => void;
 }
 
+function calcProgress(elapsedSecs: number, estimatedMinutes: number | undefined): number {
+  if (!estimatedMinutes) return 0;
+  return Math.min(100, Math.round((elapsedSecs / (estimatedMinutes * 60)) * 100));
+}
+
 export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
   const assigneeName = task.assignee?.name || task.assignee?.email || "Unassigned";
   const liveElapsed = useLiveElapsed(task.timerStatus, task.timerStart, task.totalElapsed || 0);
-  const progress = task.status === 'completed' ? 100 : getActiveTaskProgress({ ...task, totalElapsed: liveElapsed });
+  const progress = task.status === 'completed' ? 100 : calcProgress(liveElapsed, task.estimatedTime);
   const actionButtonClass =
-    "inline-flex min-h-10 items-center gap-1 rounded-md px-3 py-2 text-[11px] font-medium transition hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
+    "inline-flex min-h-8 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
 
   return (
     <Card
       padding="sm"
-      className="mb-3 cursor-pointer hover:shadow-md transition-shadow group"
+      className="mb-3 cursor-pointer motion-interactive motion-list-in hover:shadow-md group"
       onClick={onClick}
       data-task-id={task.id}
     >
@@ -98,7 +99,7 @@ export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
             </div>
             <div className="w-full bg-[var(--border)] h-1 rounded-full overflow-hidden">
               <div
-                className="bg-[var(--accent)] h-full transition-all duration-300"
+                className="bg-[var(--accent)] h-full motion-progress"
                 style={{ width: `${progress}%` }}
               />
             </div>
