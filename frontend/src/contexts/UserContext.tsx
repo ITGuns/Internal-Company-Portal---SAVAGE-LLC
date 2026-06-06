@@ -14,6 +14,9 @@ export interface User {
   position?: string;
   avatar?: string;
   phone?: string;
+  address?: string;
+  city?: string;
+  citizenship?: string;
   bio?: string;
   birthday?: string;
   hireDate?: string;

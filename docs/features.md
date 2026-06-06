@@ -103,6 +103,7 @@ MyDeskii includes the backend and frontend foundation for a client-facing portal
 - Client overview responses only expose records marked visible to clients and allowed by membership.
 - Client and admin dashboards consume shared activity history and derived action queues; client users only see client-visible events.
 - Client users land on `/client` after login, and authenticated client users attempting `/dashboard` are redirected back to the client portal.
+- Detailed admin and client operating directions live in `docs/client-portal-workflows.md`.
 
 ## Payroll Calendar
 

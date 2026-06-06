@@ -8,10 +8,9 @@ import { getCurrentUser } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
 import UserAvatar from "@/assets/icons/UserAvatar";
 import Button from "./Button";
-import EditProfileModal from "./EditProfileModal";
 
 interface UserProfile {
-  id?: string;
+  id?: string | number;
   name: string;
   email: string;
   birthday?: string;
@@ -29,7 +28,6 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
   const router = useRouter();
   const { logout } = useUser();
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -44,8 +42,9 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
     setUser(userData);
   }, [isOpen]);
 
-  const handleSaveProfile = (updatedUser: UserProfile) => {
-    setUser(updatedUser);
+  const handleEditProfile = () => {
+    onClose();
+    router.push("/profile#edit-profile");
   };
 
   const handleSignOut = () => {
@@ -70,7 +69,10 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
 
       {/* Slide-in sidebar from right */}
       <div
-        className="fixed top-0 right-0 h-full w-96 max-w-[calc(100vw-1rem)] bg-[var(--card-bg)] shadow-2xl motion-drawer-right-in"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="profile-sidebar-title"
+        className="fixed right-0 top-0 flex h-[100dvh] w-96 max-w-[calc(100vw-1rem)] flex-col overflow-hidden bg-[var(--surface-raised)] text-[var(--foreground)] shadow-2xl motion-drawer-right-in"
         style={{
           borderLeft: "1px solid var(--border)",
           zIndex: 10000,
@@ -78,29 +80,29 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
-          <h2 className="text-lg font-semibold text-[var(--foreground)]">Profile</h2>
+        <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] p-4">
+          <h2 id="profile-sidebar-title" className="text-lg font-semibold text-[var(--foreground)]">Profile</h2>
           <button
             onClick={onClose}
-            className="motion-interactive p-2 rounded-md hover:bg-[var(--card-surface)]"
+            className="motion-interactive rounded-md p-2 hover:bg-[var(--card-surface)]"
             aria-label="Close profile"
           >
-            <X className="w-5 h-5 text-[var(--muted)]" />
+            <X className="h-5 w-5 text-[var(--muted)]" />
           </button>
         </div>
 
         {/* Profile Content */}
-        <div className="flex flex-col items-center p-8 space-y-6">
+        <div className="sidebar-scroll flex flex-1 flex-col items-center overflow-y-auto px-6 py-8">
           {/* Avatar */}
-          <div className="relative">
-            <div className="w-32 h-32 rounded-full overflow-hidden bg-[var(--card-surface)] border-4 border-[var(--border)] shadow-lg">
+          <div className="relative shrink-0">
+            <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-[var(--border)] bg-[var(--card-surface)] shadow-lg sm:h-32 sm:w-32">
               {user?.avatar ? (
                 <Image
                   src={user.avatar}
                   alt={user.name || "User"}
                   width={128}
                   height={128}
-                  className="w-full h-full object-cover"
+                  className="h-full w-full object-cover"
                 />
               ) : (
                 <UserAvatar className="w-full h-full" size={128} ariaHidden={true} />
@@ -109,58 +111,51 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
           </div>
 
           {/* User Name */}
-          <div className="text-center">
-            <h3 className="text-2xl font-bold text-[var(--foreground)] mb-1">
+          <div className="mt-6 w-full min-w-0 text-center">
+            <h3 className="break-words text-xl font-bold leading-tight text-[var(--foreground)] sm:text-2xl">
               {user?.name || "User"}
             </h3>
             {user?.roles && user.roles.length > 0 && (
-              <p className="text-sm font-medium text-[var(--accent)] mb-1">
+              <p className="mt-2 break-words text-sm font-medium text-[var(--accent)]">
                 {user.roles.join(", ")}
               </p>
             )}
-            <p className="text-sm text-[var(--muted)]">{user?.email || ""}</p>
+            <p className="mt-1 break-all text-sm text-[var(--muted)]">{user?.email || ""}</p>
           </div>
 
           {/* Action Buttons */}
-          <div className="w-full space-y-3 pt-4">
+          <div className="mt-8 w-full space-y-3">
             <Button
               variant="primary"
-              className="w-full flex items-center justify-center gap-2"
-              onClick={() => setShowEditModal(true)}
+              className="flex w-full items-center justify-center gap-2"
+              onClick={handleEditProfile}
             >
-              <Edit2 className="w-4 h-4" />
+              <Edit2 className="h-4 w-4" />
               Edit Profile
             </Button>
 
             <Button
               variant="secondary"
-              className="w-full flex items-center justify-center gap-2"
+              className="flex w-full items-center justify-center gap-2"
               onClick={handleSignOut}
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="h-4 w-4" />
               Sign Out
             </Button>
           </div>
         </div>
 
         {/* Additional Info (Optional) */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-[var(--border)] bg-[var(--card-surface)]">
+        <div className="shrink-0 border-t border-[var(--border)] bg-[var(--card-surface)] p-4">
           <div className="text-xs text-[var(--muted)] space-y-1">
-            <div className="flex items-center gap-2">
-              <User className="w-3 h-3" />
-              <span>User ID: {user?.id?.slice(0, 8)}...</span>
+            <div className="flex min-w-0 items-center gap-2">
+              <User className="h-3 w-3 shrink-0" />
+              <span className="truncate">User ID: {String(user?.id ?? "").slice(0, 8)}...</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Edit Profile Modal */}
-      <EditProfileModal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        user={user}
-        onSave={handleSaveProfile}
-      />
     </>
   );
 }

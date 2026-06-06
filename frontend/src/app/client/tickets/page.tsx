@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Filter, MessageSquare, Pencil, Plus, Save, Send, Ticket, Trash2, X } from "lucide-react";
 import Button from "@/components/Button";
 import ClientPortalPanel from "@/components/client-portal/ClientPortalPanel";
-import ClientPortalTopNav from "@/components/client-portal/ClientPortalTopNav";
 import ClientTicketFilterControls from "@/components/client-portal/ClientTicketFilterControls";
 import ChoiceGroup from "@/components/client-portal/ChoiceGroup";
 import TicketDetailPresets from "@/components/client-portal/TicketDetailPresets";
@@ -243,7 +242,6 @@ export default function ClientTicketsPage() {
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-6 pt-0">
         <Header title="Requests" subtitle="Submit requests and review status with the team." />
-        <ClientPortalTopNav />
 
         {organizations.length > 1 ? (
           <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
