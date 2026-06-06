@@ -104,7 +104,9 @@ async function bootstrap() {
       storeFactory: authRateLimitStoreFactory,
     }),
   })
-  app.use('/auth', authController.router())
+  const authRouter = authController.router()
+  app.use('/auth', authRouter)
+  app.use('/backend-auth', authRouter)
 
   // API routes
   const usersController = new UsersController()

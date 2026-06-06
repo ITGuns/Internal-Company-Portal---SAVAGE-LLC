@@ -81,6 +81,39 @@ Frontend public build/runtime environment:
 
 For Docker deployments, `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` are passed as frontend image build args and runtime environment variables. Rebuild the frontend image when those public URLs change.
 
+## Temporary Vercel + Supabase Deployment
+
+The repository includes a root `vercel.json` for a temporary Vercel deployment from the monorepo root. It installs both packages, builds the `frontend/` Next.js app, builds the `backend/` Express entrypoint as a Vercel function, and routes:
+
+- `/api/*` to the backend function.
+- `/auth/*` and `/backend-auth/*` to the backend function.
+- `/health` to the backend function.
+- All remaining routes to the frontend app.
+
+Required Vercel environment variables:
+
+- `NODE_ENV=production`
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `REFRESH_TOKEN_SECRET`
+- `CORS_ORIGIN`
+- `FRONTEND_URL`
+- `AUTH_RATE_LIMIT_STORE=memory`
+- `NEXT_PUBLIC_WS_URL`
+
+Recommended Vercel environment variables:
+
+- `DIRECT_DATABASE_URL`
+- `JWT_EXPIRES_IN=7d`
+- `REFRESH_TOKEN_EXPIRES_IN=30d`
+- `LOG_LEVEL=info`
+- `OPS_MANAGER_EMAIL`
+- `ADMIN_EMAILS`
+
+For Supabase, use the transaction pooler for `DATABASE_URL` and the session pooler or direct connection for `DIRECT_DATABASE_URL`.
+
+Vercel is suitable for a temporary preview of the portal UI and normal REST/auth routes. It is not a complete production runtime for this app because Vercel Functions do not provide a durable Socket.io WebSocket server, and file uploads written to local function storage are not persistent. For full chat realtime behavior, durable uploads, Redis-backed distributed rate limits, and long-running operational reliability, use the Docker/SSH deployment path or a server host that supports persistent Node processes.
+
 ### Supabase/Postgres Connection Mode
 
 For Supabase-backed production, keep runtime and migration connections separate:

@@ -2809,3 +2809,35 @@
 - Add the production GitHub secrets/variables before attempting SSH deploy.
 - In Supabase, use a migration/direct connection for `DIRECT_DATABASE_URL` and the runtime connection for `DATABASE_URL`.
 - Use `bootstrap_empty_database=true` only for the first deployment to a verified empty database.
+
+## 2026-06-06 - Temporary Vercel Supabase Deploy Wiring
+
+### Completed
+
+- Added root Vercel configuration for deploying the monorepo from the repository root.
+- Routed Vercel `/api`, `/auth`, `/backend-auth`, and `/health` traffic to the backend serverless entrypoint while leaving app routes on the frontend Next app.
+- Added a backend `/backend-auth` alias so frontend relative auth requests work without changing the existing API client.
+- Documented the required Vercel environment variables and Vercel limitations for Socket.io and local file uploads.
+
+### Files Changed
+
+- `vercel.json`
+- `backend/src/main.ts`
+- `docs/deployment.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Used repo-side Vercel config because the Vercel dashboard root-directory settings page was unreliable during browser automation.
+- Kept the SSH/Docker deployment path as the full production recommendation because Vercel Functions are not a durable Socket.io runtime.
+
+### How to Test
+
+- Push the change to the Vercel-connected repository.
+- Configure the required Vercel environment variables.
+- Trigger a Vercel redeploy and verify `/`, `/login`, `/health`, and a login request.
+
+### Next Steps
+
+- Add Vercel project environment variables before expecting auth/API routes to boot.
+- Use a persistent Node deployment target for full realtime chat and durable upload behavior.
