@@ -2920,3 +2920,34 @@
 - Create the Render Blueprint from GitHub, fill Supabase database secrets, and wait for `/health`.
 - Set Vercel `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, and `NEXT_PUBLIC_ENABLE_REALTIME=true` after the Render backend URL is known.
 - Redeploy Vercel and smoke realtime chat, uploads, auth refresh, client portal, and admin workflows.
+
+## 2026-06-07 - Render Deployment Auth Preflight
+
+### Completed
+
+- Installed Render CLI `v2.20.0` locally from the official Windows amd64 release and verified the published SHA256 before running it.
+- Added the user-local Render CLI directory to the Windows user `PATH` for new terminals.
+- Confirmed the current repository is clean on `main` and GitHub repository deploy secrets/variables are not configured.
+- Confirmed Render Blueprint validation is blocked until a Render login, `RENDER_API_KEY`, and workspace are available.
+
+### Files Changed
+
+- `docs/deployment.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the Render Blueprint as the preferred persistent backend path because the SSH Docker deploy path has no configured GitHub deployment host secrets.
+- Did not use Chrome as a Render-auth fallback because provider auth is the real blocker and browser account setup should be explicit.
+
+### How to Test
+
+- Run `render --version` in a new terminal.
+- Set `RENDER_API_KEY`, choose the Render workspace, and run `render blueprints validate ./render.yaml`.
+- After Blueprint creation, verify the backend `/health` endpoint before switching Vercel to the external backend URL.
+
+### Next Steps
+
+- Provide or set `RENDER_API_KEY`, then select the Render workspace.
+- Validate and create the Render Blueprint.
+- Update Vercel production variables to the Render backend URL and redeploy the frontend.

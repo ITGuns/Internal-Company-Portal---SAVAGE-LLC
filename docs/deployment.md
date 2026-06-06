@@ -94,6 +94,18 @@ Before creating the Blueprint in Render:
 - Leave generated JWT secrets in Render unless rotating existing sessions intentionally.
 - Update `FRONTEND_URL` and `CORS_ORIGIN` from the temporary Vercel preview URL to the final frontend domain when the production domain is ready.
 
+Render CLI preflight:
+
+```powershell
+render --version
+$env:RENDER_API_KEY = "<render-api-key>"
+render workspaces -o json
+render workspace set <workspace-id-or-name>
+render blueprints validate ./render.yaml
+```
+
+The Blueprint validation command is account/workspace-aware. It fails without a Render login or `RENDER_API_KEY`, even when the local YAML parses successfully.
+
 After Render creates the backend service, set Vercel production variables:
 
 - `NEXT_PUBLIC_API_URL=https://<render-backend-host>/api`
