@@ -5,9 +5,7 @@ import {
     isAuthFailureResponse,
     SESSION_EXPIRED_MESSAGE,
 } from './auth-session';
-
-const API_URL = '/api';
-const AUTH_URL = '/backend-auth';
+import { buildApiUrl, buildAuthUrl } from './api-url';
 
 
 export const getAuthToken = () => {
@@ -61,7 +59,7 @@ export const setCurrentUser = (user: Record<string, unknown>) => {
 export const refreshAccessToken = async (): Promise<string | null> => {
     const refreshToken = getRefreshToken()
     try {
-        const res = await fetch(`${AUTH_URL}/refresh`, {
+        const res = await fetch(buildAuthUrl('/refresh'), {
             method: 'POST',
             credentials: 'include',
             ...(refreshToken
@@ -95,7 +93,7 @@ export const refreshAccessToken = async (): Promise<string | null> => {
  */
 export const loginWithEmail = async (credentials: LoginCredentials): Promise<AuthResponse> => {
     try {
-        const res = await fetch(`${AUTH_URL}/login`, {
+        const res = await fetch(buildAuthUrl('/login'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -125,7 +123,7 @@ export const loginWithEmail = async (credentials: LoginCredentials): Promise<Aut
  * Clears auth tokens and user data from localStorage
  */
 export const logout = () => {
-    void fetch(`${AUTH_URL}/logout`, {
+    void fetch(buildAuthUrl('/logout'), {
         method: 'POST',
         credentials: 'include',
     }).catch((error) => {
@@ -138,7 +136,7 @@ export const logout = () => {
  * Request a password reset email
  */
 export const requestPasswordReset = async (email: string): Promise<{ success: boolean; message: string }> => {
-    const res = await fetch(`${AUTH_URL}/forgot-password`, {
+    const res = await fetch(buildAuthUrl('/forgot-password'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -154,7 +152,7 @@ export const requestPasswordReset = async (email: string): Promise<{ success: bo
  * Reset password using token from email
  */
 export const resetPassword = async (token: string, email: string, password: string): Promise<{ success: boolean; message: string }> => {
-    const res = await fetch(`${AUTH_URL}/reset-password`, {
+    const res = await fetch(buildAuthUrl('/reset-password'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, email, password }),
@@ -179,7 +177,7 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
         ...options.headers,
     }
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const response = await fetch(buildApiUrl(endpoint), {
         ...options,
         cache: 'no-store',
         credentials: 'include',
@@ -290,7 +288,7 @@ export const uploadAvatar = async (userId: string | number, file: File | string)
         }
 
         const token = getAuthToken();
-        const response = await fetch(`${API_URL}/users/${userId}/avatar`, {
+        const response = await fetch(buildApiUrl(`/users/${userId}/avatar`), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

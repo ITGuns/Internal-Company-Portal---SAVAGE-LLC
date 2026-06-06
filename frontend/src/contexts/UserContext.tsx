@@ -8,6 +8,7 @@ import {
   refreshAccessToken,
   setCurrentUser as saveCurrentUser,
 } from '@/lib/api';
+import { buildAuthUrl } from '@/lib/api-url';
 import { AUTH_SESSION_CLEARED_EVENT } from '@/lib/auth-session';
 
 export interface User {
@@ -91,7 +92,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-          const res = await fetch(`/backend-auth/me`, {
+          const res = await fetch(buildAuthUrl('/me'), {
             credentials: 'include',
             headers: {
               'Authorization': `Bearer ${accessToken}`

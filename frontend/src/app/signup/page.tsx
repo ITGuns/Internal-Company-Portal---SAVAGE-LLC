@@ -7,6 +7,7 @@ import { CheckCircle2, Mail, Lock, User as UserIcon } from 'lucide-react';
 import LoginInput from '@/components/LoginInput';
 import { useUser } from '@/contexts/UserContext';
 import { getAuthenticatedLandingPath } from '@/lib/role-access';
+import { buildApiUrl, buildAuthUrl } from '@/lib/api-url';
 import { getSignupRoleOptions, type SignupDepartmentOption } from '@/lib/signup-options';
 import styles from '../login/login.module.css';
 
@@ -35,7 +36,7 @@ export default function SignUpPage() {
   useEffect(() => {
     async function loadOptions() {
       try {
-        const deptRes = await fetch('/api/departments').then((r) => r.json());
+        const deptRes = await fetch(buildApiUrl('/departments')).then((r) => r.json());
         setDepartments(Array.isArray(deptRes) ? deptRes : []);
       } catch (e) {
         console.error('Failed to load signup options', e);
@@ -85,7 +86,7 @@ export default function SignUpPage() {
         return;
       }
 
-      const res = await fetch('/backend-auth/signup', {
+      const res = await fetch(buildAuthUrl('/signup'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password, departmentId, role }),

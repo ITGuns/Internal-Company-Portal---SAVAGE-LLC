@@ -76,11 +76,31 @@ Recommended backend environment:
 
 Frontend public build/runtime environment:
 
-- `NEXT_PUBLIC_API_URL`
+- `NEXT_PUBLIC_API_URL`, such as `https://api.mydeskii.com/api`. If omitted, the frontend uses same-origin `/api` for local/Vercel proxy deployments.
 - `NEXT_PUBLIC_WS_URL`
 - `NEXT_PUBLIC_ENABLE_REALTIME=true` when the websocket URL points at a persistent Node backend
 
 For Docker deployments, `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` are passed as frontend image build args and runtime environment variables. Rebuild the frontend image when those public URLs change.
+
+## Render Backend Blueprint
+
+The repository includes `render.yaml` for a persistent Render backend service plus an internal Key Value service used as Redis-compatible auth rate-limit storage. It is intended for the production backend while the frontend can remain on Vercel.
+
+Before creating the Blueprint in Render:
+
+- Set `DATABASE_URL` to the Supabase transaction pooler runtime URL.
+- Set `DIRECT_DATABASE_URL` to the Supabase session pooler or direct migration URL.
+- Set `ADMIN_EMAILS` if configured admin-email bypass is still needed.
+- Leave generated JWT secrets in Render unless rotating existing sessions intentionally.
+- Update `FRONTEND_URL` and `CORS_ORIGIN` from the temporary Vercel preview URL to the final frontend domain when the production domain is ready.
+
+After Render creates the backend service, set Vercel production variables:
+
+- `NEXT_PUBLIC_API_URL=https://<render-backend-host>/api`
+- `NEXT_PUBLIC_WS_URL=wss://<render-backend-host>`
+- `NEXT_PUBLIC_ENABLE_REALTIME=true`
+
+Then redeploy Vercel so frontend REST/auth traffic and Socket.io use the persistent backend.
 
 ## Temporary Vercel + Supabase Deployment
 

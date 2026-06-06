@@ -2880,3 +2880,43 @@
 - Deploy to Vercel with `NEXT_PUBLIC_ENABLE_REALTIME=false` for the temporary preview.
 - Move the backend to a persistent Node host before enabling realtime chat in production.
 - Add measured composite Prisma indexes after query logs confirm the hottest remaining client portal filters.
+
+## 2026-06-07 - Persistent Backend Deployment Prep
+
+### Completed
+
+- Added frontend API/auth URL helpers so browser REST and auth requests can target either same-origin Vercel proxy routes or an external persistent backend from `NEXT_PUBLIC_API_URL`.
+- Updated signup and current-user session verification flows to use the same URL builder as shared API calls.
+- Added a Render Blueprint for a persistent Docker backend service with internal Key Value storage for Redis-compatible rate limiting.
+- Documented the Render backend plus Vercel frontend handoff variables.
+
+### Files Changed
+
+- `render.yaml`
+- `frontend/src/lib/api-url.ts`
+- `frontend/src/lib/api.ts`
+- `frontend/src/lib/config.ts`
+- `frontend/src/contexts/UserContext.tsx`
+- `frontend/src/app/signup/page.tsx`
+- `frontend/tests/api-url.test.mjs`
+- `docs/deployment.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept same-origin `/api` as the default frontend API base so the existing Vercel preview and local rewrites continue to work without extra environment variables.
+- Used Render Key Value as the Redis-compatible service for auth rate limiting.
+- Left database URLs and provider secrets as unsynced Blueprint values so secrets are not committed.
+
+### How to Test
+
+- Run `npm --prefix frontend test`.
+- Run `npm --prefix frontend run lint`.
+- Run `npm --prefix frontend run build`.
+- Keep the current Vercel preview on same-origin `/api`, then smoke login and `/client`.
+
+### Next Steps
+
+- Create the Render Blueprint from GitHub, fill Supabase database secrets, and wait for `/health`.
+- Set Vercel `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, and `NEXT_PUBLIC_ENABLE_REALTIME=true` after the Render backend URL is known.
+- Redeploy Vercel and smoke realtime chat, uploads, auth refresh, client portal, and admin workflows.
