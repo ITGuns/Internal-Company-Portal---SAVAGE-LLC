@@ -1,0 +1,1761 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyDeskii Client Portal Production Prototype</title>
+  <!--
+  <design_plan>
+  Direction: preserve the commercial polish, convert the page into a production logged-in client workspace.
+  Product scene: a client reviews delivery status on a workday laptop and needs the next action within seconds.
+  Component model: shadcn-style Button, Card, Badge, Progress, Tabs, Table, Skeleton, Alert, and Empty patterns in plain HTML.
+  21st-style influence: dense bento composition, spotlight panels, high-contrast dashboard surface, and tactile micro-interactions.
+  Safety: no gradient text, no pure black or pure white, no fake modal-first flows, no decorative-only motion, no hidden client/internal boundary.
+  </design_plan>
+  -->
+  <style>
+    :root {
+      color-scheme: light;
+      --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-mono: "Geist Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --bg: oklch(0.975 0.008 82);
+      --bg-2: oklch(0.946 0.011 82);
+      --surface: oklch(0.992 0.006 82);
+      --surface-2: oklch(0.962 0.008 82);
+      --ink: oklch(0.18 0.023 252);
+      --muted: oklch(0.48 0.022 252);
+      --muted-2: oklch(0.66 0.018 252);
+      --line: oklch(0.875 0.012 82);
+      --line-strong: oklch(0.72 0.024 252);
+      --deep: oklch(0.16 0.026 252);
+      --deep-2: oklch(0.205 0.029 252);
+      --deep-3: oklch(0.265 0.032 252);
+      --red: oklch(0.58 0.205 27);
+      --red-dark: oklch(0.45 0.184 27);
+      --red-soft: oklch(0.93 0.04 27);
+      --cyan: oklch(0.72 0.145 205);
+      --cyan-soft: oklch(0.91 0.04 205);
+      --emerald: oklch(0.66 0.148 154);
+      --emerald-soft: oklch(0.92 0.045 154);
+      --amber: oklch(0.76 0.145 82);
+      --amber-soft: oklch(0.94 0.05 82);
+      --rose: oklch(0.64 0.195 14);
+      --rose-soft: oklch(0.93 0.048 14);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+      --radius-xl: 26px;
+      --shadow-soft: 0 18px 50px oklch(0.2 0.02 252 / 0.1);
+      --shadow-deep: 0 28px 90px oklch(0.13 0.02 252 / 0.32);
+      --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+      --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      overflow-x: hidden;
+      background:
+        radial-gradient(circle at 8% -12%, oklch(0.76 0.1 27 / 0.14), transparent 26rem),
+        radial-gradient(circle at 90% 0%, oklch(0.73 0.1 205 / 0.13), transparent 28rem),
+        linear-gradient(180deg, var(--bg), var(--bg-2));
+      color: var(--ink);
+      font-family: var(--font-sans);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    .skip-link {
+      position: fixed;
+      left: 1rem;
+      top: 1rem;
+      z-index: 50;
+      transform: translateY(-150%);
+      border-radius: var(--radius-sm);
+      background: var(--deep);
+      color: oklch(0.985 0.006 82);
+      padding: 0.75rem 1rem;
+      transition: transform 160ms var(--ease-out);
+    }
+
+    .skip-link:focus {
+      transform: translateY(0);
+      outline: 2px solid var(--cyan);
+      outline-offset: 3px;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 286px minmax(0, 1fr);
+      min-height: 100dvh;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      height: 100dvh;
+      overflow-y: auto;
+      border-right: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, oklch(0.992 0.006 82 / 0.92), oklch(0.958 0.01 82 / 0.92)),
+        var(--surface);
+      padding: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 0;
+      padding: 0.35rem 0.25rem 0.85rem;
+    }
+
+    .brand-mark {
+      position: relative;
+      display: grid;
+      width: 42px;
+      height: 42px;
+      flex: 0 0 auto;
+      place-items: center;
+      border-radius: 13px;
+      background: linear-gradient(145deg, var(--surface), var(--surface-2));
+      box-shadow: inset 0 0 0 1px var(--line), 0 12px 28px oklch(0.2 0.02 252 / 0.1);
+    }
+
+    .brand-mark::before,
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      border: 2px solid var(--red);
+      transform: rotate(45deg);
+    }
+
+    .brand-mark::before {
+      width: 22px;
+      height: 22px;
+      border-radius: 5px;
+    }
+
+    .brand-mark::after {
+      width: 10px;
+      height: 10px;
+      border-color: var(--deep);
+      border-radius: 3px;
+    }
+
+    .brand-text {
+      min-width: 0;
+    }
+
+    .brand-text strong,
+    .brand-text span {
+      display: block;
+      line-height: 1;
+    }
+
+    .brand-text strong {
+      color: var(--ink);
+      font-size: 1rem;
+      font-weight: 820;
+    }
+
+    .brand-text span {
+      margin-top: 0.28rem;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 780;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .org-card,
+    .sidebar-footer,
+    .panel,
+    .mini-panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: 0 1px 0 oklch(1 0 0 / 0.46);
+    }
+
+    .org-card {
+      padding: 0.9rem;
+    }
+
+    .org-label {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .org-name {
+      margin-top: 0.35rem;
+      color: var(--ink);
+      font-size: 0.95rem;
+      font-weight: 820;
+    }
+
+    .org-meta {
+      margin-top: 0.6rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+
+    .sidebar-nav {
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      min-height: 42px;
+      border-radius: var(--radius-sm);
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 720;
+      padding: 0.62rem 0.72rem;
+      transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 150ms var(--ease-out);
+    }
+
+    .nav-item svg {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+    }
+
+    .nav-item:hover,
+    .nav-item[aria-current="page"] {
+      background: var(--deep);
+      color: oklch(0.985 0.006 82);
+    }
+
+    .nav-item:active {
+      transform: scale(0.985);
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 0.9rem;
+    }
+
+    .support-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+    }
+
+    .avatar {
+      display: grid;
+      width: 36px;
+      height: 36px;
+      flex: 0 0 auto;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--red-soft);
+      color: var(--red-dark);
+      font-size: 0.78rem;
+      font-weight: 850;
+    }
+
+    .workspace {
+      min-width: 0;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 1rem;
+      min-height: 78px;
+      border-bottom: 1px solid var(--line);
+      background: oklch(0.975 0.008 82 / 0.88);
+      padding: 0.9rem clamp(1rem, 2.6vw, 2rem);
+      backdrop-filter: blur(18px);
+    }
+
+    .breadcrumb {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.45rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 720;
+    }
+
+    .breadcrumb span:last-child {
+      color: var(--ink);
+    }
+
+    .topbar h1 {
+      margin-top: 0.2rem;
+      font-size: clamp(1.25rem, 2vw, 1.65rem);
+      font-weight: 780;
+      line-height: 1.15;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.6rem;
+    }
+
+    .workspace-body {
+      display: grid;
+      gap: 1rem;
+      padding: clamp(1rem, 2.6vw, 2rem);
+    }
+
+    .button,
+    .icon-button,
+    .tab-button,
+    .select-control,
+    .field-control {
+      transition:
+        transform 150ms var(--ease-out),
+        border-color 150ms var(--ease-out),
+        background-color 150ms var(--ease-out),
+        color 150ms var(--ease-out),
+        box-shadow 150ms var(--ease-out);
+    }
+
+    .button {
+      --button-bg: var(--surface);
+      --button-color: var(--ink);
+      --button-border: var(--line);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.55rem;
+      min-height: 40px;
+      border: 1px solid var(--button-border);
+      border-radius: var(--radius-sm);
+      background: var(--button-bg);
+      color: var(--button-color);
+      font-size: 0.88rem;
+      font-weight: 780;
+      padding: 0.65rem 0.9rem;
+      white-space: nowrap;
+    }
+
+    .button svg,
+    .icon-button svg {
+      width: 17px;
+      height: 17px;
+      flex: 0 0 auto;
+    }
+
+    .button:active,
+    .icon-button:active,
+    .tab-button:active {
+      transform: scale(0.98) translateY(1px);
+    }
+
+    .button:focus-visible,
+    .icon-button:focus-visible,
+    .tab-button:focus-visible,
+    .select-control:focus-visible,
+    .field-control:focus-visible {
+      outline: 2px solid var(--cyan);
+      outline-offset: 3px;
+    }
+
+    .button-primary {
+      --button-bg: var(--red);
+      --button-color: oklch(0.985 0.006 82);
+      --button-border: oklch(0.53 0.19 27);
+      box-shadow: 0 12px 28px oklch(0.58 0.18 27 / 0.24);
+    }
+
+    .button-primary:hover {
+      --button-bg: var(--red-dark);
+    }
+
+    .button-dark {
+      --button-bg: var(--deep);
+      --button-color: oklch(0.985 0.006 82);
+      --button-border: oklch(0.34 0.035 252);
+    }
+
+    .button-outline:hover,
+    .icon-button:hover {
+      background: var(--surface-2);
+    }
+
+    .icon-button {
+      display: inline-grid;
+      width: 40px;
+      height: 40px;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--muted);
+    }
+
+    .select-control {
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--ink);
+      font-weight: 700;
+      padding: 0 0.75rem;
+    }
+
+    .command-surface {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 420px;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .command-hero {
+      position: relative;
+      overflow: hidden;
+      min-height: 370px;
+      border: 1px solid oklch(0.35 0.036 252);
+      border-radius: var(--radius-xl);
+      background:
+        radial-gradient(circle at 85% 12%, oklch(0.72 0.15 205 / 0.18), transparent 20rem),
+        radial-gradient(circle at 10% 105%, oklch(0.6 0.19 27 / 0.24), transparent 20rem),
+        linear-gradient(135deg, var(--deep), oklch(0.12 0.021 252));
+      color: oklch(0.985 0.006 82);
+      padding: clamp(1.3rem, 3vw, 2rem);
+      box-shadow: var(--shadow-deep);
+    }
+
+    .command-hero::after {
+      content: "";
+      position: absolute;
+      right: -70px;
+      bottom: -90px;
+      width: 270px;
+      height: 270px;
+      border: 1px solid oklch(0.72 0.12 205 / 0.45);
+      border-radius: 46px;
+      background:
+        linear-gradient(145deg, oklch(0.72 0.16 205 / 0.28), transparent),
+        conic-gradient(from 32deg, oklch(0.98 0.01 82 / 0.66), oklch(0.64 0.18 27 / 0.2), oklch(0.74 0.15 205 / 0.38), oklch(0.98 0.01 82 / 0.58));
+      clip-path: polygon(50% 0, 96% 30%, 78% 100%, 22% 100%, 4% 30%);
+      filter: drop-shadow(0 28px 34px oklch(0.72 0.13 205 / 0.24));
+      pointer-events: none;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      max-width: 760px;
+      gap: 1.25rem;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      width: fit-content;
+      border: 1px solid oklch(0.46 0.055 252);
+      border-radius: 999px;
+      background: oklch(0.23 0.028 252 / 0.8);
+      color: oklch(0.82 0.018 252);
+      font-size: 0.75rem;
+      font-weight: 850;
+      letter-spacing: 0.08em;
+      padding: 0.46rem 0.68rem;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--emerald);
+      box-shadow: 0 0 0 5px oklch(0.66 0.14 154 / 0.16);
+    }
+
+    .command-hero h2 {
+      max-width: 680px;
+      font-size: clamp(2.35rem, 5.4vw, 5.35rem);
+      font-weight: 760;
+      line-height: 0.96;
+    }
+
+    .command-hero h2 span {
+      color: oklch(0.78 0.12 27);
+    }
+
+    .hero-copy {
+      max-width: 660px;
+      color: oklch(0.82 0.018 252);
+      font-size: clamp(0.98rem, 1.25vw, 1.1rem);
+      line-height: 1.7;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .hero-actions .button-outline {
+      --button-bg: oklch(0.2 0.026 252 / 0.72);
+      --button-color: oklch(0.985 0.006 82);
+      --button-border: oklch(0.45 0.04 252);
+    }
+
+    .client-safe-note {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 0.85rem;
+      max-width: 650px;
+      margin-top: 0.4rem;
+      border: 1px solid oklch(0.42 0.04 252);
+      border-radius: var(--radius-lg);
+      background: oklch(0.2 0.026 252 / 0.72);
+      padding: 0.9rem;
+    }
+
+    .client-safe-note svg {
+      width: 22px;
+      height: 22px;
+      color: var(--cyan);
+    }
+
+    .client-safe-note strong {
+      display: block;
+      font-size: 0.9rem;
+    }
+
+    .client-safe-note span {
+      display: block;
+      margin-top: 0.2rem;
+      color: oklch(0.76 0.018 252);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+
+    .control-panel {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      background: var(--surface);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .control-header,
+    .panel-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      border-bottom: 1px solid var(--line);
+      padding: 1rem;
+    }
+
+    .control-header h2,
+    .panel-header h2 {
+      font-size: 0.98rem;
+      font-weight: 820;
+    }
+
+    .control-header p,
+    .panel-header p {
+      margin-top: 0.25rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.4;
+    }
+
+    .control-body,
+    .panel-body {
+      padding: 1rem;
+    }
+
+    .health-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+
+    .health-card {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: var(--surface-2);
+      padding: 0.78rem;
+    }
+
+    .health-label {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 760;
+    }
+
+    .health-value {
+      margin-top: 0.32rem;
+      font-family: var(--font-mono);
+      font-size: 1.45rem;
+      font-weight: 880;
+      line-height: 1;
+    }
+
+    .health-trend {
+      margin-top: 0.38rem;
+      color: var(--emerald);
+      font-size: 0.74rem;
+      font-weight: 850;
+    }
+
+    .mini-chart {
+      width: 100%;
+      height: 86px;
+      margin-top: 1rem;
+    }
+
+    .mini-chart path {
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 4;
+    }
+
+    .mini-chart .gridline {
+      stroke: var(--line);
+      stroke-width: 1;
+    }
+
+    .progress-stack {
+      display: grid;
+      gap: 0.8rem;
+      margin-top: 1rem;
+    }
+
+    .progress-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.7rem;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 720;
+    }
+
+    .progress {
+      grid-column: 1 / -1;
+      overflow: hidden;
+      height: 8px;
+      border-radius: 999px;
+      background: oklch(0.9 0.011 82);
+    }
+
+    .progress span {
+      display: block;
+      width: var(--value);
+      height: 100%;
+      border-radius: inherit;
+      background: var(--fill);
+      transform-origin: left;
+      animation: barIn 900ms var(--ease-out) both;
+    }
+
+    .metric-strip {
+      display: grid;
+      grid-template-columns: 1.15fr repeat(4, minmax(0, 1fr));
+      overflow: hidden;
+      border: 1px solid oklch(0.36 0.034 252);
+      border-radius: var(--radius-xl);
+      background:
+        radial-gradient(circle at 96% 6%, oklch(0.72 0.16 205 / 0.16), transparent 20rem),
+        linear-gradient(135deg, var(--deep), oklch(0.125 0.02 252));
+      color: oklch(0.985 0.006 82);
+      box-shadow: var(--shadow-deep);
+    }
+
+    .metric-cell {
+      min-width: 0;
+      padding: 1rem;
+    }
+
+    .metric-cell + .metric-cell {
+      border-left: 1px solid oklch(0.48 0.04 252 / 0.48);
+    }
+
+    .metric-kicker {
+      color: var(--cyan);
+      font-size: 0.74rem;
+      font-weight: 850;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .metric-title {
+      margin-top: 0.42rem;
+      max-width: 28ch;
+      font-size: 1rem;
+      font-weight: 780;
+      line-height: 1.3;
+    }
+
+    .metric-number {
+      color: var(--metric-color);
+      font-family: var(--font-mono);
+      font-size: clamp(1.55rem, 3vw, 2.35rem);
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .metric-caption {
+      margin-top: 0.48rem;
+      color: oklch(0.78 0.018 252);
+      font-size: 0.78rem;
+      line-height: 1.38;
+    }
+
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 370px;
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .primary-stack,
+    .side-stack {
+      display: grid;
+      gap: 1rem;
+      min-width: 0;
+    }
+
+    .panel {
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .panel-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      min-height: 26px;
+      width: fit-content;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 0.25rem 0.58rem;
+      white-space: nowrap;
+    }
+
+    .badge-success {
+      border-color: oklch(0.76 0.11 154 / 0.52);
+      background: var(--emerald-soft);
+      color: oklch(0.4 0.12 154);
+    }
+
+    .badge-warning {
+      border-color: oklch(0.76 0.13 82 / 0.55);
+      background: var(--amber-soft);
+      color: oklch(0.44 0.1 82);
+    }
+
+    .badge-danger {
+      border-color: oklch(0.7 0.12 14 / 0.55);
+      background: var(--rose-soft);
+      color: oklch(0.45 0.15 14);
+    }
+
+    .badge-info {
+      border-color: oklch(0.75 0.1 205 / 0.55);
+      background: var(--cyan-soft);
+      color: oklch(0.42 0.12 205);
+    }
+
+    .queue-list,
+    .update-list,
+    .resource-list,
+    .approval-list {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .queue-item,
+    .update-item,
+    .resource-item,
+    .approval-item {
+      display: grid;
+      gap: 0.5rem;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: var(--surface-2);
+      padding: 0.85rem;
+    }
+
+    .queue-top,
+    .update-top,
+    .approval-top,
+    .resource-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .item-title {
+      color: var(--ink);
+      font-size: 0.9rem;
+      font-weight: 800;
+      line-height: 1.35;
+    }
+
+    .item-meta {
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.45;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      font-size: 0.86rem;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 0.85rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 850;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    tbody tr:hover {
+      background: oklch(0.97 0.008 82);
+    }
+
+    td strong {
+      display: block;
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    td span {
+      display: block;
+      margin-top: 0.22rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+
+    .route-bento {
+      display: grid;
+      grid-auto-flow: dense;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .route-card {
+      position: relative;
+      overflow: hidden;
+      min-height: 180px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      padding: 1rem;
+      box-shadow: 0 1px 0 oklch(1 0 0 / 0.44), 0 16px 46px oklch(0.2 0.02 252 / 0.07);
+      transition: transform 170ms var(--ease-out), border-color 170ms var(--ease-out), box-shadow 170ms var(--ease-out);
+    }
+
+    .route-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(420px circle at var(--spot-x, 50%) var(--spot-y, 0%), oklch(0.58 0.19 27 / 0.12), transparent 42%);
+      opacity: 0;
+      transition: opacity 170ms var(--ease-out);
+      pointer-events: none;
+    }
+
+    .route-card:hover {
+      transform: translateY(-3px);
+      border-color: oklch(0.72 0.07 27);
+      box-shadow: 0 24px 70px oklch(0.2 0.02 252 / 0.12);
+    }
+
+    .route-card:hover::before {
+      opacity: 1;
+    }
+
+    .route-card > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .route-card.wide {
+      grid-column: span 2;
+    }
+
+    .route-icon {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border-radius: 13px;
+      background: var(--icon-bg);
+      color: var(--icon-color);
+    }
+
+    .route-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .route-card h3 {
+      margin-top: 1rem;
+      font-size: 1rem;
+      font-weight: 820;
+    }
+
+    .route-card p {
+      margin-top: 0.45rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.55;
+    }
+
+    .route-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.65rem;
+      margin-top: 1rem;
+    }
+
+    .route-metric {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: var(--surface-2);
+      padding: 0.65rem;
+    }
+
+    .route-metric strong {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 1.15rem;
+      font-weight: 880;
+    }
+
+    .route-metric span {
+      display: block;
+      margin-top: 0.2rem;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .field-group {
+      display: grid;
+      gap: 0.8rem;
+    }
+
+    .field {
+      display: grid;
+      gap: 0.45rem;
+    }
+
+    .field label {
+      color: var(--ink);
+      font-size: 0.82rem;
+      font-weight: 780;
+    }
+
+    .field-control {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: oklch(0.986 0.006 82);
+      color: var(--ink);
+      padding: 0.72rem 0.78rem;
+    }
+
+    textarea.field-control {
+      min-height: 116px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    .field-help {
+      color: var(--muted);
+      font-size: 0.75rem;
+      line-height: 1.4;
+    }
+
+    .tab-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+
+    .tab-button {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+      padding: 0.48rem 0.72rem;
+    }
+
+    .tab-button:hover,
+    .tab-button.is-active {
+      background: var(--deep);
+      color: oklch(0.985 0.006 82);
+    }
+
+    .state-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .state-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      padding: 1rem;
+    }
+
+    .skeleton-line,
+    .skeleton-block {
+      overflow: hidden;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--surface-2), oklch(0.91 0.012 82), var(--surface-2));
+      background-size: 220% 100%;
+      animation: shimmer 1.4s var(--ease-in-out) infinite;
+    }
+
+    .skeleton-line {
+      height: 11px;
+      margin-top: 0.65rem;
+    }
+
+    .skeleton-block {
+      height: 74px;
+      border-radius: var(--radius-md);
+    }
+
+    .empty-icon,
+    .alert-icon {
+      display: grid;
+      width: 40px;
+      height: 40px;
+      place-items: center;
+      border-radius: 13px;
+    }
+
+    .empty-icon {
+      background: var(--cyan-soft);
+      color: oklch(0.42 0.12 205);
+    }
+
+    .alert-icon {
+      background: var(--rose-soft);
+      color: oklch(0.45 0.15 14);
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      margin: 0.4rem 0 0;
+    }
+
+    .section-heading h2 {
+      font-size: clamp(1.25rem, 2.5vw, 2rem);
+      font-weight: 780;
+      line-height: 1.1;
+    }
+
+    .section-heading p {
+      max-width: 54ch;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.55;
+    }
+
+    .mobile-menu {
+      display: none;
+    }
+
+    @keyframes barIn {
+      from {
+        transform: scaleX(0);
+      }
+      to {
+        transform: scaleX(1);
+      }
+    }
+
+    @keyframes shimmer {
+      from {
+        background-position: 0% 50%;
+      }
+      to {
+        background-position: 220% 50%;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 1ms !important;
+        scroll-behavior: auto !important;
+        transition-duration: 1ms !important;
+      }
+    }
+
+    @media (max-width: 1180px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        display: none;
+      }
+
+      .mobile-menu {
+        display: inline-grid;
+      }
+
+      .command-surface,
+      .workspace-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .control-panel {
+        max-width: 720px;
+      }
+
+      .metric-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .metric-cell + .metric-cell {
+        border-left: 0;
+      }
+
+      .metric-cell {
+        border-top: 1px solid oklch(0.48 0.04 252 / 0.48);
+      }
+
+      .metric-cell:first-child {
+        grid-column: 1 / -1;
+        border-top: 0;
+      }
+
+      .route-bento,
+      .state-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar-actions {
+        display: grid;
+        grid-template-columns: 40px minmax(0, 1fr);
+        justify-content: stretch;
+        overflow: visible;
+        width: 100%;
+      }
+
+      .topbar-actions .select-control {
+        min-width: 0;
+        width: 100%;
+      }
+
+      .topbar-actions .button {
+        grid-column: 1 / -1;
+      }
+
+      .workspace-body {
+        padding: 1rem;
+      }
+
+      .command-hero {
+        min-height: auto;
+      }
+
+      .command-hero h2 {
+        font-size: clamp(2.3rem, 12vw, 3.8rem);
+      }
+
+      .hero-actions,
+      .health-grid,
+      .metric-strip,
+      .route-bento,
+      .state-grid,
+      .route-metrics {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-actions {
+        display: grid;
+      }
+
+      .button {
+        width: 100%;
+      }
+
+      .route-card.wide {
+        grid-column: span 1;
+      }
+
+      .section-heading {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to workspace</a>
+
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Client portal navigation">
+      <a class="brand" href="#main" aria-label="MyDeskii client portal">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-text">
+          <strong>MyDeskii</strong>
+          <span>Client Portal</span>
+        </span>
+      </a>
+
+      <section class="org-card" aria-label="Selected client account">
+        <div class="org-label">Workspace</div>
+        <div class="org-name">Savage Growth Website</div>
+        <p class="org-meta">Client-visible delivery, requests, approvals, reports, and resources.</p>
+      </section>
+
+      <nav class="sidebar-nav" aria-label="Portal sections">
+        <a class="nav-item" href="#main" aria-current="page">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1v-8Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          Command Center
+        </a>
+        <a class="nav-item" href="#production">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 19h16M7 16V9m5 7V5m5 11v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Work Progress
+        </a>
+        <a class="nav-item" href="#queue">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 7h10M7 12h10M7 17h6M4 5h.01M4 10h.01M4 15h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Action Queue
+        </a>
+        <a class="nav-item" href="#reports">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 3h9l3 3v15H6V3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 13h6M9 17h6M14 3v4h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Reports
+        </a>
+        <a class="nav-item" href="#request">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 6h14v10H8l-3 3V6Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          Requests
+        </a>
+      </nav>
+
+      <section class="sidebar-footer" aria-label="Support contact">
+        <div class="support-row">
+          <div>
+            <div class="org-label">Assigned team</div>
+            <div class="org-name">Operations and Web Dev</div>
+          </div>
+          <span class="avatar">OP</span>
+        </div>
+        <p class="org-meta">Response target: within 1 business day for normal client requests.</p>
+      </section>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div>
+          <div class="breadcrumb" aria-label="Breadcrumb">
+            <span>Client</span>
+            <span>/</span>
+            <span>Command Center</span>
+          </div>
+          <h1>Production client workspace</h1>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-button mobile-menu" aria-label="Open navigation">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <select class="select-control" aria-label="Client organization">
+            <option>Savage Growth Website</option>
+            <option>Demo Client Workspace</option>
+          </select>
+          <a class="button button-outline" href="#reports">View report</a>
+          <a class="button button-primary" href="#request">
+            New request
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </header>
+
+      <main id="main" class="workspace-body" tabindex="-1">
+        <section class="command-surface" aria-label="Workspace summary">
+          <article class="command-hero">
+            <div class="hero-content">
+              <div class="eyebrow">Client-safe delivery status</div>
+              <h2>Client delivery status. <span>Internal notes stay private.</span></h2>
+              <p class="hero-copy">
+                A production-style client command center for progress, requests, approvals, updates, reports, and resources. The first viewport gives the client the current state and the exact next action.
+              </p>
+              <div class="hero-actions">
+                <a class="button button-primary" href="#request">Submit request</a>
+                <a class="button button-outline" href="#production">Review production records</a>
+              </div>
+              <div class="client-safe-note">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 20 7v5c0 5-3.4 8.5-8 9-4.6-.5-8-4-8-9V7l8-4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m8.8 12.2 2.2 2.2 4.5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <div>
+                  <strong>Client boundary is visible by design</strong>
+                  <span>Updates, comments, reports, and files shown here are client-facing. Internal notes stay out of this surface.</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <aside class="control-panel" aria-label="Workspace health">
+            <div class="control-header">
+              <div>
+                <h2>Workspace health</h2>
+                <p>Current month, client-visible records only.</p>
+              </div>
+              <span class="badge badge-success">On track</span>
+            </div>
+            <div class="control-body">
+              <div class="health-grid">
+                <div class="health-card">
+                  <div class="health-label">Build progress</div>
+                  <div class="health-value">72%</div>
+                  <div class="health-trend">+12% this week</div>
+                </div>
+                <div class="health-card">
+                  <div class="health-label">Open requests</div>
+                  <div class="health-value">4</div>
+                  <div class="health-trend">2 need team reply</div>
+                </div>
+                <div class="health-card">
+                  <div class="health-label">Approvals</div>
+                  <div class="health-value">2</div>
+                  <div class="health-trend">Client action needed</div>
+                </div>
+                <div class="health-card">
+                  <div class="health-label">Report prep</div>
+                  <div class="health-value">86%</div>
+                  <div class="health-trend">Draft ready soon</div>
+                </div>
+              </div>
+
+              <svg class="mini-chart" viewBox="0 0 360 90" preserveAspectRatio="none" aria-hidden="true">
+                <path class="gridline" d="M0 72H360M0 45H360M0 18H360"/>
+                <path d="M5 74 C33 62 48 68 69 49 C91 30 109 54 128 40 C151 23 171 30 194 22 C222 12 229 62 254 48 C284 32 302 20 355 13" stroke="var(--cyan)"/>
+                <path d="M5 78 C35 72 51 60 75 66 C101 72 116 48 138 53 C166 59 184 38 208 42 C239 47 250 28 275 31 C306 34 322 22 355 18" stroke="var(--red)"/>
+              </svg>
+
+              <div class="progress-stack">
+                <div class="progress-row">
+                  <span>Website build</span><strong>72%</strong>
+                  <div class="progress"><span style="--value: 72%; --fill: var(--emerald);"></span></div>
+                </div>
+                <div class="progress-row">
+                  <span>Content review</span><strong>58%</strong>
+                  <div class="progress"><span style="--value: 58%; --fill: var(--cyan);"></span></div>
+                </div>
+                <div class="progress-row">
+                  <span>Approval queue</span><strong>40%</strong>
+                  <div class="progress"><span style="--value: 40%; --fill: var(--amber);"></span></div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="metric-strip" aria-label="Current client metrics">
+          <div class="metric-cell">
+            <div class="metric-kicker">Production snapshot</div>
+            <div class="metric-title">Real client workspace data should power these numbers.</div>
+          </div>
+          <div class="metric-cell" style="--metric-color: var(--cyan);">
+            <div class="metric-number">3</div>
+            <div class="metric-caption">Active projects</div>
+          </div>
+          <div class="metric-cell" style="--metric-color: var(--emerald);">
+            <div class="metric-number">14</div>
+            <div class="metric-caption">Completed work items</div>
+          </div>
+          <div class="metric-cell" style="--metric-color: var(--amber);">
+            <div class="metric-number">2</div>
+            <div class="metric-caption">Approvals waiting</div>
+          </div>
+          <div class="metric-cell" style="--metric-color: var(--rose);">
+            <div class="metric-number">1</div>
+            <div class="metric-caption">Blocked decision</div>
+          </div>
+        </section>
+
+        <section class="workspace-grid">
+          <div class="primary-stack">
+            <section id="production" class="panel" aria-labelledby="production-title">
+              <div class="panel-header">
+                <div>
+                  <h2 id="production-title">Production records</h2>
+                  <p>Client-safe work items with status, owner, and last movement.</p>
+                </div>
+                <div class="panel-actions">
+                  <span class="badge badge-info">Visible to client</span>
+                  <a class="button button-outline" href="#request">Request change</a>
+                </div>
+              </div>
+              <div class="panel-body table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Work item</th>
+                      <th>Owner</th>
+                      <th>Status</th>
+                      <th>Freshness</th>
+                      <th>Client action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>Homepage hero revision</strong><span>Copy and layout changes for first viewport.</span></td>
+                      <td>Web Dev</td>
+                      <td><span class="badge badge-warning">In review</span></td>
+                      <td>Updated today</td>
+                      <td>Approve or request changes</td>
+                    </tr>
+                    <tr>
+                      <td><strong>Service card section</strong><span>Responsive cards, icon treatment, and spacing pass.</span></td>
+                      <td>Web Dev</td>
+                      <td><span class="badge badge-success">Completed</span></td>
+                      <td>Updated yesterday</td>
+                      <td>No action needed</td>
+                    </tr>
+                    <tr>
+                      <td><strong>SEO metadata pass</strong><span>Page titles, descriptions, and social preview notes.</span></td>
+                      <td>Operations</td>
+                      <td><span class="badge badge-info">Queued</span></td>
+                      <td>Starts Friday</td>
+                      <td>Confirm service area copy</td>
+                    </tr>
+                    <tr>
+                      <td><strong>Contact form QA</strong><span>Submission flow and email delivery validation.</span></td>
+                      <td>QA</td>
+                      <td><span class="badge badge-danger">Blocked</span></td>
+                      <td>Waiting 2 days</td>
+                      <td>Provide destination inbox</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section aria-labelledby="routes-title">
+              <div class="section-heading">
+                <div>
+                  <h2 id="routes-title">Route-level production modules</h2>
+                  <p>These become the reusable client portal sections instead of a marketing page pasted into the app.</p>
+                </div>
+              </div>
+              <div class="route-bento">
+                <article class="route-card wide">
+                  <div class="route-icon" style="--icon-bg: var(--emerald-soft); --icon-color: oklch(0.42 0.13 154);">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 19h16M7 16V9m5 7V5m5 11v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                  </div>
+                  <h3>Work progress</h3>
+                  <p>Show project progress, completed work, blockers, and latest client-visible update in one production module.</p>
+                  <div class="route-metrics">
+                    <div class="route-metric"><strong>72%</strong><span>Average progress</span></div>
+                    <div class="route-metric"><strong>5</strong><span>Open work items</span></div>
+                  </div>
+                </article>
+                <article class="route-card">
+                  <div class="route-icon" style="--icon-bg: var(--red-soft); --icon-color: var(--red-dark);">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 6h14v10H8l-3 3V6Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+                  </div>
+                  <h3>Requests</h3>
+                  <p>Submission, priority, public replies, and request state in one flow.</p>
+                </article>
+                <article class="route-card">
+                  <div class="route-icon" style="--icon-bg: var(--amber-soft); --icon-color: oklch(0.45 0.11 82);">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m7 12 3 3 7-7M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </div>
+                  <h3>Approvals</h3>
+                  <p>Approve, request changes, or reject with visible context.</p>
+                </article>
+                <article class="route-card">
+                  <div class="route-icon" style="--icon-bg: var(--cyan-soft); --icon-color: oklch(0.42 0.12 205);">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 3h9l3 3v15H6V3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 13h6M9 17h6M14 3v4h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </div>
+                  <h3>Reports</h3>
+                  <p>Published notes, leads, missed opportunities, and follow-up status.</p>
+                </article>
+                <article class="route-card wide">
+                  <div class="route-icon" style="--icon-bg: oklch(0.92 0.045 252); --icon-color: oklch(0.42 0.1 252);">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h7l2 2h7v10H4V7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 13h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                  </div>
+                  <h3>Resources and account</h3>
+                  <p>Files, links, calendar items, billing status, and team access should sit near delivery context.</p>
+                  <div class="route-metrics">
+                    <div class="route-metric"><strong>8</strong><span>Shared resources</span></div>
+                    <div class="route-metric"><strong>3</strong><span>Upcoming milestones</span></div>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section aria-labelledby="states-title">
+              <div class="section-heading">
+                <div>
+                  <h2 id="states-title">Production states</h2>
+                  <p>The real app needs polished loading, empty, and error states before it feels production-ready.</p>
+                </div>
+              </div>
+              <div class="state-grid">
+                <article class="state-card" aria-label="Loading state">
+                  <div class="skeleton-block"></div>
+                  <div class="skeleton-line" style="width: 82%;"></div>
+                  <div class="skeleton-line" style="width: 58%;"></div>
+                </article>
+                <article class="state-card" aria-label="Empty state">
+                  <div class="empty-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true"><path d="M4 7h16v12H4V7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                  </div>
+                  <h3 class="item-title" style="margin-top: 0.75rem;">No client updates yet</h3>
+                  <p class="item-meta">Publish the first visible progress note so the client has a starting point.</p>
+                </article>
+                <article class="state-card" aria-label="Error state">
+                  <div class="alert-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true"><path d="M12 8v5m0 4h.01M10.3 4.5 2.9 17.2A2 2 0 0 0 4.6 20h14.8a2 2 0 0 0 1.7-2.8L13.7 4.5a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </div>
+                  <h3 class="item-title" style="margin-top: 0.75rem;">Could not refresh workspace</h3>
+                  <p class="item-meta">Show a retry action and keep the last known state visible when possible.</p>
+                </article>
+              </div>
+            </section>
+          </div>
+
+          <aside class="side-stack">
+            <section id="queue" class="panel" aria-labelledby="queue-title">
+              <div class="panel-header">
+                <div>
+                  <h2 id="queue-title">Action queue</h2>
+                  <p>Sorted by urgency and ownership.</p>
+                </div>
+                <span class="badge badge-warning">3 active</span>
+              </div>
+              <div class="panel-body queue-list">
+                <article class="queue-item">
+                  <div class="queue-top">
+                    <h3 class="item-title">Approve homepage hero</h3>
+                    <span class="badge badge-warning">Client</span>
+                  </div>
+                  <p class="item-meta">Review copy and confirm whether the CTA should mention strategy call or project quote.</p>
+                </article>
+                <article class="queue-item">
+                  <div class="queue-top">
+                    <h3 class="item-title">Provide destination inbox</h3>
+                    <span class="badge badge-danger">Blocked</span>
+                  </div>
+                  <p class="item-meta">Contact form QA cannot finish until the receiving email is confirmed.</p>
+                </article>
+                <article class="queue-item">
+                  <div class="queue-top">
+                    <h3 class="item-title">Report follow-up question</h3>
+                    <span class="badge badge-info">Team</span>
+                  </div>
+                  <p class="item-meta">Operations is preparing the response for missed opportunity tracking.</p>
+                </article>
+              </div>
+            </section>
+
+            <section id="request" class="panel" aria-labelledby="request-title">
+              <div class="panel-header">
+                <div>
+                  <h2 id="request-title">Submit request</h2>
+                  <p>Inline workflow, not modal-first.</p>
+                </div>
+              </div>
+              <div class="panel-body field-group">
+                <div class="tab-row" role="tablist" aria-label="Request type">
+                  <button class="tab-button is-active" type="button" role="tab" aria-selected="true">Website</button>
+                  <button class="tab-button" type="button" role="tab" aria-selected="false">Content</button>
+                  <button class="tab-button" type="button" role="tab" aria-selected="false">Report</button>
+                  <button class="tab-button" type="button" role="tab" aria-selected="false">Support</button>
+                </div>
+                <div class="field">
+                  <label for="priority">Priority</label>
+                  <select id="priority" class="field-control">
+                    <option>Normal</option>
+                    <option>High</option>
+                    <option>Low</option>
+                  </select>
+                  <div class="field-help">High priority should explain the operational impact.</div>
+                </div>
+                <div class="field">
+                  <label for="request-details">Request details</label>
+                  <textarea id="request-details" class="field-control">Please update the homepage hero copy and send the next preview for approval.</textarea>
+                </div>
+                <button class="button button-primary" type="button">Preview request state</button>
+              </div>
+            </section>
+
+            <section id="reports" class="panel" aria-labelledby="reports-title">
+              <div class="panel-header">
+                <div>
+                  <h2 id="reports-title">Latest report</h2>
+                  <p>Published client report summary.</p>
+                </div>
+                <span class="badge badge-info">May</span>
+              </div>
+              <div class="panel-body update-list">
+                <article class="update-item">
+                  <div class="update-top">
+                    <h3 class="item-title">Visibility report draft</h3>
+                    <span class="badge badge-success">86%</span>
+                  </div>
+                  <p class="item-meta">Leads captured, missed opportunities, follow-up status, completed work, and roadmap recommendations.</p>
+                </article>
+                <div class="health-grid">
+                  <div class="health-card">
+                    <div class="health-label">Leads captured</div>
+                    <div class="health-value">312</div>
+                  </div>
+                  <div class="health-card">
+                    <div class="health-label">Missed opps</div>
+                    <div class="health-value">24</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel" aria-labelledby="resources-title">
+              <div class="panel-header">
+                <div>
+                  <h2 id="resources-title">Resources</h2>
+                  <p>Important links and shared files.</p>
+                </div>
+              </div>
+              <div class="panel-body resource-list">
+                <a class="resource-item" href="#main">
+                  <div class="resource-top">
+                    <strong class="item-title">Latest staging preview</strong>
+                    <span class="badge">Open</span>
+                  </div>
+                  <span class="item-meta">Preview link for current web build.</span>
+                </a>
+                <a class="resource-item" href="#main">
+                  <div class="resource-top">
+                    <strong class="item-title">Brand assets folder</strong>
+                    <span class="badge">Files</span>
+                  </div>
+                  <span class="item-meta">Logo, colors, images, and page copy source.</span>
+                </a>
+              </div>
+            </section>
+          </aside>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const routeCards = document.querySelectorAll(".route-card");
+    routeCards.forEach((card) => {
+      card.addEventListener("pointermove", (event) => {
+        const rect = card.getBoundingClientRect();
+        const x = ((event.clientX - rect.left) / rect.width) * 100;
+        const y = ((event.clientY - rect.top) / rect.height) * 100;
+        card.style.setProperty("--spot-x", `${x}%`);
+        card.style.setProperty("--spot-y", `${y}%`);
+      });
+    });
+
+    const tabs = document.querySelectorAll(".tab-button");
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        tabs.forEach((item) => {
+          item.classList.remove("is-active");
+          item.setAttribute("aria-selected", "false");
+        });
+        tab.classList.add("is-active");
+        tab.setAttribute("aria-selected", "true");
+      });
+    });
+  </script>
+</body>
+</html>

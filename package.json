@@ -1,0 +1,12 @@
+{
+  "name": "internal-company-portal",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "check:skills": "node scripts/check-skills-lock.mjs",
+    "check:backend": "npm --prefix backend test && npm --prefix backend run build && npm --prefix backend audit --audit-level=high",
+    "check:frontend": "npm --prefix frontend test && npm --prefix frontend run lint && npm --prefix frontend run build && npm --prefix frontend audit --audit-level=high",
+    "check:root": "npm audit --audit-level=high",
+    "check": "npm run check:skills && npm run check:backend && npm run check:frontend && npm run check:root"
+  }
+}

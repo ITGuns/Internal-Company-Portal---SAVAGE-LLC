@@ -1,0 +1,512 @@
+/**
+ * Login Page Styles
+ * MyDeskii command-center auth surface with 8px grid spacing
+ */
+
+/* ============================================
+   COMMAND-CENTER COLOR PALETTE - LIGHT MODE
+   ============================================ */
+.loginContainer {
+  /* Background & Surfaces */
+  --login-bg: var(--background);
+  --login-card-bg: var(--card-bg);
+  --login-border: var(--border);
+  
+  /* Text Colors */
+  --login-text-primary: var(--foreground);
+  --login-text-secondary: var(--muted);
+  --login-text-disabled: color-mix(in srgb, var(--muted) 70%, transparent);
+  
+  /* Input Colors */
+  --login-input-bg: var(--card-bg);
+  --login-input-border: var(--border);
+  --login-input-focus: var(--accent);
+  --login-input-text: var(--foreground);
+  --login-input-placeholder: var(--muted);
+  
+  /* Button Colors */
+  --login-btn-bg: var(--accent);
+  --login-btn-text: var(--accent-foreground);
+  --login-btn-hover: color-mix(in srgb, var(--accent) 92%, black);
+  --login-btn-active: color-mix(in srgb, var(--accent) 84%, black);
+  
+  /* Secondary Button */
+  --login-btn-secondary-bg: transparent;
+  --login-btn-secondary-text: var(--foreground);
+  --login-btn-secondary-border: var(--border);
+  --login-btn-secondary-hover: var(--card-surface);
+  
+  /* Shadows & Effects */
+  --login-shadow: rgba(23, 217, 245, 0.16);
+  --login-shadow-hover: rgba(242, 59, 191, 0.18);
+  
+  /* Error States */
+  --login-error: var(--status-blocked);
+  --login-error-bg: var(--status-blocked-bg);
+  --login-error-border: color-mix(in srgb, var(--status-blocked) 28%, var(--border));
+}
+
+/* ============================================
+   COMMAND-CENTER COLOR PALETTE - DARK MODE
+   ============================================ */
+:global(.dark) .loginContainer {
+  /* Background & Surfaces */
+  --login-bg: var(--background);
+  --login-card-bg: var(--card-bg);
+  --login-border: var(--border);
+  
+  /* Text Colors */
+  --login-text-primary: var(--foreground);
+  --login-text-secondary: var(--muted);
+  --login-text-disabled: color-mix(in srgb, var(--muted) 70%, transparent);
+  
+  /* Input Colors */
+  --login-input-bg: var(--card-bg);
+  --login-input-border: var(--border);
+  --login-input-focus: var(--accent);
+  --login-input-text: var(--foreground);
+  --login-input-placeholder: var(--muted);
+  
+  /* Button Colors */
+  --login-btn-bg: var(--accent);
+  --login-btn-text: var(--accent-foreground);
+  --login-btn-hover: color-mix(in srgb, var(--accent) 88%, white);
+  --login-btn-active: color-mix(in srgb, var(--accent) 78%, white);
+  
+  /* Secondary Button */
+  --login-btn-secondary-bg: transparent;
+  --login-btn-secondary-text: var(--foreground);
+  --login-btn-secondary-border: var(--border);
+  --login-btn-secondary-hover: var(--card-surface);
+  
+  /* Shadows & Effects */
+  --login-shadow: rgba(23, 217, 245, 0.2);
+  --login-shadow-hover: rgba(242, 59, 191, 0.2);
+  
+  /* Error States */
+  --login-error: var(--status-blocked);
+  --login-error-bg: var(--status-blocked-bg);
+  --login-error-border: color-mix(in srgb, var(--status-blocked) 38%, var(--border));
+}
+
+/* ============================================
+   LAYOUT
+   ============================================ */
+.loginContainer {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--login-bg);
+  background-image:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 34%),
+    linear-gradient(225deg, color-mix(in srgb, var(--accent-secondary) 10%, transparent), transparent 36%),
+    linear-gradient(180deg, var(--background), color-mix(in srgb, var(--card-surface) 46%, var(--background)));
+  padding: clamp(16px, 4vw, 40px);
+  color: var(--login-text-primary);
+  transition: background-color 200ms var(--ease-out);
+  overflow: hidden;
+  position: relative;
+}
+
+.loginContainer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(102, 220, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(102, 220, 255, 0.07) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: linear-gradient(180deg, transparent, black 20%, black 76%, transparent);
+  opacity: 0.34;
+}
+
+.card {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  max-width: 420px; /* 52.5 grid units */
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--login-card-bg) 94%, white), var(--login-card-bg));
+  border: 1px solid var(--login-border);
+  border-radius: 8px; /* 1 grid unit */
+  padding: 32px;
+  box-shadow: 0 24px 70px -42px var(--login-shadow), 0 18px 54px -46px var(--login-shadow-hover);
+  transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+  backdrop-filter: blur(16px);
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+  opacity: 0.92;
+}
+
+/* ============================================
+   TYPOGRAPHY (Modular Scale 1.25)
+   ============================================ */
+.title {
+  font-size: 1.953rem; /* 31.25px - xl */
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--login-text-primary);
+  margin: 0;
+  text-align: center;
+  letter-spacing: 0;
+}
+
+.subtitle {
+  font-size: 1rem; /* 16px - sm */
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--login-text-secondary);
+  margin: 8px 0 0 0; /* 1 grid unit top */
+  text-align: center;
+}
+
+.header {
+  margin-bottom: 32px; /* 4 grid units */
+}
+
+/* ============================================
+   FORM
+   ============================================ */
+.form {
+  margin-top: 24px; /* 3 grid units */
+}
+
+.formGroup {
+  margin-bottom: 16px; /* 2 grid units */
+}
+
+.formGroup:last-of-type {
+  margin-bottom: 0;
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* 1 grid unit */
+  font-size: 1rem; /* 16px - sm */
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--login-text-primary);
+  margin-bottom: 8px; /* 1 grid unit */
+}
+
+.labelIcon {
+  color: var(--accent);
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 16px; /* 2 grid units */
+  color: var(--login-text-secondary);
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+
+.input {
+  width: 100%;
+  height: 44px;
+  padding: 8px 16px 8px 44px; /* Icon offset */
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--login-input-text);
+  background-color: var(--login-input-bg);
+  border: 1px solid var(--login-input-border);
+  border-radius: 8px; /* 1 grid unit */
+  transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out), background-color 150ms var(--ease-out);
+  outline: none;
+}
+
+.helperText {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--login-text-secondary);
+}
+
+.input::placeholder {
+  color: var(--login-input-placeholder);
+}
+
+.input:focus {
+  border-color: var(--login-input-focus);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--login-input-focus) 16%, transparent);
+}
+
+.input:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--login-input-focus) 45%, var(--login-input-border));
+}
+
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.passwordInput {
+  padding-right: 56px;
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  width: 40px;
+  height: 40px;
+  background: none;
+  border: none;
+  color: var(--login-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 8px;
+  transform: translateY(-50%);
+  transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 150ms var(--ease-out);
+  z-index: 1;
+}
+
+.passwordToggle:hover {
+  color: var(--login-text-primary);
+  background-color: var(--login-btn-secondary-hover);
+}
+
+.passwordToggle:focus-visible {
+  outline: 2px solid var(--login-input-focus);
+  outline-offset: 2px;
+}
+
+.passwordToggle:active {
+  transform: translateY(-50%) scale(0.98);
+}
+
+.eyeIcon {
+  width: 20px;
+  height: 20px;
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+.submitButton {
+  width: 100%;
+  height: 44px;
+  margin-top: 24px; /* 3 grid units */
+  padding: 8px 32px; /* Vertical: 1 unit, Horizontal: 4 units */
+  font-size: 1rem; /* 16px - sm */
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--login-btn-text);
+  background:
+    linear-gradient(135deg, var(--login-btn-bg), color-mix(in srgb, var(--accent-secondary) 72%, var(--login-btn-bg)));
+  border: none;
+  border-radius: 8px; /* 1 grid unit */
+  cursor: pointer;
+  box-shadow: 0 12px 32px -22px var(--accent);
+  transition: box-shadow 160ms var(--ease-out), transform 160ms var(--ease-out), filter 160ms var(--ease-out);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px; /* 1 grid unit */
+}
+
+.submitButton:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 16px 38px -20px var(--accent);
+}
+
+.submitButton:active:not(:disabled) {
+  filter: brightness(0.96);
+  transform: translateY(1px) scale(0.99);
+}
+
+.submitButton:focus-visible {
+  outline: 2px solid var(--login-input-focus);
+  outline-offset: 3px;
+}
+
+.submitButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   ERROR MESSAGE
+   ============================================ */
+.error {
+  margin-top: 16px; /* 2 grid units */
+  padding: 12px 16px; /* 1.5 × 2 grid units */
+  font-size: 1rem; /* 16px - sm */
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--login-error);
+  background-color: var(--login-error-bg);
+  border: 1px solid var(--login-error-border);
+  border-radius: 8px; /* 1 grid unit */
+}
+
+.success {
+  margin-top: 8px;
+  padding: 24px;
+  text-align: center;
+  color: var(--login-text-primary);
+}
+
+.successIcon {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  color: var(--status-completed);
+  background: var(--status-completed-bg);
+}
+
+.successTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+
+.successText {
+  font-size: 0.95rem;
+  color: var(--login-text-secondary);
+  margin: 0 0 12px 0;
+}
+
+.successMeta {
+  font-size: 0.8rem;
+  color: var(--login-text-secondary);
+  margin: 0;
+}
+
+.select {
+  width: 100%;
+  height: 44px;
+  padding: 8px 40px 8px 16px;
+  border-radius: 8px;
+  background-color: var(--login-input-bg);
+  color: var(--login-input-text);
+  border: 1px solid var(--login-input-border);
+  outline: none;
+  color-scheme: inherit;
+  transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out), background-color 150ms var(--ease-out);
+}
+
+.select:focus {
+  border-color: var(--login-input-focus);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--login-input-focus) 16%, transparent);
+}
+
+.select:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--login-input-focus) 45%, var(--login-input-border));
+}
+
+.select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   HELPER LINKS (Forgot Password, Sign Up)
+   ============================================ */
+.forgotPassword {
+  display: block;
+  margin-top: 8px; /* 1 grid unit */
+  font-size: 0.8rem; /* 12.8px - xs */
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--login-text-secondary);
+  text-align: right;
+  text-decoration: none;
+  transition: color 150ms var(--ease-out);
+  cursor: pointer;
+}
+
+.forgotPassword:hover {
+  color: var(--login-text-primary);
+  text-decoration: underline;
+}
+
+.signUpSection {
+  margin-top: 24px; /* 3 grid units */
+  padding-top: 24px; /* 3 grid units */
+  border-top: 1px solid var(--login-border);
+  text-align: center;
+}
+
+.signUpText {
+  font-size: 0.8rem; /* 12.8px - xs */
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--login-text-secondary);
+  margin: 0;
+}
+
+.signUpLink {
+  font-size: 0.8rem; /* 12.8px - xs */
+  font-weight: 500;
+  color: var(--login-text-primary);
+  text-decoration: none;
+  transition: color 150ms var(--ease-out), opacity 150ms var(--ease-out);
+  margin-left: 4px; /* 0.5 grid unit */
+}
+
+.signUpLink:hover {
+  color: var(--accent);
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* ============================================
+   LOADING SPINNER
+   ============================================ */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+@media (max-width: 640px) {
+  .card {
+    padding: 24px;
+  }
+
+  .title {
+    font-size: 1.5625rem; /* 25px - lg - slightly smaller on mobile */
+  }
+  
+  .input {
+    font-size: 1rem; /* 16px prevents zoom on iOS */
+  }
+}
