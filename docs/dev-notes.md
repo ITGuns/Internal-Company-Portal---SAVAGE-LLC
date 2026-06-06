@@ -2951,3 +2951,37 @@
 - Provide or set `RENDER_API_KEY`, then select the Render workspace.
 - Validate and create the Render Blueprint.
 - Update Vercel production variables to the Render backend URL and redeploy the frontend.
+
+## 2026-06-07 - Render Migration Pre-Deploy Wiring
+
+### Completed
+
+- Added Render-specific Prisma migration scripts that read managed-platform environment variables directly instead of requiring `backend/.env.production`.
+- Wired the Render backend Blueprint to run the normal Prisma migration deploy before each backend release.
+- Updated the Render Blueprint to deploy only after linked Git checks pass.
+- Documented how the Render migration command differs from the SSH/Docker `.env.production` command.
+
+### Files Changed
+
+- `backend/package.json`
+- `render.yaml`
+- `docs/deployment.md`
+- `docs/database.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Used a normal migration deploy for Render pre-deploys because the live Supabase database is expected to already contain the application schema.
+- Used `autoDeployTrigger: checksPass` instead of the older commit-trigger behavior so Render waits for GitHub checks.
+- Kept empty-database bootstrap as an explicit one-time operator step guarded by `ALLOW_EMPTY_DATABASE_BOOTSTRAP=true`.
+
+### How to Test
+
+- Run `cmd /c "cd backend && npm run prisma:deploy:render -- --help"` to confirm the managed-platform migration script resolves the Prisma CLI.
+- Run `npx prisma validate` and backend build checks.
+- After Render auth is available, run `render blueprints validate ./render.yaml`.
+
+### Next Steps
+
+- Provide or set `RENDER_API_KEY`, select the Render workspace, and validate the Blueprint with Render.
+- Create the Blueprint, set Supabase secrets, and verify `/health`.

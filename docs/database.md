@@ -23,7 +23,7 @@ npx prisma generate
 
 Use `npm run prisma:migrate` for local development migrations and `npm run prisma:deploy` for deployment migration application.
 
-Production deploys should use `npm run prisma:deploy:production` so Prisma reads `backend/.env.production`.
+Production deploys on an SSH/Docker host should use `npm run prisma:deploy:production` so Prisma reads `backend/.env.production`. Managed platforms that inject environment variables directly, such as Render, should use `npm run prisma:deploy:render`.
 
 For Supabase-backed production, keep runtime and migration connection strings separate:
 

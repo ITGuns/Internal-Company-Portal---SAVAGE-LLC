@@ -11,10 +11,11 @@ services:
     plan: starter
     region: singapore
     branch: main
-    autoDeploy: true
+    autoDeployTrigger: checksPass
     dockerContext: ./backend
     dockerfilePath: ./backend/Dockerfile
     healthCheckPath: /health
+    preDeployCommand: npm run prisma:deploy:render
     envVars:
       - key: NODE_ENV
         value: production

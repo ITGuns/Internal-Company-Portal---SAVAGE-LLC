@@ -106,6 +106,10 @@ render blueprints validate ./render.yaml
 
 The Blueprint validation command is account/workspace-aware. It fails without a Render login or `RENDER_API_KEY`, even when the local YAML parses successfully.
 
+The Render backend runs `npm run prisma:deploy:render` as its pre-deploy command. That command uses Render-injected environment variables directly, so it does not require `backend/.env.production`. For the first deployment to a verified empty database, run `npm run prisma:bootstrap:render` with `ALLOW_EMPTY_DATABASE_BOOTSTRAP=true` before enabling the normal pre-deploy migration path.
+
+The Blueprint uses `autoDeployTrigger: checksPass`, so Render deploys `main` only after the linked Git provider reports passing checks.
+
 After Render creates the backend service, set Vercel production variables:
 
 - `NEXT_PUBLIC_API_URL=https://<render-backend-host>/api`
@@ -186,6 +190,12 @@ Production migration command using `.env.production`:
 
 ```powershell
 npm --prefix backend run prisma:deploy:production
+```
+
+Managed-platform migration command using existing environment variables:
+
+```powershell
+npm --prefix backend run prisma:deploy:render
 ```
 
 First empty-database bootstrap command:
