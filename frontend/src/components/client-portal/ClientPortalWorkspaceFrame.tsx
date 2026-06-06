@@ -2,7 +2,6 @@
 
 import React from "react";
 import { Activity, BriefcaseBusiness, CheckCircle2, FileText, Gauge } from "lucide-react";
-import Header from "@/components/Header";
 import EmptyState from "@/components/ui/EmptyState";
 import { ProductionMetricStrip, type ProductionMetricItem } from "@/components/workspace/ProductionWorkspace";
 import {
@@ -28,9 +27,7 @@ export default function ClientPortalWorkspaceFrame({
 
   return (
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
-      <div className="p-6 pt-0">
-        <Header title={title} subtitle={subtitle} />
-
+      <div className="p-4 sm:p-6">
         <div className="mt-6 space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             {organizations.length > 1 ? (

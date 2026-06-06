@@ -2709,3 +2709,58 @@
 ### Next Steps
 
 - Add screenshots beside the table later if the team wants a more visual onboarding handout.
+
+## 2026-06-06 - Client Portal Sidebar-Only Shell Fix
+
+### Completed
+
+- Removed the fixed top header from client-facing `/client` portal pages.
+- Kept the admin and client-operations admin routes on the existing top-header shell.
+- Removed client-route top padding reservation so the client portal uses the sidebar-only layout without a blank header gap.
+
+### Files Changed
+
+- `frontend/src/components/LayoutWrapper.tsx`
+- `frontend/src/app/client/page.tsx`
+- `frontend/src/app/client/tickets/page.tsx`
+- `frontend/src/components/client-portal/ClientPortalWorkspaceFrame.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Scoped the shell change to `/client` and `/client/*` only.
+- Left `/operations/clients/*` untouched because those are admin client-operations pages, not the client portal.
+
+### How to Test
+
+- Start the frontend and backend locally.
+- Log in as a client user and open `/client`, `/client/tickets`, and another `/client/*` route.
+- Confirm only the side navigation is visible on client portal routes.
+- Log in as admin and open `/dashboard` or `/operations/clients` to confirm the top header still appears there.
+
+### Next Steps
+
+- Commit and push this focused fix after the rendered verification pass.
+
+## 2026-06-06 - Work Dashboard Header Alignment Fix
+
+### Completed
+
+- Fixed the work/admin dashboard header alignment by moving the fixed `Header` outside the animated centered dashboard content wrapper.
+- Preserved the admin/work dashboard top header and sidebar behavior.
+
+### Files Changed
+
+- `frontend/src/app/dashboard/page.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- The root cause was the dashboard `Header` living inside an animated wrapper that computed a transform, causing fixed positioning to anchor to the wrapper instead of the viewport.
+- Kept the fix scoped to `/dashboard` because other admin routes do not wrap the fixed header in the same animated centered container.
+
+### How to Test
+
+- Open `/dashboard` at desktop width and confirm the top header starts immediately after the sidebar and spans the work area.
+- Confirm the dashboard content remains centered below the fixed header.
+- Run the focused rendered geometry check for `/dashboard`.

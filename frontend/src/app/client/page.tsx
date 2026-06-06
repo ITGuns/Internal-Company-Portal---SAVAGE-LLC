@@ -23,7 +23,6 @@ import ClientActionQueue from "@/components/client-portal/ClientActionQueue";
 import ClientActivityTimeline from "@/components/client-portal/ClientActivityTimeline";
 import ChoiceGroup from "@/components/client-portal/ChoiceGroup";
 import TicketDetailPresets from "@/components/client-portal/TicketDetailPresets";
-import Header from "@/components/Header";
 import EmptyState from "@/components/ui/EmptyState";
 import StatusBadge from "@/components/ui/StatusBadge";
 import {
@@ -188,9 +187,7 @@ export default function ClientPortalPage() {
 
   return (
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
-      <div className="p-4 pt-0 sm:p-6 sm:pt-0">
-        <Header title="Client Portal" subtitle="Progress, requests, approvals, reports, resources, and next actions." />
-
+      <div className="p-4 sm:p-6">
         {loading ? (
           <div className="mt-6 text-sm text-[var(--muted)]">Loading client workspace...</div>
         ) : organizations.length === 0 ? (

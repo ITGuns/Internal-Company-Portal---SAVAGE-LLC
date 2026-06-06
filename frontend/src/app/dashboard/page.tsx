@@ -380,9 +380,8 @@ export default function DashboardPage() {
 
   return (
     <main className="main-content-height bg-transparent text-[var(--foreground)]">
+      <Header />
       <div className="motion-content-enter mx-auto max-w-[1480px] p-4 pt-3 md:p-6">
-        <Header />
-
         <div className="mt-5 grid grid-cols-1 items-start gap-4 xl:mt-8 xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="space-y-4">
             <Card padding="lg" className="relative overflow-hidden">

@@ -20,6 +20,7 @@ interface LayoutWrapperProps {
 function AuthenticatedShell({ children }: LayoutWrapperProps) {
   const pathname = usePathname();
   const { desktopCollapsed } = useSidebar();
+  const isClientPortalRoute = pathname === '/client' || pathname.startsWith('/client/');
 
   // Routes where sidebar should be hidden
   const noSidebarRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'];
@@ -39,7 +40,10 @@ function AuthenticatedShell({ children }: LayoutWrapperProps) {
           'transition-[padding-left,padding-top] duration-200 ease-[var(--ease-out)]',
           hideSidebar
             ? 'min-h-[100dvh] bg-[var(--background)] text-[var(--foreground)]'
-            : 'min-h-[100dvh] bg-transparent pt-20 text-[var(--foreground)] md:pt-24',
+            : cn(
+                'min-h-[100dvh] bg-transparent text-[var(--foreground)]',
+                !isClientPortalRoute && 'pt-20 md:pt-24',
+              ),
           !hideSidebar && (desktopCollapsed ? 'md:pl-20' : 'md:pl-72'),
         )}
       >
