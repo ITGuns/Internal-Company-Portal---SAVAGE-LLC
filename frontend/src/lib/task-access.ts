@@ -22,13 +22,20 @@ export interface TaskAssignmentDefaults {
 
 const TASK_ASSIGNMENT_PRIVILEGED_ROLES = new Set([
   "admin",
+  "administrator",
   "manager",
+  "project_manager",
   "operations_manager",
   "chief_operations_officer",
+  "owner_founder",
+  "owners_founders",
+  "owner",
+  "founder",
+  "overlord",
 ]);
 
 export function normalizeRoleName(role: string): string {
-  return role.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return role.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
 
 export function canManageTaskAssignments(user: TaskAccessUser | null | undefined): boolean {

@@ -12,23 +12,32 @@ const department = { id: 'dept-website', name: 'Website Developers' }
 
 assert.equal(normalizeRoleName('Operations Manager'), 'operations_manager')
 assert.equal(normalizeRoleName(' operations_manager '), 'operations_manager')
+assert.equal(normalizeRoleName('Backend / Technical Developer'), 'backend_technical_developer')
 
 assert.equal(
   hasTaskAssignmentPrivilege([{ role: 'Operations Manager', departmentId: department.id }]),
   true,
 )
 assert.equal(
-  hasTaskAssignmentPrivilege([{ role: 'Web Development Assistant', departmentId: department.id }]),
+  hasTaskAssignmentPrivilege([{ role: 'Project Manager', departmentId: 'dept-project' }]),
+  true,
+)
+assert.equal(
+  hasTaskAssignmentPrivilege([{ role: 'Owner / Founder', departmentId: 'dept-owner' }]),
+  true,
+)
+assert.equal(
+  hasTaskAssignmentPrivilege([{ role: 'Frontend Developer', departmentId: department.id }]),
   false,
 )
 
 assert.deepEqual(
   getPrimaryTaskAssignment([
     { role: 'admin', departmentId: null },
-    { role: 'Web Development Assistant', departmentId: department.id, department },
+    { role: 'Frontend Developer', departmentId: department.id, department },
   ]),
   {
-    role: 'Web Development Assistant',
+    role: 'Frontend Developer',
     departmentId: department.id,
     departmentName: department.name,
   },

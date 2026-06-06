@@ -1,3 +1,9 @@
+import {
+  hasManagementAccess,
+  isManagementRoleName,
+  normalizeOrgRoleName,
+} from '../org/org-access-policy'
+
 export interface TaskRoleAssignment {
   role: string
   departmentId?: string | null
@@ -23,19 +29,12 @@ export interface ReadableTask {
   createdById?: string | null
 }
 
-const TASK_ASSIGNMENT_PRIVILEGED_ROLES = new Set([
-  'admin',
-  'manager',
-  'operations_manager',
-  'chief_operations_officer',
-])
-
 export function normalizeRoleName(role: string): string {
-  return role.trim().toLowerCase().replace(/[\s-]+/g, '_')
+  return normalizeOrgRoleName(role)
 }
 
 export function hasTaskAssignmentPrivilege(roles: TaskRoleAssignment[]): boolean {
-  return roles.some((role) => TASK_ASSIGNMENT_PRIVILEGED_ROLES.has(normalizeRoleName(role.role)))
+  return hasManagementAccess(roles)
 }
 
 export function getPrimaryTaskAssignment(roles: TaskRoleAssignment[]): PrimaryTaskAssignment | null {
@@ -43,7 +42,7 @@ export function getPrimaryTaskAssignment(roles: TaskRoleAssignment[]): PrimaryTa
   if (rolesWithDepartment.length === 0) return null
 
   const primary =
-    rolesWithDepartment.find((assignment) => !TASK_ASSIGNMENT_PRIVILEGED_ROLES.has(normalizeRoleName(assignment.role))) ||
+    rolesWithDepartment.find((assignment) => !isManagementRoleName(assignment.role)) ||
     rolesWithDepartment[0]
 
   if (!primary.departmentId) return null

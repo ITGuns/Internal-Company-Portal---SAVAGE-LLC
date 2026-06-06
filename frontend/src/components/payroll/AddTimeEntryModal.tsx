@@ -15,7 +15,7 @@ import {
   validateTimeEntryForm,
 } from "@/lib/payroll-calendar/time-entry-form";
 import { useUser } from "@/contexts/UserContext";
-import { hasManagementAccess } from "@/lib/role-access";
+import { hasPayrollManagementAccess } from "@/lib/role-access";
 
 interface AddTimeEntryModalProps {
   isOpen: boolean;
@@ -43,7 +43,7 @@ export default function AddTimeEntryModal({
   auditContextLabel,
 }: AddTimeEntryModalProps) {
   const { user } = useUser();
-  const isAdmin = hasManagementAccess(user);
+  const isAdmin = hasPayrollManagementAccess(user);
   const fallbackUserId = user?.id != null ? user.id.toString() : undefined;
   const isEditMode = mode === "edit" && Boolean(editingEntry);
 

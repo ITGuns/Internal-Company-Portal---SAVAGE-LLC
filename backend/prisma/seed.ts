@@ -4,6 +4,10 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import 'dotenv/config'
 import * as bcrypt from 'bcrypt'
 import { upsertClientServiceTierPresets } from '../src/clients/client-service-tier-presets'
+import {
+    ORG_DEPARTMENT_ROLE_CATALOG,
+    normalizeOrgRoleName,
+} from '../src/org/org-access-policy'
 
 const connectionString = (process.env.DATABASE_URL || '').trim()
 const seedPassword = (process.env.SEED_DEFAULT_PASSWORD || '').trim()
@@ -30,51 +34,45 @@ function isLocalDatabaseUrl(url: string): boolean {
     return /\/\/(?:[^@/]+@)?(?:localhost|127\.0\.0\.1)(?::|\/)/i.test(url)
 }
 
-const DEMO_DEPARTMENTS = {
-    engineering: {
-        name: 'Engineering',
-        driveId: 'sample-drive-id-engineering',
-    },
-    marketing: {
-        name: 'Marketing',
-        driveId: 'sample-drive-id-marketing',
-    },
-    operations: {
-        name: 'Operations',
-        driveId: 'sample-drive-id-operations',
-    },
+const DEMO_DEPARTMENT_DRIVE_IDS: Record<string, string> = {
+    'Owners / Founders': 'sample-drive-id-owners-founders',
+    'Project Management': 'sample-drive-id-project-management',
+    Operations: 'sample-drive-id-operations',
+    'Digital Marketing': 'sample-drive-id-digital-marketing',
+    'Analytics / Data': 'sample-drive-id-analytics-data',
+    'Automation / Tech': 'sample-drive-id-automation-tech',
+    'Website Developers': 'sample-drive-id-website-developers',
+    'Payroll / Finance': 'sample-drive-id-payroll-finance',
 }
 
 async function main() {
     console.log('Starting synthetic local database seed...')
 
-    const engineering = await prisma.department.upsert({
-        where: { name: DEMO_DEPARTMENTS.engineering.name },
-        update: {},
-        create: DEMO_DEPARTMENTS.engineering,
-    })
+    const departmentsByName = new Map<string, { id: string; name: string }>()
 
-    const marketing = await prisma.department.upsert({
-        where: { name: DEMO_DEPARTMENTS.marketing.name },
-        update: {},
-        create: DEMO_DEPARTMENTS.marketing,
-    })
-
-    const operations = await prisma.department.upsert({
-        where: { name: DEMO_DEPARTMENTS.operations.name },
-        update: {},
-        create: DEMO_DEPARTMENTS.operations,
-    })
+    for (const entry of ORG_DEPARTMENT_ROLE_CATALOG) {
+        const department = await prisma.department.upsert({
+            where: { name: entry.department },
+            update: {},
+            create: {
+                name: entry.department,
+                driveId: DEMO_DEPARTMENT_DRIVE_IDS[entry.department] || null,
+            },
+        })
+        departmentsByName.set(department.name, department)
+    }
 
     console.log('Created departments')
 
-    const availableRoles = [
-        { name: 'Web Developer', departmentId: engineering.id },
-        { name: 'Head of 3D Modeling', departmentId: engineering.id },
-        { name: 'Operations Manager', departmentId: operations.id },
-        { name: 'Operations Assistant', departmentId: operations.id },
-        { name: 'Project Manager', departmentId: marketing.id },
-    ]
+    const availableRoles = ORG_DEPARTMENT_ROLE_CATALOG.flatMap((entry) => {
+        const department = departmentsByName.get(entry.department)
+        if (!department) throw new Error(`Missing seeded department: ${entry.department}`)
+
+        return entry.roles.map((name) => ({
+            name,
+            departmentId: department.id,
+        }))
+    })
 
     for (const role of availableRoles) {
         await prisma.availableRole.upsert({
@@ -123,14 +121,14 @@ async function main() {
                 userId_departmentId_role: {
                     userId: user.id,
                     departmentId: deptId,
-                    role: roleName.toLowerCase().replace(/ /g, '_'),
+                    role: normalizeOrgRoleName(roleName),
                 },
             },
             update: {},
             create: {
                 userId: user.id,
                 departmentId: deptId,
-                role: roleName.toLowerCase().replace(/ /g, '_'),
+                role: normalizeOrgRoleName(roleName),
             },
         })
 
@@ -161,12 +159,70 @@ async function main() {
     }
 
     console.log('Seeding synthetic users...')
-    await createUser('ops.manager@example.test', 'Demo Operations Manager', 'Operations Manager', operations.id, 'active', true)
-    await createUser('ops.assistant@example.test', 'Demo Operations Assistant', 'Operations Assistant', operations.id, 'pending', false)
-    await createUser('modeling.lead@example.test', 'Demo Modeling Lead', 'Head of 3D Modeling', engineering.id, 'pending', false)
-    await createUser('web.developer@example.test', 'Demo Web Developer', 'Web Developer', engineering.id, 'pending', false)
-    await createUser('project.manager@example.test', 'Demo Project Manager', 'Project Manager', marketing.id, 'pending', false)
-    await createUser('admin@example.test', 'Demo Admin', 'admin', operations.id, 'active', true)
+    await createUser(
+        'founder@example.test',
+        'Demo Owner Founder',
+        'Owner / Founder',
+        departmentsByName.get('Owners / Founders')!.id,
+        'active',
+        true,
+    )
+    await createUser(
+        'ops.manager@example.test',
+        'Demo Operations Manager',
+        'Operations Manager',
+        departmentsByName.get('Operations')!.id,
+        'active',
+        true,
+    )
+    await createUser(
+        'ops.assistant@example.test',
+        'Demo Fulfillment VA',
+        'Fulfillment / Logistics VA',
+        departmentsByName.get('Operations')!.id,
+        'pending',
+        false,
+    )
+    await createUser(
+        'backend.developer@example.test',
+        'Demo Backend Developer',
+        'Backend / Technical Developer',
+        departmentsByName.get('Website Developers')!.id,
+        'pending',
+        false,
+    )
+    await createUser(
+        'web.developer@example.test',
+        'Demo Frontend Developer',
+        'Frontend Developer',
+        departmentsByName.get('Website Developers')!.id,
+        'pending',
+        false,
+    )
+    await createUser(
+        'project.manager@example.test',
+        'Demo Project Manager',
+        'Project Manager',
+        departmentsByName.get('Project Management')!.id,
+        'pending',
+        false,
+    )
+    await createUser(
+        'bookkeeping@example.test',
+        'Demo Bookkeeping',
+        'Bookkeeping',
+        departmentsByName.get('Payroll / Finance')!.id,
+        'active',
+        true,
+    )
+    await createUser(
+        'admin@example.test',
+        'Demo Admin',
+        'admin',
+        departmentsByName.get('Owners / Founders')!.id,
+        'active',
+        true,
+    )
 
     console.log('Database seeded successfully with synthetic demo users.')
 }

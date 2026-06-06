@@ -1,3 +1,5 @@
+import { hasManagementAccess } from '../org/org-access-policy'
+
 export interface DailyLogDepartmentRole {
     role: string
     departmentId?: string | null
@@ -9,18 +11,6 @@ export interface DailyLogDepartmentRole {
 export type DailyLogDepartmentResult =
     | { ok: true; department: string }
     | { ok: false; status: 400 | 403; error: string }
-
-const DAILY_LOG_DEPARTMENT_OVERRIDE_ROLES = new Set([
-    'admin',
-    'administrator',
-    'manager',
-    'operations_manager',
-    'chief_operations_officer',
-])
-
-function normalizeRoleName(role: string): string {
-    return role.trim().toLowerCase().replace(/[\s-]+/g, '_')
-}
 
 function cleanDepartmentName(department?: string | null): string {
     return String(department || '').trim()
@@ -35,7 +25,7 @@ export function canOverrideDailyLogDepartment(
     isPrivilegedEmail = false,
 ): boolean {
     if (isPrivilegedEmail) return true
-    return roles.some((assignment) => DAILY_LOG_DEPARTMENT_OVERRIDE_ROLES.has(normalizeRoleName(assignment.role)))
+    return hasManagementAccess(roles)
 }
 
 export function getPrimaryDailyLogDepartment(roles: DailyLogDepartmentRole[]): string | null {

@@ -1,5 +1,6 @@
 import { PrismaClient, AvailableRole } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
+import { mergeSignupRolesForDepartment, type SignupRoleOption } from '../auth/signup-role-options'
 
 export interface CreateRoleDto {
     name: string
@@ -16,27 +17,40 @@ export class RolesService {
     /**
      * Get all available roles
      */
-    async findAll(): Promise<AvailableRole[]> {
-        return this.prisma.availableRole.findMany({
+    async findAll(): Promise<SignupRoleOption[]> {
+        const departments = await this.prisma.department.findMany({
             include: {
-                department: true
+                availableRoles: true,
             },
             orderBy: {
                 name: 'asc',
             },
         })
+
+        return departments
+            .flatMap((department) => mergeSignupRolesForDepartment(department))
+            .sort((left, right) =>
+                (left.department?.name || '').localeCompare(right.department?.name || '') ||
+                left.name.localeCompare(right.name)
+            )
     }
 
     /**
      * Get roles by department
      */
-    async findByDepartment(departmentId: string): Promise<AvailableRole[]> {
-        return this.prisma.availableRole.findMany({
-            where: { departmentId },
-            orderBy: {
-                name: 'asc',
+    async findByDepartment(departmentId: string): Promise<SignupRoleOption[]> {
+        const department = await this.prisma.department.findUnique({
+            where: { id: departmentId },
+            include: {
+                availableRoles: true,
             },
         })
+
+        if (!department) return []
+
+        return mergeSignupRolesForDepartment(department).sort((left, right) =>
+            left.name.localeCompare(right.name)
+        )
     }
 
     /**

@@ -37,7 +37,7 @@ test('uses department availableRoles for signup role choices', () => {
       id: 'dept-web',
       name: 'Website Developers',
       availableRoles: [
-        { id: 'role-full-stack', name: 'Full Stack Developer', departmentId: 'dept-web' },
+        { id: 'role-frontend', name: 'Frontend Developer', departmentId: 'dept-web' },
       ],
     },
     {
@@ -50,7 +50,7 @@ test('uses department availableRoles for signup role choices', () => {
   ], 'dept-web');
 
   assert.deepEqual(roles, [
-    { id: 'role-full-stack', name: 'Full Stack Developer', departmentId: 'dept-web' },
+    { id: 'role-frontend', name: 'Frontend Developer', departmentId: 'dept-web' },
   ]);
 });
 

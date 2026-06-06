@@ -32,6 +32,7 @@ import {
   DEPARTMENTS,
 } from '@/lib/file-directory';
 import type { FileDirectory } from '@/lib/file-directory-types';
+import { hasFullAccess } from '@/lib/role-access';
 
 // Drive live mode state
 interface DriveMode {
@@ -76,7 +77,7 @@ function buildBreadcrumbs(allFolders: FileDirectory[], folderId: string | null):
 export default function FileDirectoryPage() {
   const toast = useToast();
   const { user } = useUser();
-  const userRole = user?.role;
+  const userHasFullAccess = hasFullAccess(user);
   const userDepartment = user?.department;
 
   // Navigation state
@@ -100,13 +101,13 @@ export default function FileDirectoryPage() {
 
   // Set department filter based on role once user loads
   useEffect(() => {
-    if (!userRole && !userDepartment) return;
-    if (userRole === 'admin') {
+    if (!userHasFullAccess && !userDepartment) return;
+    if (userHasFullAccess) {
       setDepartmentFilter('All Departments'); // admins see everything
     } else if (userDepartment) {
       setDepartmentFilter(userDepartment);
     }
-  }, [userRole, userDepartment]);
+  }, [userHasFullAccess, userDepartment]);
 
   // Load folders from backend
   const loadFolders = useCallback(async () => {

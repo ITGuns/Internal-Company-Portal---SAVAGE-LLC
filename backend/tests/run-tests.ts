@@ -10,6 +10,7 @@ const tests = [
   'tasks.permissions.test.ts',
   'daily-logs.department.test.ts',
   'signup.requests.test.ts',
+  'org-catalog-sync.test.ts',
   'payroll.permissions.test.ts',
   'users.security.test.ts',
   'users.onboarding.test.ts',

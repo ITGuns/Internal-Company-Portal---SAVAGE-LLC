@@ -1,6 +1,11 @@
 import crypto from 'node:crypto'
 import { PrismaClient, User, Prisma } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
+import {
+    findMergedSignupRoleById,
+    isDefaultSignupRoleId,
+    type SignupRoleOption,
+} from '../auth/signup-role-options'
 
 const ONBOARDING_SETUP_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000
 
@@ -37,6 +42,22 @@ export class UsersService {
 
     constructor() {
         this.prisma = prisma
+    }
+
+    private async resolveOnboardingRole(roleId: string): Promise<SignupRoleOption | null> {
+        const configuredRole = await this.prisma.availableRole.findUnique({
+            where: { id: roleId },
+            include: { department: true },
+        })
+
+        if (configuredRole) return configuredRole
+        if (!isDefaultSignupRoleId(roleId)) return null
+
+        const departments = await this.prisma.department.findMany({
+            include: { availableRoles: true },
+        })
+
+        return findMergedSignupRoleById(departments, roleId)
     }
 
     /**
@@ -130,10 +151,7 @@ export class UsersService {
 
     async createOnboardingInvitation(data: CreateUserOnboardingInvitationDto) {
         const normalizedEmail = data.email.trim().toLowerCase()
-        const role = await this.prisma.availableRole.findUnique({
-            where: { id: data.roleId },
-            include: { department: true },
-        })
+        const role = await this.resolveOnboardingRole(data.roleId)
 
         if (!role) {
             throw new UserOnboardingValidationError('Invalid onboarding role')

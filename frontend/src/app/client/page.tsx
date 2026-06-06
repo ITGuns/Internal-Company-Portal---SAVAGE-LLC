@@ -21,7 +21,6 @@ import {
 import Button from "@/components/Button";
 import ClientActionQueue from "@/components/client-portal/ClientActionQueue";
 import ClientActivityTimeline from "@/components/client-portal/ClientActivityTimeline";
-import ClientPortalTopNav from "@/components/client-portal/ClientPortalTopNav";
 import ChoiceGroup from "@/components/client-portal/ChoiceGroup";
 import TicketDetailPresets from "@/components/client-portal/TicketDetailPresets";
 import Header from "@/components/Header";
@@ -191,7 +190,6 @@ export default function ClientPortalPage() {
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-4 pt-0 sm:p-6 sm:pt-0">
         <Header title="Client Portal" subtitle="Progress, requests, approvals, reports, resources, and next actions." />
-        <ClientPortalTopNav />
 
         {loading ? (
           <div className="mt-6 text-sm text-[var(--muted)]">Loading client workspace...</div>

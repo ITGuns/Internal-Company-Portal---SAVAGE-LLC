@@ -11,6 +11,7 @@ import { useUser } from '@/contexts/UserContext'
 import { useRouter } from 'next/navigation'
 import Button from '@/components/Button'
 import Header from '@/components/Header'
+import { hasFullAccess } from '@/lib/role-access'
 
 type Tool = 'pencil' | 'eraser' | 'rect' | 'circle' | 'line'
 const INITIAL_COLOR = '#3b82f6'
@@ -28,7 +29,7 @@ export default function WhiteboardPage() {
 
   // Auth Check
   useEffect(() => {
-    if (user && user.role?.toLowerCase() !== 'admin') {
+    if (user && !hasFullAccess(user)) {
       router.push('/dashboard')
     }
   }, [user, router])

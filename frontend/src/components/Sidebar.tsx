@@ -30,10 +30,10 @@ import { fetchClientOrganizations } from '@/lib/client-portal';
 import { CLIENT_PORTAL_NAV_ITEMS } from '@/lib/client-portal-navigation';
 import { isSidebarNavItemActive, type SidebarNavActiveMode } from '@/lib/sidebar-navigation';
 import {
-  getUserRoleNames,
   hasClientOperationsAccess,
   hasClientPortalAccess,
   hasClientWorkspaceShellAccess,
+  hasFullAccess,
   hasManagementAccess,
 } from '@/lib/role-access';
 import { cn } from '@/lib/utils';
@@ -116,7 +116,7 @@ export default function Sidebar() {
   const { desktopCollapsed, mobileOpen, closeMobileSidebar } = useSidebar();
   const [hasClientWorkspace, setHasClientWorkspace] = useState(false);
   const [clientWorkspaceChecked, setClientWorkspaceChecked] = useState(false);
-  const isAdmin = getUserRoleNames(user).includes('admin');
+  const canUseFullAccessAdmin = hasFullAccess(user);
   const canAccessClientOperations = useMemo(() => hasClientOperationsAccess(user), [user]);
   const canUseOperationsAdmin = useMemo(() => hasManagementAccess(user), [user]);
   const hasRoleBasedClientPortalAccess = useMemo(() => hasClientPortalAccess(user), [user]);
@@ -193,9 +193,9 @@ export default function Sidebar() {
     ? []
     : [
         ...(canUseOperationsAdmin ? [{ href: '/operations', icon: ShieldCheck, label: 'Operations', activeMode: 'exact' as SidebarNavActiveMode }] : []),
-        ...(isAdmin ? [{ href: '/operations/onboarding', icon: UserPlus, label: 'Onboarding' }] : []),
+        ...(canUseFullAccessAdmin ? [{ href: '/operations/onboarding', icon: UserPlus, label: 'Onboarding' }] : []),
         ...(canAccessClientOperations ? [{ href: '/operations/clients', icon: BriefcaseBusiness, label: 'Clients' }] : []),
-        ...(isAdmin ? [{ href: '/whiteboard', icon: Grid, label: 'Whiteboard' }] : []),
+        ...(canUseFullAccessAdmin ? [{ href: '/whiteboard', icon: Grid, label: 'Whiteboard' }] : []),
       ];
 
   return (

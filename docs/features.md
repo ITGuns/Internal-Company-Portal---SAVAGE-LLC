@@ -25,7 +25,7 @@ Task tracking supports calendar, board, and list views for task status, assignme
 - Unavailable, deleted, or unauthorized task detail links show an inline warning instead of failing silently.
 - Employee-created tasks derive assignee, department, and role from the employee's assigned `UserRole`.
 - Employees do not manually choose their own assignee or role in the task modal.
-- Admins, managers, operations managers, and chief operations officers can assign tasks to other employees.
+- Full-access admins, project managers, operations managers, and chief operations officers can assign tasks to other employees.
 - Manager/admin assignment controls include an `Assign to me` shortcut.
 - Selecting an assignee in the task modal auto-fills that employee's primary department and role when available.
 - New task records store `createdById` separately from `assigneeId`, so requester visibility no longer depends only on assignment.
@@ -44,7 +44,7 @@ Task tracking supports calendar, board, and list views for task status, assignme
 Daily logs track EOD, weekly, and monthly work summaries by date, department, status, hours, task list, and shift notes.
 
 - Employee logs use the department assigned to the employee account.
-- Managers/admins can review or override log departments when their access allows it.
+- Full-access admins, project managers, operations managers, and chief operations officers can review or override log departments when their access allows it.
 - Task Tracking report posts create real Daily Log records and refresh Daily Logs after submission.
 
 ### Task Import Behavior
@@ -72,13 +72,18 @@ Signup creates a pending account and preserves the requested department/role wit
 - Pending accounts have no active `UserRole` records.
 - Approval deploys the employee, marks the account approved, and assigns the requested department/role.
 - Approval now requires an existing or requested role/department assignment; applications missing both are rejected with a clear error instead of creating approved users without roles.
-- Admins and authorized operations managers can approve pending employee applications.
+- Full-access admins, project managers, operations managers, and chief operations officers can approve pending employee applications.
 - Admin onboarding under `/operations/onboarding` lets admins generate approved setup links by entering an email and selecting a role. The user follows the link to set and confirm their password through the reset-password flow.
 
 ## Operations
 
 Operations manages departments, role options, and client account administration.
 
+- The default onboarding org chart uses these departments: Owners / Founders, Project Management, Operations, Digital Marketing, Analytics / Data, Automation / Tech, Website Developers, and Payroll / Finance.
+- Default role options are maintained in the backend org catalog and mirrored in frontend static department helpers for payroll/file-directory forms.
+- Role-option APIs preserve existing configured roles and add missing org-chart defaults for matching departments, so admin onboarding is not blocked by stale seed data.
+- Admin Operations syncs the default org chart into persisted department and role rows so `/operations` displays the planned structure even on databases that still contain older department records.
+- The Operations `Members` tab lists internal users/employees, shows their active authorization groups, and lets full-access admins add or remove role assignments through the server-controlled user-role APIs.
 - Department and role deletes now require a typed confirmation modal.
 - The delete action stays disabled until the exact target name is typed.
 - Department delete confirmation displays linked task and user-role counts when provided by the API.
@@ -89,6 +94,7 @@ Operations manages departments, role options, and client account administration.
 - Client service tiers include the SOP-derived presets: Standard Business Website, Growth Business Website, Conversion and Local Growth System, Managed Growth Website System, and Premium Managed Growth System.
 - `/operations/clients/delivery`, `/operations/clients/requests`, `/operations/clients/approvals`, `/operations/clients/reports`, `/operations/clients/assets`, `/operations/clients/billing`, `/operations/clients/roadmap`, and `/operations/clients/calendar` split client production records into focused admin work areas.
 - Client Operations separates current client accounts from archived history so removed clients do not crowd the active working list.
+- Detailed admin/client adoption workflows are documented in `docs/admin-client-workflows.md`.
 
 ## Client Portal Foundation
 
@@ -96,7 +102,7 @@ MyDeskii includes the backend and frontend foundation for a client-facing portal
 
 - Client portal records are grouped under `ClientOrganization`.
 - Client users are scoped through active `ClientMembership` records on active client organizations and cannot see other organizations or archived clients.
-- Internal managers/admins can create client organizations, manage service tiers, delete unused tiers, invite client contacts, assign existing approved users, and review cross-client portal data.
+- Internal full-access, management, and website-delivery users can create client organizations, manage service tiers, delete unused tiers, invite client contacts, assign existing approved users, and review cross-client portal data.
 - Client-facing serializers omit internal organization notes, raw tier IDs, internal tier price/priority, ticket assignment fields, internal ticket comments, and inactive client memberships.
 - `/client` is the client command center for assigned clients.
 - `/client/work`, `/client/approvals`, `/client/messages`, `/client/reports`, `/client/resources`, `/client/account`, `/client/calendar`, and `/client/tickets` provide focused client-facing work, approval, communication, reporting, resource, account, schedule, and request surfaces.
@@ -112,8 +118,8 @@ Payroll Calendar tracks calendar events, employee time entries, and payroll revi
 ### Day Review Behavior
 
 - `/payroll-calendar?tab=calendar` opens the calendar tab; `/payroll-calendar?tab=employees&view=pending` opens pending employee review for authorized managers/admins.
-- Managers/admins can use the calendar employee selector or `/payroll-calendar?tab=calendar&userId=:userId` to audit another employee's time entries.
-- Manager audit controls include employee search plus start/end date filters, and the selected audit context is reflected in the URL.
+- Payroll-management users can use the calendar employee selector or `/payroll-calendar?tab=calendar&userId=:userId` to audit another employee's time entries.
+- Payroll-management audit controls include employee search plus start/end date filters, and the selected audit context is reflected in the URL.
 - Employee audit mode hides clock-in/out controls and keeps manual entry/edit actions routed through backend payroll permissions.
 - Manager-created or edited employee time entries prompt for correction notes so payroll review has context.
 - Clicking a calendar date opens a day review panel in the sidebar.

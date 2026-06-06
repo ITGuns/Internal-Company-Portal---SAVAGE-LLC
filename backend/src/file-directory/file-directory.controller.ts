@@ -3,6 +3,7 @@ import { FileDirectoryService } from './file-directory.service'
 import { AuthRequest, authenticateToken } from '../auth/auth.middleware'
 import { prisma } from '../database/prisma.service'
 import { isAdminEmail } from '../config/env.config'
+import { hasFullAccess } from '../org/org-access-policy'
 
 export class FileDirectoryController {
     private service = new FileDirectoryService()
@@ -16,7 +17,7 @@ export class FileDirectoryController {
                 where: { userId },
                 include: { department: true }
             });
-            const isGlobalAdmin = dbRoles.some(r => r.role === 'admin' || r.role === 'Overlord');
+            const isGlobalAdmin = hasFullAccess(dbRoles);
             return {
                 role: isGlobalAdmin ? 'admin' : (dbRoles[0]?.role || 'member'),
                 departments: dbRoles.map(r => r.department?.name).filter(Boolean) as string[]

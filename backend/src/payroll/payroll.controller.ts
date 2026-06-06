@@ -23,6 +23,17 @@ interface AuthRequest extends Request {
     }
 }
 
+const PAYROLL_MANAGEMENT_ROUTE_ROLES = [
+    'admin',
+    'administrator',
+    'operations_manager',
+    'bookkeeper',
+    'bookkeeping',
+    'contractor_salary_payments',
+    'financial_controller',
+    'payroll_assistant',
+]
+
 export class PayrollController {
     private service = new PayrollService()
 
@@ -408,8 +419,8 @@ export class PayrollController {
             }
         })
 
-        // Create Payroll Period (Admin / Ops Manager only)
-        router.post('/periods', authenticateToken, requireRole(['admin', 'operations_manager']), async (req: Request, res: Response) => {
+        // Create Payroll Period (payroll management only)
+        router.post('/periods', authenticateToken, requireRole(PAYROLL_MANAGEMENT_ROUTE_ROLES), async (req: Request, res: Response) => {
             try {
                 const { startDate, endDate, payDate } = req.body
                 const end = new Date(endDate);
@@ -429,7 +440,7 @@ export class PayrollController {
         router.post(
             '/periods/:periodId/generate/:userId',
             authenticateToken,
-            requireRole(['admin', 'operations_manager']), // Restricted
+            requireRole(PAYROLL_MANAGEMENT_ROUTE_ROLES),
             async (req: Request, res: Response) => {
                 try {
                     const periodId = Array.isArray(req.params.periodId) ? req.params.periodId[0] : req.params.periodId
@@ -448,7 +459,7 @@ export class PayrollController {
         router.post(
             '/periods/:periodId/generate-all',
             authenticateToken,
-            requireRole(['admin', 'operations_manager']),
+            requireRole(PAYROLL_MANAGEMENT_ROUTE_ROLES),
             async (req: Request, res: Response) => {
                 try {
                     const periodId = Array.isArray(req.params.periodId) ? req.params.periodId[0] : req.params.periodId
@@ -485,8 +496,8 @@ export class PayrollController {
             }
         })
 
-        // Get Payroll Reports (Admin / Ops Manager only)
-        router.get('/reports', authenticateToken, requireRole(['admin', 'operations_manager']), async (req: Request, res: Response) => {
+        // Get Payroll Reports (payroll management only)
+        router.get('/reports', authenticateToken, requireRole(PAYROLL_MANAGEMENT_ROUTE_ROLES), async (req: Request, res: Response) => {
             try {
                 const stats = await this.service.getReportStats()
                 res.json(stats)
@@ -496,8 +507,8 @@ export class PayrollController {
             }
         })
 
-        // Get ALL payslips across all employees - Payslip Archive (Admin / Ops Manager only)
-        router.get('/payslips/all', authenticateToken, requireRole(['admin', 'operations_manager']), async (req: Request, res: Response) => {
+        // Get ALL payslips across all employees - Payslip Archive (payroll management only)
+        router.get('/payslips/all', authenticateToken, requireRole(PAYROLL_MANAGEMENT_ROUTE_ROLES), async (req: Request, res: Response) => {
             try {
                 const payslips = await this.service.getAllPayslips()
                 res.json(payslips)

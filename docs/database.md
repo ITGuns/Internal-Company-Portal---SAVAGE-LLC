@@ -63,6 +63,10 @@ The field is nullable so existing client organizations are not backfilled into a
 - Global roles have no department.
 - `(name, departmentId)` is unique.
 - Frontend role dropdowns should use department `availableRoles` returned by the backend.
+- Department and role APIs preserve persisted role rows and merge any missing org-catalog default roles for matching departments.
+- The default org catalog is defined in `backend/src/org/org-access-policy.ts` and mirrored in `frontend/src/lib/departments.ts`.
+- The current default departments are Owners / Founders, Project Management, Operations, Digital Marketing, Analytics / Data, Automation / Tech, Website Developers, and Payroll / Finance.
+- No schema migration is required for org chart changes as long as they fit existing `Department`, `AvailableRole`, and `UserRole` records.
 
 ## Signup Approval
 

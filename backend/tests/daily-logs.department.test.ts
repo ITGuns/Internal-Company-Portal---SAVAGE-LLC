@@ -6,7 +6,7 @@ import {
 } from '../src/daily-logs/daily-logs.department'
 
 const websiteDeveloperRole = {
-  role: 'Web Development Assistant',
+  role: 'Frontend Developer',
   departmentId: 'dept-web',
   department: { name: 'Website Developers' },
 }
@@ -15,6 +15,14 @@ assert.equal(getPrimaryDailyLogDepartment([websiteDeveloperRole]), 'Website Deve
 
 assert.equal(
   canOverrideDailyLogDepartment([{ role: 'Operations Manager', departmentId: 'dept-ops' }]),
+  true,
+)
+assert.equal(
+  canOverrideDailyLogDepartment([{ role: 'Project Manager', departmentId: 'dept-project' }]),
+  true,
+)
+assert.equal(
+  canOverrideDailyLogDepartment([{ role: 'Owner / Founder', departmentId: 'dept-owner' }]),
   true,
 )
 assert.equal(canOverrideDailyLogDepartment([websiteDeveloperRole]), false)

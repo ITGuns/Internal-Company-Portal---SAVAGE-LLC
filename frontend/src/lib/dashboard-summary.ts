@@ -72,13 +72,19 @@ interface BuildDashboardSummaryParams {
 const MANAGEMENT_ROLES = new Set([
   'admin',
   'administrator',
+  'owner',
+  'founder',
+  'owner_founder',
+  'owners_founders',
+  'overlord',
   'manager',
+  'project_manager',
   'operations_manager',
   'chief_operations_officer',
 ]);
 
 export function normalizeDashboardRole(role: string): string {
-  return role.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return role.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }
 
 export function hasDashboardManagementAccess(user: DashboardRoleUser | null | undefined): boolean {

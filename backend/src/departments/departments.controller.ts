@@ -23,6 +23,29 @@ export class DepartmentsController {
         })
 
         /**
+         * POST /api/departments/org-catalog/sync
+         * Upsert the default SAVAGE LLC org-chart departments and roles.
+         * Protected: Admin/full-access only
+         */
+        router.post(
+            '/org-catalog/sync',
+            authenticateToken,
+            requireRole('admin'),
+            async (req: Request, res: Response, next: NextFunction) => {
+                try {
+                    const result = await this.service.syncOrgCatalog()
+                    res.json({
+                        success: true,
+                        departmentsSynced: result.departments.length,
+                        rolesSynced: result.roles.length,
+                    })
+                } catch (error) {
+                    next(error)
+                }
+            }
+        )
+
+        /**
          * GET /api/departments/:id
          * Get department by ID
          * Protected: Authenticated users only

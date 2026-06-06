@@ -61,13 +61,14 @@ User directory endpoints sanitize sensitive fields before returning data to the 
 
 ### User Mutation
 
-- `POST /api/users` is admin-only.
-- `POST /api/users/onboarding-invitations` is admin-only and creates or completes an approved user setup record from `email` and `roleId`. It returns a reset-password setup link; users with an existing password return `409` and should use password reset instead.
+- `POST /api/users` is full-access admin-only.
+- `POST /api/users/onboarding-invitations` is full-access admin-only and creates or completes an approved user setup record from `email` and `roleId`. `roleId` may be a persisted `AvailableRole.id` or a default org-catalog role ID returned by the roles API. It returns a reset-password setup link; users with an existing password return `409` and should use password reset instead.
 - `PATCH /api/users/:id` allows self updates for permitted profile fields.
 - User avatar writes through `POST /api/users`, `PATCH /api/users/:id`, and `POST /api/users/:id/avatar` accept only http(s) URLs, relative paths, empty removal values where profile updates allow them, or supported image data URIs that pass signature validation and the 5 MB avatar limit.
 - Non-privileged users cannot update protected fields such as `status`, `appliedDate`, `salary`, `role`, `department`, `departmentId`, or `isApproved`.
 - `DELETE /api/users/:id` requires admin or operations-manager access.
-- `POST /api/users/:id/roles` and `DELETE /api/users/:id/roles/:role` are admin-only role assignment routes.
+- `POST /api/users/:id/roles` and `DELETE /api/users/:id/roles/:role` are full-access admin-only role assignment routes.
+- The Operations member editor uses sanitized `GET /api/users` responses plus these user-role routes; authorization changes are enforced by backend role checks, not by frontend-only visibility.
 
 ## Employees
 
@@ -84,7 +85,7 @@ User directory endpoints sanitize sensitive fields before returning data to the 
 - `POST /api/employees/approve/:id` approves a pending employee application when the requester has employee-management access.
 - `POST /api/employees/reject/:id` rejects a pending employee application when the requester has employee-management access.
 
-Employee-management access recognizes normalized admin, administrator, manager, operations-manager, and chief-operations-officer roles. Configured admin bypass emails are also allowed.
+Employee-management access recognizes normalized admin, administrator, owner/founder, manager, project-manager, operations-manager, and chief-operations-officer roles. Configured admin bypass emails are also allowed.
 
 Approval behavior:
 
@@ -140,17 +141,19 @@ Employee task reads are server-scoped.
 
 ### Task Deletion
 
-`DELETE /api/tasks/:id` requires admin, manager, or operations-manager access.
+`DELETE /api/tasks/:id` requires management access.
 
 ### Privileged Task Assignment Roles
 
 The task assignment privilege check currently recognizes:
 
 - `admin`
+- `administrator`
+- `owner_founder`
 - `manager`
+- `project_manager`
 - `operations_manager`
-- `Operations Manager`
-- `Chief Operations Officer`
+- `chief_operations_officer`
 
 Configured admin bypass emails also receive privileged task assignment access.
 
@@ -160,25 +163,26 @@ Configured admin bypass emails also receive privileged task assignment access.
 
 `GET /api/departments` returns active departments with backend-managed role options.
 
-- Each department includes `availableRoles` ordered by name.
+- Each department includes `availableRoles` ordered by name, merging persisted role rows with any missing org-catalog defaults for that department.
 - Task role dropdowns should use these backend role options.
 
-Department writes are management-only:
+Department writes are full-access admin-only:
 
+- `POST /api/departments/org-catalog/sync` upserts the default SAVAGE LLC org-chart departments and role options into real `Department` and `AvailableRole` rows.
 - `POST /api/departments`
 - `PATCH /api/departments/:id`
 - `DELETE /api/departments/:id`
 
 ### Roles
 
-- `GET /api/roles` returns role options.
-- `POST /api/roles` and `DELETE /api/roles/:id` are management routes for backend role-option maintenance.
+- `GET /api/roles` returns persisted role options plus missing org-catalog default roles for existing departments. Default role IDs use the `default:<departmentId>:<role-slug>` format.
+- `POST /api/roles` and `DELETE /api/roles/:id` are full-access admin-only routes for backend role-option maintenance.
 
 ## Client Portal
 
 All client portal endpoints require authentication.
 
-Client portal management access recognizes normalized admin, administrator, manager, operations-manager, chief-operations-officer, web-developer, website-developer, and webdev roles. Configured admin bypass emails are also allowed.
+Client portal management access recognizes normalized full-access, management, and website-delivery roles: owner/founder, admin, administrator, manager, project-manager, operations-manager, chief-operations-officer, web-developer, website-developer, webdev, frontend-developer, and backend-technical-developer. Configured admin bypass emails are also allowed.
 
 ### Client Organization Access
 
@@ -225,7 +229,7 @@ Daily-log department handling is server-managed:
 
 - Non-privileged users do not choose the stored department; the backend derives it from the user's assigned `UserRole.department`.
 - Non-privileged create/update requests that try to submit a different department return `403`.
-- Admin, manager, operations-manager, chief-operations-officer, and configured admin bypass emails may submit a department override.
+- Owner/founder, admin, manager, project-manager, operations-manager, chief-operations-officer, and configured admin bypass emails may submit a department override.
 - Accounts with no assigned department cannot create daily logs until their role assignment is fixed.
 
 Frontend task import, task-report posting, and manager review helpers use existing task and daily-log APIs. There is no dedicated task-import backend route at this time.
@@ -240,8 +244,10 @@ Payroll management access currently recognizes:
 
 - `admin`
 - `administrator`
-- `manager`
+- `owner_founder`
 - `operations_manager`
+- `bookkeeping`
+- `contractor_salary_payments`
 
 Configured admin bypass emails also receive payroll management access.
 
@@ -278,19 +284,19 @@ Configured admin bypass emails also receive payroll management access.
 
 - `GET /api/payroll/periods` lists payroll periods.
 - `POST /api/payroll/periods/ensure` ensures a period exists for a supplied date range.
-- `POST /api/payroll/periods` requires admin or operations-manager access.
-- `POST /api/payroll/periods/:periodId/generate/:userId` requires admin or operations-manager access.
-- `POST /api/payroll/periods/:periodId/generate-all` requires admin or operations-manager access.
+- `POST /api/payroll/periods` requires payroll-management access.
+- `POST /api/payroll/periods/:periodId/generate/:userId` requires payroll-management access.
+- `POST /api/payroll/periods/:periodId/generate-all` requires payroll-management access.
 - `GET /api/payroll/my-payslips` returns self payslips by default and allows privileged `userId` review.
-- `GET /api/payroll/reports` requires admin or operations-manager access.
-- `GET /api/payroll/payslips/all` requires admin or operations-manager access.
+- `GET /api/payroll/reports` requires payroll-management access.
+- `GET /api/payroll/payslips/all` requires payroll-management access.
 
 ## Collaboration And Files
 
 ### Announcements
 
 - Announcement list, detail, like, comment, RSVP, update, and delete routes require authentication.
-- Announcement create, update, and delete routes require admin, manager, or operations-manager access.
+- Announcement create, update, and delete routes require management access.
 
 ### Chat
 
@@ -313,7 +319,7 @@ Configured admin bypass emails also receive payroll management access.
 - `GET /api/uploads/files/:filename` requires authentication, only serves supported stored upload filenames, rejects path traversal or missing files, sets the response content type from the canonical extension, and sends `X-Content-Type-Options: nosniff`.
 - Avatar data URI uploads and stored user avatar updates are limited to JPEG, PNG, GIF, and WebP signatures and remain capped at 5 MB. Stored avatar references are restricted to short initials, safe relative paths, or `http(s)` URLs.
 - File-directory list and children routes require authentication.
-- File-directory create/delete routes are protected by the feature's admin/manager access checks.
+- File-directory create routes require authentication; delete is allowed to the creator or full-access admins. Full-access users can view all department folders.
 
 ### Notifications
 

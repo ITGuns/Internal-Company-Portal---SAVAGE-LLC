@@ -1,3 +1,8 @@
+import {
+  hasManagementAccess,
+  normalizeOrgRoleName,
+} from '../org/org-access-policy'
+
 type RoleLike = {
   role?: string | null
   department?: {
@@ -39,19 +44,8 @@ type EmployeeLike = {
   passwordResetExpiry?: Date | string | null
 }
 
-const EMPLOYEE_MANAGEMENT_ROLES = new Set([
-  'admin',
-  'administrator',
-  'manager',
-  'operations_manager',
-  'chief_operations_officer',
-])
-
 export function normalizeEmployeeRoleName(role?: string | null): string {
-  return String(role || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_')
+  return normalizeOrgRoleName(role)
 }
 
 export function hasEmployeeManagementAccess(
@@ -60,9 +54,7 @@ export function hasEmployeeManagementAccess(
 ): boolean {
   if (isConfiguredAdminEmail) return true
 
-  return roles.some((assignment) =>
-    EMPLOYEE_MANAGEMENT_ROLES.has(normalizeEmployeeRoleName(assignment.role)),
-  )
+  return hasManagementAccess(roles)
 }
 
 function serializeDate(value?: Date | string | null): string | null | undefined {

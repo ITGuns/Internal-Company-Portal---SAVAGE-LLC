@@ -1,60 +1,16 @@
-export const DEFAULT_SIGNUP_ROLE_OPTIONS: Record<string, string[]> = {
-  'Website Developers': [
-    'Lead Frontend Developer',
-    'Senior Backend Developer',
-    'Full Stack Developer',
-    'UI/UX Designer',
-    'App Developer',
-    'Web Development Assistant',
-  ],
-  'Operations Manager': [
-    'Operations Manager',
-    'Operations Assistant',
-    'Fulfillment Specialist',
-    'Logistics Coordinator',
-    'Inventory VA',
-    'Customer Experience (CX) VA',
-  ],
-  'Payroll / Finance': [
-    'Financial Controller',
-    'Bookkeeper',
-    'Payroll Assistant',
-    'Contractor & Salary Payments',
-  ],
-  'Digital Marketing Lead / Marketing VA': [
-    'Digital Marketing Lead',
-    'Marketing Assistant',
-    'Marketing VA',
-    'Media Buyer / Ads Specialist',
-    'Content Creator / Designer',
-    'Email & SMS Marketer',
-    'Influencer / Social Media VA',
-  ],
-  'Analytics / Data VA': [
-    'Data Analyst',
-    'Analytics Specialist',
-    'Data VA',
-    'Analytics Assistant',
-  ],
-  'Automation / Tech VA': [
-    'Automation Specialist',
-    'Tech VA',
-    'Integration Expert',
-    'Automation Assistant',
-  ],
-  'Project Managers': [
-    'Project Manager',
-    'Project Assistant',
-    'Team Lead',
-    'SCRUM Master',
-  ],
-}
+import { DEFAULT_SIGNUP_ROLE_OPTIONS } from '../org/org-access-policy'
+
+export { DEFAULT_SIGNUP_ROLE_OPTIONS }
 
 export interface SignupRoleOption {
   id: string
   name: string
   departmentId: string | null
   createdAt: Date
+  department?: {
+    id: string
+    name: string
+  } | null
 }
 
 export interface SignupDepartmentWithRoles {
@@ -69,6 +25,18 @@ export interface SignupRoleAvailability {
 
 export function normalizeSignupOption(value?: string | null): string {
   return (value || '').trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+function roleIdSlug(value: string): string {
+  return normalizeSignupOption(value).replace(/[^a-z0-9]+/g, '-')
+}
+
+export function buildDefaultSignupRoleId(departmentId: string, roleName: string): string {
+  return `default:${departmentId}:${roleIdSlug(roleName)}`
+}
+
+export function isDefaultSignupRoleId(roleId?: string | null): boolean {
+  return typeof roleId === 'string' && roleId.startsWith('default:')
 }
 
 export function getDefaultSignupRoles(departmentName?: string | null): string[] {
@@ -97,13 +65,38 @@ export function hasConfiguredSignupRolesForDepartment(
 export function mergeSignupRolesForDepartment(
   department: SignupDepartmentWithRoles,
 ): SignupRoleOption[] {
-  const configuredRoles = department.availableRoles || []
-  if (configuredRoles.length > 0) return configuredRoles
-
-  return getDefaultSignupRoles(department.name).map((name) => ({
-    id: `default:${department.id}:${normalizeSignupOption(name).replace(/[^a-z0-9]+/g, '-')}`,
-    name,
-    departmentId: department.id,
-    createdAt: new Date(0),
+  const departmentSummary = { id: department.id, name: department.name }
+  const configuredRoles = (department.availableRoles || []).map((role) => ({
+    ...role,
+    department: role.department || departmentSummary,
   }))
+  const configuredRoleNames = new Set(
+    configuredRoles.map((role) => normalizeSignupOption(role.name)),
+  )
+
+  const missingDefaultRoles = getDefaultSignupRoles(department.name)
+    .filter((name) => !configuredRoleNames.has(normalizeSignupOption(name)))
+    .map((name) => ({
+      id: buildDefaultSignupRoleId(department.id, name),
+      name,
+      departmentId: department.id,
+      department: departmentSummary,
+      createdAt: new Date(0),
+    }))
+
+  return [...configuredRoles, ...missingDefaultRoles]
+}
+
+export function findMergedSignupRoleById(
+  departments: SignupDepartmentWithRoles[],
+  roleId: string,
+): SignupRoleOption | null {
+  for (const department of departments) {
+    const role = mergeSignupRolesForDepartment(department).find(
+      (candidate) => candidate.id === roleId,
+    )
+    if (role) return role
+  }
+
+  return null
 }

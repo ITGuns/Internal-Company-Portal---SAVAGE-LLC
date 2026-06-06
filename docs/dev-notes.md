@@ -1,5 +1,125 @@
 # Development Notes
 
+## 2026-06-06 - Client Portal Navigation And Profile Drawer
+
+### Completed
+
+- Removed the duplicate client portal horizontal nav from client-facing pages so client users navigate the portal from the sidebar only.
+- Preserved the admin Client Operations top navigation under `/operations/clients`.
+- Tightened the profile drawer surface and text wrapping while keeping the v3 portal-based overlay structure.
+
+### Files Changed
+
+- `frontend/src/app/client/page.tsx`
+- `frontend/src/app/client/tickets/page.tsx`
+- `frontend/src/components/client-portal/ClientPortalWorkspaceFrame.tsx`
+- `frontend/src/components/ProfileSidebar.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Treated `ClientPortalTopNav` as redundant only for client-facing portal routes, not for admin client operations routes.
+- Preserved the newer v3 profile drawer portal implementation instead of replacing it with the older v2 layout.
+
+### How to Test
+
+- `cd frontend && npm run lint`
+- `cd frontend && npm test`
+- `cd frontend && npm run build`
+- Browser affected-flow audit: `/client`, `/client/tickets`, another `ClientPortalWorkspaceFrame` route such as `/client/account`, and the profile drawer.
+
+### Next Steps
+
+- Delete `ClientPortalTopNav` only if admin client operations no longer depends on that component in the future.
+
+## 2026-06-06 - Admin And Client Workflow Runbook
+
+### Completed
+
+- Added a team-facing workflow runbook for internal admins and client portal users.
+- Documented client onboarding, team access, delivery, requests, approvals, reports, assets, billing, roadmap, calendar, visibility rules, and adoption cadence.
+
+### Files Changed
+
+- `docs/admin-client-workflows.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the workflow guide as Markdown in `docs/` so the team can review and adapt it directly in the repo.
+- Used current Client Operations and Client Portal routes as the source of truth instead of inventing a separate process.
+
+### How to Test
+
+- `git diff --check`
+
+### Next Steps
+
+- Convert this Markdown runbook into a client-ready PDF or DOCX if the team needs a shareable handout.
+
+## 2026-06-06 - Org Role Access Model
+
+### Completed
+
+- Connected Admin Operations to the org catalog with an admin-only sync endpoint and a one-time page sync before loading departments and roles.
+- Added an Operations `Members` tab for internal user/employee role assignment management and authorization group visibility.
+- Added the SAVAGE LLC org chart role catalog for onboarding and role dropdowns.
+- Centralized backend role normalization and access groups for full access, management, payroll management, and client operations.
+- Mirrored frontend navigation/payroll access helpers so the sidebar, command palette, daily logs, file directory, whiteboard, task assignment, and payroll UI follow the same model.
+- Merged missing org-chart default roles into department/role API responses so existing databases with older configured roles still expose the new defaults.
+- Allowed admin onboarding invitations to accept default org-role IDs when an `AvailableRole` row has not been seeded yet.
+- Updated local seed data to upsert the new departments and role options without changing the Prisma schema.
+
+### Files Changed
+
+- `backend/src/org/org-access-policy.ts`
+- `backend/src/org/org-catalog-sync.ts`
+- `backend/src/departments/departments.controller.ts`
+- `backend/src/departments/departments.service.ts`
+- `backend/src/auth/signup-role-options.ts`
+- `backend/src/auth/auth.middleware.ts`
+- `backend/src/roles/roles.service.ts`
+- `backend/src/users/users.service.ts`
+- `backend/src/tasks/tasks.permissions.ts`
+- `backend/src/daily-logs/daily-logs.department.ts`
+- `backend/src/employees/employees.security.ts`
+- `backend/src/payroll/payroll.permissions.ts`
+- `backend/src/clients/clients.access.ts`
+- `backend/prisma/seed.ts`
+- `frontend/src/lib/role-access.ts`
+- `frontend/src/lib/member-role-management.ts`
+- `frontend/src/lib/users.ts`
+- `frontend/src/lib/departments.ts`
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/components/operations/OperationsMembersPanel.tsx`
+- `docs/api.md`
+- `docs/database.md`
+- `docs/architecture.md`
+- `docs/features.md`
+
+### Decisions Made
+
+- Reused existing `Department`, `AvailableRole`, and `UserRole` records instead of adding schema.
+- Preserved configured role rows and only added missing org-chart defaults to API responses.
+- Reused existing full-access user-role APIs for Operations member authorization management instead of adding schema or a parallel permission store.
+- Kept finance roles limited to payroll management by default.
+- Kept website developer roles in client operations without giving every department lead global client-management access.
+
+### How to Test
+
+- `npx dotenv -e "D:\CODE\Internal Company Portal - SAVAGE LLC\backend\.env" -- npm test`
+- `npm --prefix backend run build`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- Focused rendered audit of `/dashboard`, `/operations`, `/operations/onboarding`, `/payroll-calendar`, `/task-tracking`, `/daily-logs`, `/file-directory`, `/operations/clients`, and `/whiteboard` on desktop plus dashboard/onboarding on mobile.
+- Operations member role helper coverage is included in `frontend/tests/member-role-management.test.mjs`.
+
+### Next Steps
+
+- Run the seed/upsert during deployment so the database becomes the long-term source of truth for the new department and role catalog.
+
 ## 2026-06-05 - v3 Motion Review Fix Cycle
 
 ### Completed

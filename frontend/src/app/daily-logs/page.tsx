@@ -44,7 +44,6 @@ export default function DailyLogsPage() {
   const toast = useToast();
   const { user: currentUser } = useUser();
   const currentUserDepartment = currentUser?.department;
-  const currentUserRole = currentUser?.role;
   const canReviewTeamLogs = hasManagementAccess(currentUser);
   const canEditLogDepartment = canReviewTeamLogs;
   const queryClient = useQueryClient();
@@ -120,7 +119,7 @@ export default function DailyLogsPage() {
       setFormDepartment(previous => previous || currentUserDepartment);
     }
 
-    if (currentUserDepartment && currentUserRole?.toLowerCase() !== 'admin') {
+    if (currentUserDepartment && !canReviewTeamLogs) {
       setDepartmentFilter(previous => {
         if (previous === DEPARTMENTS[0]) {
           return currentUserDepartment;
@@ -128,7 +127,7 @@ export default function DailyLogsPage() {
         return previous;
       });
     }
-  }, [currentUserDepartment, currentUserRole]);
+  }, [canReviewTeamLogs, currentUserDepartment]);
 
   useEffect(() => {
     if (handledNewLogDeepLinkRef.current || typeof window === 'undefined') return;

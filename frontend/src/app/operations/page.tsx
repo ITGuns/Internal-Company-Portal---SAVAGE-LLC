@@ -1,15 +1,20 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import FormField from "@/components/forms/FormField";
 import EmptyState from "@/components/ui/EmptyState";
+import OperationsMembersPanel from "@/components/operations/OperationsMembersPanel";
 import { useToast } from "@/components/ToastProvider";
-import { ArrowRight, BriefcaseBusiness, Building, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, BriefcaseBusiness, Building, Plus, Trash2, UserPlus } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { assignUserRole, fetchUsers, removeUserRole } from "@/lib/users";
+import { useUser } from "@/contexts/UserContext";
+import { hasFullAccess } from "@/lib/role-access";
+import type { MemberRoleAssignment, OperationsMember } from "@/lib/member-role-management";
 
 type Department = {
   id: string;
@@ -25,6 +30,7 @@ type Department = {
 type Role = {
   id: string;
   name: string;
+  departmentId?: string | null;
   department?: {
     id: string;
     name: string;
@@ -36,11 +42,13 @@ type DeleteTarget =
   | { type: 'role'; id: string; name: string; departmentName?: string };
 
 export default function OperationsPage() {
+  const { user } = useUser();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [members, setMembers] = useState<OperationsMember[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'departments' | 'roles' | 'clients'>('departments');
+  const [activeTab, setActiveTab] = useState<'departments' | 'roles' | 'members' | 'clients'>('departments');
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
@@ -51,22 +59,49 @@ export default function OperationsPage() {
   const [roleDeptId, setRoleDeptId] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [syncingCatalog, setSyncingCatalog] = useState(false);
+  const catalogSyncAttemptedRef = useRef(false);
   const toast = useToast();
+  const canManageOrgSettings = hasFullAccess(user);
+
+  const syncOrgCatalog = useCallback(async (options: { showToast?: boolean } = {}) => {
+    if (!canManageOrgSettings) return false;
+
+    setSyncingCatalog(true);
+    try {
+      await apiFetch('/departments/org-catalog/sync', { method: 'POST' });
+      if (options.showToast) toast.success('Org chart departments and roles synced');
+      return true;
+    } catch (error) {
+      console.error(error);
+      if (options.showToast) toast.error('Failed to sync org chart');
+      return false;
+    } finally {
+      setSyncingCatalog(false);
+    }
+  }, [canManageOrgSettings, toast]);
 
   const loadData = useCallback(async () => {
     try {
-      const [deptRes, roleRes] = await Promise.all([
+      if (canManageOrgSettings && !catalogSyncAttemptedRef.current) {
+        catalogSyncAttemptedRef.current = true;
+        await syncOrgCatalog();
+      }
+
+      const [deptRes, roleRes, userList] = await Promise.all([
         apiFetch('/departments'),
-        apiFetch('/roles')
+        apiFetch('/roles'),
+        fetchUsers(),
       ]);
 
       if (deptRes.ok) setDepartments(await deptRes.json());
       if (roleRes.ok) setRoles(await roleRes.json());
+      setMembers(userList as OperationsMember[]);
     } catch (e) {
       console.error(e);
       toast.error('An error occurred while loading data');
     }
-  }, [toast]);
+  }, [canManageOrgSettings, syncOrgCatalog, toast]);
 
   useEffect(() => {
     loadData();
@@ -177,12 +212,36 @@ export default function OperationsPage() {
     }
   }
 
+  async function handleAssignMemberRole(userId: string, roleData: { role: string; departmentId?: string }) {
+    try {
+      await assignUserRole(userId, roleData);
+      toast.success('Member role updated');
+      await loadData();
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update member role');
+      throw error;
+    }
+  }
+
+  async function handleRemoveMemberRole(userId: string, assignment: MemberRoleAssignment) {
+    try {
+      await removeUserRole(userId, assignment);
+      toast.success('Member role removed');
+      await loadData();
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : 'Failed to remove member role');
+      throw error;
+    }
+  }
+
   return (
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-6 pt-0">
         <Header
           title="Operations"
-          subtitle="Manage departments and operational roles."
+          subtitle="Manage departments, members, and operational roles."
         />
 
         <div className="mt-6">
@@ -208,6 +267,15 @@ export default function OperationsPage() {
             <button
               type="button"
               role="tab"
+              aria-selected={activeTab === 'members'}
+              onClick={() => setActiveTab('members')}
+              className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'members' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
+            >
+              Members
+            </button>
+            <button
+              type="button"
+              role="tab"
               aria-selected={activeTab === 'clients'}
               onClick={() => setActiveTab('clients')}
               className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'clients' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
@@ -218,21 +286,55 @@ export default function OperationsPage() {
 
           <div className="flex gap-3 mb-6">
             {activeTab === 'departments' ? (
-              <Button
-                variant="primary"
-                icon={<Plus className="w-4 h-4" />}
-                onClick={() => setShowModal(true)}
-              >
-                Add Department
-              </Button>
+              <>
+                <Button
+                  variant="primary"
+                  icon={<Plus className="w-4 h-4" />}
+                  onClick={() => setShowModal(true)}
+                >
+                  Add Department
+                </Button>
+                {canManageOrgSettings ? (
+                  <Button
+                    variant="secondary"
+                    loading={syncingCatalog}
+                    onClick={() => {
+                      void syncOrgCatalog({ showToast: true }).then(() => loadData());
+                    }}
+                  >
+                    Sync Org Chart
+                  </Button>
+                ) : null}
+              </>
             ) : activeTab === 'roles' ? (
-              <Button
-                variant="primary"
-                icon={<Plus className="w-4 h-4" />}
-                onClick={() => setShowRoleModal(true)}
+              <>
+                <Button
+                  variant="primary"
+                  icon={<Plus className="w-4 h-4" />}
+                  onClick={() => setShowRoleModal(true)}
+                >
+                  Add Role
+                </Button>
+                {canManageOrgSettings ? (
+                  <Button
+                    variant="secondary"
+                    loading={syncingCatalog}
+                    onClick={() => {
+                      void syncOrgCatalog({ showToast: true }).then(() => loadData());
+                    }}
+                  >
+                    Sync Org Chart
+                  </Button>
+                ) : null}
+              </>
+            ) : activeTab === 'members' ? (
+              <Link
+                href="/operations/onboarding"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] shadow-[0_12px_32px_-22px_var(--accent)] transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-105 active:translate-y-px"
               >
-                Add Role
-              </Button>
+                <UserPlus className="h-4 w-4" aria-hidden="true" />
+                Onboard Member
+              </Link>
             ) : activeTab === 'clients' ? (
               <Link
                 href="/operations/clients"
@@ -321,6 +423,14 @@ export default function OperationsPage() {
                 ))}
               </div>
             )
+          ) : activeTab === 'members' ? (
+            <OperationsMembersPanel
+              members={members}
+              availableRoles={roles}
+              canManageMembers={canManageOrgSettings}
+              onAssignRole={handleAssignMemberRole}
+              onRemoveRole={handleRemoveMemberRole}
+            />
           ) : (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
               <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-[var(--shadow-sm)]">

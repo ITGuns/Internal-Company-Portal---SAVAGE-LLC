@@ -6,6 +6,9 @@ import {
 } from '../src/employees/employees.security'
 
 assert.equal(hasEmployeeManagementAccess([{ role: 'Operations Manager' }]), true)
+assert.equal(hasEmployeeManagementAccess([{ role: 'Project Manager' }]), true)
+assert.equal(hasEmployeeManagementAccess([{ role: 'Owner / Founder' }]), true)
+assert.equal(hasEmployeeManagementAccess([{ role: 'Bookkeeping' }]), false)
 assert.equal(hasEmployeeManagementAccess([{ role: 'employee' }]), false)
 assert.equal(hasEmployeeManagementAccess([], true), true)
 

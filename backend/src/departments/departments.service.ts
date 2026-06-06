@@ -1,6 +1,7 @@
 import { PrismaClient, Department } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
 import { mergeSignupRolesForDepartment } from '../auth/signup-role-options'
+import { syncOrgCatalog } from '../org/org-catalog-sync'
 
 export interface CreateDepartmentDto {
     name: string
@@ -46,6 +47,10 @@ export class DepartmentsService {
             ...department,
             availableRoles: mergeSignupRolesForDepartment(department),
         }))
+    }
+
+    async syncOrgCatalog() {
+        return syncOrgCatalog(this.prisma)
     }
 
     /**

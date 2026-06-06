@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { JwtService, JwtPayload } from './jwt.service'
 import { isAdminEmail } from '../config/env.config'
+import { hasFullAccess, normalizeOrgRoleName } from '../org/org-access-policy'
 
 // Extend Express Request to include authenticated user
 export interface AuthRequest extends Request {
@@ -72,39 +73,28 @@ export function requireRole(allowedRoles: string | string[]) {
         }
 
         const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles]
+        const normalizedAllowedRoles = roles.map(normalizeOrgRoleName)
 
         try {
-            // Import dynamically to avoid circular dependencies if any, 
-            // though here we might need to import at top level. 
-            // Better to import 'prisma' at top level.
-            // Let's rely on top-level import which I will add.
-
-            // Check if user has any of the required roles
-            // We check against the UserRole table
             const { prisma } = await import('../database/prisma.service');
 
             const userRoles = await prisma.userRole.findMany({
                 where: {
                     userId: authReq.user!.userId,
-                    role: {
-                        in: roles,
-                        mode: 'insensitive'
-                    }
                 }
             })
 
             // Admin email bypass (configured via ADMIN_EMAILS env var)
             const isAuthorizedEmail = isAdminEmail(authReq.user!.email);
+            const hasAllowedRole = userRoles.some((assignment) =>
+                normalizedAllowedRoles.includes(normalizeOrgRoleName(assignment.role))
+            )
+            const hasGlobalFullAccess = hasFullAccess(userRoles)
 
-            if (userRoles.length > 0 || isAuthorizedEmail) {
+            if (hasAllowedRole || hasGlobalFullAccess || isAuthorizedEmail) {
                 next()
                 return
             }
-
-            // Also check if user is a global 'admin' if not explicitly asked for
-            // (Optional: depending on business logic, often admins have access to everything)
-            // For now, let's stick to strict role check. 
-            // If the user needs 'admin' access, 'admin' should be passed in allowedRoles.
 
             res.status(403).json({ error: 'Insufficient permissions' })
             return
@@ -148,10 +138,10 @@ export function requireDepartment(allowedDepartments: string | string[]) {
                 }
             })
 
-            // Also check if user is a global 'admin'
-            const isGlobalAdmin = await prisma.userRole.findFirst({
-                where: { userId: authReq.user!.userId, role: 'admin', departmentId: null }
+            const allUserRoles = await prisma.userRole.findMany({
+                where: { userId: authReq.user!.userId }
             });
+            const isGlobalAdmin = hasFullAccess(allUserRoles);
 
             // Admin email bypass (configured via ADMIN_EMAILS env var)
             const isAuthorizedEmail = isAdminEmail(authReq.user!.email);

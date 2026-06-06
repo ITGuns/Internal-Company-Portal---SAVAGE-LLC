@@ -347,32 +347,33 @@ export function saveViewPreference(view: 'grid' | 'list'): void {
 export { DEPARTMENTS } from './departments';
 
 export const DEPARTMENT_COLORS: Record<string, string> = {
+  'Owners / Founders': '#111827',
+  'Project Management': '#8b5cf6',
   'Operations': 'var(--dept-operations)',
   'Creatives': 'var(--dept-creatives)',
   'Finance': 'var(--dept-finance)',
   'Engineering': 'var(--dept-engineering)',
   'All Departments': '#6b7280',
+  'Digital Marketing': '#a855f7',
+  'Analytics / Data': '#06b6d4',
+  'Automation / Tech': '#ec4899',
   'Website Developers': '#3b82f6',
-  'Operations Manager': '#10b981',
   'Payroll / Finance': '#f59e0b',
-  'Digital Marketing Lead / Marketing VA': '#a855f7',
-  'Analytics / Data VA': '#06b6d4',
-  'Automation / Tech VA': '#ec4899',
-  'Project Managers': '#8b5cf6',
 };
 
 export const DEPARTMENT_COLORS_BG: Record<string, string> = {
+  'Owners / Founders': 'rgba(17, 24, 39, 0.1)',
+  'Project Management': 'rgba(139, 92, 246, 0.1)',
   'Operations': 'var(--dept-operations-bg)',
   'Creatives': 'var(--dept-creatives-bg)',
   'Finance': 'var(--dept-finance-bg)',
   'Engineering': 'var(--dept-engineering-bg)',
   'All Departments': 'rgba(107, 114, 128, 0.1)',
+  'Digital Marketing': 'rgba(168, 85, 247, 0.1)',
+  'Analytics / Data': 'rgba(6, 182, 212, 0.1)',
+  'Automation / Tech': 'rgba(236, 72, 153, 0.1)',
   'Website Developers': 'rgba(59, 130, 246, 0.1)',
-  'Operations Manager': 'rgba(16, 185, 129, 0.1)',
   'Payroll / Finance': 'rgba(245, 158, 11, 0.1)',
-  'Digital Marketing Lead / Marketing VA': 'rgba(168, 85, 247, 0.1)',
-  'Analytics / Data VA': 'rgba(6, 182, 212, 0.1)',
-  'Automation / Tech VA': 'rgba(236, 72, 153, 0.1)',
 };
 
 export const PRESET_FOLDER_COLORS = [

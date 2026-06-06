@@ -27,7 +27,7 @@ import {
   getPayrollAuditTarget,
   getPayrollTimeEntryRange,
 } from "@/lib/payroll-calendar/audit-target";
-import { hasManagementAccess as getHasManagementAccess } from "@/lib/role-access";
+import { hasPayrollManagementAccess as getHasManagementAccess } from "@/lib/role-access";
 
 // Lazy-loaded heavy components (CalendarTab has FullCalendar, modals are only shown on interaction)
 const CalendarTab = dynamic(() => import("@/components/payroll/CalendarTab"), { ssr: false });

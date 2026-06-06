@@ -6,9 +6,12 @@ import {
   requireApprovedRoleAssignment,
 } from '../src/auth/signup.requests'
 import {
+  buildDefaultSignupRoleId,
+  findMergedSignupRoleById,
   getDefaultSignupRoles,
   hasConfiguredSignupRolesForDepartment,
   isDefaultSignupRoleAllowed,
+  mergeSignupRolesForDepartment,
 } from '../src/auth/signup-role-options'
 
 assert.deepEqual(
@@ -59,17 +62,72 @@ assert.equal(canLoginApprovedUser({ status: 'active', isApproved: true }), true)
 assert.deepEqual(
   getDefaultSignupRoles('Website Developers'),
   [
-    'Lead Frontend Developer',
-    'Senior Backend Developer',
-    'Full Stack Developer',
-    'UI/UX Designer',
-    'App Developer',
-    'Web Development Assistant',
+    'Frontend Developer',
+    'Backend / Technical Developer',
   ],
 )
-assert.equal(isDefaultSignupRoleAllowed('Website Developers', 'Full Stack Developer'), true)
+assert.deepEqual(
+  getDefaultSignupRoles('Operations'),
+  [
+    'Operations Manager',
+    'Fulfillment / Logistics VA',
+    'Inventory VA',
+    'Customer Experience (CX) VA',
+  ],
+)
+assert.deepEqual(
+  getDefaultSignupRoles('Digital Marketing'),
+  [
+    'Digital Marketing Lead / Marketing VA',
+    'Media Buyer / Ads Specialist',
+    'Content Creator / Designer',
+    'Email & SMS Marketer',
+    'Influencer / Social Media VA',
+  ],
+)
+assert.deepEqual(getDefaultSignupRoles('Analytics / Data'), ['Analytics / Data VA'])
+assert.deepEqual(getDefaultSignupRoles('Automation / Tech'), ['Automation / Tech VA'])
+assert.deepEqual(getDefaultSignupRoles('Project Management'), ['Project Manager'])
+assert.deepEqual(
+  getDefaultSignupRoles('Payroll / Finance'),
+  ['Bookkeeping', 'Contractor & Salary Payments'],
+)
+assert.equal(isDefaultSignupRoleAllowed('Website Developers', 'Frontend Developer'), true)
 assert.equal(isDefaultSignupRoleAllowed('Website Developers', 'Operations Manager'), false)
 assert.equal(hasConfiguredSignupRolesForDepartment([{ departmentId: null }], 'dept-web'), false)
 assert.equal(hasConfiguredSignupRolesForDepartment([{ departmentId: 'dept-web' }], 'dept-web'), true)
+
+const mergedWebsiteRoles = mergeSignupRolesForDepartment({
+  id: 'dept-web',
+  name: 'Website Developers',
+  availableRoles: [
+    {
+      id: 'role-existing',
+      name: 'Frontend Developer',
+      departmentId: 'dept-web',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    },
+  ],
+})
+
+assert.deepEqual(
+  mergedWebsiteRoles.map((role) => role.name),
+  ['Frontend Developer', 'Backend / Technical Developer'],
+)
+assert.equal(
+  mergedWebsiteRoles[1].id,
+  buildDefaultSignupRoleId('dept-web', 'Backend / Technical Developer'),
+)
+assert.deepEqual(
+  findMergedSignupRoleById(
+    [{
+      id: 'dept-web',
+      name: 'Website Developers',
+      availableRoles: [],
+    }],
+    buildDefaultSignupRoleId('dept-web', 'Backend / Technical Developer'),
+  )?.name,
+  'Backend / Technical Developer',
+)
 
 console.log('signup.requests tests passed')

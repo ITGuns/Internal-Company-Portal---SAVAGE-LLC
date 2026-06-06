@@ -33,13 +33,8 @@ export type LogStatus = typeof LOG_STATUSES[number];
 // ============================================
 // DEPARTMENT CONSTANTS
 // ============================================
-export const DEPARTMENTS = [
-  'Project Managers',
-  'Website Developers',
-  'Payroll / Finance'
-] as const;
-
-export type Department = typeof DEPARTMENTS[number];
+export { DEPARTMENTS } from './departments';
+export type { Department } from './departments';
 
 // ============================================
 // UI MESSAGES

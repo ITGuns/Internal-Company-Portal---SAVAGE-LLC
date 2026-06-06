@@ -69,7 +69,7 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
 
       {/* Slide-in sidebar from right */}
       <div
-        className="fixed top-0 right-0 z-[9998] flex h-[100dvh] w-full max-w-sm flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--card-bg)] shadow-2xl motion-drawer-right-in"
+        className="fixed right-0 top-0 z-[9998] flex h-[100dvh] w-full max-w-sm flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--surface-raised)] text-[var(--foreground)] shadow-2xl motion-drawer-right-in"
         role="dialog"
         aria-modal="true"
         aria-labelledby="profile-sidebar-title"
@@ -111,15 +111,15 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
 
             {/* User Name */}
             <div className="w-full min-w-0 text-center">
-              <h3 className="mb-1 truncate text-xl font-semibold text-[var(--foreground)] sm:text-2xl">
+              <h3 className="break-words text-xl font-semibold leading-tight text-[var(--foreground)] sm:text-2xl">
                 {user?.name || "User"}
               </h3>
               {user?.roles && user.roles.length > 0 && (
-                <p className="mb-1 text-sm font-medium text-[var(--accent)]">
+                <p className="mt-2 break-words text-sm font-medium text-[var(--accent)]">
                   {user.roles.join(", ")}
                 </p>
               )}
-              <p className="break-all text-sm text-[var(--muted)]">{user?.email || ""}</p>
+              <p className="mt-1 break-all text-sm text-[var(--muted)]">{user?.email || ""}</p>
             </div>
 
             {/* Action Buttons */}

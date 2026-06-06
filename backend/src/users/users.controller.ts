@@ -9,6 +9,8 @@ import { canRequestAssigneeTasks, hasTaskAssignmentPrivilege } from '../tasks/ta
 import { validateAvatarValue } from '../uploads/upload.validation'
 import { sanitizeUserForDirectory, sanitizeUsersForDirectory } from './users.security'
 import { UserOnboardingConflictError, UserOnboardingValidationError } from './users.service'
+import { hasEmployeeManagementAccess } from '../employees/employees.security'
+import { hasFullAccess } from '../org/org-access-policy'
 
 export class UsersController {
     private service = new UsersService()
@@ -76,7 +78,7 @@ export class UsersController {
                 // Check authorization: must be self or admin
                 if (requesterId !== id) {
                     const userRoles = await this.service.getUserRoles(requesterId!)
-                    const isAdmin = userRoles.some(r => r.role === 'admin')
+                    const isAdmin = hasFullAccess(userRoles)
                     if (!isAdmin) {
                         return res.status(403).json({ error: 'Unauthorized to update another user\'s avatar' })
                     }
@@ -225,12 +227,10 @@ export class UsersController {
                 }
 
                 const requesterRoles = await this.service.getUserRoles(requesterId)
-                const isPrivileged = requesterRoles.some(r =>
-                    r.role === 'admin' ||
-                    r.role === 'operations_manager' ||
-                    r.role === 'Operations Manager' ||
-                    r.role === 'Chief Operations Officer'
-                ) || isAdminEmail(authReq.user?.email)
+                const isPrivileged = hasEmployeeManagementAccess(
+                    requesterRoles,
+                    isAdminEmail(authReq.user?.email),
+                )
 
                 if (requesterId !== id && !isPrivileged) {
                     return res.status(403).json({ error: 'Unauthorized to update another user' })

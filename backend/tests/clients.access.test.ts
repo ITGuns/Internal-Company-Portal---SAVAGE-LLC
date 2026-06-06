@@ -49,9 +49,15 @@ const managerAccess = {
 
 assert.equal(normalizeClientRole(' Operations Manager '), 'operations_manager')
 assert.equal(normalizeClientRole('chief-operations-officer'), 'chief_operations_officer')
+assert.equal(normalizeClientRole('Backend / Technical Developer'), 'backend_technical_developer')
 assert.equal(hasClientManagementAccess(internalRoles), true)
 assert.equal(hasClientManagementAccess([{ role: 'Web Developer' }]), true)
 assert.equal(hasClientManagementAccess([{ role: 'webdev' }]), true)
+assert.equal(hasClientManagementAccess([{ role: 'Frontend Developer' }]), true)
+assert.equal(hasClientManagementAccess([{ role: 'Backend / Technical Developer' }]), true)
+assert.equal(hasClientManagementAccess([{ role: 'Project Manager' }]), true)
+assert.equal(hasClientManagementAccess([{ role: 'Bookkeeping' }]), false)
+assert.equal(hasClientManagementAccess([{ role: 'Content Creator / Designer' }]), false)
 assert.equal(hasClientManagementAccess([{ role: 'client' }]), false)
 assert.equal(hasClientManagementAccess([], true), true)
 

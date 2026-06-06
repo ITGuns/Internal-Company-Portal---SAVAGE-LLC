@@ -6,13 +6,14 @@
 // Top-level departments matching organizational chart (red boxes)
 export const DEPARTMENTS = [
   'All Departments',
+  'Owners / Founders',
+  'Project Management',
+  'Operations',
+  'Digital Marketing',
+  'Analytics / Data',
+  'Automation / Tech',
   'Website Developers',
-  'Operations Manager',
   'Payroll / Finance',
-  'Digital Marketing Lead / Marketing VA',
-  'Analytics / Data VA',
-  'Automation / Tech VA',
-  'Project Managers'
 ] as const;
 
 export type Department = typeof DEPARTMENTS[number];
@@ -22,54 +23,38 @@ export type Department = typeof DEPARTMENTS[number];
  * These will populate the "Role" dropdown when a Department is selected.
  */
 export const DEPARTMENT_ROLES: Record<string, string[]> = {
-  'Website Developers': [
-    'Lead Frontend Developer',
-    'Senior Backend Developer',
-    'Full Stack Developer',
-    'UI/UX Designer',
-    'App Developer',
-    'Web Development Assistant'
+  'Owners / Founders': [
+    'Owner / Founder',
   ],
-  'Operations Manager': [
+  'Project Management': [
+    'Project Manager',
+  ],
+  'Operations': [
     'Operations Manager',
-    'Operations Assistant',
-    'Fulfillment Specialist',
-    'Logistics Coordinator',
+    'Fulfillment / Logistics VA',
     'Inventory VA',
-    'Customer Experience (CX) VA'
+    'Customer Experience (CX) VA',
   ],
-  'Payroll / Finance': [
-    'Financial Controller',
-    'Bookkeeper',
-    'Payroll Assistant',
-    'Contractor & Salary Payments'
-  ],
-  'Digital Marketing Lead / Marketing VA': [
-    'Digital Marketing Lead',
-    'Marketing Assistant',
-    'Marketing VA',
+  'Digital Marketing': [
+    'Digital Marketing Lead / Marketing VA',
     'Media Buyer / Ads Specialist',
     'Content Creator / Designer',
     'Email & SMS Marketer',
-    'Influencer / Social Media VA'
+    'Influencer / Social Media VA',
   ],
-  'Analytics / Data VA': [
-    'Data Analyst',
-    'Analytics Specialist',
-    'Data VA',
-    'Analytics Assistant'
+  'Analytics / Data': [
+    'Analytics / Data VA',
   ],
-  'Automation / Tech VA': [
-    'Automation Specialist',
-    'Tech VA',
-    'Integration Expert',
-    'Automation Assistant'
+  'Automation / Tech': [
+    'Automation / Tech VA',
   ],
-  'Project Managers': [
-    'Project Manager',
-    'Project Assistant',
-    'Team Lead',
-    'SCRUM Master'
+  'Website Developers': [
+    'Frontend Developer',
+    'Backend / Technical Developer',
+  ],
+  'Payroll / Finance': [
+    'Bookkeeping',
+    'Contractor & Salary Payments',
   ],
 };
 

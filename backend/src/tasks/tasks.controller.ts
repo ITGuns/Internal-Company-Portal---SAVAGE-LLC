@@ -352,7 +352,14 @@ export class TasksController {
     })
 
     // Delete task
-    router.delete('/:id', authenticateToken, requireRole(['admin', 'manager', 'operations_manager']), async (req: Request, res: Response) => {
+    router.delete('/:id', authenticateToken, requireRole([
+      'admin',
+      'administrator',
+      'manager',
+      'project_manager',
+      'operations_manager',
+      'chief_operations_officer',
+    ]), async (req: Request, res: Response) => {
       try {
         const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
 

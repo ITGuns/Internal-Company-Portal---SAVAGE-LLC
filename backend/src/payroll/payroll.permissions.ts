@@ -1,3 +1,8 @@
+import {
+  hasPayrollManagementAccess as hasOrgPayrollManagementAccess,
+  normalizeOrgRoleName,
+} from '../org/org-access-policy'
+
 export interface RoleLike {
   role?: string | null
 }
@@ -11,13 +16,6 @@ export interface PayrollProfileFilterResult {
   data: Record<string, unknown>
   rejectedFields: string[]
 }
-
-const PAYROLL_MANAGEMENT_ROLES = new Set([
-  'admin',
-  'administrator',
-  'manager',
-  'operations_manager',
-])
 
 const PAYROLL_PROFILE_UPDATE_FIELDS = new Set([
   'jobTitle',
@@ -40,10 +38,7 @@ const PROTECTED_PAYROLL_PROFILE_FIELDS = new Set([
 ])
 
 export function normalizePayrollRoleName(role?: string | null): string {
-  return String(role || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_')
+  return normalizeOrgRoleName(role)
 }
 
 export function hasPayrollManagementAccess(
@@ -52,9 +47,7 @@ export function hasPayrollManagementAccess(
 ): boolean {
   if (isConfiguredAdminEmail) return true
 
-  return roles.some((role) =>
-    PAYROLL_MANAGEMENT_ROLES.has(normalizePayrollRoleName(role.role)),
-  )
+  return hasOrgPayrollManagementAccess(roles)
 }
 
 export function canAccessPayrollTarget(access: PayrollAccess, targetUserId: string): boolean {

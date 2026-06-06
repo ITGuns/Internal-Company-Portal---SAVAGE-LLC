@@ -2,6 +2,15 @@ import express, { Request, Response, Router } from 'express'
 import { AnnouncementsService } from './announcements.service'
 import { authenticateToken, requireRole } from '../auth/auth.middleware'
 
+const ANNOUNCEMENT_MANAGEMENT_ROLES = [
+    'admin',
+    'administrator',
+    'manager',
+    'project_manager',
+    'operations_manager',
+    'chief_operations_officer',
+]
+
 interface AuthRequest extends Request {
     user?: {
         userId: string
@@ -47,7 +56,7 @@ export class AnnouncementsController {
         })
 
         // Create announcement
-        router.post('/', authenticateToken, requireRole(['admin', 'manager', 'operations_manager']), async (req: Request, res: Response) => {
+        router.post('/', authenticateToken, requireRole(ANNOUNCEMENT_MANAGEMENT_ROLES), async (req: Request, res: Response) => {
             try {
                 const { title, content, category, priority, isImportant, eventDate, eventLocation, birthdayDate } = req.body
                 const user = (req as AuthRequest).user
@@ -76,7 +85,7 @@ export class AnnouncementsController {
         })
 
         // Update announcement
-        router.patch('/:id', authenticateToken, requireRole(['admin', 'manager', 'operations_manager']), async (req: Request, res: Response) => {
+        router.patch('/:id', authenticateToken, requireRole(ANNOUNCEMENT_MANAGEMENT_ROLES), async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
                 const { title, content, category, priority, isImportant, eventDate, eventLocation, birthdayDate } = req.body
@@ -100,7 +109,7 @@ export class AnnouncementsController {
         })
 
         // Delete announcement
-        router.delete('/:id', authenticateToken, requireRole(['admin', 'manager', 'operations_manager']), async (req: Request, res: Response) => {
+        router.delete('/:id', authenticateToken, requireRole(ANNOUNCEMENT_MANAGEMENT_ROLES), async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
                 await this.service.delete(id)

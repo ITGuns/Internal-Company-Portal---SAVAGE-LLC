@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
-import { getUserRoleNames, hasClientOperationsAccess, hasClientPortalAccess } from "@/lib/role-access";
+import { hasClientOperationsAccess, hasClientPortalAccess, hasFullAccess } from "@/lib/role-access";
 import {
   BarChart3,
   CheckCircle2,
@@ -95,17 +95,17 @@ export default function CommandPalette() {
 
   const isClientPortalUser = hasClientPortalAccess(user);
   const canAccessClientOperations = hasClientOperationsAccess(user);
-  const isAdmin = getUserRoleNames(user).includes("admin");
+  const canUseFullAccessAdmin = hasFullAccess(user);
   const commands = useMemo(() => {
     if (isClientPortalUser) return CLIENT_COMMANDS;
 
     return [
       ...INTERNAL_COMMANDS,
       ...(canAccessClientOperations ? CLIENT_OPERATIONS_COMMANDS : []),
-      ...(isAdmin ? ADMIN_COMMANDS : []),
+      ...(canUseFullAccessAdmin ? ADMIN_COMMANDS : []),
       PROFILE_COMMAND,
     ];
-  }, [canAccessClientOperations, isAdmin, isClientPortalUser]);
+  }, [canAccessClientOperations, canUseFullAccessAdmin, isClientPortalUser]);
 
   const filtered = query.trim()
     ? commands.filter((cmd) => {

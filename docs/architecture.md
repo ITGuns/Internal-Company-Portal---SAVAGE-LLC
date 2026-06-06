@@ -96,8 +96,11 @@ See `docs/database.md` for current schema notes and migration behavior.
 
 The portal uses short-lived JWT access tokens, an httpOnly SameSite refresh-token cookie, and feature-level role checks.
 
-- `admin`, `administrator`, `manager`, and `operations_manager` are privileged in several management flows.
-- Some features also recognize display-style roles such as `Operations Manager` or `Chief Operations Officer`.
+- Canonical role normalization lives in `backend/src/org/org-access-policy.ts`; frontend navigation mirrors the same groups in `frontend/src/lib/role-access.ts`.
+- Full access is reserved for owner/founder and admin-style roles.
+- Management access includes full-access roles plus manager, project-manager, operations-manager, and chief-operations-officer roles.
+- Payroll management includes full-access roles, operations-manager, bookkeeping, and contractor/salary-payment roles.
+- Client operations includes full-access, management, and website-delivery roles such as frontend-developer and backend-technical-developer.
 - Configured admin bypass emails receive selected privileged access through centralized helpers.
 - Employee self-service routes should only expose or mutate the authenticated user's own data unless a feature-specific permission check allows broader access.
 - Chat channels and privileged conversation names such as `General` are restricted to management access.

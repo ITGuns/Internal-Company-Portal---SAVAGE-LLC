@@ -1,14 +1,35 @@
 export interface RoleAccessUser {
   role?: string | null;
-  roles?: Array<string | null | undefined> | null;
+  roles?: Array<string | { role?: string | null } | null | undefined> | null;
 }
 
-const MANAGEMENT_ROLES = new Set([
+const FULL_ACCESS_ROLES = new Set([
   "admin",
   "administrator",
+  "owner",
+  "founder",
+  "owner_founder",
+  "owners_founders",
+  "overlord",
+]);
+
+const MANAGEMENT_ROLES = new Set([
+  ...FULL_ACCESS_ROLES,
   "manager",
+  "project_manager",
   "operations_manager",
   "chief_operations_officer",
+]);
+
+const PAYROLL_MANAGEMENT_ROLES = new Set([
+  ...FULL_ACCESS_ROLES,
+  "operations_manager",
+  "bookkeeper",
+  "bookkeeping",
+  "contractor_salary_payments",
+  "financial_controller",
+  "payroll_assistant",
+  "payroll_finance",
 ]);
 
 const CLIENT_OPERATIONS_ROLES = new Set([
@@ -16,6 +37,14 @@ const CLIENT_OPERATIONS_ROLES = new Set([
   "web_developer",
   "website_developer",
   "webdev",
+  "frontend_developer",
+  "backend_technical_developer",
+  "lead_frontend_developer",
+  "senior_backend_developer",
+  "full_stack_developer",
+  "ui_ux_designer",
+  "app_developer",
+  "web_development_assistant",
 ]);
 
 const CLIENT_PORTAL_ROLES = new Set([
@@ -29,19 +58,31 @@ export function normalizeRoleName(role?: string | null): string {
   return String(role || "")
     .trim()
     .toLowerCase()
-    .replace(/[\s-]+/g, "_");
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 export function getUserRoleNames(user?: RoleAccessUser | null): string[] {
   if (!user) return [];
 
-  return [user.role, ...(user.roles || [])]
+  return [
+    user.role,
+    ...(user.roles || []).map((role) => (typeof role === "string" ? role : role?.role)),
+  ]
     .map(normalizeRoleName)
     .filter(Boolean);
 }
 
+export function hasFullAccess(user?: RoleAccessUser | null): boolean {
+  return getUserRoleNames(user).some((role) => FULL_ACCESS_ROLES.has(role));
+}
+
 export function hasManagementAccess(user?: RoleAccessUser | null): boolean {
   return getUserRoleNames(user).some((role) => MANAGEMENT_ROLES.has(role));
+}
+
+export function hasPayrollManagementAccess(user?: RoleAccessUser | null): boolean {
+  return getUserRoleNames(user).some((role) => PAYROLL_MANAGEMENT_ROLES.has(role));
 }
 
 export function hasClientOperationsAccess(user?: RoleAccessUser | null): boolean {

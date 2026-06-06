@@ -9,9 +9,15 @@ import {
 
 assert.equal(normalizePayrollRoleName('Operations Manager'), 'operations_manager')
 assert.equal(normalizePayrollRoleName(' operations_manager '), 'operations_manager')
+assert.equal(normalizePayrollRoleName('Contractor & Salary Payments'), 'contractor_salary_payments')
 
 assert.equal(hasPayrollManagementAccess([{ role: 'admin' }]), true)
+assert.equal(hasPayrollManagementAccess([{ role: 'Owner / Founder' }]), true)
 assert.equal(hasPayrollManagementAccess([{ role: 'Operations Manager' }]), true)
+assert.equal(hasPayrollManagementAccess([{ role: 'Bookkeeper' }]), true)
+assert.equal(hasPayrollManagementAccess([{ role: 'Bookkeeping' }]), true)
+assert.equal(hasPayrollManagementAccess([{ role: 'Contractor & Salary Payments' }]), true)
+assert.equal(hasPayrollManagementAccess([{ role: 'Project Manager' }]), false)
 assert.equal(hasPayrollManagementAccess([{ role: 'Website Developer' }]), false)
 assert.equal(hasPayrollManagementAccess([], true), true)
 

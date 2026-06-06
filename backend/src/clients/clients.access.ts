@@ -1,3 +1,8 @@
+import {
+  hasClientOperationsAccess,
+  normalizeOrgRoleName,
+} from '../org/org-access-policy'
+
 export interface ClientRoleAssignment {
   role: string
 }
@@ -29,26 +34,15 @@ export interface ClientOrganizationVisibilityFilter {
   }
 }
 
-const CLIENT_MANAGEMENT_ROLES = new Set([
-  'admin',
-  'administrator',
-  'manager',
-  'operations_manager',
-  'chief_operations_officer',
-  'web_developer',
-  'website_developer',
-  'webdev',
-])
-
 export function normalizeClientRole(role: string): string {
-  return role.trim().toLowerCase().replace(/[\s-]+/g, '_')
+  return normalizeOrgRoleName(role)
 }
 
 export function hasClientManagementAccess(
   roles: ClientRoleAssignment[],
   isAdminByEmail = false,
 ): boolean {
-  return isAdminByEmail || roles.some((role) => CLIENT_MANAGEMENT_ROLES.has(normalizeClientRole(role.role)))
+  return hasClientOperationsAccess(roles, isAdminByEmail)
 }
 
 export function getActiveClientOrganizationIds(access: ClientAccessContext): string[] {

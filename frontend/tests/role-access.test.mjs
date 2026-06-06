@@ -30,16 +30,26 @@ function loadRoleAccessHelper() {
 }
 
 test('normalizes management roles from primary and secondary role fields', () => {
-  const { hasManagementAccess, normalizeRoleName } = loadRoleAccessHelper();
+  const { hasFullAccess, hasManagementAccess, normalizeRoleName } = loadRoleAccessHelper();
 
   assert.equal(normalizeRoleName('Operations Manager'), 'operations_manager');
   assert.equal(normalizeRoleName(' operations-manager '), 'operations_manager');
+  assert.equal(normalizeRoleName('Backend / Technical Developer'), 'backend_technical_developer');
+  assert.equal(normalizeRoleName('Contractor & Salary Payments'), 'contractor_salary_payments');
+
+  assert.equal(typeof hasFullAccess, 'function');
+  assert.equal(hasFullAccess({ role: 'Owner / Founder' }), true);
+  assert.equal(hasFullAccess({ role: 'admin' }), true);
+  assert.equal(hasFullAccess({ role: 'Operations Manager' }), false);
 
   assert.equal(hasManagementAccess({ role: 'employee' }), false);
   assert.equal(hasManagementAccess({ role: 'Manager' }), true);
   assert.equal(hasManagementAccess({ role: 'employee', roles: ['Operations Manager'] }), true);
   assert.equal(hasManagementAccess({ role: null, roles: ['administrator'] }), true);
   assert.equal(hasManagementAccess({ role: 'Chief Operations Officer' }), true);
+  assert.equal(hasManagementAccess({ role: 'Project Manager' }), true);
+  assert.equal(hasManagementAccess({ role: 'Owner / Founder' }), true);
+  assert.equal(hasManagementAccess({ role: 'Bookkeeping' }), false);
 });
 
 test('separates client portal and client operations navigation access', () => {
@@ -60,8 +70,13 @@ test('separates client portal and client operations navigation access', () => {
   assert.equal(hasClientOperationsAccess({ role: 'admin' }), true);
   assert.equal(hasClientOperationsAccess({ role: 'Web Developer' }), true);
   assert.equal(hasClientOperationsAccess({ role: 'webdev' }), true);
+  assert.equal(hasClientOperationsAccess({ role: 'Frontend Developer' }), true);
+  assert.equal(hasClientOperationsAccess({ role: 'Backend / Technical Developer' }), true);
+  assert.equal(hasClientOperationsAccess({ role: 'Project Manager' }), true);
+  assert.equal(hasClientOperationsAccess({ role: 'Bookkeeping' }), false);
+  assert.equal(hasClientOperationsAccess({ role: 'Content Creator / Designer' }), false);
   assert.equal(hasClientOperationsAccess({ role: 'client' }), false);
-  assert.equal(hasManagementAccess({ role: 'Web Developer' }), false);
+  assert.equal(hasManagementAccess({ role: 'Frontend Developer' }), false);
 
   assert.equal(hasClientWorkspaceShellAccess({ role: 'client' }), true);
   assert.equal(hasClientWorkspaceShellAccess({ role: 'member' }, true), true);
@@ -73,4 +88,19 @@ test('separates client portal and client operations navigation access', () => {
   assert.equal(getAuthenticatedLandingPath({ role: 'member' }, true), '/client');
   assert.equal(getAuthenticatedLandingPath({ role: 'admin' }, true), '/dashboard');
   assert.equal(getAuthenticatedLandingPath({ role: 'web_developer' }), '/dashboard');
+});
+
+test('separates payroll management from general management', () => {
+  const { hasManagementAccess, hasPayrollManagementAccess } = loadRoleAccessHelper();
+
+  assert.equal(typeof hasPayrollManagementAccess, 'function');
+  assert.equal(hasPayrollManagementAccess({ role: 'Owner / Founder' }), true);
+  assert.equal(hasPayrollManagementAccess({ role: 'admin' }), true);
+  assert.equal(hasPayrollManagementAccess({ role: 'Operations Manager' }), true);
+  assert.equal(hasPayrollManagementAccess({ role: 'Bookkeeper' }), true);
+  assert.equal(hasPayrollManagementAccess({ role: 'Bookkeeping' }), true);
+  assert.equal(hasPayrollManagementAccess({ role: 'Contractor & Salary Payments' }), true);
+  assert.equal(hasPayrollManagementAccess({ role: 'Project Manager' }), false);
+  assert.equal(hasPayrollManagementAccess({ role: 'Frontend Developer' }), false);
+  assert.equal(hasManagementAccess({ role: 'Bookkeeping' }), false);
 });
