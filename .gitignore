@@ -9,3 +9,9 @@ backend/final_list.txt
 
 # Root dependencies
 node_modules/
+
+# Root environment files
+.env
+.env.local
+.env.*.local
+.env.production

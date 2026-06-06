@@ -2764,3 +2764,48 @@
 - Open `/dashboard` at desktop width and confirm the top header starts immediately after the sidebar and spans the work area.
 - Confirm the dashboard content remains centered below the fixed header.
 - Run the focused rendered geometry check for `/dashboard`.
+
+## 2026-06-06 - Production Deployment Configuration
+
+### Completed
+
+- Added a production Docker Compose file that deploys the backend, frontend, and Redis while using an external Postgres/Supabase database.
+- Added production environment templates for the root Docker deploy and backend Prisma commands.
+- Added a guarded production database bootstrap command for the first deployment to a verified empty database.
+- Updated Prisma CLI config so migrations/bootstrap can use `DIRECT_DATABASE_URL` or `DIRECT_URL` while runtime keeps using `DATABASE_URL`.
+- Updated the production GitHub Actions workflow to validate runtime secrets, sync `.env.production` files to the SSH host, optionally bootstrap an empty database, run production migrations, deploy with the production compose file, and smoke `/health`.
+
+### Files Changed
+
+- `.github/workflows/deploy.yml`
+- `.env.production.example`
+- `.gitignore`
+- `docker-compose.production.yml`
+- `backend/.env.production.example`
+- `backend/.gitignore`
+- `backend/package.json`
+- `backend/prisma.config.ts`
+- `backend/scripts/bootstrap-production-database.mjs`
+- `docs/database.md`
+- `docs/deployment.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Did not add a normal baseline migration because the existing historical migrations would conflict with a full current-schema baseline on a fresh database.
+- Used a guarded bootstrap script instead: empty databases require `ALLOW_EMPTY_DATABASE_BOOTSTRAP=true`, existing databases go through `prisma migrate deploy`.
+- Kept local `docker-compose.yml` unchanged so local Docker Postgres development remains available.
+
+### How to Test
+
+- Set local compose placeholders, then run `docker compose config`.
+- `docker compose --env-file .env.production.example -f docker-compose.production.yml config`
+- `cd backend && npx prisma validate`
+- Run `npm run prisma:bootstrap-production` against a disposable empty Postgres database with `ALLOW_EMPTY_DATABASE_BOOTSTRAP=true`.
+- Run the Production Deploy workflow manually after GitHub secrets and variables are configured.
+
+### Next Steps
+
+- Add the production GitHub secrets/variables before attempting SSH deploy.
+- In Supabase, use a migration/direct connection for `DIRECT_DATABASE_URL` and the runtime connection for `DATABASE_URL`.
+- Use `bootstrap_empty_database=true` only for the first deployment to a verified empty database.

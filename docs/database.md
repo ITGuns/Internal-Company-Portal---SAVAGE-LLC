@@ -23,6 +23,25 @@ npx prisma generate
 
 Use `npm run prisma:migrate` for local development migrations and `npm run prisma:deploy` for deployment migration application.
 
+Production deploys should use `npm run prisma:deploy:production` so Prisma reads `backend/.env.production`.
+
+For Supabase-backed production, keep runtime and migration connection strings separate:
+
+- `DATABASE_URL` is the backend runtime connection.
+- `DIRECT_DATABASE_URL` is the Prisma CLI migration/bootstrap connection. The Prisma config falls back to `DIRECT_URL` and then `DATABASE_URL` when no direct URL is set.
+
+The tracked migration history is additive from an already-existing base schema; the first migration alters tables such as `Task` and `EmployeeProfile`. Because of that, a brand-new empty database must not be initialized by plain `prisma migrate deploy` alone.
+
+For a verified empty production or staging database, run:
+
+```powershell
+cd backend
+$env:ALLOW_EMPTY_DATABASE_BOOTSTRAP = "true"
+npm run prisma:bootstrap-production
+```
+
+The bootstrap command only proceeds when no application tables exist in the target schema from the database URL. It creates the current Prisma schema, marks all tracked historical migrations as applied, and then runs `prisma migrate deploy`. Use it only once per new empty database. Normal releases should use `npm run prisma:deploy:production`.
+
 ## Client Service Tier Presets
 
 `ClientServiceTier` stores the client account tier catalog used by Client Operations account and billing views.

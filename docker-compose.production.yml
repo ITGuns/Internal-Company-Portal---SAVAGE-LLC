@@ -1,0 +1,103 @@
+name: mydeskii-production
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: portal_redis
+    restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - portal_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: portal_backend
+    restart: always
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      DIRECT_DATABASE_URL: ${DIRECT_DATABASE_URL:-}
+      DIRECT_URL: ${DIRECT_URL:-}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      AUTH_RATE_LIMIT_STORE: ${AUTH_RATE_LIMIT_STORE:-redis}
+      AUTH_RATE_LIMIT_REDIS_PREFIX: ${AUTH_RATE_LIMIT_REDIS_PREFIX:-portal:auth-rate-limit}
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-0}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:?REFRESH_TOKEN_SECRET is required}
+      REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-30d}
+      OPS_MANAGER_EMAIL: ${OPS_MANAGER_EMAIL:-}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-sendgrid}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-noreply@savage-llc.com}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-SAVAGE LLC Internal Portal}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+    ports:
+      - "${BACKEND_PORT:-4000}:4000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:4000/health').then(async r => { const body = await r.json(); process.exit(r.ok && body.status === 'healthy' ? 0 : 1); }).catch(() => process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - portal_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:?NEXT_PUBLIC_WS_URL is required}
+    container_name: portal_frontend
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
+      NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:?NEXT_PUBLIC_WS_URL is required}
+      NEXT_PUBLIC_ENABLE_DEBUG: ${NEXT_PUBLIC_ENABLE_DEBUG:-false}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - portal_network
+
+volumes:
+  redis_data:
+
+networks:
+  portal_network:
+    driver: bridge
