@@ -78,6 +78,7 @@ Frontend public build/runtime environment:
 
 - `NEXT_PUBLIC_API_URL`
 - `NEXT_PUBLIC_WS_URL`
+- `NEXT_PUBLIC_ENABLE_REALTIME=true` when the websocket URL points at a persistent Node backend
 
 For Docker deployments, `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` are passed as frontend image build args and runtime environment variables. Rebuild the frontend image when those public URLs change.
 
@@ -99,10 +100,10 @@ Required Vercel environment variables:
 - `CORS_ORIGIN`
 - `FRONTEND_URL`
 - `AUTH_RATE_LIMIT_STORE=memory`
-- `NEXT_PUBLIC_WS_URL`
 
 Recommended Vercel environment variables:
 
+- `NEXT_PUBLIC_ENABLE_REALTIME=false`
 - `DIRECT_DATABASE_URL`
 - `JWT_EXPIRES_IN=7d`
 - `REFRESH_TOKEN_EXPIRES_IN=30d`
@@ -112,7 +113,7 @@ Recommended Vercel environment variables:
 
 For Supabase, use the transaction pooler for `DATABASE_URL` and the session pooler or direct connection for `DIRECT_DATABASE_URL`.
 
-Vercel is suitable for a temporary preview of the portal UI and normal REST/auth routes. It is not a complete production runtime for this app because Vercel Functions do not provide a durable Socket.io WebSocket server, and file uploads written to local function storage are not persistent. For full chat realtime behavior, durable uploads, Redis-backed distributed rate limits, and long-running operational reliability, use the Docker/SSH deployment path or a server host that supports persistent Node processes.
+Vercel is suitable for a temporary preview of the portal UI and normal REST/auth routes. It is not a complete production runtime for this app because Vercel Functions do not provide a durable Socket.io WebSocket server, and file uploads written to local function storage are not persistent. Production builds only attempt Socket.io when realtime is explicitly enabled or `NEXT_PUBLIC_WS_URL` is configured; leave `NEXT_PUBLIC_ENABLE_REALTIME=false` on Vercel unless that websocket URL points to a persistent backend. For full chat realtime behavior, durable uploads, Redis-backed distributed rate limits, and long-running operational reliability, use the Docker/SSH deployment path or a server host that supports persistent Node processes.
 
 ### Supabase/Postgres Connection Mode
 

@@ -193,6 +193,7 @@ Client portal management access recognizes normalized full-access, management, a
 ### Client Routes
 
 - `GET /api/clients/organizations` lists client organizations visible to the requester.
+- `GET /api/clients/portal/bootstrap` returns the initial client portal workspace payload for the requester: visible organizations, selected organization ID, scoped overview data, recent activity, and action queue items. Optional `organizationId` selects a specific readable organization.
 - `POST /api/clients/organizations` creates a client organization and is restricted to client-management access. Optional `websiteWorkType` values are `existing_site_improvement` and `new_build`.
 - `GET /api/clients/service-tiers`, `POST /api/clients/service-tiers`, `PATCH /api/clients/service-tiers/:id`, `DELETE /api/clients/service-tiers/:id`, and `PATCH /api/clients/organizations/:id/service-tier` manage service tiers for internal client-management users. Deleting a service tier clears it from assigned client organizations through the existing database relation.
 - `PATCH /api/clients/organizations/:id/status` updates a client organization status (`active`, `paused`, or `archived`) for internal management. Archiving removes client-facing access without deleting history.

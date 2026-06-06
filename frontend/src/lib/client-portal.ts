@@ -1,4 +1,5 @@
 import { apiFetch } from './api';
+import type { ClientActionQueueItem, ClientActivity } from './client-activity';
 import type { ClientWebsiteWorkType } from './client-website-work';
 
 export interface ClientServiceTier {
@@ -261,8 +262,22 @@ export interface ClientPortalOverview {
   calendarItems?: ClientCalendarItem[];
 }
 
+export interface ClientPortalBootstrap {
+  organizations: ClientOrganization[];
+  selectedId: string;
+  overview: ClientPortalOverview | null;
+  activities: ClientActivity[];
+  queueItems: ClientActionQueueItem[];
+}
+
 export async function fetchClientOrganizations(): Promise<ClientOrganization[]> {
   const response = await apiFetch('/clients/organizations');
+  return response.json();
+}
+
+export async function fetchClientPortalBootstrap(organizationId?: string): Promise<ClientPortalBootstrap> {
+  const query = organizationId ? `?organizationId=${encodeURIComponent(organizationId)}` : '';
+  const response = await apiFetch(`/clients/portal/bootstrap${query}`);
   return response.json();
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Activity,
@@ -33,18 +33,9 @@ import {
 } from "@/components/workspace/ProductionWorkspace";
 import { useToast } from "@/components/ToastProvider";
 import {
-  fetchClientActionQueue,
-  fetchClientActivity,
-  type ClientActionQueueItem,
-  type ClientActivity,
-} from "@/lib/client-activity";
-import {
-  ClientOrganization,
-  ClientPortalOverview,
   createClientTicket,
-  fetchClientOrganizations,
-  fetchClientOverview,
 } from "@/lib/client-portal";
+import { useClientPortalWorkspace } from "@/hooks/useClientPortalWorkspace";
 import {
   buildClientTicketTitle,
   CLIENT_PROJECT_STATUSES,
@@ -65,12 +56,15 @@ function clampPercent(value?: number | null) {
 
 export default function ClientPortalPage() {
   const toast = useToast();
-  const [organizations, setOrganizations] = useState<ClientOrganization[]>([]);
-  const [selectedId, setSelectedId] = useState("");
-  const [overview, setOverview] = useState<ClientPortalOverview | null>(null);
-  const [activities, setActivities] = useState<ClientActivity[]>([]);
-  const [queueItems, setQueueItems] = useState<ClientActionQueueItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    organizations,
+    selectedId,
+    overview,
+    activities,
+    queueItems,
+    loading,
+    refreshOverview,
+  } = useClientPortalWorkspace();
   const [saving, setSaving] = useState(false);
   const [ticketForm, setTicketForm] = useState({ description: "", category: "website", priority: "normal" });
 
@@ -113,55 +107,6 @@ export default function ClientPortalPage() {
     { label: "Resources", value: summary.resourceCount + commandCenter.assets.length, caption: "Links, assets, and files", icon: LinkIcon, tone: "accent" },
   ];
 
-  const loadOrganizations = useCallback(async () => {
-    const nextOrganizations = await fetchClientOrganizations();
-    setOrganizations(nextOrganizations);
-    setSelectedId((current) => current || nextOrganizations[0]?.id || "");
-  }, []);
-
-  const loadOverview = useCallback(async (organizationId: string) => {
-    if (!organizationId) {
-      setOverview(null);
-      setActivities([]);
-      setQueueItems([]);
-      return;
-    }
-    const [nextOverview, nextActivities, nextQueueItems] = await Promise.all([
-      fetchClientOverview(organizationId),
-      fetchClientActivity(organizationId, { limit: 30 }),
-      fetchClientActionQueue(organizationId),
-    ]);
-    setOverview(nextOverview);
-    setActivities(nextActivities);
-    setQueueItems(nextQueueItems);
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-    async function loadInitial() {
-      try {
-        setLoading(true);
-        await loadOrganizations();
-      } catch (error) {
-        console.error(error);
-        toast.error("Failed to load client portal");
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    }
-    void loadInitial();
-    return () => {
-      isMounted = false;
-    };
-  }, [loadOrganizations, toast]);
-
-  useEffect(() => {
-    loadOverview(selectedId).catch((error) => {
-      console.error(error);
-      toast.error("Failed to load client overview");
-    });
-  }, [loadOverview, selectedId, toast]);
-
   async function handleCreateTicket(event: React.FormEvent) {
     event.preventDefault();
     if (!selectedId || !ticketForm.description.trim()) {
@@ -176,7 +121,7 @@ export default function ClientPortalPage() {
         title: buildClientTicketTitle(ticketForm.category, ticketForm.description),
       });
       setTicketForm({ description: "", category: "website", priority: "normal" });
-      await loadOverview(selectedId);
+      await refreshOverview();
       toast.success("Request submitted");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to submit request");

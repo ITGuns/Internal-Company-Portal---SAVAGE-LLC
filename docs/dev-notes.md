@@ -2841,3 +2841,42 @@
 
 - Add Vercel project environment variables before expecting auth/API routes to boot.
 - Use a persistent Node deployment target for full realtime chat and durable upload behavior.
+
+## 2026-06-06 - Client Portal Performance First Pass
+
+### Completed
+
+- Added a production-safe realtime feature flag so Socket.io is not opened when the deployment does not support persistent websocket transport.
+- Added a client portal bootstrap endpoint that returns visible organizations, selected organization, overview, activity, and action queue data in one request.
+- Updated the client portal workspace hook and main `/client` page to hydrate from the bootstrap endpoint and skip the duplicate first overview refetch.
+- Documented the new API route and Vercel realtime behavior.
+
+### Files Changed
+
+- `backend/src/clients/clients.controller.ts`
+- `frontend/src/context/SocketContext.tsx`
+- `frontend/src/app/client/page.tsx`
+- `frontend/src/hooks/useClientPortalWorkspace.ts`
+- `frontend/src/lib/client-portal.ts`
+- `frontend/src/lib/config.ts`
+- `docs/api.md`
+- `docs/deployment.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Left Prisma indexes unchanged in this pass because the first performance win is reducing failed realtime connections and route-level API fan-out.
+- Kept REST notification and chat count loading active so Vercel preview still has a non-realtime fallback.
+- Defaulted production realtime to off unless `NEXT_PUBLIC_ENABLE_REALTIME=true` or a public websocket URL is configured.
+
+### How to Test
+
+- Run backend build and frontend lint/build.
+- Log in as a client user and open `/client`, `/client/tickets`, and another `/client/*` route.
+- Confirm `/api/clients/portal/bootstrap` is used on first client workspace load and `/api/socket` is not requested when realtime is disabled.
+
+### Next Steps
+
+- Deploy to Vercel with `NEXT_PUBLIC_ENABLE_REALTIME=false` for the temporary preview.
+- Move the backend to a persistent Node host before enabling realtime chat in production.
+- Add measured composite Prisma indexes after query logs confirm the hottest remaining client portal filters.

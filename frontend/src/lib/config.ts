@@ -14,6 +14,11 @@ export const APP_CONFIG = {
   
   // Feature Flags
   enableDebug: process.env.NEXT_PUBLIC_ENABLE_DEBUG === 'true',
+  enableRealtime: process.env.NEXT_PUBLIC_ENABLE_REALTIME === 'true'
+    || (
+      process.env.NEXT_PUBLIC_ENABLE_REALTIME !== 'false'
+      && (process.env.NODE_ENV !== 'production' || Boolean(process.env.NEXT_PUBLIC_WS_URL))
+    ),
   
   // Polling Intervals (milliseconds)
   userPollInterval: 30000, // 30 seconds

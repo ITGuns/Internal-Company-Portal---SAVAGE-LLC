@@ -69,6 +69,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const unreadCount = notifications.filter(n => !n.read).length + unreadChatCount
 
     const connect = useCallback((userId: string, token = getAuthToken() || "") => {
+        if (!APP_CONFIG.enableRealtime) return
         if (!token) return
         if (socketRef.current?.connected) return
 
@@ -229,7 +230,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         const checkUserAndConnect = () => {
             const accessToken = getAuthToken()
 
-            if (userLoading || !user || !accessToken) {
+            if (!APP_CONFIG.enableRealtime || userLoading || !user || !accessToken) {
                 if (socketRef.current) disconnect()
                 return
             }

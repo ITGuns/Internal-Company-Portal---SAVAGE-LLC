@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/ToastProvider";
 import {
   fetchClientActionQueue,
@@ -11,7 +11,7 @@ import {
 import {
   ClientOrganization,
   ClientPortalOverview,
-  fetchClientOrganizations,
+  fetchClientPortalBootstrap,
   fetchClientOverview,
 } from "@/lib/client-portal";
 
@@ -36,11 +36,16 @@ export function useClientPortalWorkspace(): ClientPortalWorkspaceState {
   const [queueItems, setQueueItems] = useState<ClientActionQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [overviewLoading, setOverviewLoading] = useState(false);
+  const bootstrappedSelectedIdRef = useRef<string | null>(null);
 
-  const loadOrganizations = useCallback(async () => {
-    const nextOrganizations = await fetchClientOrganizations();
-    setOrganizations(nextOrganizations);
-    setSelectedId((current) => current || nextOrganizations[0]?.id || "");
+  const loadBootstrap = useCallback(async () => {
+    const bootstrap = await fetchClientPortalBootstrap();
+    bootstrappedSelectedIdRef.current = bootstrap.selectedId || null;
+    setOrganizations(bootstrap.organizations);
+    setSelectedId((current) => current || bootstrap.selectedId || "");
+    setOverview(bootstrap.overview);
+    setActivities(bootstrap.activities);
+    setQueueItems(bootstrap.queueItems);
   }, []);
 
   const loadOverview = useCallback(async (organizationId: string) => {
@@ -72,7 +77,7 @@ export function useClientPortalWorkspace(): ClientPortalWorkspaceState {
     async function loadInitial() {
       try {
         setLoading(true);
-        await loadOrganizations();
+        await loadBootstrap();
       } catch (error) {
         console.error(error);
         toast.error("Failed to load client workspace");
@@ -86,12 +91,18 @@ export function useClientPortalWorkspace(): ClientPortalWorkspaceState {
     return () => {
       isMounted = false;
     };
-  }, [loadOrganizations, toast]);
+  }, [loadBootstrap, toast]);
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadSelected() {
+      if (loading) return;
+      if (bootstrappedSelectedIdRef.current === selectedId) {
+        bootstrappedSelectedIdRef.current = null;
+        return;
+      }
+
       try {
         await loadOverview(selectedId);
       } catch (error) {
@@ -105,7 +116,7 @@ export function useClientPortalWorkspace(): ClientPortalWorkspaceState {
     return () => {
       isMounted = false;
     };
-  }, [loadOverview, selectedId, toast]);
+  }, [loadOverview, loading, selectedId, toast]);
 
   const refreshOverview = useCallback(async () => {
     await loadOverview(selectedId);

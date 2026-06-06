@@ -225,6 +225,63 @@ export class ClientsController {
       }
     })
 
+    router.get('/portal/bootstrap', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.getAccessContext(req)
+        if (!access) return res.status(401).json({ error: 'Authentication required' })
+
+        const requestedOrganizationId = typeof req.query.organizationId === 'string'
+          ? req.query.organizationId.trim()
+          : undefined
+        if (requestedOrganizationId && !canReadClientOrganization(access, { id: requestedOrganizationId })) {
+          return res.status(403).json({ error: 'You can only view your assigned client organization' })
+        }
+
+        const organizations = await this.service.findOrganizations(getClientOrganizationVisibilityFilter(access))
+        const selectedId = requestedOrganizationId || organizations[0]?.id || ''
+        const serializedOrganizations = organizations.map((organization) =>
+          access.isPrivileged
+            ? serializeClientOrganizationForManagement(organization)
+            : serializeClientOrganizationForClient(organization),
+        )
+
+        if (!selectedId) {
+          return res.json({
+            organizations: serializedOrganizations,
+            selectedId: '',
+            overview: null,
+            activities: [],
+            queueItems: [],
+          })
+        }
+
+        const [organization, activities, queueItems] = await Promise.all([
+          this.service.findOrganizationOverview(selectedId, !access.isPrivileged),
+          this.service.listActivities(selectedId, { limit: 30 }, access.isPrivileged),
+          this.service.listActionQueue({
+            organizationIds: [selectedId],
+            includeInternal: access.isPrivileged,
+            audience: access.isPrivileged ? 'management' : 'client',
+          }),
+        ])
+
+        if (!organization) {
+          return res.status(404).json({ error: 'Client organization not found' })
+        }
+
+        res.json({
+          organizations: serializedOrganizations,
+          selectedId,
+          overview: serializeClientPortalOverview(organization, access.isPrivileged),
+          activities: serializeClientActivities(activities, access.isPrivileged),
+          queueItems,
+        })
+      } catch (error) {
+        console.error('[Clients] Error bootstrapping client portal:', error)
+        res.status(500).json({ error: 'Failed to load client portal workspace' })
+      }
+    })
+
     router.get('/service-tiers', authenticateToken, async (req: Request, res: Response) => {
       try {
         const access = await this.getAccessContext(req)
