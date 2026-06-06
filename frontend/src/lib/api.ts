@@ -237,6 +237,7 @@ export const updateUserProfile = async (userId: string | number, profileData: Pa
     address?: string;
     city?: string;
     citizenship?: string;
+    avatar?: string;
     bio?: string;
     position?: string;
     department?: string;

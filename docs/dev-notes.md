@@ -2547,3 +2547,165 @@
 
 - Add integration tests around the actual Express routes for auth, employees, uploads, and chat.
 - Consider moving browser tokens from localStorage to httpOnly cookies in a later auth hardening pass.
+
+## 2026-06-06 - Session Summary
+
+### Completed
+
+- Removed the horizontal client portal section nav from client-facing pages so client users navigate the portal from the sidebar only.
+- Kept the admin client operations top navigation unchanged under `/operations/clients`.
+
+### Files Changed
+
+- `frontend/src/app/client/page.tsx`
+- `frontend/src/app/client/tickets/page.tsx`
+- `frontend/src/components/client-portal/ClientPortalWorkspaceFrame.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Treated the removable "top nav" as the duplicate client portal horizontal nav, not the global page header or the admin client operations nav.
+- Left `ClientPortalTopNav` in place for now instead of deleting the component file, because the request was scoped to removing it from the client-facing experience.
+
+### How to Test
+
+- `cd frontend && npm run lint`
+- `cd frontend && npm test`
+- `cd frontend && npm run build`
+- Log in as a client user and verify `/client` and `/client/tickets` use the sidebar for client portal navigation without the horizontal nav.
+- Verify `/operations/clients` still shows the admin client operations top nav.
+- Browser affected-flow audit: client login, `/client`, sidebar click to Requests, and `/client/tickets`.
+
+### Next Steps
+
+- Delete `ClientPortalTopNav` later if no future mobile or fallback use is needed.
+
+## 2026-06-06 - Profile Drawer Layout Fix
+
+### Completed
+
+- Fixed the profile drawer so its background covers the full drawer height instead of letting page content show through behind profile content.
+- Moved the User ID strip into the drawer flex layout so it stays at the bottom and no longer overlaps the avatar, name, or buttons on short viewports.
+- Moved profile editing onto the `/profile` page and changed the drawer Edit Profile action to route there instead of opening a second overlay.
+- Extracted the profile edit form into a reusable component so the page and any future modal wrapper share one implementation.
+- Fixed audit-found profile form issues so the avatar camera control meets the repo touch-target threshold and saved contact fields remain in local user state after the sanitized backend response.
+- Added profile form input names, autocomplete hints, input modes, error relationships, and decorative-icon hiding during the full-feature audit follow-up.
+
+### Files Changed
+
+- `frontend/src/app/profile/page.tsx`
+- `frontend/src/components/EditProfileModal.tsx`
+- `frontend/src/components/ProfileEditForm.tsx`
+- `frontend/src/components/ProfileFormInput.tsx`
+- `frontend/src/components/ProfileSidebar.tsx`
+- `frontend/src/contexts/UserContext.tsx`
+- `frontend/src/lib/api.ts`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the change scoped to the shared profile drawer because the overlap reproduced from the drawer shell, not from client portal page content.
+- Avoided stacking an edit modal above the profile drawer; profile editing now lives in the main profile route where it has stable page space.
+- Left the local Socket.IO 404 as a separate runtime/server mismatch because port `4000` is currently served by another project worktree.
+
+### How to Test
+
+- `cd frontend && npm run lint`
+- `cd frontend && npm test`
+- `cd frontend && npm run build`
+- Browser affected-flow audit: log in as the dummy client, open the profile drawer from `/client`, verify profile content stays inside the opaque right drawer at narrow viewport height, click Edit Profile, and verify the drawer closes while `/profile#edit-profile` shows the edit form on the page.
+
+### Next Steps
+
+- Restart the backend from this checkout if the dev overlay still reports Socket.IO 404s from a stale or alternate worktree process.
+- For local production previews, either run `next start`/`next dev` or copy `.next/static` into the standalone bundle before `node .next/standalone/server.js`; a fresh standalone-only preview did not serve rebuilt static chunks in this audit environment.
+
+## 2026-06-06 - Client Portal Workflow Guide
+
+### Completed
+
+- Added a detailed admin/client client portal workflow guide covering account setup, access, client-visible records, requests, approvals, reports, resources, assets, billing, roadmap, calendar, and client self-service workflows.
+- Cross-linked the workflow guide from the client portal feature documentation.
+
+### Files Changed
+
+- `docs/client-portal-workflows.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Made this a dedicated operating guide instead of expanding the concise feature summary.
+- Used the current source files, API docs, Prisma schema, access helpers, serializers, validation rules, and route files as the source of truth.
+- Ran a read-only Browser sanity check against `127.0.0.1:3001`; both `/client` and `/operations/clients` redirected to `/login` without an authenticated session.
+
+### How to Test
+
+- `git diff --check -- docs/client-portal-workflows.md docs/features.md docs/dev-notes.md`
+- Browser protected-route sanity check: open `http://127.0.0.1:3001/client` and `http://127.0.0.1:3001/operations/clients` while logged out and verify both route to `/login`.
+- Review `docs/client-portal-workflows.md` against `/operations/clients/*` and `/client/*` routes when the frontend is running.
+- For future behavior changes, run the frontend and backend checks listed in the workflow guide.
+
+### Next Steps
+
+- Add screenshots or short walkthrough media after demo data and a stable running portal environment are available.
+
+## 2026-06-06 - Client Portal Workflow DOCX Export
+
+### Completed
+
+- Created a shareable Word document version of the client portal workflow guide for team onboarding and training.
+- Formatted the DOCX as a compact operator reference with a title page, quick navigation, running header/footer, page numbers, clean headings, readable lists, and code-style route/command formatting.
+
+### Files Changed
+
+- `docs/Client_Portal_Workflows_Guide_Admin_Client.docx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the DOCX next to the source Markdown guide so the repo documentation and shareable artifact stay together.
+- Used the `compact_reference_guide` document preset because this is a dense admin/client operating manual.
+- Preserved the existing workflow guide content instead of rewriting it during export.
+
+### How to Test
+
+- Open `docs/Client_Portal_Workflows_Guide_Admin_Client.docx` in Word.
+- Confirm the document opens, page numbers render, and the admin/client workflow sections are present.
+- Structural QA passed with `python-docx` by confirming required DOCX package parts, source heading coverage, and required admin/client workflow phrases.
+- Word COM open check passed and reported 39 pages.
+
+### Next Steps
+
+- Run full rendered PNG visual QA on the DOCX if LibreOffice/soffice or another PDF rasterizer becomes available on the machine.
+
+## 2026-06-06 - Client Portal Important Pages Table
+
+### Completed
+
+- Added an `Important Pages At A Glance` table to the client portal workflow guide.
+- Updated the shareable DOCX with the same table near the front of the document for team onboarding.
+
+### Files Changed
+
+- `docs/client-portal-workflows.md`
+- `docs/Client_Portal_Workflows_Guide_Admin_Client.docx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Used a four-column table so the page remains readable in Word: side, page/route, use case, and key actions.
+- Included all primary admin client operations routes and all primary client portal routes.
+- Kept the table near the start of the guide so new team members can find the right page before reading detailed procedures.
+
+### How to Test
+
+- Open `docs/Client_Portal_Workflows_Guide_Admin_Client.docx` in Word and confirm `Important Pages At A Glance` appears before the detailed workflow sections.
+- Confirm the table has 19 route rows covering admin and client pages.
+- Re-run structural DOCX validation after editing the table.
+- Word COM open check passed and reported 40 pages.
+- Full rendered PNG QA is still blocked because `render_docx.py` cannot find LibreOffice/soffice in this environment.
+
+### Next Steps
+
+- Add screenshots beside the table later if the team wants a more visual onboarding handout.

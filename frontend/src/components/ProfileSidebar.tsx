@@ -1,15 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from 'next/image';
+import Image from "next/image";
 import { createPortal } from "react-dom";
 import { X, User, LogOut, Edit2 } from "lucide-react";
 import { getCurrentUser } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
 import UserAvatar from "@/assets/icons/UserAvatar";
 import Button from "./Button";
-import EditProfileModal from "./EditProfileModal";
 
 interface UserProfile {
   id?: string | number;
@@ -17,6 +16,9 @@ interface UserProfile {
   email: string;
   birthday?: string;
   phone?: string;
+  address?: string;
+  city?: string;
+  citizenship?: string;
   roles?: string[];
   avatar?: string;
 }
@@ -30,7 +32,6 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
   const router = useRouter();
   const { logout } = useUser();
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -39,35 +40,32 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
 
   useEffect(() => {
     if (!isOpen) return;
-    
+
     setUser(getCurrentUser());
   }, [isOpen]);
 
-  const handleSaveProfile = (updatedUser: UserProfile) => {
-    setUser(updatedUser);
+  const handleEditProfile = () => {
+    onClose();
+    router.push("/profile#edit-profile");
   };
 
   const handleSignOut = () => {
-    // Clear auth data
     logout();
-    // Close the sidebar
     onClose();
-    // Redirect to login page
-    router.push('/login');
+    router.push("/login");
   };
 
   if (!isOpen || !isMounted) return null;
+
   const userIdLabel = user?.id ? `${String(user.id).slice(0, 8)}...` : "Unavailable";
 
   return createPortal(
     <>
-      {/* Backdrop with blur */}
       <div
         className="fixed inset-0 z-[9997] bg-black/30 backdrop-blur-sm motion-fade-in"
         onClick={onClose}
       />
 
-      {/* Slide-in sidebar from right */}
       <div
         className="fixed right-0 top-0 z-[9998] flex h-[100dvh] w-full max-w-sm flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--surface-raised)] text-[var(--foreground)] shadow-2xl motion-drawer-right-in"
         role="dialog"
@@ -77,23 +75,22 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
           isolation: "isolate",
         }}
       >
-        {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] p-4">
-          <h2 id="profile-sidebar-title" className="text-lg font-semibold text-[var(--foreground)]">Profile</h2>
+          <h2 id="profile-sidebar-title" className="text-lg font-semibold text-[var(--foreground)]">
+            Profile
+          </h2>
           <button
             onClick={onClose}
-            className="motion-interactive p-2 rounded-md hover:bg-[var(--card-surface)]"
+            className="motion-interactive rounded-md p-2 hover:bg-[var(--card-surface)]"
             aria-label="Close profile"
           >
-            <X className="w-5 h-5 text-[var(--muted)]" />
+            <X className="h-5 w-5 text-[var(--muted)]" />
           </button>
         </div>
 
-        {/* Profile Content */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">
+        <div className="sidebar-scroll min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">
           <div className="flex flex-col items-center space-y-5">
-            {/* Avatar */}
-            <div className="relative">
+            <div className="relative shrink-0">
               <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-[var(--border)] bg-[var(--card-surface)] shadow-lg sm:h-32 sm:w-32">
                 {user?.avatar ? (
                   <Image
@@ -109,35 +106,25 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
               </div>
             </div>
 
-            {/* User Name */}
             <div className="w-full min-w-0 text-center">
               <h3 className="break-words text-xl font-semibold leading-tight text-[var(--foreground)] sm:text-2xl">
                 {user?.name || "User"}
               </h3>
-              {user?.roles && user.roles.length > 0 && (
+              {user?.roles && user.roles.length > 0 ? (
                 <p className="mt-2 break-words text-sm font-medium text-[var(--accent)]">
                   {user.roles.join(", ")}
                 </p>
-              )}
+              ) : null}
               <p className="mt-1 break-all text-sm text-[var(--muted)]">{user?.email || ""}</p>
             </div>
 
-            {/* Action Buttons */}
             <div className="w-full space-y-3 pt-2">
-              <Button
-                variant="primary"
-                fullWidth
-                onClick={() => setShowEditModal(true)}
-              >
+              <Button variant="primary" fullWidth onClick={handleEditProfile}>
                 <Edit2 className="h-4 w-4" />
                 Edit Profile
               </Button>
 
-              <Button
-                variant="secondary"
-                fullWidth
-                onClick={handleSignOut}
-              >
+              <Button variant="secondary" fullWidth onClick={handleSignOut}>
                 <LogOut className="h-4 w-4" />
                 Sign Out
               </Button>
@@ -145,7 +132,6 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
           </div>
         </div>
 
-        {/* Additional Info (Optional) */}
         <div className="shrink-0 border-t border-[var(--border)] bg-[var(--card-surface)] p-4">
           <div className="space-y-1 text-xs text-[var(--muted)]">
             <div className="flex min-w-0 items-center gap-2">
@@ -155,14 +141,6 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
           </div>
         </div>
       </div>
-
-      {/* Edit Profile Modal */}
-      <EditProfileModal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        user={user}
-        onSave={handleSaveProfile}
-      />
     </>,
     document.body,
   );
