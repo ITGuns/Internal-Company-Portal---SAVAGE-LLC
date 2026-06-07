@@ -2,6 +2,11 @@ import { Prisma, PrismaClient } from '@prisma/client'
 import crypto from 'crypto'
 import { prisma } from '../database/prisma.service'
 import { emailService } from '../email/email.service'
+import { ClientBillingService } from './client-billing.service'
+import {
+  ClientCalendarService,
+  type ClientCalendarItemDeleteContext,
+} from './client-calendar.service'
 import { ClientOrganizationsService } from './client-organizations.service'
 import { ClientServiceTiersService } from './client-service-tiers.service'
 import {
@@ -76,11 +81,15 @@ export class ClientsService {
   private prisma: PrismaClient
   private serviceTiers: ClientServiceTiersService
   private organizations: ClientOrganizationsService
+  private billing: ClientBillingService
+  private calendar: ClientCalendarService
 
   constructor() {
     this.prisma = prisma
     this.serviceTiers = new ClientServiceTiersService(this.prisma)
     this.organizations = new ClientOrganizationsService(this.prisma)
+    this.billing = new ClientBillingService(this.prisma)
+    this.calendar = new ClientCalendarService(this.prisma)
   }
 
   async findServiceTiers() {
@@ -1475,183 +1484,23 @@ export class ClientsService {
   }
 
   async upsertBillingStatus(organizationId: string, data: UpsertClientBillingStatusInput, actorId?: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const billing = await tx.clientBillingStatus.upsert({
-        where: { organizationId },
-        update: data,
-        create: {
-          organizationId,
-          ...data,
-        },
-      })
-
-      await createClientActivity(tx, {
-        organizationId,
-        actorId,
-        type: CLIENT_ACTIVITY_TYPES.billingUpdated,
-        subjectType: 'billing_status',
-        subjectId: billing.id,
-        visibility: billing.visibleToClient ? 'client' : 'internal',
-        title: `Billing status updated: ${billing.status}`,
-        body: billing.notes || null,
-        metadata: {
-          planName: billing.planName || null,
-          status: billing.status,
-          monthlyAmount: billing.monthlyAmount,
-          currency: billing.currency,
-          renewalAt: billing.renewalAt ? billing.renewalAt.toISOString() : null,
-        },
-      })
-
-      return billing
-    })
+    return this.billing.upsertBillingStatus(organizationId, data, actorId)
   }
 
   async createCalendarItem(organizationId: string, createdById: string, data: CreateClientCalendarItemInput) {
-    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
-
-    return this.prisma.$transaction(async (tx) => {
-      const calendarItem = await tx.clientCalendarItem.create({
-        data: {
-          organizationId,
-          createdById,
-          projectId: data.projectId,
-          title: data.title,
-          description: data.description,
-          channel: data.channel,
-          status: data.status,
-          startAt: data.startAt,
-          endAt: data.endAt,
-          visibleToClient: data.visibleToClient,
-        },
-      })
-
-      await createClientActivity(tx, {
-        organizationId,
-        actorId: createdById,
-        type: CLIENT_ACTIVITY_TYPES.calendarScheduled,
-        subjectType: 'calendar_item',
-        subjectId: calendarItem.id,
-        visibility: calendarItem.visibleToClient ? 'client' : 'internal',
-        title: `Calendar item scheduled: ${calendarItem.title}`,
-        body: calendarItem.description || null,
-        metadata: {
-          status: calendarItem.status,
-          channel: calendarItem.channel || null,
-          startAt: calendarItem.startAt.toISOString(),
-          endAt: calendarItem.endAt ? calendarItem.endAt.toISOString() : null,
-          projectId: calendarItem.projectId || null,
-        },
-      })
-
-      return calendarItem
-    })
+    return this.calendar.createCalendarItem(organizationId, createdById, data)
   }
 
   async findCalendarItemById(id: string) {
-    return this.prisma.clientCalendarItem.findUnique({ where: { id } })
+    return this.calendar.findCalendarItemById(id)
   }
 
   async updateCalendarItem(id: string, organizationId: string, data: UpdateClientCalendarItemInput, actorId?: string) {
-    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
-
-    return this.prisma.$transaction(async (tx) => {
-      const existingCalendarItem = await tx.clientCalendarItem.findUnique({
-        where: { id },
-        select: {
-          startAt: true,
-          endAt: true,
-        },
-      })
-      if (!existingCalendarItem) throw new ClientValidationError('Calendar item not found')
-
-      const nextStartAt = data.startAt || existingCalendarItem.startAt
-      const nextEndAt = data.endAt === undefined ? existingCalendarItem.endAt : data.endAt
-      if (nextEndAt && nextEndAt < nextStartAt) {
-        throw new ClientValidationError('Calendar endAt must be after startAt')
-      }
-
-      const calendarItem = await tx.clientCalendarItem.update({
-        where: { id },
-        data,
-      })
-
-      await createClientActivity(tx, {
-        organizationId,
-        actorId,
-        type: CLIENT_ACTIVITY_TYPES.calendarUpdated,
-        subjectType: 'calendar_item',
-        subjectId: calendarItem.id,
-        visibility: calendarItem.visibleToClient ? 'client' : 'internal',
-        title: `Calendar item updated: ${calendarItem.title}`,
-        body: calendarItem.description || null,
-        metadata: {
-          status: calendarItem.status,
-          channel: calendarItem.channel || null,
-          startAt: calendarItem.startAt.toISOString(),
-          endAt: calendarItem.endAt ? calendarItem.endAt.toISOString() : null,
-          projectId: calendarItem.projectId || null,
-        },
-      })
-
-      return calendarItem
-    })
+    return this.calendar.updateCalendarItem(id, organizationId, data, actorId)
   }
 
-  async deleteCalendarItem(id: string, actorId?: string, existingItem?: {
-    organizationId: string
-    title: string
-    description?: string | null
-    channel?: string | null
-    status: string
-    startAt: Date
-    endAt?: Date | null
-    visibleToClient: boolean
-    projectId?: string | null
-  }) {
-    return this.prisma.$transaction(async (tx) => {
-      const calendarItem = existingItem || await tx.clientCalendarItem.findUnique({
-        where: { id },
-        select: {
-          organizationId: true,
-          title: true,
-          description: true,
-          channel: true,
-          status: true,
-          startAt: true,
-          endAt: true,
-          visibleToClient: true,
-          projectId: true,
-        },
-      })
-
-      const deleted = await tx.clientCalendarItem.delete({
-        where: { id },
-        select: { id: true },
-      })
-
-      if (calendarItem) {
-        await createClientActivity(tx, {
-          organizationId: calendarItem.organizationId,
-          actorId,
-          type: CLIENT_ACTIVITY_TYPES.calendarDeleted,
-          subjectType: 'calendar_item',
-          subjectId: id,
-          visibility: calendarItem.visibleToClient ? 'client' : 'internal',
-          title: `Calendar item deleted: ${calendarItem.title}`,
-          body: calendarItem.description || null,
-          metadata: {
-            status: calendarItem.status,
-            channel: calendarItem.channel || null,
-            startAt: calendarItem.startAt.toISOString(),
-            endAt: calendarItem.endAt ? calendarItem.endAt.toISOString() : null,
-            projectId: calendarItem.projectId || null,
-          },
-        })
-      }
-
-      return deleted
-    })
+  async deleteCalendarItem(id: string, actorId?: string, existingItem?: ClientCalendarItemDeleteContext) {
+    return this.calendar.deleteCalendarItem(id, actorId, existingItem)
   }
 
   private async assertProjectBelongsToOrganization(organizationId: string, projectId?: string | null) {

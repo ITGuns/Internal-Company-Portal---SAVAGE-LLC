@@ -3350,3 +3350,33 @@
 ### Next Steps
 
 - Continue splitting the remaining client backend domains in small slices, starting with billing/calendar or projects/updates after checking test coverage for each route group.
+
+## 2026-06-07 - Client Billing And Calendar Service Split
+
+### Completed
+
+- Split client billing status upsert and billing activity creation into `ClientBillingService`.
+- Split client calendar create, lookup, update, delete, project ownership validation, and calendar activity creation into `ClientCalendarService`.
+- Kept `ClientsService` as the controller-facing facade so billing and calendar routes keep their existing API contract.
+
+### Files Changed
+
+- `backend/src/clients/client-billing.service.ts`
+- `backend/src/clients/client-calendar.service.ts`
+- `backend/src/clients/clients.service.ts`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept calendar project ownership validation inside the new calendar service so the moved methods remain self-contained.
+- Preserved billing and calendar activity creation inside the same database transactions as the records they describe.
+
+### How to Test
+
+- Run `npm --prefix backend run build`.
+- Run `npm --prefix backend test`.
+- Run `git diff --check`.
+
+### Next Steps
+
+- Continue the client backend split with another covered route group, such as projects/updates/resources/assets, before attempting larger report/ticket/workflow extraction.
