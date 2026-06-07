@@ -1,5 +1,97 @@
 # Development Notes
 
+## 2026-06-07 - Navigation Skeleton Layout Polish
+
+### Completed
+
+- Reworked shared page skeleton presets so loading states follow the real route box layouts instead of drawing generic headers, filters, or board columns.
+- Matched Dashboard, Task Tracking, Announcements, Daily Logs, and generic panel skeletons to their mounted page structure while keeping route headers and sidebar visible.
+- Removed an extra Operations department-card placeholder control that did not exist in the final card layout.
+
+### Files Changed
+
+- `frontend/src/components/ui/Skeleton.tsx`
+- `frontend/src/components/operations/OperationsLoadingStates.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept skeletons as content placeholders only; page headers and navigation remain mounted by the owning route during loading.
+- Preserved API/data-loading behavior and focused the change on visual stability.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- Browser affected-flow audit: reload Dashboard, Task Tracking, Announcements, Daily Logs, and Operations and confirm skeleton boxes match the final sections without replacing the sidebar or route header.
+
+### Next Steps
+
+- Add page-specific skeleton presets only when a route has a unique layout that the generic panel skeleton cannot represent.
+
+## 2026-06-07 - Operations Loading Performance
+
+### Completed
+
+- Split Operations data loading into independent cached queries for departments, roles, and members.
+- Deferred the Members request until the Members tab is opened or prefetched, so departments and roles no longer wait on the slow member list.
+- Moved the first org-catalog sync into a background refresh instead of blocking the initial Operations render.
+- Added section-level skeletons and retry states so the Operations page stays usable while one section loads.
+- Refined Operations skeletons to match final department, role, and member layouts with stable card dimensions and screen-reader-only loading labels.
+
+### Files Changed
+
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/components/operations/OperationsLoadingStates.tsx`
+- `frontend/src/lib/operations-data.ts`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept backend API contracts unchanged and used the existing React Query provider for caching, prefetching, and invalidation.
+- Kept role assignment disabled while roles are still loading or failed, but members can load independently.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- Browser affected-flow audit: open `/operations`, switch Departments, Roles, Members, and confirm the shell and tabs remain visible while section data loads.
+
+### Next Steps
+
+- Consider server-side pagination or virtualized rendering for the Members tab if production member count grows beyond the current bounded list.
+
+## 2026-06-07 - Sidebar Navigation Stability
+
+### Completed
+
+- Stabilized sidebar admin/work navigation during client-side route changes by preventing client-workspace resolution from resetting on ordinary user object refreshes.
+- Added focused tests for the sidebar client-workspace resolving decision.
+
+### Files Changed
+
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/lib/sidebar-client-workspace.ts`
+- `frontend/tests/sidebar-client-workspace.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Hard reloads may still show the safe auth-loading state until a user is known; client-side navigation should keep role-gated sidebar sections stable.
+- The client-workspace lookup now keys off stable user id and access booleans instead of the whole user object.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- Browser affected-flow audit: navigate Dashboard -> Task Tracking -> Daily Logs and confirm Admin nav stays mounted.
+
+### Next Steps
+
+- Push this follow-up after verification if the rendered check stays clean.
+
 ## 2026-06-07 - Production Audit Fixes
 
 ### Completed

@@ -28,6 +28,7 @@ import { useUser } from '@/contexts/UserContext';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { fetchClientOrganizations } from '@/lib/client-portal';
 import { CLIENT_PORTAL_NAV_ITEMS } from '@/lib/client-portal-navigation';
+import { getClientWorkspaceResolutionState } from '@/lib/sidebar-client-workspace';
 import { isSidebarNavItemActive, type SidebarNavActiveMode } from '@/lib/sidebar-navigation';
 import {
   hasClientOperationsAccess,
@@ -116,6 +117,7 @@ export default function Sidebar() {
   const { desktopCollapsed, mobileOpen, closeMobileSidebar } = useSidebar();
   const [hasClientWorkspace, setHasClientWorkspace] = useState(false);
   const [clientWorkspaceChecked, setClientWorkspaceChecked] = useState(false);
+  const userId = user?.id != null ? String(user.id) : '';
   const canUseFullAccessAdmin = hasFullAccess(user);
   const canAccessClientOperations = useMemo(() => hasClientOperationsAccess(user), [user]);
   const canUseOperationsAdmin = useMemo(() => hasManagementAccess(user), [user]);
@@ -125,10 +127,12 @@ export default function Sidebar() {
     () => hasClientWorkspaceShellAccess(user, hasClientWorkspace),
     [hasClientWorkspace, user],
   );
-  const isResolvingClientWorkspace = Boolean(user)
-    && !canAccessClientOperations
-    && !hasRoleBasedClientPortalAccess
-    && !clientWorkspaceChecked;
+  const { shouldResolveClientWorkspace, isResolvingClientWorkspace } = getClientWorkspaceResolutionState({
+    userId,
+    canAccessClientOperations,
+    hasRoleBasedClientPortalAccess,
+    clientWorkspaceChecked,
+  });
 
   useEffect(() => {
     closeMobileSidebar();
@@ -136,17 +140,22 @@ export default function Sidebar() {
 
   useEffect(() => {
     let ignore = false;
+
+    if (!userId) {
+      setHasClientWorkspace(false);
+      setClientWorkspaceChecked(false);
+      return;
+    }
+
+    if (!shouldResolveClientWorkspace) {
+      setHasClientWorkspace(false);
+      setClientWorkspaceChecked(true);
+      return;
+    }
+
     setClientWorkspaceChecked(false);
 
     async function checkClientWorkspace() {
-      if (!user || canAccessClientOperations || hasRoleBasedClientPortalAccess) {
-        if (!ignore) {
-          setHasClientWorkspace(false);
-          setClientWorkspaceChecked(true);
-        }
-        return;
-      }
-
       try {
         const organizations = await fetchClientOrganizations();
         if (!ignore) setHasClientWorkspace(organizations.length > 0);
@@ -162,7 +171,7 @@ export default function Sidebar() {
     return () => {
       ignore = true;
     };
-  }, [canAccessClientOperations, hasRoleBasedClientPortalAccess, user]);
+  }, [shouldResolveClientWorkspace, userId]);
 
   const employeeMainItems: NavItemConfig[] = [
     { href: '/dashboard', icon: Home, label: 'Dashboard' },

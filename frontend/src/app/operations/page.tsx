@@ -1,41 +1,39 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useTransition } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import FormField from "@/components/forms/FormField";
 import EmptyState from "@/components/ui/EmptyState";
-import OperationsMembersPanel from "@/components/operations/OperationsMembersPanel";
+import { MembersPanelSkeleton, OperationsErrorState, OperationsGridSkeleton } from "@/components/operations/OperationsLoadingStates";
 import { useToast } from "@/components/ToastProvider";
 import { ArrowRight, BriefcaseBusiness, Building, Plus, Trash2, UserPlus } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import { assignUserRole, fetchUsers, removeUserRole } from "@/lib/users";
+import { assignUserRole, removeUserRole } from "@/lib/users";
 import { useUser } from "@/contexts/UserContext";
 import { hasFullAccess } from "@/lib/role-access";
+import {
+  fetchOperationsDepartments,
+  fetchOperationsMembers,
+  fetchOperationsRoles,
+  OPERATIONS_CORE_STALE_MS,
+  OPERATIONS_MEMBERS_STALE_MS,
+  OPERATIONS_QUERY_KEYS,
+  syncOperationsOrgCatalog,
+  type OperationsDepartment,
+  type OperationsRole,
+} from "@/lib/operations-data";
 import type { MemberRoleAssignment, OperationsMember } from "@/lib/member-role-management";
 
-type Department = {
-  id: string;
-  name: string;
-  driveId?: string;
-  description?: string;
-  _count?: {
-    tasks?: number;
-    roles?: number;
-  };
-};
+type OperationsTab = 'departments' | 'roles' | 'members' | 'clients';
 
-type Role = {
-  id: string;
-  name: string;
-  departmentId?: string | null;
-  department?: {
-    id: string;
-    name: string;
-  } | null;
-};
+const OperationsMembersPanel = dynamic(() => import("@/components/operations/OperationsMembersPanel"), {
+  loading: () => <MembersPanelSkeleton />,
+});
 
 type DeleteTarget =
   | { type: 'department'; id: string; name: string; tasks: number; roles: number }
@@ -43,12 +41,11 @@ type DeleteTarget =
 
 export default function OperationsPage() {
   const { user } = useUser();
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [members, setMembers] = useState<OperationsMember[]>([]);
+  const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'departments' | 'roles' | 'members' | 'clients'>('departments');
+  const [activeTab, setActiveTab] = useState<OperationsTab>('departments');
+  const [isTabPending, startTabTransition] = useTransition();
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
@@ -64,12 +61,47 @@ export default function OperationsPage() {
   const toast = useToast();
   const canManageOrgSettings = hasFullAccess(user);
 
+  const departmentsQuery = useQuery({
+    queryKey: OPERATIONS_QUERY_KEYS.departments,
+    queryFn: fetchOperationsDepartments,
+    staleTime: OPERATIONS_CORE_STALE_MS,
+    placeholderData: keepPreviousData,
+  });
+  const rolesQuery = useQuery({
+    queryKey: OPERATIONS_QUERY_KEYS.roles,
+    queryFn: fetchOperationsRoles,
+    staleTime: OPERATIONS_CORE_STALE_MS,
+    placeholderData: keepPreviousData,
+  });
+  const membersQuery = useQuery({
+    queryKey: OPERATIONS_QUERY_KEYS.members,
+    queryFn: fetchOperationsMembers,
+    enabled: activeTab === 'members',
+    staleTime: OPERATIONS_MEMBERS_STALE_MS,
+    placeholderData: keepPreviousData,
+  });
+
+  const departments = departmentsQuery.data ?? [];
+  const roles = rolesQuery.data ?? [];
+  const members = (membersQuery.data ?? []) as OperationsMember[];
+  const departmentsLoading = departmentsQuery.isPending && departments.length === 0;
+  const rolesLoading = rolesQuery.isPending && roles.length === 0;
+  const membersLoading = membersQuery.isPending && members.length === 0;
+
+  const refreshCoreOperationsData = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEYS.departments }),
+      queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEYS.roles }),
+    ]);
+  }, [queryClient]);
+
   const syncOrgCatalog = useCallback(async (options: { showToast?: boolean } = {}) => {
     if (!canManageOrgSettings) return false;
 
     setSyncingCatalog(true);
     try {
-      await apiFetch('/departments/org-catalog/sync', { method: 'POST' });
+      await syncOperationsOrgCatalog();
+      await refreshCoreOperationsData();
       if (options.showToast) toast.success('Org chart departments and roles synced');
       return true;
     } catch (error) {
@@ -79,33 +111,51 @@ export default function OperationsPage() {
     } finally {
       setSyncingCatalog(false);
     }
-  }, [canManageOrgSettings, toast]);
+  }, [canManageOrgSettings, refreshCoreOperationsData, toast]);
 
-  const loadData = useCallback(async () => {
-    try {
-      if (canManageOrgSettings && !catalogSyncAttemptedRef.current) {
-        catalogSyncAttemptedRef.current = true;
-        await syncOrgCatalog();
-      }
-
-      const [deptRes, roleRes, userList] = await Promise.all([
-        apiFetch('/departments'),
-        apiFetch('/roles'),
-        fetchUsers(),
-      ]);
-
-      if (deptRes.ok) setDepartments(await deptRes.json());
-      if (roleRes.ok) setRoles(await roleRes.json());
-      setMembers(userList as OperationsMember[]);
-    } catch (e) {
-      console.error(e);
-      toast.error('An error occurred while loading data');
+  const prefetchOperationsTab = useCallback((tab: OperationsTab) => {
+    if (tab === 'departments') {
+      void queryClient.prefetchQuery({
+        queryKey: OPERATIONS_QUERY_KEYS.departments,
+        queryFn: fetchOperationsDepartments,
+        staleTime: OPERATIONS_CORE_STALE_MS,
+      });
+      return;
     }
-  }, [canManageOrgSettings, syncOrgCatalog, toast]);
+
+    if (tab === 'roles') {
+      void queryClient.prefetchQuery({
+        queryKey: OPERATIONS_QUERY_KEYS.roles,
+        queryFn: fetchOperationsRoles,
+        staleTime: OPERATIONS_CORE_STALE_MS,
+      });
+      return;
+    }
+
+    if (tab === 'members') {
+      void queryClient.prefetchQuery({
+        queryKey: OPERATIONS_QUERY_KEYS.members,
+        queryFn: fetchOperationsMembers,
+        staleTime: OPERATIONS_MEMBERS_STALE_MS,
+      });
+      void queryClient.prefetchQuery({
+        queryKey: OPERATIONS_QUERY_KEYS.roles,
+        queryFn: fetchOperationsRoles,
+        staleTime: OPERATIONS_CORE_STALE_MS,
+      });
+    }
+  }, [queryClient]);
+
+  const selectTab = useCallback((tab: OperationsTab) => {
+    prefetchOperationsTab(tab);
+    startTabTransition(() => setActiveTab(tab));
+  }, [prefetchOperationsTab]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!canManageOrgSettings || catalogSyncAttemptedRef.current) return;
+    catalogSyncAttemptedRef.current = true;
+    void syncOrgCatalog();
+  }, [canManageOrgSettings, syncOrgCatalog]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -126,7 +176,7 @@ export default function OperationsPage() {
         setName("");
         setDriveId("");
         toast.success('Department created successfully');
-        loadData();
+        await queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEYS.departments });
       }
     } catch (e) {
       console.error(e);
@@ -158,7 +208,7 @@ export default function OperationsPage() {
         setRoleName("");
         setRoleDeptId("");
         toast.success('Role created successfully');
-        loadData();
+        await refreshCoreOperationsData();
       }
     } catch (e) {
       console.error(e);
@@ -168,7 +218,7 @@ export default function OperationsPage() {
     }
   }
 
-  function openDepartmentDelete(department: Department) {
+  function openDepartmentDelete(department: OperationsDepartment) {
     setDeleteTarget({
       type: 'department',
       id: department.id,
@@ -179,7 +229,7 @@ export default function OperationsPage() {
     setDeleteConfirmation("");
   }
 
-  function openRoleDelete(role: Role) {
+  function openRoleDelete(role: OperationsRole) {
     setDeleteTarget({
       type: 'role',
       id: role.id,
@@ -202,7 +252,7 @@ export default function OperationsPage() {
         toast.success(`${deleteTarget.type === 'department' ? 'Department' : 'Role'} deleted successfully`);
         setDeleteTarget(null);
         setDeleteConfirmation("");
-        loadData();
+        await refreshCoreOperationsData();
       }
     } catch (e) {
       console.error(e);
@@ -216,7 +266,7 @@ export default function OperationsPage() {
     try {
       await assignUserRole(userId, roleData);
       toast.success('Member role updated');
-      await loadData();
+      await queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEYS.members });
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : 'Failed to update member role');
@@ -228,7 +278,7 @@ export default function OperationsPage() {
     try {
       await removeUserRole(userId, assignment);
       toast.success('Member role removed');
-      await loadData();
+      await queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEYS.members });
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : 'Failed to remove member role');
@@ -250,7 +300,9 @@ export default function OperationsPage() {
               type="button"
               role="tab"
               aria-selected={activeTab === 'departments'}
-              onClick={() => setActiveTab('departments')}
+              onMouseEnter={() => prefetchOperationsTab('departments')}
+              onFocus={() => prefetchOperationsTab('departments')}
+              onClick={() => selectTab('departments')}
               className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'departments' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
             >
               Departments
@@ -259,7 +311,9 @@ export default function OperationsPage() {
               type="button"
               role="tab"
               aria-selected={activeTab === 'roles'}
-              onClick={() => setActiveTab('roles')}
+              onMouseEnter={() => prefetchOperationsTab('roles')}
+              onFocus={() => prefetchOperationsTab('roles')}
+              onClick={() => selectTab('roles')}
               className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'roles' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
             >
               Roles
@@ -268,7 +322,9 @@ export default function OperationsPage() {
               type="button"
               role="tab"
               aria-selected={activeTab === 'members'}
-              onClick={() => setActiveTab('members')}
+              onMouseEnter={() => prefetchOperationsTab('members')}
+              onFocus={() => prefetchOperationsTab('members')}
+              onClick={() => selectTab('members')}
               className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'members' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
             >
               Members
@@ -277,11 +333,17 @@ export default function OperationsPage() {
               type="button"
               role="tab"
               aria-selected={activeTab === 'clients'}
-              onClick={() => setActiveTab('clients')}
+              onClick={() => selectTab('clients')}
               className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'clients' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
             >
               Clients
             </button>
+            {isTabPending ? (
+              <span className="ml-auto inline-flex items-center gap-2 text-xs text-[var(--muted)]">
+                <span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" aria-hidden="true" />
+                Preparing section
+              </span>
+            ) : null}
           </div>
 
           <div className="flex gap-3 mb-6">
@@ -299,7 +361,7 @@ export default function OperationsPage() {
                     variant="secondary"
                     loading={syncingCatalog}
                     onClick={() => {
-                      void syncOrgCatalog({ showToast: true }).then(() => loadData());
+                      void syncOrgCatalog({ showToast: true });
                     }}
                   >
                     Sync Org Chart
@@ -320,7 +382,7 @@ export default function OperationsPage() {
                     variant="secondary"
                     loading={syncingCatalog}
                     onClick={() => {
-                      void syncOrgCatalog({ showToast: true }).then(() => loadData());
+                      void syncOrgCatalog({ showToast: true });
                     }}
                   >
                     Sync Org Chart
@@ -347,7 +409,15 @@ export default function OperationsPage() {
           </div>
 
           {activeTab === 'departments' ? (
-            departments.length === 0 ? (
+            departmentsLoading ? (
+              <OperationsGridSkeleton label="Loading departments" variant="department" />
+            ) : departmentsQuery.isError ? (
+              <OperationsErrorState
+                title="Departments did not load"
+                description={departmentsQuery.error instanceof Error ? departmentsQuery.error.message : "Refresh this section to try again."}
+                onRetry={() => void departmentsQuery.refetch()}
+              />
+            ) : departments.length === 0 ? (
               <EmptyState
                 icon={Building}
                 title="No departments yet"
@@ -392,7 +462,15 @@ export default function OperationsPage() {
               </div>
             )
           ) : activeTab === 'roles' ? (
-            roles.length === 0 ? (
+            rolesLoading ? (
+              <OperationsGridSkeleton label="Loading roles" variant="role" />
+            ) : rolesQuery.isError ? (
+              <OperationsErrorState
+                title="Roles did not load"
+                description={rolesQuery.error instanceof Error ? rolesQuery.error.message : "Refresh this section to try again."}
+                onRetry={() => void rolesQuery.refetch()}
+              />
+            ) : roles.length === 0 ? (
               <EmptyState
                 icon={Building}
                 title="No roles yet"
@@ -424,13 +502,23 @@ export default function OperationsPage() {
               </div>
             )
           ) : activeTab === 'members' ? (
-            <OperationsMembersPanel
-              members={members}
-              availableRoles={roles}
-              canManageMembers={canManageOrgSettings}
-              onAssignRole={handleAssignMemberRole}
-              onRemoveRole={handleRemoveMemberRole}
-            />
+            membersLoading ? (
+              <MembersPanelSkeleton />
+            ) : membersQuery.isError ? (
+              <OperationsErrorState
+                title="Members did not load"
+                description={membersQuery.error instanceof Error ? membersQuery.error.message : "Refresh this section to try again."}
+                onRetry={() => void membersQuery.refetch()}
+              />
+            ) : (
+              <OperationsMembersPanel
+                members={members}
+                availableRoles={roles}
+                canManageMembers={canManageOrgSettings && !rolesLoading && !rolesQuery.isError}
+                onAssignRole={handleAssignMemberRole}
+                onRemoveRole={handleRemoveMemberRole}
+              />
+            )
           ) : (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
               <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-[var(--shadow-sm)]">
