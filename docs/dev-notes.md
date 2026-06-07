@@ -3380,3 +3380,32 @@
 ### Next Steps
 
 - Continue the client backend split with another covered route group, such as projects/updates/resources/assets, before attempting larger report/ticket/workflow extraction.
+
+## 2026-06-07 - Client Content And Resource Service Split
+
+### Completed
+
+- Split client project, update, metric snapshot, and resource-link persistence into `ClientContentService`.
+- Kept resource project ownership validation inside the new content service.
+- Preserved `ClientsService` as the controller-facing facade for project, update, metric, and resource routes.
+
+### Files Changed
+
+- `backend/src/clients/client-content.service.ts`
+- `backend/src/clients/clients.service.ts`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Grouped projects, updates, metrics, and resources together because they are simple client workspace content records and share the same project ownership check.
+- Left tickets, approvals, reports, roadmap, assets, memberships, and invitations in `ClientsService` for separate focused passes.
+
+### How to Test
+
+- Run `npm --prefix backend run build`.
+- Run `npm --prefix backend test`.
+- Run `git diff --check`.
+
+### Next Steps
+
+- Continue with another focused client backend split only after checking route coverage and preserving activity/authorization behavior.

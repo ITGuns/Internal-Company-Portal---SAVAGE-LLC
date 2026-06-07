@@ -7,6 +7,7 @@ import {
   ClientCalendarService,
   type ClientCalendarItemDeleteContext,
 } from './client-calendar.service'
+import { ClientContentService } from './client-content.service'
 import { ClientOrganizationsService } from './client-organizations.service'
 import { ClientServiceTiersService } from './client-service-tiers.service'
 import {
@@ -83,6 +84,7 @@ export class ClientsService {
   private organizations: ClientOrganizationsService
   private billing: ClientBillingService
   private calendar: ClientCalendarService
+  private content: ClientContentService
 
   constructor() {
     this.prisma = prisma
@@ -90,6 +92,7 @@ export class ClientsService {
     this.organizations = new ClientOrganizationsService(this.prisma)
     this.billing = new ClientBillingService(this.prisma)
     this.calendar = new ClientCalendarService(this.prisma)
+    this.content = new ClientContentService(this.prisma)
   }
 
   async findServiceTiers() {
@@ -596,102 +599,39 @@ export class ClientsService {
   }
 
   async createProject(organizationId: string, data: CreateClientProjectInput) {
-    return this.prisma.clientProject.create({
-      data: {
-        organizationId,
-        name: data.name,
-        status: data.status,
-        summary: data.summary,
-        progress: data.progress,
-        startedAt: data.startedAt,
-        targetLaunchAt: data.targetLaunchAt,
-        liveUrl: data.liveUrl,
-        previewUrl: data.previewUrl,
-        internalNotes: data.internalNotes,
-      },
-    })
+    return this.content.createProject(organizationId, data)
   }
 
   async findProjectById(id: string) {
-    return this.prisma.clientProject.findUnique({
-      where: { id },
-    })
+    return this.content.findProjectById(id)
   }
 
   async updateProject(id: string, data: UpdateClientProjectInput) {
-    return this.prisma.clientProject.update({
-      where: { id },
-      data,
-    })
+    return this.content.updateProject(id, data)
   }
 
   async createUpdate(organizationId: string, createdById: string, data: CreateClientUpdateInput) {
-    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
-
-    return this.prisma.clientUpdate.create({
-      data: {
-        organizationId,
-        projectId: data.projectId,
-        title: data.title,
-        body: data.body,
-        status: data.status,
-        visibleToClient: data.visibleToClient,
-        createdById,
-      },
-    })
+    return this.content.createUpdate(organizationId, createdById, data)
   }
 
   async createMetricSnapshot(organizationId: string, data: CreateClientMetricSnapshotInput) {
-    return this.prisma.clientMetricSnapshot.create({
-      data: {
-        organizationId,
-        label: data.label,
-        value: data.value,
-        unit: data.unit,
-        periodStart: data.periodStart,
-        periodEnd: data.periodEnd,
-        source: data.source,
-        notes: data.notes,
-        visibleToClient: data.visibleToClient,
-      },
-    })
+    return this.content.createMetricSnapshot(organizationId, data)
   }
 
   async createResourceLink(organizationId: string, data: CreateClientResourceLinkInput) {
-    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
-
-    return this.prisma.clientResourceLink.create({
-      data: {
-        organizationId,
-        projectId: data.projectId,
-        label: data.label,
-        url: data.url,
-        type: data.type,
-        visibleToClient: data.visibleToClient,
-        createdById: data.createdById,
-      },
-    })
+    return this.content.createResourceLink(organizationId, data)
   }
 
   async findResourceLinkById(id: string) {
-    return this.prisma.clientResourceLink.findUnique({
-      where: { id },
-    })
+    return this.content.findResourceLinkById(id)
   }
 
   async updateResourceLink(resourceId: string, organizationId: string, data: UpdateClientResourceLinkInput) {
-    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
-
-    return this.prisma.clientResourceLink.update({
-      where: { id: resourceId },
-      data,
-    })
+    return this.content.updateResourceLink(resourceId, organizationId, data)
   }
 
   async deleteResourceLink(resourceId: string) {
-    return this.prisma.clientResourceLink.delete({
-      where: { id: resourceId },
-    })
+    return this.content.deleteResourceLink(resourceId)
   }
 
   async findTickets(where: Prisma.ClientTicketWhereInput = {}) {
