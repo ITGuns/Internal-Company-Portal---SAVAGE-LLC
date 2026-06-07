@@ -20,6 +20,7 @@ import {
   fetchOperationsDepartments,
   fetchOperationsMembers,
   fetchOperationsRoles,
+  OPERATIONS_CACHE_GC_MS,
   OPERATIONS_CORE_STALE_MS,
   OPERATIONS_MEMBERS_STALE_MS,
   OPERATIONS_QUERY_KEYS,
@@ -27,9 +28,14 @@ import {
   type OperationsDepartment,
   type OperationsRole,
 } from "@/lib/operations-data";
+import {
+  cacheOperationsTab,
+  getInitialOperationsTab,
+  markOperationsOrgCatalogSynced,
+  shouldAutoSyncOperationsOrgCatalog,
+  type OperationsTab,
+} from "@/lib/operations-session";
 import type { MemberRoleAssignment, OperationsMember } from "@/lib/member-role-management";
-
-type OperationsTab = 'departments' | 'roles' | 'members' | 'clients';
 
 const OperationsMembersPanel = dynamic(() => import("@/components/operations/OperationsMembersPanel"), {
   loading: () => <MembersPanelSkeleton />,
@@ -44,7 +50,7 @@ export default function OperationsPage() {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<OperationsTab>('departments');
+  const [activeTab, setActiveTab] = useState<OperationsTab>(() => getInitialOperationsTab());
   const [isTabPending, startTabTransition] = useTransition();
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
@@ -60,24 +66,28 @@ export default function OperationsPage() {
   const catalogSyncAttemptedRef = useRef(false);
   const toast = useToast();
   const canManageOrgSettings = hasFullAccess(user);
+  const userId = user?.id != null ? String(user.id) : "";
 
   const departmentsQuery = useQuery({
     queryKey: OPERATIONS_QUERY_KEYS.departments,
     queryFn: fetchOperationsDepartments,
     staleTime: OPERATIONS_CORE_STALE_MS,
+    gcTime: OPERATIONS_CACHE_GC_MS,
     placeholderData: keepPreviousData,
   });
   const rolesQuery = useQuery({
     queryKey: OPERATIONS_QUERY_KEYS.roles,
     queryFn: fetchOperationsRoles,
     staleTime: OPERATIONS_CORE_STALE_MS,
+    gcTime: OPERATIONS_CACHE_GC_MS,
     placeholderData: keepPreviousData,
   });
   const membersQuery = useQuery({
     queryKey: OPERATIONS_QUERY_KEYS.members,
     queryFn: fetchOperationsMembers,
-    enabled: activeTab === 'members',
+    enabled: canManageOrgSettings || activeTab === 'members',
     staleTime: OPERATIONS_MEMBERS_STALE_MS,
+    gcTime: OPERATIONS_CACHE_GC_MS,
     placeholderData: keepPreviousData,
   });
 
@@ -96,12 +106,13 @@ export default function OperationsPage() {
   }, [queryClient]);
 
   const syncOrgCatalog = useCallback(async (options: { showToast?: boolean } = {}) => {
-    if (!canManageOrgSettings) return false;
+    if (!canManageOrgSettings || !userId) return false;
 
     setSyncingCatalog(true);
     try {
       await syncOperationsOrgCatalog();
       await refreshCoreOperationsData();
+      markOperationsOrgCatalogSynced(userId);
       if (options.showToast) toast.success('Org chart departments and roles synced');
       return true;
     } catch (error) {
@@ -111,7 +122,7 @@ export default function OperationsPage() {
     } finally {
       setSyncingCatalog(false);
     }
-  }, [canManageOrgSettings, refreshCoreOperationsData, toast]);
+  }, [canManageOrgSettings, refreshCoreOperationsData, toast, userId]);
 
   const prefetchOperationsTab = useCallback((tab: OperationsTab) => {
     if (tab === 'departments') {
@@ -119,6 +130,7 @@ export default function OperationsPage() {
         queryKey: OPERATIONS_QUERY_KEYS.departments,
         queryFn: fetchOperationsDepartments,
         staleTime: OPERATIONS_CORE_STALE_MS,
+        gcTime: OPERATIONS_CACHE_GC_MS,
       });
       return;
     }
@@ -128,6 +140,7 @@ export default function OperationsPage() {
         queryKey: OPERATIONS_QUERY_KEYS.roles,
         queryFn: fetchOperationsRoles,
         staleTime: OPERATIONS_CORE_STALE_MS,
+        gcTime: OPERATIONS_CACHE_GC_MS,
       });
       return;
     }
@@ -137,25 +150,29 @@ export default function OperationsPage() {
         queryKey: OPERATIONS_QUERY_KEYS.members,
         queryFn: fetchOperationsMembers,
         staleTime: OPERATIONS_MEMBERS_STALE_MS,
+        gcTime: OPERATIONS_CACHE_GC_MS,
       });
       void queryClient.prefetchQuery({
         queryKey: OPERATIONS_QUERY_KEYS.roles,
         queryFn: fetchOperationsRoles,
         staleTime: OPERATIONS_CORE_STALE_MS,
+        gcTime: OPERATIONS_CACHE_GC_MS,
       });
     }
   }, [queryClient]);
 
   const selectTab = useCallback((tab: OperationsTab) => {
     prefetchOperationsTab(tab);
+    cacheOperationsTab(tab);
     startTabTransition(() => setActiveTab(tab));
   }, [prefetchOperationsTab]);
 
   useEffect(() => {
-    if (!canManageOrgSettings || catalogSyncAttemptedRef.current) return;
+    if (!canManageOrgSettings || !userId || catalogSyncAttemptedRef.current) return;
+    if (!shouldAutoSyncOperationsOrgCatalog(userId, canManageOrgSettings)) return;
     catalogSyncAttemptedRef.current = true;
     void syncOrgCatalog();
-  }, [canManageOrgSettings, syncOrgCatalog]);
+  }, [canManageOrgSettings, syncOrgCatalog, userId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

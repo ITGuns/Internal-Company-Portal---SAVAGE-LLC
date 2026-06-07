@@ -29,8 +29,9 @@ export const OPERATIONS_QUERY_KEYS = {
   members: ['operations', 'members'] as const,
 };
 
-export const OPERATIONS_CORE_STALE_MS = 2 * 60 * 1000;
-export const OPERATIONS_MEMBERS_STALE_MS = 60 * 1000;
+export const OPERATIONS_CORE_STALE_MS = 10 * 60 * 1000;
+export const OPERATIONS_MEMBERS_STALE_MS = 10 * 60 * 1000;
+export const OPERATIONS_CACHE_GC_MS = 30 * 60 * 1000;
 
 async function readJsonOrThrow<T>(response: Response, fallbackMessage: string): Promise<T> {
   if (!response.ok) {

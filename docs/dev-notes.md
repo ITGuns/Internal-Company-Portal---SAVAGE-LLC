@@ -3438,3 +3438,38 @@
 ### Next Steps
 
 - Leave the remaining ticket, approval, report, membership, and invitation logic for separate extraction passes because they carry more state, activity, and email side effects.
+
+## 2026-06-07 - Operations Navigation Cache And Route Return Performance
+
+### Completed
+
+- Prevented Operations route returns from re-running the automatic org catalog sync during the same user session.
+- Kept departments, roles, and members cached longer so sidebar navigation back to Operations does not feel like a full page reload.
+- Persisted the last selected Operations tab for route returns and preload member data for full admin users.
+- Extended shared React Query defaults so workspace navigation keeps recent route data in memory instead of refetching on every focus or quick section switch.
+
+### Files Changed
+
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/lib/operations-data.ts`
+- `frontend/src/lib/operations-session.ts`
+- `frontend/src/lib/queryClient.ts`
+- `frontend/tests/operations-session.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Used sessionStorage for the Operations tab and auto-sync throttle because it improves same-session navigation without making stale org sync state permanent.
+- Kept explicit mutation invalidations and manual Sync Org Chart behavior intact so admins can still refresh organization data when needed.
+- Disabled focus-triggered React Query refetch by default because socket and mutation invalidations already refresh important app data with less navigation churn.
+
+### How to Test
+
+- Run `npm --prefix frontend test`.
+- Run `npm --prefix frontend run lint`.
+- Run `npm --prefix frontend run build`.
+- Run focused visual smoke for `/operations`, `/operations/onboarding`, `/operations/clients`, `/dashboard`, `/task-tracking`, and `/daily-logs`.
+
+### Next Steps
+
+- Audit other heavy routes for page-local state that should become route/session state only if users report similar route-return churn.
