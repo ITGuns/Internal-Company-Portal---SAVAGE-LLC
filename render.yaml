@@ -10,6 +10,7 @@ services:
     runtime: docker
     plan: starter
     region: singapore
+    repo: https://github.com/ITGuns/Internal-Company-Portal---SAVAGE-LLC
     branch: main
     autoDeployTrigger: checksPass
     dockerContext: ./backend

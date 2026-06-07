@@ -2985,3 +2985,35 @@
 
 - Provide or set `RENDER_API_KEY`, select the Render workspace, and validate the Blueprint with Render.
 - Create the Blueprint, set Supabase secrets, and verify `/health`.
+
+## 2026-06-07 - Render API Key And Blueprint Validation
+
+### Completed
+
+- Created a Render account through GitHub authorization for the existing Chrome user session.
+- Created a Render API key for deployment automation and stored it as the Windows user `RENDER_API_KEY`.
+- Verified Render CLI authentication as the Render account user and listed the available Render workspace.
+- Added the explicit GitHub `repo` field required by Render Blueprint API validation.
+
+### Files Changed
+
+- `render.yaml`
+- `docs/deployment.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the Render service on `starter` instead of downgrading to a free preview because the target is production backend readiness.
+- Stopped before billing setup because Render requires workspace payment information for the paid backend and Key Value resources.
+
+### How to Test
+
+- Run `render whoami` with `RENDER_API_KEY` available.
+- Run `render workspaces -o json` and select the workspace.
+- Run `render blueprints validate ./render.yaml`; after payment info is added, remaining validation should continue past the current billing requirement.
+
+### Next Steps
+
+- Add Render workspace payment information in the Render dashboard.
+- Re-run `render blueprints validate ./render.yaml`.
+- Create the Blueprint, fill Supabase secrets, and verify `/health`.

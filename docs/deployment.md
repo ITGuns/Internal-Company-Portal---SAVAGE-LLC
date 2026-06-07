@@ -110,6 +110,8 @@ The Render backend runs `npm run prisma:deploy:render` as its pre-deploy command
 
 The Blueprint uses `autoDeployTrigger: checksPass`, so Render deploys `main` only after the linked Git provider reports passing checks.
 
+The Blueprint points at the GitHub repository with `repo: https://github.com/ITGuns/Internal-Company-Portal---SAVAGE-LLC`. Render still requires workspace payment information before it can validate or create the paid `starter` backend and Key Value resources.
+
 After Render creates the backend service, set Vercel production variables:
 
 - `NEXT_PUBLIC_API_URL=https://<render-backend-host>/api`
