@@ -1,6 +1,9 @@
 import { PrismaClient, TimeEntry, PayrollEvent, Prisma } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
 import { emailService } from '../email/email.service'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('payroll.service')
 
 export interface CreatePayrollEventDto {
     title: string
@@ -311,7 +314,11 @@ export class PayrollService {
             data: { startDate, endDate, payDate, status: 'draft' }
         })
 
-        console.log(`[PayrollService] Auto-created payroll period: ${period.id} (${startDate.toDateString()} – ${endDate.toDateString()})`)
+        logger.info('Auto-created payroll period', {
+            periodId: period.id,
+            startDate,
+            endDate,
+        })
         return period.id
     }
 
@@ -532,7 +539,7 @@ export class PayrollService {
                     });
                 }
             } catch (error) {
-                console.error('Failed to send payslip email:', error);
+                logger.error('Failed to send payslip email', error);
                 // Don't block the response
             }
 
@@ -562,7 +569,7 @@ export class PayrollService {
                 const payslip = await this.generatePayslip(periodId, emp.id)
                 results.push({ userId: emp.id, success: true, payslipId: payslip.id })
             } catch (err) {
-                console.error(`Failed to generate bulk payslip for ${emp.id}:`, err instanceof Error ? err.message : err)
+                logger.error('Failed to generate bulk payslip', { userId: emp.id, error: err })
                 results.push({ userId: emp.id, success: false, error: err instanceof Error ? err.message : String(err) })
             }
         }

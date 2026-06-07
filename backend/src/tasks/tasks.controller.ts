@@ -13,6 +13,9 @@ import {
   hasTaskAssignmentPrivilege,
   type PrimaryTaskAssignment,
 } from './tasks.permissions'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('tasks.controller')
 
 interface TaskAccessContext {
   requesterId: string
@@ -236,7 +239,7 @@ export class TasksController {
               taskUrl,
               departmentName: task.department.name
             }
-          ).catch(err => console.error('Failed to send task assignment email:', err))
+          ).catch(err => logger.error('Failed to send task assignment email', err))
 
           // 2. Send Real-time Notification
           notificationService.notifyUser(task.assignee.id, {
@@ -328,7 +331,7 @@ export class TasksController {
               changedBy: (req as any).user?.name || (req as any).user?.email || 'Admin',
               taskUrl
             }
-          ).catch(err => console.error('Failed to send status change email:', err))
+          ).catch(err => logger.error('Failed to send status change email', err))
 
           // 2. Send Real-time Notification
           notificationService.notifyUser(task.assignee.id, {

@@ -13,6 +13,10 @@ import {
     serializeEmployeeApplication,
     serializeEmployeesForManagement,
 } from './employees.security';
+import { createLogger } from '../observability/logger';
+
+const logger = createLogger('employees.controller');
+
 export class EmployeesController {
     private _router = Router();
     private employeesService: EmployeesService;
@@ -45,7 +49,7 @@ export class EmployeesController {
             const pending = await this.employeesService.getPending();
             res.status(200).json(serializeEmployeesForManagement(pending));
         } catch (error) {
-            console.error('[Employees] Error fetching pending:', error);
+            logger.error('Error fetching pending employees', error);
             res.status(500).json({ error: 'Internal Server Error' });
         }
     }
@@ -58,7 +62,7 @@ export class EmployeesController {
             const deployed = await this.employeesService.getDeployed();
             res.status(200).json(serializeEmployeesForManagement(deployed));
         } catch (error) {
-            console.error('[Employees] Error fetching deployed:', error);
+            logger.error('Error fetching deployed employees', error);
             res.status(500).json({ error: 'Internal Server Error' });
         }
     }
@@ -90,7 +94,7 @@ export class EmployeesController {
             if (error instanceof MissingSignupRoleAssignmentError) {
                 return res.status(400).json({ error: error.message });
             }
-            console.error('[Employees] Error approving:', error);
+            logger.error('Error approving employee', error);
             res.status(500).json({ error: 'Internal Server Error' });
         }
     }
@@ -104,7 +108,7 @@ export class EmployeesController {
             const updated = await this.employeesService.reject(id as string);
             res.status(200).json({ success: true, user: serializeEmployeeApplication(updated) });
         } catch (error) {
-            console.error('[Employees] Error rejecting:', error);
+            logger.error('Error rejecting employee', error);
             res.status(500).json({ error: 'Internal Server Error' });
         }
     }
@@ -113,8 +117,9 @@ export class EmployeesController {
         try {
             const employeeData = req.body;
 
-            // Log the request
-            console.log(`[Employees] New verification request for: ${employeeData.name}`);
+            logger.info('New employee verification request received', {
+                hasAvatar: employeeData.avatar !== undefined,
+            });
 
             if (employeeData.avatar !== undefined) {
                 const avatarValidation = validateStoredAvatarValue(employeeData.avatar);
@@ -165,8 +170,7 @@ export class EmployeesController {
                 opsNotified: emailResult.success
             };
 
-            console.log(`[Employees] Welcome email to ${employeeData.email}: ${welcomeResult.success ? 'Success' : 'Failed'}`);
-            console.log(`[Employees] Manager notification to ${opsManagerEmail}: ${emailResult.success ? 'Success' : 'Failed'}`);
+            logger.info('Employee verification emails processed', emailStatus);
 
             res.status(201).json({
                 success: true,
@@ -176,7 +180,7 @@ export class EmployeesController {
             });
 
         } catch (error) {
-            console.error('[Employees] Error:', error);
+            logger.error('Employee verification request failed', error);
 
             // Handle Prisma unique constraint violated for email
             if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2002') {

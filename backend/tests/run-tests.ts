@@ -30,6 +30,7 @@ const tests = [
   'clients.production-records.test.ts',
   'cors.config.test.ts',
   'security.middleware.test.ts',
+  'observability.logger.test.ts',
   'json-body-limits.test.ts',
   'upload.validation.test.ts',
   'clients.routes.test.ts',

@@ -15,6 +15,10 @@ import {
     hasPayrollManagementAccess,
     PayrollAccess,
 } from './payroll.permissions'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('payroll.payroll.controller')
+
 
 interface AuthRequest extends Request {
     user?: {
@@ -99,7 +103,7 @@ export class PayrollController {
                 const events = await this.service.getEvents(type, startDate, endDate)
                 res.json(events)
             } catch (e) {
-                console.error('Error fetching events:', e)
+                logger.error('Error fetching events:', e)
                 res.status(500).json({ error: 'Failed to fetch events' })
             }
         })
@@ -124,7 +128,7 @@ export class PayrollController {
 
                 res.status(201).json(event)
             } catch (e) {
-                console.error('Error creating event:', e)
+                logger.error('Error creating event:', e)
                 res.status(500).json({ error: 'Failed to create event' })
             }
         })
@@ -143,7 +147,7 @@ export class PayrollController {
 
                 res.json(event)
             } catch (e) {
-                console.error('Error updating event:', e)
+                logger.error('Error updating event:', e)
                 res.status(500).json({ error: 'Failed to update event' })
             }
         })
@@ -154,7 +158,7 @@ export class PayrollController {
                 await this.service.deleteEvent(id)
                 res.json({ message: 'Event deleted' })
             } catch (e) {
-                console.error('Error deleting event:', e)
+                logger.error('Error deleting event:', e)
                 res.status(500).json({ error: 'Failed to delete event' })
             }
         })
@@ -181,7 +185,7 @@ export class PayrollController {
                 const entries = await this.service.getTimeEntries(targetUserId, start, end)
                 res.json(entries)
             } catch (e) {
-                console.error('Error fetching time entries:', e)
+                logger.error('Error fetching time entries:', e)
                 res.status(500).json({ error: 'Failed to fetch entries' })
             }
         })
@@ -196,7 +200,7 @@ export class PayrollController {
                 res.json(entry)
                 notificationService.broadcastDataChange('time-entries')
             } catch (e) {
-                console.error('Clock in error:', e)
+                logger.error('Clock in error:', e)
                 res.status(400).json({ error: e instanceof Error ? e.message : 'Clock in failed' })
             }
         })
@@ -210,7 +214,7 @@ export class PayrollController {
                 res.json(entry)
                 notificationService.broadcastDataChange('time-entries')
             } catch (e) {
-                console.error('Clock out error:', e)
+                logger.error('Clock out error:', e)
                 res.status(400).json({ error: e instanceof Error ? e.message : 'Clock out failed' })
             }
         })
@@ -243,7 +247,7 @@ export class PayrollController {
                 res.json(entry)
                 notificationService.broadcastDataChange('time-entries')
             } catch (e) {
-                console.error('Error adding entry:', e)
+                logger.error('Error adding entry:', e)
                 this.sendPayrollError(res, e, 'Failed')
             }
         })
@@ -290,7 +294,7 @@ export class PayrollController {
                 res.json(entry)
                 notificationService.broadcastDataChange('time-entries')
             } catch (e) {
-                console.error('Error updating entry:', e)
+                logger.error('Error updating entry:', e)
                 this.sendPayrollError(res, e, 'Failed to update entry')
             }
         })
@@ -307,7 +311,7 @@ export class PayrollController {
                 res.json({ success: true })
                 notificationService.broadcastDataChange('time-entries')
             } catch (e) {
-                console.error('Error deleting entry:', e)
+                logger.error('Error deleting entry:', e)
                 this.sendPayrollError(res, e, 'Failed')
             }
         })
@@ -335,7 +339,7 @@ export class PayrollController {
                 const preview = await this.service.previewPayslip(userId, new Date(startDate), end)
                 res.status(200).json(preview)
             } catch (e) {
-                console.error('Preview error:', e)
+                logger.error('Preview error:', e)
                 res.status(500).json({ error: e instanceof Error ? e.message : 'Failed to preview calculation' })
             }
         })
@@ -359,7 +363,7 @@ export class PayrollController {
                 const profile = await this.service.getEmployeeProfile(targetUserId)
                 res.json(profile)
             } catch (e) {
-                console.error('Error fetching payroll config:', e)
+                logger.error('Error fetching payroll config:', e)
                 res.status(500).json({ error: 'Failed to fetch profile' })
             }
         })
@@ -392,7 +396,7 @@ export class PayrollController {
                 const profile = await this.service.updateEmployeeProfile(targetUserId, filteredUpdate.data)
                 res.json(profile)
             } catch (e) {
-                console.error('Error updating payroll config:', e)
+                logger.error('Error updating payroll config:', e)
                 this.sendPayrollError(res, e, 'Failed to update profile')
             }
         })
@@ -414,7 +418,7 @@ export class PayrollController {
                 const periodId = await this.service.ensureCurrentPeriodExists()
                 res.json({ periodId })
             } catch (e) {
-                console.error('Error ensuring period:', e)
+                logger.error('Error ensuring period:', e)
                 res.status(500).json({ error: 'Failed to ensure period' })
             }
         })
@@ -449,7 +453,7 @@ export class PayrollController {
                     const payslip = await this.service.generatePayslip(periodId, userId, req.body)
                     res.json(payslip)
                 } catch (e) {
-                    console.error(e)
+                    logger.error(e)
                     res.status(500).json({ error: e instanceof Error ? e.message : 'Failed to generate payslip' })
                 }
             }
@@ -466,7 +470,7 @@ export class PayrollController {
                     const results = await this.service.bulkGeneratePayslips(periodId)
                     res.json(results)
                 } catch (e) {
-                    console.error(e)
+                    logger.error(e)
                     res.status(500).json({ error: e instanceof Error ? e.message : 'Bulk generation failed' })
                 }
             }
@@ -491,7 +495,7 @@ export class PayrollController {
                 const payslips = await this.service.getUserPayslips(targetUserId)
                 res.json(payslips)
             } catch (e) {
-                console.error('Error fetching payslips:', e)
+                logger.error('Error fetching payslips:', e)
                 res.status(500).json({ error: 'Failed to fetch payslips' })
             }
         })
@@ -502,7 +506,7 @@ export class PayrollController {
                 const stats = await this.service.getReportStats()
                 res.json(stats)
             } catch (e) {
-                console.error('Error fetching report stats:', e)
+                logger.error('Error fetching report stats:', e)
                 res.status(500).json({ error: 'Failed to fetch report stats' })
             }
         })
@@ -513,7 +517,7 @@ export class PayrollController {
                 const payslips = await this.service.getAllPayslips()
                 res.json(payslips)
             } catch (e) {
-                console.error('Error fetching all payslips:', e)
+                logger.error('Error fetching all payslips:', e)
                 res.status(500).json({ error: 'Failed to fetch payslip archive' })
             }
         })

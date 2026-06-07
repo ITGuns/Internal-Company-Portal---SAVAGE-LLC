@@ -1,6 +1,10 @@
 import express, { Request, Response, Router } from 'express'
 import { authenticateToken, AuthRequest } from '../auth/auth.middleware'
 import { prisma } from '../database/prisma.service'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('notifications.notifications.controller')
+
 
 /**
  * Notifications Controller
@@ -112,7 +116,7 @@ export class NotificationsController {
 
                 res.json(notifications.slice(0, 20)) // cap at 20
             } catch (error) {
-                console.error('Error fetching notifications:', error)
+                logger.error('Error fetching notifications:', error)
                 res.status(500).json({ error: 'Failed to fetch notifications' })
             }
         })

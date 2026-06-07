@@ -3272,3 +3272,51 @@
 ### Next Steps
 
 - Monitor the preview route for any remaining loading-state flicker under slow task responses.
+
+## 2026-06-07 - Backend Structured Logging Cleanup
+
+### Completed
+
+- Added a reusable backend logger that emits structured JSON logs with level, scope, timestamp, message, and sanitized context.
+- Replaced backend `console.log`, `console.warn`, and `console.error` usage with scoped loggers across API controllers, auth, email, payroll, notifications, uploads, database, and startup code.
+- Redacted email-like values and sensitive key names such as tokens, passwords, secrets, cookies, and authorization values before logs are written.
+- Removed applicant and manager identifiers from employee verification logs, keeping only event and delivery outcome context.
+- Added focused logger tests for redaction, production error sanitization, and log-level filtering.
+
+### Files Changed
+
+- `backend/src/observability/logger.ts`
+- `backend/src/main.ts`
+- `backend/src/config/env.config.ts`
+- `backend/src/database/prisma.service.ts`
+- `backend/src/auth/**`
+- `backend/src/email/**`
+- `backend/src/employees/**`
+- `backend/src/notifications/**`
+- `backend/src/tasks/tasks.controller.ts`
+- `backend/src/payroll/**`
+- `backend/src/clients/clients.controller.ts`
+- `backend/src/announcements/announcements.controller.ts`
+- `backend/src/chat/chat.controller.ts`
+- `backend/src/daily-logs/daily-logs.controller.ts`
+- `backend/src/file-directory/file-directory.controller.ts`
+- `backend/src/users/users.controller.ts`
+- `backend/src/uploads/uploads.controller.ts`
+- `backend/tests/observability.logger.test.ts`
+- `backend/tests/run-tests.ts`
+
+### Decisions Made
+
+- Kept Docker/host log collection simple by continuing to write to stdout/stderr through one logger module instead of adding a new dependency.
+- Preserved existing API response contracts and non-blocking email side effects.
+- Kept stack traces out of production logs while retaining them in non-production logs for debugging.
+
+### How to Test
+
+- Run `npm --prefix backend run build`.
+- Run `npm --prefix backend test`.
+- Run `rg -n "console\\.(log|warn|error)" backend/src --glob "!backend/src/observability/logger.ts"` to confirm raw backend console calls are gone.
+
+### Next Steps
+
+- Consider routing the structured logs to the production host's log drain or monitoring provider after backend hosting is finalized.

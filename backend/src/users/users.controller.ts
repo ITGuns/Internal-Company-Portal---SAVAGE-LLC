@@ -12,6 +12,10 @@ import { UserOnboardingConflictError, UserOnboardingValidationError } from './us
 import { hasEmployeeManagementAccess } from '../employees/employees.security'
 import { hasFullAccess } from '../org/org-access-policy'
 import { resolvePaginationQuery } from '../http/pagination'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('users.users.controller')
+
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -107,7 +111,7 @@ export class UsersController {
 
                 res.json({ success: true, user: sanitizeUserForDirectory(user) })
             } catch (error) {
-                console.error('Avatar upload error:', error)
+                logger.error('Avatar upload error:', error)
                 res.status(500).json({ error: 'Failed to update avatar' })
             }
         })
@@ -179,7 +183,7 @@ export class UsersController {
                     return res.status(409).json({ error: error.message })
                 }
 
-                console.error('User onboarding invitation error:', error)
+                logger.error('User onboarding invitation error:', error)
                 res.status(500).json({ error: 'Failed to create onboarding link' })
             }
         })
@@ -213,7 +217,7 @@ export class UsersController {
                     user.name || 'New User',
                     `${loginUrl}/login`
                 ).catch(err => {
-                    console.error('Failed to send welcome email:', err)
+                    logger.error('Failed to send welcome email:', err)
                     // Don't fail user creation if email fails
                 })
 
@@ -335,7 +339,7 @@ export class UsersController {
 
                 res.json({ success: true, user: sanitizeUserForDirectory(user) })
             } catch (error) {
-                console.error('Update user error:', error)
+                logger.error('Update user error:', error)
                 res.status(500).json({ error: 'Failed to update user' })
             }
         })

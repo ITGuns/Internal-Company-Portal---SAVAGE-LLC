@@ -5,6 +5,9 @@ import {
     buildPendingSignupProfile,
     getApprovedRoleAssignment,
 } from '../auth/signup.requests'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('employees.service')
 
 export interface CreateEmployeeDto {
     email: string
@@ -242,7 +245,7 @@ export class EmployeesService {
                 })
             }
         } catch (err) {
-            console.error('Failed to auto-add user to General channel:', err)
+            logger.error('Failed to auto-add user to General channel', err)
         }
 
         return user

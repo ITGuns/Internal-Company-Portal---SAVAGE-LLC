@@ -7,6 +7,9 @@ import {
     type AuthRateLimitSettings,
     type AuthRateLimitStoreMode,
 } from '../security/rate-limit-config'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('config.env')
 
 // Load environment variables from .env file only if not on Vercel
 if (!process.env.VERCEL) {
@@ -205,5 +208,5 @@ export function validateConfig(): void {
         )
     }
 
-    console.log('Environment configuration validated successfully')
+    logger.info('Environment configuration validated successfully')
 }

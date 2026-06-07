@@ -2,10 +2,13 @@ import passport from 'passport'
 import { Strategy as DiscordStrategy, Profile } from 'passport-discord'
 import { config } from '../../config/env.config'
 import { prisma } from '../../database/prisma.service'
+import { createLogger } from '../../observability/logger'
+
+const logger = createLogger('auth.discord')
 
 export function setupDiscordStrategy(): void {
     if (!config.discordClientId || !config.discordClientSecret) {
-        console.warn('⚠️  Discord OAuth not configured - skipping Discord strategy')
+        logger.warn('Discord OAuth not configured; skipping strategy')
         return
     }
 
@@ -49,7 +52,7 @@ export function setupDiscordStrategy(): void {
                             },
                             include: { roles: true },
                         })
-                        console.log(`✅ New user created via Discord OAuth: ${email}`)
+                        logger.info('New user created via Discord OAuth', { provider: 'discord', email })
                     } else {
                         // Update existing user info
                         user = await prisma.user.update({
@@ -64,12 +67,12 @@ export function setupDiscordStrategy(): void {
 
                     return done(null, user)
                 } catch (error) {
-                    console.error('Discord OAuth error:', error)
+                    logger.error('Discord OAuth error', error)
                     return done(error as Error)
                 }
             }
         )
     )
 
-    console.log('✅ Discord OAuth strategy configured')
+    logger.info('Discord OAuth strategy configured')
 }

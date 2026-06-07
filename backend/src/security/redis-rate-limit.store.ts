@@ -2,6 +2,9 @@ import { createClient, type RedisClientType } from 'redis'
 import { RedisStore, type RedisReply } from 'rate-limit-redis'
 import type { Store } from 'express-rate-limit'
 import type { AuthRateLimitRoute, AuthRateLimitStoreFactory, AuthRateLimitStoreMode } from './rate-limits'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('security.rate-limit.redis')
 
 interface RedisRateLimitStoreOptions {
     nodeEnv: string
@@ -33,7 +36,7 @@ export async function connectAuthRateLimitStoreFactory(
     const client = createClient({ url: options.redisUrl })
 
     client.on('error', (error) => {
-        console.error('Redis rate limit client error:', error instanceof Error ? error.message : error)
+        logger.error('Redis rate limit client error', error)
     })
 
     try {

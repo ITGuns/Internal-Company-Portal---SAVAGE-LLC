@@ -13,6 +13,10 @@ import {
     normalizeMessageContent,
     normalizeSearchQuery,
 } from './chat.limits'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('chat.chat.controller')
+
 
 export class ChatController {
     private service = new ChatService()
@@ -28,7 +32,7 @@ export class ChatController {
                 const conversations = await this.service.getUserConversations(userId)
                 res.json(conversations)
             } catch (error) {
-                console.error(error)
+                logger.error(error)
                 res.status(500).json({ error: 'Failed to fetch conversations' })
             }
         })
@@ -41,7 +45,7 @@ export class ChatController {
                 const count = await this.service.getUnreadCount(userId)
                 res.json({ count })
             } catch (error) {
-                console.error(error)
+                logger.error(error)
                 res.status(500).json({ error: 'Failed to count unread messages' })
             }
         })
@@ -60,7 +64,7 @@ export class ChatController {
                 const results = await this.service.searchMessages(userId, query)
                 res.json(results)
             } catch (error) {
-                console.error(error)
+                logger.error(error)
                 res.status(500).json({ error: 'Failed to search messages' })
             }
         })
@@ -117,7 +121,7 @@ export class ChatController {
 
                 res.status(201).json(conversation)
             } catch (error) {
-                console.error(error)
+                logger.error(error)
                 res.status(500).json({ error: 'Failed to create conversation' })
             }
         })
@@ -140,7 +144,7 @@ export class ChatController {
                 const messages = await this.service.getMessages(conversationId, limit, cursor)
                 res.json(messages)
             } catch (error) {
-                console.error(error)
+                logger.error(error)
                 res.status(500).json({ error: 'Failed to fetch messages' })
             }
         })
@@ -190,7 +194,7 @@ export class ChatController {
 
                 res.status(201).json(message)
             } catch (error) {
-                console.error(error)
+                logger.error(error)
                 res.status(500).json({ error: 'Failed to send message' })
             }
         })
@@ -244,7 +248,7 @@ export class ChatController {
 
                 res.json({ success: true, messageId: deletedMessage.id })
             } catch (error) {
-                console.error(error)
+                logger.error(error)
                 res.status(500).json({ error: 'Failed to delete message' })
             }
         })
@@ -276,7 +280,7 @@ export class ChatController {
 
                 res.json(updatedMessage)
             } catch (error) {
-                console.error(error)
+                logger.error(error)
                 res.status(500).json({ error: 'Failed to edit message' })
             }
         })
@@ -304,7 +308,7 @@ export class ChatController {
 
                 res.json({ success: true })
             } catch (error) {
-                console.error(error)
+                logger.error(error)
                 res.status(500).json({ error: 'Failed to delete conversation' })
             }
         })
@@ -315,7 +319,7 @@ export class ChatController {
                 const onlineUserIds = notificationService.getOnlineUserIds()
                 res.json({ onlineUserIds })
             } catch (error) {
-                console.error(error)
+                logger.error(error)
                 res.status(500).json({ error: 'Failed to get online users' })
             }
         })

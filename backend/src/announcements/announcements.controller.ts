@@ -2,6 +2,10 @@ import express, { Request, Response, Router } from 'express'
 import { AnnouncementsService } from './announcements.service'
 import { authenticateToken, requireRole } from '../auth/auth.middleware'
 import { resolvePaginationQuery } from '../http/pagination'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('announcements.announcements.controller')
+
 
 const ANNOUNCEMENT_MANAGEMENT_ROLES = [
     'admin',
@@ -38,7 +42,7 @@ export class AnnouncementsController {
                 }
                 res.json(pagination.hasExplicitPagination ? items : items.data)
             } catch (error) {
-                console.error('Error fetching announcements:', error)
+                logger.error('Error fetching announcements:', error)
                 res.status(500).json({ error: 'Failed to fetch announcements' })
             }
         })
@@ -53,7 +57,7 @@ export class AnnouncementsController {
                 }
                 res.json(announcement)
             } catch (error) {
-                console.error('Error fetching announcement:', error)
+                logger.error('Error fetching announcement:', error)
                 res.status(500).json({ error: 'Failed to fetch announcement' })
             }
         })
@@ -82,7 +86,7 @@ export class AnnouncementsController {
 
                 res.status(201).json(announcement)
             } catch (error) {
-                console.error('Error creating announcement:', error)
+                logger.error('Error creating announcement:', error)
                 res.status(500).json({ error: 'Failed to create announcement' })
             }
         })
@@ -106,7 +110,7 @@ export class AnnouncementsController {
 
                 res.json(announcement)
             } catch (error) {
-                console.error('Error updating announcement:', error)
+                logger.error('Error updating announcement:', error)
                 res.status(500).json({ error: 'Failed to update announcement' })
             }
         })
@@ -118,7 +122,7 @@ export class AnnouncementsController {
                 await this.service.delete(id)
                 res.json({ message: 'Announcement deleted' })
             } catch (error) {
-                console.error('Error deleting announcement:', error)
+                logger.error('Error deleting announcement:', error)
                 res.status(500).json({ error: 'Failed to delete announcement' })
             }
         })
@@ -135,7 +139,7 @@ export class AnnouncementsController {
                 const result = await this.service.toggleLike(id, user.userId)
                 res.json(result)
             } catch (error) {
-                console.error('Error toggling like:', error)
+                logger.error('Error toggling like:', error)
                 res.status(500).json({ error: 'Failed to toggle like' })
             }
         })
@@ -158,7 +162,7 @@ export class AnnouncementsController {
                 const comment = await this.service.addComment(id, user.userId, text.trim())
                 res.status(201).json(comment)
             } catch (error) {
-                console.error('Error adding comment:', error)
+                logger.error('Error adding comment:', error)
                 res.status(500).json({ error: 'Failed to add comment' })
             }
         })
@@ -175,7 +179,7 @@ export class AnnouncementsController {
                 await this.service.deleteComment(commentId, user.userId)
                 res.json({ message: 'Comment deleted' })
             } catch (error) {
-                console.error('Error deleting comment:', error)
+                logger.error('Error deleting comment:', error)
                 if (error instanceof Error && error.message === 'Comment not found') {
                     return res.status(404).json({ error: 'Comment not found' })
                 }
@@ -200,7 +204,7 @@ export class AnnouncementsController {
                 const result = await this.service.toggleRSVP(id, user.userId, status || 'going')
                 res.json(result)
             } catch (error) {
-                console.error('Error toggling RSVP:', error)
+                logger.error('Error toggling RSVP:', error)
                 res.status(500).json({ error: 'Failed to toggle RSVP' })
             }
         })

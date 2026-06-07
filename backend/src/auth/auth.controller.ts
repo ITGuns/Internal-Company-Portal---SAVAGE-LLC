@@ -17,6 +17,9 @@ import {
     normalizeSignupOption,
 } from './signup-role-options'
 import { createAuthRateLimiters, type AuthRateLimiters } from '../security/rate-limits'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('auth.controller')
 
 interface AuthControllerOptions {
     rateLimiters?: AuthRateLimiters
@@ -185,7 +188,7 @@ export class AuthController {
                     user: { id: user.id, email: user.email, name: user.name }
                 })
             } catch (error) {
-                console.error('Signup failed:', error)
+                logger.error('Signup failed', error)
                 res.status(500).json({ error: 'Signup failed' })
             }
         })
@@ -239,7 +242,7 @@ export class AuthController {
                     tokens: { accessToken: tokens.accessToken },
                 })
             } catch (error) {
-                console.error('Login failed:', error)
+                logger.error('Login failed', error)
                 res.status(500).json({ error: 'Login failed' })
             }
         })
@@ -282,7 +285,7 @@ export class AuthController {
                     accessToken: newAccessToken,
                 })
             } catch (error) {
-                console.error('Refresh token rotation failed:', error)
+                logger.error('Refresh token rotation failed', error)
                 res.status(500).json({ error: 'Unable to refresh token' })
             }
         })
@@ -312,7 +315,7 @@ export class AuthController {
                     user: serializeAuthUser(user),
                 })
             } catch (error) {
-                console.error('Failed to fetch user in /me:', error)
+                logger.error('Failed to fetch user in /me', error)
                 res.status(500).json({ error: 'Internal server error' })
             }
         })
@@ -386,7 +389,7 @@ export class AuthController {
 
                 res.json({ success: true, message: 'If an account with that email exists, a reset link has been sent.' })
             } catch (error) {
-                console.error('Forgot password error:', error)
+                logger.error('Forgot password error', error)
                 res.status(500).json({ error: 'Failed to process password reset request' })
             }
         })
@@ -442,7 +445,7 @@ export class AuthController {
 
                 res.json({ success: true, message: 'Password has been reset successfully' })
             } catch (error) {
-                console.error('Reset password error:', error)
+                logger.error('Reset password error', error)
                 res.status(500).json({ error: 'Failed to reset password' })
             }
         })

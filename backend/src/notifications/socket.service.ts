@@ -8,6 +8,9 @@ import {
     isAuthorizedConversationParticipant,
     normalizeSocketConversationId,
 } from './socket.authorization'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('notifications.socket')
 
 export interface NotificationPayload {
     type: 'info' | 'success' | 'warning' | 'error'
@@ -24,12 +27,12 @@ class NotificationService {
 
     private logDebug(message: string) {
         if (config.nodeEnv !== 'production' || config.logLevel.toLowerCase() === 'debug') {
-            console.log(message)
+            logger.info(message)
         }
     }
 
     initialize(httpServer: HttpServer) {
-        console.log('Initializing Socket.io...')
+        logger.info('Initializing Socket.io')
         this.io = new SocketIOServer(httpServer, {
             path: '/api/socket',
             addTrailingSlash: false,
@@ -96,7 +99,7 @@ class NotificationService {
                     socket.join(`conversation:${normalizedConversationId}`)
                     this.logDebug(`Socket ${socket.id} joined conversation room: ${normalizedConversationId}`)
                 } catch (error) {
-                    console.error('Socket conversation join failed:', error)
+                    logger.error('Socket conversation join failed', error)
                     socket.emit('error', { message: 'Unable to join conversation' })
                 }
             })
@@ -116,7 +119,7 @@ class NotificationService {
 
                     socket.to(`conversation:${payload.conversationId}`).emit('typing:start', payload)
                 } catch (error) {
-                    console.error('Socket typing:start authorization failed:', error)
+                    logger.error('Socket typing:start authorization failed', error)
                 }
             })
 
@@ -138,7 +141,7 @@ class NotificationService {
                         userId: socketUser.userId,
                     })
                 } catch (error) {
-                    console.error('Socket typing:stop authorization failed:', error)
+                    logger.error('Socket typing:stop authorization failed', error)
                 }
             })
 
@@ -148,7 +151,7 @@ class NotificationService {
             })
         })
 
-        console.log('Notification Service (Socket.io) initialized')
+        logger.info('Notification Service (Socket.io) initialized')
     }
 
     private registerUserSocket(userId: string, socketId: string) {
@@ -183,7 +186,7 @@ class NotificationService {
 
     notifyUser(userId: string, payload: NotificationPayload) {
         if (!this.io) {
-            console.warn('Cannot send notification: Socket.io not initialized')
+            logger.warn('Cannot send notification: Socket.io not initialized')
             return
         }
 

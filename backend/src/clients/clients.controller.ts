@@ -74,6 +74,10 @@ import {
   parseUpdateClientWorkItemInput,
   parseUpsertClientBillingStatusInput,
 } from './clients.validation'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('clients.clients.controller')
+
 
 interface ClientOwnedResourceAccessRecord {
   organizationId: string
@@ -191,7 +195,7 @@ export class ClientsController {
 
         res.json(response)
       } catch (error) {
-        console.error('[Clients] Error listing organizations:', error)
+        logger.error('[Clients] Error listing organizations:', error)
         res.status(500).json({ error: 'Failed to fetch client organizations' })
       }
     })
@@ -220,7 +224,7 @@ export class ClientsController {
 
         res.json(queue)
       } catch (error) {
-        console.error('[Clients] Error listing activity queue:', error)
+        logger.error('[Clients] Error listing activity queue:', error)
         res.status(500).json({ error: 'Failed to fetch client action queue' })
       }
     })
@@ -277,7 +281,7 @@ export class ClientsController {
           queueItems,
         })
       } catch (error) {
-        console.error('[Clients] Error bootstrapping client portal:', error)
+        logger.error('[Clients] Error bootstrapping client portal:', error)
         res.status(500).json({ error: 'Failed to load client portal workspace' })
       }
     })
@@ -293,7 +297,7 @@ export class ClientsController {
         const tiers = await this.service.findServiceTiers()
         res.json(tiers.map((tier) => serializeClientServiceTierForManagement(tier)))
       } catch (error) {
-        console.error('[Clients] Error listing service tiers:', error)
+        logger.error('[Clients] Error listing service tiers:', error)
         res.status(500).json({ error: 'Failed to fetch service tiers' })
       }
     })
@@ -316,7 +320,7 @@ export class ClientsController {
           return res.status(409).json({ error: 'Service tier name already exists' })
         }
 
-        console.error('[Clients] Error creating service tier:', error)
+        logger.error('[Clients] Error creating service tier:', error)
         res.status(500).json({ error: 'Failed to create service tier' })
       }
     })
@@ -343,7 +347,7 @@ export class ClientsController {
           return res.status(409).json({ error: 'Service tier name already exists' })
         }
 
-        console.error('[Clients] Error updating service tier:', error)
+        logger.error('[Clients] Error updating service tier:', error)
         res.status(500).json({ error: 'Failed to update service tier' })
       }
     })
@@ -363,7 +367,7 @@ export class ClientsController {
           return res.status(404).json({ error: 'Service tier not found' })
         }
 
-        console.error('[Clients] Error deleting service tier:', error)
+        logger.error('[Clients] Error deleting service tier:', error)
         res.status(500).json({ error: 'Failed to delete service tier' })
       }
     })
@@ -389,7 +393,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid service tier' })
         }
 
-        console.error('[Clients] Error creating organization:', error)
+        logger.error('[Clients] Error creating organization:', error)
         res.status(500).json({ error: 'Failed to create client organization' })
       }
     })
@@ -421,7 +425,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid service tier' })
         }
 
-        console.error('[Clients] Error updating organization service tier:', error)
+        logger.error('[Clients] Error updating organization service tier:', error)
         res.status(500).json({ error: 'Failed to update client service tier' })
       }
     })
@@ -450,7 +454,7 @@ export class ClientsController {
           return res.status(404).json({ error: 'Client organization not found' })
         }
 
-        console.error('[Clients] Error updating organization status:', error)
+        logger.error('[Clients] Error updating organization status:', error)
         res.status(500).json({ error: 'Failed to update client organization status' })
       }
     })
@@ -470,7 +474,7 @@ export class ClientsController {
 
         res.json(serializeClientPortalOverview(organization, access.isPrivileged))
       } catch (error) {
-        console.error('[Clients] Error fetching organization overview:', error)
+        logger.error('[Clients] Error fetching organization overview:', error)
         res.status(500).json({ error: 'Failed to fetch client overview' })
       }
     })
@@ -497,7 +501,7 @@ export class ClientsController {
           return res.status(400).json({ error: error.message })
         }
 
-        console.error('[Clients] Error fetching organization activity:', error)
+        logger.error('[Clients] Error fetching organization activity:', error)
         res.status(500).json({ error: 'Failed to fetch client activity' })
       }
     })
@@ -529,7 +533,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid client organization or project' })
         }
 
-        console.error('[Clients] Error creating ticket:', error)
+        logger.error('[Clients] Error creating ticket:', error)
         res.status(500).json({ error: 'Failed to create client ticket' })
       }
     })
@@ -546,7 +550,7 @@ export class ClientsController {
         const memberships = await this.service.findMemberships(organizationId)
         res.json(memberships.map(serializeClientMembershipForManagement))
       } catch (error) {
-        console.error('[Clients] Error listing memberships:', error)
+        logger.error('[Clients] Error listing memberships:', error)
         res.status(500).json({ error: 'Failed to fetch client memberships' })
       }
     })
@@ -573,7 +577,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid client organization or user' })
         }
 
-        console.error('[Clients] Error creating membership:', error)
+        logger.error('[Clients] Error creating membership:', error)
         res.status(500).json({ error: 'Failed to create client membership' })
       }
     })
@@ -600,7 +604,7 @@ export class ClientsController {
           return res.status(400).json({ error: error.message })
         }
 
-        console.error('[Clients] Error updating membership:', error)
+        logger.error('[Clients] Error updating membership:', error)
         res.status(500).json({ error: 'Failed to update client membership' })
       }
     })
@@ -629,7 +633,7 @@ export class ClientsController {
           return res.status(400).json({ error: error.message })
         }
 
-        console.error('[Clients] Error inviting client user:', error)
+        logger.error('[Clients] Error inviting client user:', error)
         res.status(500).json({ error: 'Failed to invite client user' })
       }
     })
@@ -656,7 +660,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid client organization' })
         }
 
-        console.error('[Clients] Error creating project:', error)
+        logger.error('[Clients] Error creating project:', error)
         res.status(500).json({ error: 'Failed to create client project' })
       }
     })
@@ -683,7 +687,7 @@ export class ClientsController {
           return res.status(400).json({ error: error.message })
         }
 
-        console.error('[Clients] Error updating project:', error)
+        logger.error('[Clients] Error updating project:', error)
         res.status(500).json({ error: 'Failed to update client project' })
       }
     })
@@ -711,7 +715,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid client organization or project' })
         }
 
-        console.error('[Clients] Error creating update:', error)
+        logger.error('[Clients] Error creating update:', error)
         res.status(500).json({ error: 'Failed to create client update' })
       }
     })
@@ -738,7 +742,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid client organization' })
         }
 
-        console.error('[Clients] Error creating metric:', error)
+        logger.error('[Clients] Error creating metric:', error)
         res.status(500).json({ error: 'Failed to create client metric' })
       }
     })
@@ -778,7 +782,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid client organization or project' })
         }
 
-        console.error('[Clients] Error creating resource:', error)
+        logger.error('[Clients] Error creating resource:', error)
         res.status(500).json({ error: 'Failed to create client resource' })
       }
     })
@@ -822,7 +826,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid project' })
         }
 
-        console.error('[Clients] Error updating resource:', error)
+        logger.error('[Clients] Error updating resource:', error)
         res.status(500).json({ error: 'Failed to update client resource' })
       }
     })
@@ -842,7 +846,7 @@ export class ClientsController {
         await this.service.deleteResourceLink(resourceId)
         res.status(204).send()
       } catch (error) {
-        console.error('[Clients] Error deleting resource:', error)
+        logger.error('[Clients] Error deleting resource:', error)
         res.status(500).json({ error: 'Failed to delete client resource' })
       }
     })
@@ -870,7 +874,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid client organization, project, or assigned user' })
         }
 
-        console.error('[Clients] Error creating work item:', error)
+        logger.error('[Clients] Error creating work item:', error)
         res.status(500).json({ error: 'Failed to create client work item' })
       }
     })
@@ -901,7 +905,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid project or assigned user' })
         }
 
-        console.error('[Clients] Error updating work item:', error)
+        logger.error('[Clients] Error updating work item:', error)
         res.status(500).json({ error: 'Failed to update client work item' })
       }
     })
@@ -929,7 +933,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid client organization or project' })
         }
 
-        console.error('[Clients] Error creating approval:', error)
+        logger.error('[Clients] Error creating approval:', error)
         res.status(500).json({ error: 'Failed to create client approval' })
       }
     })
@@ -958,7 +962,7 @@ export class ClientsController {
           return res.status(400).json({ error: error.message })
         }
 
-        console.error('[Clients] Error updating approval:', error)
+        logger.error('[Clients] Error updating approval:', error)
         res.status(500).json({ error: 'Failed to update client approval' })
       }
     })
@@ -987,7 +991,7 @@ export class ClientsController {
           return res.status(400).json({ error: error.message })
         }
 
-        console.error('[Clients] Error responding to approval:', error)
+        logger.error('[Clients] Error responding to approval:', error)
         res.status(500).json({ error: 'Failed to respond to client approval' })
       }
     })
@@ -1015,7 +1019,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid client organization' })
         }
 
-        console.error('[Clients] Error generating report draft:', error)
+        logger.error('[Clients] Error generating report draft:', error)
         res.status(500).json({ error: 'Failed to generate client report draft' })
       }
     })
@@ -1043,7 +1047,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid client organization' })
         }
 
-        console.error('[Clients] Error creating report:', error)
+        logger.error('[Clients] Error creating report:', error)
         res.status(500).json({ error: 'Failed to create client report' })
       }
     })
@@ -1067,7 +1071,7 @@ export class ClientsController {
           return res.status(400).json({ error: error.message })
         }
 
-        console.error('[Clients] Error updating report:', error)
+        logger.error('[Clients] Error updating report:', error)
         res.status(500).json({ error: 'Failed to update client report' })
       }
     })
@@ -1094,7 +1098,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid client organization' })
         }
 
-        console.error('[Clients] Error creating roadmap recommendation:', error)
+        logger.error('[Clients] Error creating roadmap recommendation:', error)
         res.status(500).json({ error: 'Failed to create roadmap recommendation' })
       }
     })
@@ -1121,7 +1125,7 @@ export class ClientsController {
           return res.status(400).json({ error: error.message })
         }
 
-        console.error('[Clients] Error updating roadmap recommendation:', error)
+        logger.error('[Clients] Error updating roadmap recommendation:', error)
         res.status(500).json({ error: 'Failed to update roadmap recommendation' })
       }
     })
@@ -1145,7 +1149,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid client organization or project' })
         }
 
-        console.error('[Clients] Error creating asset:', error)
+        logger.error('[Clients] Error creating asset:', error)
         res.status(500).json({ error: 'Failed to create client asset' })
       }
     })
@@ -1173,7 +1177,7 @@ export class ClientsController {
           return res.status(400).json({ error: error.message })
         }
 
-        console.error('[Clients] Error updating asset:', error)
+        logger.error('[Clients] Error updating asset:', error)
         res.status(500).json({ error: 'Failed to update client asset' })
       }
     })
@@ -1201,7 +1205,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid client organization' })
         }
 
-        console.error('[Clients] Error updating billing status:', error)
+        logger.error('[Clients] Error updating billing status:', error)
         res.status(500).json({ error: 'Failed to update client billing status' })
       }
     })
@@ -1244,7 +1248,7 @@ export class ClientsController {
           return res.status(400).json({ error: 'Invalid client organization or project' })
         }
 
-        console.error('[Clients] Error creating calendar item:', error)
+        logger.error('[Clients] Error creating calendar item:', error)
         res.status(500).json({ error: 'Failed to create calendar item' })
       }
     })
@@ -1288,7 +1292,7 @@ export class ClientsController {
           return res.status(400).json({ error: error.message })
         }
 
-        console.error('[Clients] Error updating calendar item:', error)
+        logger.error('[Clients] Error updating calendar item:', error)
         res.status(500).json({ error: 'Failed to update calendar item' })
       }
     })
@@ -1308,7 +1312,7 @@ export class ClientsController {
         await this.service.deleteCalendarItem(calendarItemId, access.requesterId, calendarItem)
         res.status(204).send()
       } catch (error) {
-        console.error('[Clients] Error deleting calendar item:', error)
+        logger.error('[Clients] Error deleting calendar item:', error)
         res.status(500).json({ error: 'Failed to delete calendar item' })
       }
     })
@@ -1333,7 +1337,7 @@ export class ClientsController {
           access.isPrivileged ? serializeClientTicketForManagement(ticket) : serializeClientTicketForClient(ticket),
         ))
       } catch (error) {
-        console.error('[Clients] Error listing tickets:', error)
+        logger.error('[Clients] Error listing tickets:', error)
         res.status(500).json({ error: 'Failed to fetch client tickets' })
       }
     })
@@ -1369,7 +1373,7 @@ export class ClientsController {
           return res.status(400).json({ error: error.message })
         }
 
-        console.error('[Clients] Error updating ticket:', error)
+        logger.error('[Clients] Error updating ticket:', error)
         res.status(500).json({ error: 'Failed to update client ticket' })
       }
     })
@@ -1399,7 +1403,7 @@ export class ClientsController {
           return res.status(404).json({ error: error.message })
         }
 
-        console.error('[Clients] Error deleting ticket:', error)
+        logger.error('[Clients] Error deleting ticket:', error)
         res.status(500).json({ error: 'Failed to delete client ticket' })
       }
     })
@@ -1436,7 +1440,7 @@ export class ClientsController {
           return res.status(400).json({ error: error.message })
         }
 
-        console.error('[Clients] Error updating ticket status:', error)
+        logger.error('[Clients] Error updating ticket status:', error)
         res.status(500).json({ error: 'Failed to update client ticket status' })
       }
     })
@@ -1474,7 +1478,7 @@ export class ClientsController {
           return res.status(400).json({ error: error.message })
         }
 
-        console.error('[Clients] Error creating ticket comment:', error)
+        logger.error('[Clients] Error creating ticket comment:', error)
         res.status(500).json({ error: 'Failed to create client ticket comment' })
       }
     })
