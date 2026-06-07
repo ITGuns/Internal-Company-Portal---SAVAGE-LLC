@@ -3409,3 +3409,32 @@
 ### Next Steps
 
 - Continue with another focused client backend split only after checking route coverage and preserving activity/authorization behavior.
+
+## 2026-06-07 - Client Roadmap And Assets Service Split
+
+### Completed
+
+- Split roadmap recommendation create/read/update persistence into `ClientRoadmapAssetsService`.
+- Split client asset create/read/update persistence and project ownership validation into the same focused service.
+- Kept `ClientsService` as the route-facing facade for roadmap and asset endpoints.
+
+### Files Changed
+
+- `backend/src/clients/client-roadmap-assets.service.ts`
+- `backend/src/clients/clients.service.ts`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Grouped roadmap recommendations and assets together as operations-managed client collateral rather than mixing them into ticket, approval, or reporting workflows.
+- Preserved asset project ownership validation in the extracted service.
+
+### How to Test
+
+- Run `npm --prefix backend run build`.
+- Run `npm --prefix backend test`.
+- Run `git diff --check`.
+
+### Next Steps
+
+- Leave the remaining ticket, approval, report, membership, and invitation logic for separate extraction passes because they carry more state, activity, and email side effects.

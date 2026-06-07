@@ -9,6 +9,7 @@ import {
 } from './client-calendar.service'
 import { ClientContentService } from './client-content.service'
 import { ClientOrganizationsService } from './client-organizations.service'
+import { ClientRoadmapAssetsService } from './client-roadmap-assets.service'
 import { ClientServiceTiersService } from './client-service-tiers.service'
 import {
   CLIENT_ACTIVITY_TYPES,
@@ -85,6 +86,7 @@ export class ClientsService {
   private billing: ClientBillingService
   private calendar: ClientCalendarService
   private content: ClientContentService
+  private roadmapAssets: ClientRoadmapAssetsService
 
   constructor() {
     this.prisma = prisma
@@ -93,6 +95,7 @@ export class ClientsService {
     this.billing = new ClientBillingService(this.prisma)
     this.calendar = new ClientCalendarService(this.prisma)
     this.content = new ClientContentService(this.prisma)
+    this.roadmapAssets = new ClientRoadmapAssetsService(this.prisma)
   }
 
   async findServiceTiers() {
@@ -1367,60 +1370,27 @@ export class ClientsService {
   }
 
   async createRoadmapRecommendation(organizationId: string, data: CreateClientRoadmapRecommendationInput) {
-    return this.prisma.clientRoadmapRecommendation.create({
-      data: {
-        organizationId,
-        title: data.title,
-        body: data.body,
-        priority: data.priority,
-        status: data.status,
-        impact: data.impact,
-        effort: data.effort,
-        visibleToClient: data.visibleToClient,
-        sortOrder: data.sortOrder,
-      },
-    })
+    return this.roadmapAssets.createRoadmapRecommendation(organizationId, data)
   }
 
   async findRoadmapRecommendationById(id: string) {
-    return this.prisma.clientRoadmapRecommendation.findUnique({ where: { id } })
+    return this.roadmapAssets.findRoadmapRecommendationById(id)
   }
 
   async updateRoadmapRecommendation(id: string, data: UpdateClientRoadmapRecommendationInput) {
-    return this.prisma.clientRoadmapRecommendation.update({
-      where: { id },
-      data,
-    })
+    return this.roadmapAssets.updateRoadmapRecommendation(id, data)
   }
 
   async createAsset(organizationId: string, data: CreateClientAssetInput) {
-    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
-
-    return this.prisma.clientAsset.create({
-      data: {
-        organizationId,
-        projectId: data.projectId,
-        label: data.label,
-        url: data.url,
-        type: data.type,
-        status: data.status,
-        notes: data.notes,
-        visibleToClient: data.visibleToClient,
-      },
-    })
+    return this.roadmapAssets.createAsset(organizationId, data)
   }
 
   async findAssetById(id: string) {
-    return this.prisma.clientAsset.findUnique({ where: { id } })
+    return this.roadmapAssets.findAssetById(id)
   }
 
   async updateAsset(id: string, organizationId: string, data: UpdateClientAssetInput) {
-    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
-
-    return this.prisma.clientAsset.update({
-      where: { id },
-      data,
-    })
+    return this.roadmapAssets.updateAsset(id, organizationId, data)
   }
 
   async upsertBillingStatus(organizationId: string, data: UpsertClientBillingStatusInput, actorId?: string) {
