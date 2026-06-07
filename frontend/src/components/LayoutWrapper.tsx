@@ -6,6 +6,7 @@ import Sidebar from './Sidebar';
 import AuthGuard from './AuthGuard';
 import CommandPalette from './CommandPalette';
 import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext';
+import { useUser } from '@/contexts/UserContext';
 import { cn } from '@/lib/utils';
 
 interface LayoutWrapperProps {
@@ -20,31 +21,34 @@ interface LayoutWrapperProps {
 function AuthenticatedShell({ children }: LayoutWrapperProps) {
   const pathname = usePathname();
   const { desktopCollapsed } = useSidebar();
+  const { user, isLoading } = useUser();
   const isClientPortalRoute = pathname === '/client' || pathname.startsWith('/client/');
 
   // Routes where sidebar should be hidden
   const noSidebarRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'];
   const hideSidebar = noSidebarRoutes.includes(pathname);
+  const isUnknownProtectedSession = isLoading && !user && !hideSidebar;
+  const showWorkspaceShell = !hideSidebar && !isUnknownProtectedSession;
 
   return (
     <>
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
-      {!hideSidebar && <Sidebar />}
-      {!hideSidebar && <CommandPalette />}
+      {showWorkspaceShell && <Sidebar />}
+      {showWorkspaceShell && <CommandPalette />}
       <div
         id="main-content"
         tabIndex={-1}
         className={cn(
           'transition-[padding-left,padding-top] duration-200 ease-[var(--ease-out)]',
-          hideSidebar
+          !showWorkspaceShell
             ? 'min-h-[100dvh] bg-[var(--background)] text-[var(--foreground)]'
             : cn(
                 'min-h-[100dvh] bg-transparent text-[var(--foreground)]',
                 !isClientPortalRoute && 'pt-20 md:pt-24',
               ),
-          !hideSidebar && (desktopCollapsed ? 'md:pl-20' : 'md:pl-72'),
+          showWorkspaceShell && (desktopCollapsed ? 'md:pl-20' : 'md:pl-72'),
         )}
       >
         {children}

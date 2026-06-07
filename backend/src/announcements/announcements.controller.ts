@@ -1,6 +1,7 @@
 import express, { Request, Response, Router } from 'express'
 import { AnnouncementsService } from './announcements.service'
 import { authenticateToken, requireRole } from '../auth/auth.middleware'
+import { resolvePaginationQuery } from '../http/pagination'
 
 const ANNOUNCEMENT_MANAGEMENT_ROLES = [
     'admin',
@@ -29,11 +30,13 @@ export class AnnouncementsController {
             try {
                 const category = req.query.category as string | undefined
                 const important = req.query.important === 'true' ? true : req.query.important === 'false' ? false : undefined
-                const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined
-                const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined
+                const pagination = resolvePaginationQuery(req.query)
 
-                const items = await this.service.findAll(category, important, page, limit)
-                res.json(items)
+                const items = await this.service.findAll(category, important, pagination.page, pagination.limit)
+                if (Array.isArray(items)) {
+                    return res.json(items)
+                }
+                res.json(pagination.hasExplicitPagination ? items : items.data)
             } catch (error) {
                 console.error('Error fetching announcements:', error)
                 res.status(500).json({ error: 'Failed to fetch announcements' })

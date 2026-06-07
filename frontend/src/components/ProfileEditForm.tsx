@@ -47,9 +47,11 @@ const profileFieldConfigs: Array<{
   autoComplete?: string;
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   required?: boolean;
+  readOnly?: boolean;
+  helperText?: string;
 }> = [
   { id: "name", label: "Full Name", icon: User, autoComplete: "name", required: true },
-  { id: "email", label: "Email Address", icon: Mail, type: "email", autoComplete: "email", inputMode: "email", required: true },
+  { id: "email", label: "Email Address", icon: Mail, type: "email", autoComplete: "email", inputMode: "email", required: true, readOnly: true, helperText: "Email changes are handled by an administrator." },
   { id: "birthday", label: "Birthday", icon: Calendar, type: "date", autoComplete: "bday", required: true },
   { id: "phone", label: "Phone Number", icon: Phone, type: "tel", placeholder: "+63 XXX XXX XXXX", autoComplete: "tel", inputMode: "tel", required: true },
   { id: "address", label: "Address", icon: MapPin, placeholder: "Street address", autoComplete: "street-address", required: true },
@@ -191,7 +193,6 @@ export default function ProfileEditForm({ user, onSave, onCancel }: ProfileEditF
       const shouldClearAvatar = hasAvatarChanged && !formData.avatar;
       const profileResponse = await updateUserProfile(user.id, {
         name: formData.name,
-        email: formData.email,
         phone: formData.phone,
         birthday: formData.birthday,
         address: formData.address,

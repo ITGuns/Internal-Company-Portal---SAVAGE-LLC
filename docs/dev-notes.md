@@ -1,5 +1,58 @@
 # Development Notes
 
+## 2026-06-07 - Production Audit Fixes
+
+### Completed
+
+- Blocked self-service account email changes while preserving ordinary profile edits.
+- Restricted email provider test/send/status endpoints to full-access administrators.
+- Added bounded default pagination for user, announcement, and daily-log list reads while preserving legacy array responses when callers omit pagination.
+- Prevented the workspace sidebar and command palette from mounting while protected-route auth is still unknown.
+- Marked profile email as read-only in the edit form so the frontend matches the server-side identity rule.
+- Added focused backend regression tests for account email mutation, email route authorization, and pagination bounds.
+
+### Files Changed
+
+- `backend/src/users/users.controller.ts`
+- `backend/src/email/email.controller.ts`
+- `backend/src/http/pagination.ts`
+- `backend/src/announcements/announcements.controller.ts`
+- `backend/src/daily-logs/daily-logs.controller.ts`
+- `render.yaml`
+- `backend/tests/users.routes-security.test.ts`
+- `backend/tests/email.routes.test.ts`
+- `backend/tests/pagination.test.ts`
+- `backend/tests/run-tests.ts`
+- `frontend/src/components/LayoutWrapper.tsx`
+- `frontend/src/components/AuthGuard.tsx`
+- `frontend/src/components/ProfileEditForm.tsx`
+- `frontend/src/components/ProfileFormInput.tsx`
+- `frontend/src/lib/api.ts`
+- `frontend/scripts/visual-smoke.mjs`
+- `docs/api.md`
+- `docs/deployment.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept account email as an admin-managed identity field instead of allowing self-service changes that could affect admin email bypass logic.
+- Kept existing unpaginated frontend response shapes for compatibility, but bounded the backend query work.
+- Used the existing auth guard and shell structure rather than introducing a new layout system.
+- Moved Render frontend URL and CORS origin values to dashboard-managed env vars so the blueprint does not lock production to the temporary preview domain.
+
+### How to Test
+
+- `cd backend && npm test`
+- `cd backend && npm run build`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- Focused visual smoke on `/client`, `/profile`, `/announcements`, `/daily-logs`, and `/task-tracking`.
+
+### Next Steps
+
+- Continue splitting the largest frontend route files and add deeper code splitting where route chunks remain heavy.
+
 ## 2026-06-06 - Client Portal Navigation And Profile Drawer
 
 ### Completed

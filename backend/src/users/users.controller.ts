@@ -11,6 +11,9 @@ import { sanitizeUserForDirectory, sanitizeUsersForDirectory } from './users.sec
 import { UserOnboardingConflictError, UserOnboardingValidationError } from './users.service'
 import { hasEmployeeManagementAccess } from '../employees/employees.security'
 import { hasFullAccess } from '../org/org-access-policy'
+import { resolvePaginationQuery } from '../http/pagination'
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export class UsersController {
     private service = new UsersService()
@@ -23,12 +26,17 @@ export class UsersController {
         // Get all users (with optional pagination)
         router.get('/', authenticateToken, async (req: Request, res: Response) => {
             try {
-                const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined
-                const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined
-                const users = await this.service.findAll(page, limit)
+                const pagination = resolvePaginationQuery(req.query)
+                const users = await this.service.findAll(pagination.page, pagination.limit)
+
                 if (Array.isArray(users)) {
                     return res.json(sanitizeUsersForDirectory(users))
                 }
+
+                if (!pagination.hasExplicitPagination) {
+                    return res.json(sanitizeUsersForDirectory(users.data))
+                }
+
                 res.json({
                     ...users,
                     data: sanitizeUsersForDirectory(users.data),
@@ -231,6 +239,10 @@ export class UsersController {
                     requesterRoles,
                     isAdminEmail(authReq.user?.email),
                 )
+                const canManageIdentity = hasFullAccess(
+                    requesterRoles,
+                    isAdminEmail(authReq.user?.email),
+                )
 
                 if (requesterId !== id && !isPrivileged) {
                     return res.status(403).json({ error: 'Unauthorized to update another user' })
@@ -258,10 +270,29 @@ export class UsersController {
                     return res.status(404).json({ error: 'User not found' })
                 }
 
+                let normalizedEmail: string | undefined
+                if (email !== undefined) {
+                    if (typeof email !== 'string') {
+                        return res.status(400).json({ error: 'Email must be a string' })
+                    }
+
+                    normalizedEmail = email.trim().toLowerCase()
+                    if (!EMAIL_REGEX.test(normalizedEmail)) {
+                        return res.status(400).json({ error: 'Invalid email format' })
+                    }
+
+                    const isEmailChange = normalizedEmail !== existingUser.email.toLowerCase()
+                    if (isEmailChange && !canManageIdentity) {
+                        return res.status(403).json({
+                            error: 'Only full-access administrators can change account email addresses',
+                        })
+                    }
+                }
+
                 // Update basic user info
                 const user = await this.service.update(id, {
                     name,
-                    email,
+                    email: normalizedEmail,
                     avatar: avatarValidation?.value,
                     birthday,
                     phone,

@@ -9,6 +9,7 @@ import {
     resolveDailyLogDepartment,
     type DailyLogDepartmentRole,
 } from './daily-logs.department'
+import { resolvePaginationQuery } from '../http/pagination'
 
 interface AuthRequest extends Request {
     user?: {
@@ -66,11 +67,13 @@ export class DailyLogsController {
                 const department = req.query.department as string | undefined
                 const status = req.query.status as string | undefined
                 const logType = req.query.logType as string | undefined
-                const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined
-                const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined
+                const pagination = resolvePaginationQuery(req.query)
 
-                const items = await this.service.findAll(department, status, logType, page, limit)
-                res.json(items)
+                const items = await this.service.findAll(department, status, logType, pagination.page, pagination.limit)
+                if (Array.isArray(items)) {
+                    return res.json(items)
+                }
+                res.json(pagination.hasExplicitPagination ? items : items.data)
             } catch (error) {
                 console.error('Error fetching logs:', error)
                 res.status(500).json({ error: 'Failed to fetch logs' })

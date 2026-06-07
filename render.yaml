@@ -34,9 +34,9 @@ services:
       - key: LOG_LEVEL
         value: info
       - key: FRONTEND_URL
-        value: https://mydeskii-savage-preview.vercel.app
+        sync: false
       - key: CORS_ORIGIN
-        value: https://mydeskii-savage-preview.vercel.app
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: DIRECT_DATABASE_URL

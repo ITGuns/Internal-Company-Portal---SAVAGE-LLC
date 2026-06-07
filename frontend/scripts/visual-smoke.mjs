@@ -1147,6 +1147,10 @@ async function inspectRoute(browser, routePath, viewport, theme) {
   metrics.clientLandingRedirectMiss = smokePersona === "client"
     && ["/", "/dashboard"].includes(routePath)
     && metrics.currentPath !== "/client";
+  metrics.authLoadingShellLeak = authDelayMs > 0
+    && isProtectedRoute(routePath)
+    && metrics.contentAuthLoadingVisible
+    && metrics.primarySidebarPresent;
   metrics.interactions = await auditInteractions(page, routePath, theme, viewport);
 
   await page.close();
@@ -1251,7 +1255,7 @@ async function main() {
     || result.metrics.clientNavigationLeaks.length > 0
     || result.metrics.clientLandingRedirectMiss
     || result.metrics.dashboardBodyLeak
-    || (authDelayMs > 0 && isProtectedRoute(result.routePath) && !result.metrics.primarySidebarPresent)
+    || result.metrics.authLoadingShellLeak
     || (tasksDelayMs > 0 && result.routePath === "/task-tracking" && result.metrics.taskBoardHeaderSkeletonVisible)
     || result.metrics.interactions.issues.length > 0
     || result.pageErrors.length > 0
@@ -1274,6 +1278,7 @@ async function main() {
     contentAuthLoadingVisible: result.metrics.contentAuthLoadingVisible,
     taskBoardHeaderSkeletonVisible: result.metrics.taskBoardHeaderSkeletonVisible,
     dashboardBodyLeak: result.metrics.dashboardBodyLeak,
+    authLoadingShellLeak: result.metrics.authLoadingShellLeak,
     clientNavigationLeaks: result.metrics.clientNavigationLeaks,
     clientLandingRedirectMiss: result.metrics.clientLandingRedirectMiss,
     interactions: result.metrics.interactions.enabled ? {

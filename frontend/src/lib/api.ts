@@ -224,12 +224,11 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
 /**
  * Update user profile
  * @param userId - User ID
- * @param profileData - Profile data to update (name, email, phone, birthday, etc.)
+ * @param profileData - Profile data to update (name, phone, birthday, address, etc.)
  * @returns Updated user object
  */
 export const updateUserProfile = async (userId: string | number, profileData: Partial<{
     name: string;
-    email: string;
     phone?: string;
     birthday?: string;
     address?: string;

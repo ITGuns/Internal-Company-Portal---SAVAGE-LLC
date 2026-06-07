@@ -55,7 +55,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     return <>{children}</>;
   }
 
-  // Unknown protected sessions only block the route body; the real app shell stays mounted outside this guard.
+  // Unknown protected sessions block the protected body; the outer shell hides workspace nav until auth is known.
   if (isLoading) {
     return <AuthLoadingState isPublicRoute={isExemptRoute} />;
   }

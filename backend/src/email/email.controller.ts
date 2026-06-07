@@ -4,16 +4,18 @@
  */
 
 import express, { Request, Response, Router } from 'express';
-import { authenticateToken } from '../auth/auth.middleware';
+import { authenticateToken, requireRole } from '../auth/auth.middleware';
 import { emailService } from './email.service';
 import { EmailTemplateType } from './email.types';
+
+const requireEmailManagement = requireRole('admin');
 
 export class EmailController {
     router(): Router {
         const router = express.Router();
 
         // Test email configuration
-        router.post('/test', authenticateToken, async (req: Request, res: Response) => {
+        router.post('/test', authenticateToken, requireEmailManagement, async (req: Request, res: Response) => {
             try {
                 const { email } = req.body;
 
@@ -50,7 +52,7 @@ export class EmailController {
         });
 
         // Send manual email
-        router.post('/send', authenticateToken, async (req: Request, res: Response) => {
+        router.post('/send', authenticateToken, requireEmailManagement, async (req: Request, res: Response) => {
             try {
                 const { to, subject, templateType, templateData } = req.body;
 
@@ -103,7 +105,7 @@ export class EmailController {
         });
 
         // Get email service status
-        router.get('/status', authenticateToken, async (req: Request, res: Response) => {
+        router.get('/status', authenticateToken, requireEmailManagement, async (req: Request, res: Response) => {
             try {
                 const isConnected = await emailService.verifyConnection();
 

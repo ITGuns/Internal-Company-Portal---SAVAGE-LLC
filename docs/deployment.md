@@ -91,8 +91,8 @@ Before creating the Blueprint in Render:
 - Set `DATABASE_URL` to the Supabase transaction pooler runtime URL.
 - Set `DIRECT_DATABASE_URL` to the Supabase session pooler or direct migration URL.
 - Set `ADMIN_EMAILS` if configured admin-email bypass is still needed.
+- Set `FRONTEND_URL` and `CORS_ORIGIN` to the final frontend domain, such as `https://mydeskii.com`.
 - Leave generated JWT secrets in Render unless rotating existing sessions intentionally.
-- Update `FRONTEND_URL` and `CORS_ORIGIN` from the temporary Vercel preview URL to the final frontend domain when the production domain is ready.
 
 Render CLI preflight:
 

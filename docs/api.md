@@ -46,6 +46,7 @@ All user endpoints require authentication unless noted otherwise.
 User directory endpoints sanitize sensitive fields before returning data to the frontend.
 
 - `GET /api/users`, `GET /api/users/search`, and `GET /api/users/:id` omit password and password-reset fields.
+- `GET /api/users` accepts `page` and `limit`; omitted pagination returns a legacy array shape but is still capped to the first 100 records server-side.
 - Directory responses only return allowlisted public user fields plus sanitized role assignments.
 - Embedded `employeeProfile` data is limited to public directory fields such as `jobTitle` and `employmentType`.
 - Payroll-sensitive fields such as salary, currency, payment frequency, bank account, and tax ID are not returned through user directory endpoints.
@@ -63,7 +64,7 @@ User directory endpoints sanitize sensitive fields before returning data to the 
 
 - `POST /api/users` is full-access admin-only.
 - `POST /api/users/onboarding-invitations` is full-access admin-only and creates or completes an approved user setup record from `email` and `roleId`. `roleId` may be a persisted `AvailableRole.id` or a default org-catalog role ID returned by the roles API. It returns a reset-password setup link; users with an existing password return `409` and should use password reset instead.
-- `PATCH /api/users/:id` allows self updates for permitted profile fields.
+- `PATCH /api/users/:id` allows self updates for permitted profile fields. Self-service email changes are blocked; only full-access administrators can change a user's account email address.
 - User avatar writes through `POST /api/users`, `PATCH /api/users/:id`, and `POST /api/users/:id/avatar` accept only http(s) URLs, relative paths, empty removal values where profile updates allow them, or supported image data URIs that pass signature validation and the 5 MB avatar limit.
 - Non-privileged users cannot update protected fields such as `status`, `appliedDate`, `salary`, `role`, `department`, `departmentId`, or `isApproved`.
 - `DELETE /api/users/:id` requires admin or operations-manager access.
@@ -220,6 +221,7 @@ Protected fields:
 All daily-log endpoints require authentication.
 
 - `GET /api/daily-logs` supports `department`, `status`, `logType`, `page`, and `limit` query parameters.
+- Omitted daily-log pagination returns the legacy array shape but is capped to the first 100 records server-side.
 - `GET /api/daily-logs/my-logs` returns the authenticated user's logs.
 - `POST /api/daily-logs` creates a daily, weekly, monthly, or related log record.
 - `PATCH /api/daily-logs/:id` updates a log when the requester owns it or has management access.
@@ -297,7 +299,13 @@ Configured admin bypass emails also receive payroll management access.
 ### Announcements
 
 - Announcement list, detail, like, comment, RSVP, update, and delete routes require authentication.
+- Omitted announcement pagination returns the legacy array shape but is capped to the first 100 records server-side.
 - Announcement create, update, and delete routes require management access.
+
+### Email Operations
+
+- `POST /api/email/test`, `POST /api/email/send`, and `GET /api/email/status` require full-access administrator privileges.
+- Email routes are intended for provider configuration checks and controlled operational sends, not general employee or client messaging.
 
 ### Chat
 
