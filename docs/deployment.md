@@ -80,6 +80,8 @@ Frontend public build/runtime environment:
 - `NEXT_PUBLIC_WS_URL`
 - `NEXT_PUBLIC_ENABLE_REALTIME=true` when the websocket URL points at a persistent Node backend
 
+For the monorepo Vercel deployment in `vercel.json`, prefer omitting `NEXT_PUBLIC_API_URL` or setting it to `/api` so browser auth and REST calls use same-origin `/backend-auth/*` and `/api/*` routes. Do not point `NEXT_PUBLIC_API_URL` at a separate Render backend unless that backend's `CORS_ORIGIN` includes the exact Vercel production domain; otherwise browser login fails before the API response is readable.
+
 For Docker deployments, `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` are passed as frontend image build args and runtime environment variables. Rebuild the frontend image when those public URLs change.
 
 ## Render Backend Blueprint

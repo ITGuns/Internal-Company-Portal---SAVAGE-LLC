@@ -46,6 +46,8 @@ All user endpoints require authentication unless noted otherwise.
 User directory endpoints sanitize sensitive fields before returning data to the frontend.
 
 - `GET /api/users`, `GET /api/users/search`, and `GET /api/users/:id` omit password and password-reset fields.
+- `GET /api/users` and `GET /api/users/search` are restricted to internal accounts; client-only accounts must use client-scoped portal endpoints.
+- `GET /api/users/:id` and `GET /api/users/:id/roles` allow the requester to read their own safe record and otherwise require internal directory access.
 - `GET /api/users` accepts `page` and `limit`; omitted pagination returns a legacy array shape but is still capped to the first 100 records server-side.
 - Directory responses only return allowlisted public user fields plus sanitized role assignments.
 - Embedded `employeeProfile` data is limited to public directory fields such as `jobTitle` and `employmentType`.

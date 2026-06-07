@@ -10,7 +10,7 @@ import { validateAvatarValue } from '../uploads/upload.validation'
 import { sanitizeUserForDirectory, sanitizeUsersForDirectory } from './users.security'
 import { UserOnboardingConflictError, UserOnboardingValidationError } from './users.service'
 import { hasEmployeeManagementAccess } from '../employees/employees.security'
-import { hasFullAccess } from '../org/org-access-policy'
+import { hasFullAccess, normalizeOrgRoleName, type OrgRoleLike } from '../org/org-access-policy'
 import { resolvePaginationQuery } from '../http/pagination'
 import { createLogger } from '../observability/logger'
 
@@ -18,11 +18,53 @@ const logger = createLogger('users.users.controller')
 
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const CLIENT_DIRECTORY_ONLY_ROLES = new Set([
+    'client',
+    'client_owner',
+    'client_member',
+    'client_viewer',
+])
+
+function hasInternalDirectoryAccess(
+    roles: OrgRoleLike[] = [],
+    isConfiguredAdminEmail = false,
+): boolean {
+    if (hasFullAccess(roles, isConfiguredAdminEmail)) return true
+
+    return roles.some((assignment) => {
+        const normalizedRole = normalizeOrgRoleName(assignment.role)
+        return Boolean(normalizedRole && !CLIENT_DIRECTORY_ONLY_ROLES.has(normalizedRole))
+    })
+}
 
 export class UsersController {
     private service = new UsersService()
     private payrollService = new PayrollService()
     private departmentsService = new DepartmentsService()
+
+    private async resolveDirectoryAccess(req: Request): Promise<{
+        requesterId: string
+        canReadInternalDirectory: boolean
+    } | null> {
+        const authReq = req as AuthRequest
+        const requesterId = authReq.user?.userId
+
+        if (!requesterId) return null
+
+        const requesterRoles = await this.service.getUserRoles(requesterId)
+
+        return {
+            requesterId,
+            canReadInternalDirectory: hasInternalDirectoryAccess(
+                requesterRoles,
+                isAdminEmail(authReq.user?.email),
+            ),
+        }
+    }
+
+    private denyInternalDirectoryAccess(res: Response) {
+        return res.status(403).json({ error: 'User directory access is restricted to internal accounts' })
+    }
 
     router(): Router {
         const router = express.Router()
@@ -30,6 +72,14 @@ export class UsersController {
         // Get all users (with optional pagination)
         router.get('/', authenticateToken, async (req: Request, res: Response) => {
             try {
+                const access = await this.resolveDirectoryAccess(req)
+                if (!access) {
+                    return res.status(401).json({ error: 'Authentication required' })
+                }
+                if (!access.canReadInternalDirectory) {
+                    return this.denyInternalDirectoryAccess(res)
+                }
+
                 const pagination = resolvePaginationQuery(req.query)
                 const users = await this.service.findAll(pagination.page, pagination.limit)
 
@@ -53,6 +103,14 @@ export class UsersController {
         // Search users
         router.get('/search', authenticateToken, async (req: Request, res: Response) => {
             try {
+                const access = await this.resolveDirectoryAccess(req)
+                if (!access) {
+                    return res.status(401).json({ error: 'Authentication required' })
+                }
+                if (!access.canReadInternalDirectory) {
+                    return this.denyInternalDirectoryAccess(res)
+                }
+
                 const query = req.query.q as string
                 if (!query) {
                     return res.status(400).json({ error: 'Search query required' })
@@ -68,6 +126,15 @@ export class UsersController {
         router.get('/:id', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+                const access = await this.resolveDirectoryAccess(req)
+
+                if (!access) {
+                    return res.status(401).json({ error: 'Authentication required' })
+                }
+                if (access.requesterId !== id && !access.canReadInternalDirectory) {
+                    return this.denyInternalDirectoryAccess(res)
+                }
+
                 const user = await this.service.findById(id)
 
                 if (!user) {
@@ -120,6 +187,15 @@ export class UsersController {
         router.get('/:id/roles', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+                const access = await this.resolveDirectoryAccess(req)
+
+                if (!access) {
+                    return res.status(401).json({ error: 'Authentication required' })
+                }
+                if (access.requesterId !== id && !access.canReadInternalDirectory) {
+                    return this.denyInternalDirectoryAccess(res)
+                }
+
                 const roles = await this.service.getUserRoles(id)
                 res.json(roles)
             } catch (error) {

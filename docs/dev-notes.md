@@ -1,5 +1,38 @@
 # Development Notes
 
+## 2026-06-07 - Client Directory Access Guard
+
+### Completed
+
+- Restricted internal user directory list/search and cross-user reads to internal accounts only.
+- Preserved client-only self profile and self role reads so the client portal can still resolve the signed-in account.
+- Added regression coverage for admin, employee, and client-only access paths on `/api/users`.
+- Documented the Vercel same-origin API requirement after production login failed against the old Render public API URL.
+
+### Files Changed
+
+- `backend/src/users/users.controller.ts`
+- `backend/tests/users.routes-security.test.ts`
+- `docs/api.md`
+- `docs/deployment.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Treated normalized client roles as portal-only roles; accounts with any non-client org role remain internal for directory access.
+- Kept response sanitization in place as defense-in-depth, but did not rely on sanitization as the access boundary.
+
+### How to Test
+
+- `node -r ts-node/register tests/users.routes-security.test.ts` from `backend/`
+- `npm --prefix backend test`
+- `npm --prefix backend run build`
+
+### Next Steps
+
+- Redeploy the backend/frontend bundle before expecting production `/api/users` to enforce the new guard.
+- Remove or reset Vercel `NEXT_PUBLIC_API_URL` to `/api` before redeploying the monorepo Vercel project, or update Render `CORS_ORIGIN` if using Render as the browser-facing backend.
+
 ## 2026-06-07 - Navigation Skeleton Layout Polish
 
 ### Completed

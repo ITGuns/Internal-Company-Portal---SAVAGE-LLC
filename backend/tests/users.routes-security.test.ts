@@ -57,6 +57,7 @@ async function runUsersRouteSecurityTests() {
   const adminEmail = `users-route-admin-${suffix}@example.com`
   const employeeEmail = `users-route-employee-${suffix}@example.com`
   const changedEmployeeEmail = `users-route-employee-new-${suffix}@example.com`
+  const clientEmail = `users-route-client-${suffix}@example.com`
 
   const admin = await prisma.user.create({
     data: {
@@ -86,6 +87,20 @@ async function runUsersRouteSecurityTests() {
     },
   })
 
+  const client = await prisma.user.create({
+    data: {
+      email: clientEmail,
+      name: 'Users Route Client',
+      status: 'verified',
+      isApproved: true,
+      roles: {
+        create: {
+          role: 'client',
+        },
+      },
+    },
+  })
+
   const adminToken = JwtService.generateAccessToken({
     userId: admin.id,
     email: admin.email,
@@ -96,9 +111,61 @@ async function runUsersRouteSecurityTests() {
     email: employee.email,
     name: employee.name || undefined,
   })
+  const clientToken = JwtService.generateAccessToken({
+    userId: client.id,
+    email: client.email,
+    name: client.name || undefined,
+  })
 
   try {
     await withServer(async (baseUrl) => {
+      const adminDirectory = await requestJson(baseUrl, '/api/users', {
+        token: adminToken,
+      })
+      assert.equal(adminDirectory.status, 200)
+      assert.equal(Array.isArray(adminDirectory.body), true)
+      const adminDirectoryBody = adminDirectory.body as unknown as JsonRecord[]
+      assert.equal(adminDirectoryBody.some((user) => user.email === employeeEmail), true)
+
+      const employeeDirectory = await requestJson(baseUrl, '/api/users', {
+        token: employeeToken,
+      })
+      assert.equal(employeeDirectory.status, 200)
+
+      const blockedClientDirectory = await requestJson(baseUrl, '/api/users', {
+        token: clientToken,
+      })
+      assert.equal(blockedClientDirectory.status, 403)
+
+      const blockedClientSearch = await requestJson(baseUrl, '/api/users/search?q=users-route', {
+        token: clientToken,
+      })
+      assert.equal(blockedClientSearch.status, 403)
+
+      const blockedClientCrossUserRead = await requestJson(baseUrl, `/api/users/${employee.id}`, {
+        token: clientToken,
+      })
+      assert.equal(blockedClientCrossUserRead.status, 403)
+
+      const clientSelfRead = await requestJson(baseUrl, `/api/users/${client.id}`, {
+        token: clientToken,
+      })
+      assert.equal(clientSelfRead.status, 200)
+      assert.equal(clientSelfRead.body.email, clientEmail)
+
+      const blockedClientCrossUserRoles = await requestJson(baseUrl, `/api/users/${employee.id}/roles`, {
+        token: clientToken,
+      })
+      assert.equal(blockedClientCrossUserRoles.status, 403)
+
+      const clientSelfRoles = await requestJson(baseUrl, `/api/users/${client.id}/roles`, {
+        token: clientToken,
+      })
+      assert.equal(clientSelfRoles.status, 200)
+      assert.equal(Array.isArray(clientSelfRoles.body), true)
+      const clientSelfRolesBody = clientSelfRoles.body as unknown as JsonRecord[]
+      assert.equal(clientSelfRolesBody.some((assignment) => assignment.role === 'client'), true)
+
       const blockedSelfEmailChange = await requestJson(baseUrl, `/api/users/${employee.id}`, {
         method: 'PATCH',
         token: employeeToken,
@@ -141,7 +208,7 @@ async function runUsersRouteSecurityTests() {
     await prisma.user.deleteMany({
       where: {
         id: {
-          in: [admin.id, employee.id],
+          in: [admin.id, employee.id, client.id],
         },
       },
     })
