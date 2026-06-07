@@ -2,6 +2,8 @@ import { Prisma, PrismaClient } from '@prisma/client'
 import crypto from 'crypto'
 import { prisma } from '../database/prisma.service'
 import { emailService } from '../email/email.service'
+import { ClientOrganizationsService } from './client-organizations.service'
+import { ClientServiceTiersService } from './client-service-tiers.service'
 import {
   CLIENT_ACTIVITY_TYPES,
   buildApprovalQueueItems,
@@ -72,42 +74,29 @@ function addDays(date: Date, days: number): Date {
 
 export class ClientsService {
   private prisma: PrismaClient
+  private serviceTiers: ClientServiceTiersService
+  private organizations: ClientOrganizationsService
 
   constructor() {
     this.prisma = prisma
+    this.serviceTiers = new ClientServiceTiersService(this.prisma)
+    this.organizations = new ClientOrganizationsService(this.prisma)
   }
 
   async findServiceTiers() {
-    return this.prisma.clientServiceTier.findMany({
-      orderBy: [{ priorityRank: 'desc' }, { name: 'asc' }],
-      take: 100,
-    })
+    return this.serviceTiers.findServiceTiers()
   }
 
   async createServiceTier(data: CreateClientServiceTierInput) {
-    return this.prisma.clientServiceTier.create({
-      data: {
-        name: data.name,
-        description: data.description,
-        monthlyPrice: data.monthlyPrice,
-        priorityRank: data.priorityRank,
-      },
-    })
+    return this.serviceTiers.createServiceTier(data)
   }
 
   async updateServiceTier(id: string, data: UpdateClientServiceTierInput) {
-    return this.prisma.clientServiceTier.update({
-      where: { id },
-      data,
-    })
+    return this.serviceTiers.updateServiceTier(id, data)
   }
 
   async deleteServiceTier(id: string) {
-    await this.prisma.clientServiceTier.delete({
-      where: { id },
-    })
-
-    return { id, deleted: true }
+    return this.serviceTiers.deleteServiceTier(id)
   }
 
   async findOrganizations(where: Prisma.ClientOrganizationWhereInput = {}) {
@@ -130,138 +119,15 @@ export class ClientsService {
   }
 
   async createOrganization(data: CreateClientOrganizationInput) {
-    return this.prisma.clientOrganization.create({
-      data: {
-        name: data.name,
-        slug: data.slug,
-        websiteUrl: data.websiteUrl,
-        websiteWorkType: data.websiteWorkType,
-        tierId: data.tierId,
-        notes: data.notes,
-      },
-      include: {
-        tier: true,
-        _count: {
-          select: {
-            memberships: true,
-            projects: true,
-            tickets: true,
-            updates: true,
-          },
-        },
-      },
-    })
+    return this.organizations.createOrganization(data)
   }
 
   async updateOrganizationServiceTier(id: string, data: UpdateClientOrganizationServiceTierInput, actorId?: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const previous = await tx.clientOrganization.findUnique({
-        where: { id },
-        select: {
-          tierId: true,
-          tier: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      })
-
-      const organization = await tx.clientOrganization.update({
-        where: { id },
-        data: {
-          tierId: data.tierId,
-        },
-        include: {
-          tier: true,
-          _count: {
-            select: {
-              memberships: true,
-              projects: true,
-              tickets: true,
-              updates: true,
-            },
-          },
-        },
-      })
-
-      if (previous?.tierId !== organization.tierId) {
-        await createClientActivity(tx, {
-          organizationId: organization.id,
-          actorId,
-          type: CLIENT_ACTIVITY_TYPES.organizationServiceTierUpdated,
-          subjectType: 'organization',
-          subjectId: organization.id,
-          visibility: 'internal',
-          title: organization.tier
-            ? `Service tier assigned: ${organization.tier.name}`
-            : 'Service tier cleared',
-          body: previous?.tier?.name
-            ? `Previous tier: ${previous.tier.name}`
-            : null,
-          metadata: {
-            previousTierId: previous?.tierId || null,
-            previousTierName: previous?.tier?.name || null,
-            tierId: organization.tierId || null,
-            tierName: organization.tier?.name || null,
-          },
-        })
-      }
-
-      return organization
-    })
+    return this.organizations.updateOrganizationServiceTier(id, data, actorId)
   }
 
   async updateOrganizationStatus(id: string, data: UpdateClientOrganizationStatusInput, actorId?: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const previous = await tx.clientOrganization.findUnique({
-        where: { id },
-        select: { status: true },
-      })
-
-      const organization = await tx.clientOrganization.update({
-        where: { id },
-        data: {
-          status: data.status,
-        },
-        include: {
-          tier: true,
-          _count: {
-            select: {
-              memberships: true,
-              projects: true,
-              tickets: true,
-              updates: true,
-            },
-          },
-        },
-      })
-
-      if (previous?.status !== data.status && (data.status === 'archived' || previous?.status === 'archived')) {
-        await createClientActivity(tx, {
-          organizationId: organization.id,
-          actorId,
-          type: data.status === 'archived'
-            ? CLIENT_ACTIVITY_TYPES.organizationArchived
-            : CLIENT_ACTIVITY_TYPES.organizationRestored,
-          subjectType: 'organization',
-          subjectId: organization.id,
-          visibility: 'internal',
-          title: data.status === 'archived'
-            ? `Client archived: ${organization.name}`
-            : `Client restored: ${organization.name}`,
-          body: data.status === 'archived'
-            ? 'Client access was archived and hidden from client users.'
-            : 'Client access was restored for active client users.',
-          metadata: {
-            previousStatus: previous?.status || null,
-            status: data.status,
-          },
-        })
-      }
-
-      return organization
-    })
+    return this.organizations.updateOrganizationStatus(id, data, actorId)
   }
 
   async findOrganizationOverview(id: string, clientVisibleOnly: boolean) {

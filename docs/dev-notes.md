@@ -3320,3 +3320,33 @@
 ### Next Steps
 
 - Consider routing the structured logs to the production host's log drain or monitoring provider after backend hosting is finalized.
+
+## 2026-06-07 - Client Backend Service Split
+
+### Completed
+
+- Split client service-tier persistence into a focused `ClientServiceTiersService`.
+- Split client organization creation, service-tier assignment, and archive/restore updates into a focused `ClientOrganizationsService`.
+- Kept `ClientsService` as the controller-facing facade so existing routes, validation, serializers, and API contracts stay unchanged.
+
+### Files Changed
+
+- `backend/src/clients/client-service-tiers.service.ts`
+- `backend/src/clients/client-organizations.service.ts`
+- `backend/src/clients/clients.service.ts`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Started with the admin-only organization/service-tier slice because existing route coverage already protects service-tier CRUD, assignment/clearing, archive/restore, activity logging, and client visibility boundaries.
+- Preserved transaction behavior for organization service-tier and status updates so activity history remains atomic with the changed organization record.
+
+### How to Test
+
+- Run `npm --prefix backend run build`.
+- Run `npm --prefix backend test`.
+- Run `git diff --check`.
+
+### Next Steps
+
+- Continue splitting the remaining client backend domains in small slices, starting with billing/calendar or projects/updates after checking test coverage for each route group.
