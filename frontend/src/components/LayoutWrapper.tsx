@@ -55,10 +55,10 @@ function AuthenticatedShell({ children }: LayoutWrapperProps) {
 
 export default function LayoutWrapper({ children }: LayoutWrapperProps) {
   return (
-    <AuthGuard>
-      <SidebarProvider>
-        <AuthenticatedShell>{children}</AuthenticatedShell>
-      </SidebarProvider>
-    </AuthGuard>
+    <SidebarProvider>
+      <AuthenticatedShell>
+        <AuthGuard>{children}</AuthGuard>
+      </AuthenticatedShell>
+    </SidebarProvider>
   );
 }

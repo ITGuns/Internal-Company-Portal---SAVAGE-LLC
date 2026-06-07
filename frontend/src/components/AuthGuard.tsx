@@ -4,10 +4,13 @@ import { useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
 import { getAuthenticatedLandingPath } from '@/lib/role-access';
+import AuthLoadingState from './AuthLoadingState';
 
 interface AuthGuardProps {
   children: ReactNode;
 }
+
+const EXEMPT_ROUTES = ['/login', '/signup', '/forgot-password', '/reset-password'];
 
 /**
  * AuthGuard Component
@@ -19,9 +22,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   const pathname = usePathname();
   const { user, isLoading, logout } = useUser();
 
-  // Routes that don't require authentication
-  const exemptRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'];
-  const isExemptRoute = exemptRoutes.includes(pathname);
+  const isExemptRoute = EXEMPT_ROUTES.includes(pathname);
 
   useEffect(() => {
     // Don't redirect while still loading user data
@@ -45,16 +46,18 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     }
   }, [user, isLoading, pathname, isExemptRoute, router]);
 
-  // Show loading state while checking authentication
+  if (isLoading && isExemptRoute) {
+    return <>{children}</>;
+  }
+
+  // Keep the mounted workspace visible while a known session revalidates in the background.
+  if (isLoading && user) {
+    return <>{children}</>;
+  }
+
+  // Unknown protected sessions only block the route body; the real app shell stays mounted outside this guard.
   if (isLoading) {
-    return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-[var(--background)]">
-        <div className="flex flex-col items-center gap-4" role="status" aria-live="polite" aria-busy="true">
-          <div className="h-12 w-12 animate-spin rounded-full border-[3px] border-[var(--foreground)] border-r-transparent" aria-hidden="true" />
-          <p className="text-sm text-[var(--foreground)] opacity-70">Loading...</p>
-        </div>
-      </div>
-    );
+    return <AuthLoadingState isPublicRoute={isExemptRoute} />;
   }
 
   // Don't render protected content if not authenticated (unless exempt route)

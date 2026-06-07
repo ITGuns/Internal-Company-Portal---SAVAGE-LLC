@@ -676,7 +676,20 @@ export default function TaskTrackingPage() {
 
 
   if (isLoading && tasks.length === 0) {
-    return <TaskBoardSkeleton />;
+    return (
+      <main className="h-[calc(100vh-112px)] bg-[var(--background)] text-[var(--foreground)] flex flex-col overflow-hidden">
+        <div className="motion-content-enter p-6 pt-0 flex flex-col flex-1 min-h-0">
+          <Header
+            title="Task Tracking"
+            subtitle="Track and manage tasks, assignments, and progress."
+          />
+
+          <div className="mt-6 flex flex-col flex-1 min-h-0 gap-4">
+            <TaskBoardSkeleton includeHeader={false} />
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (

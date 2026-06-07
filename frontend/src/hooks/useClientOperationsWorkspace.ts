@@ -21,6 +21,7 @@ import {
 import { getDefaultClientOrganizationId } from "@/lib/client-organization-history";
 import { buildClientPortalSummary } from "@/lib/client-portal-summary";
 import { hasClientOperationsAccess } from "@/lib/role-access";
+import { AUTH_SESSION_CLEARED_EVENT } from "@/lib/auth-session";
 import { fetchUsers, User } from "@/lib/users";
 
 export interface ClientOperationsWorkspace {
@@ -50,6 +51,27 @@ export interface ClientOperationsWorkspace {
   ) => Promise<void>;
 }
 
+type ClientOperationsWorkspaceCache = {
+  userId: string;
+  organizations: ClientOrganization[];
+  overview: ClientPortalOverview | null;
+  memberships: ClientMembership[];
+  activities: ClientActivity[];
+  queueItems: ClientActionQueueItem[];
+  users: User[];
+};
+
+let clientOperationsWorkspaceCache: ClientOperationsWorkspaceCache | null = null;
+
+function clearClientOperationsWorkspaceCache() {
+  clientOperationsWorkspaceCache = null;
+}
+
+function getCachedClientOperationsWorkspace(userId: string): ClientOperationsWorkspaceCache | null {
+  if (!userId || clientOperationsWorkspaceCache?.userId !== userId) return null;
+  return clientOperationsWorkspaceCache;
+}
+
 export function useClientOperationsWorkspace(): ClientOperationsWorkspace {
   const toast = useToast();
   const router = useRouter();
@@ -57,17 +79,36 @@ export function useClientOperationsWorkspace(): ClientOperationsWorkspace {
   const searchParams = useSearchParams();
   const selectedFromQuery = searchParams.get("client") || "";
   const { user, isLoading: userLoading } = useUser();
+  const userId = user?.id != null ? String(user.id) : "";
+  const cachedWorkspace = getCachedClientOperationsWorkspace(userId);
   const canManageClients = useMemo(() => hasClientOperationsAccess(user), [user]);
   const shouldLoadUsers = pathname.startsWith("/operations/clients/accounts");
 
-  const [organizations, setOrganizations] = useState<ClientOrganization[]>([]);
-  const [overview, setOverview] = useState<ClientPortalOverview | null>(null);
-  const [memberships, setMemberships] = useState<ClientMembership[]>([]);
-  const [activities, setActivities] = useState<ClientActivity[]>([]);
-  const [queueItems, setQueueItems] = useState<ClientActionQueueItem[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [organizations, setOrganizations] = useState<ClientOrganization[]>(() => cachedWorkspace?.organizations ?? []);
+  const [overview, setOverview] = useState<ClientPortalOverview | null>(() => cachedWorkspace?.overview ?? null);
+  const [memberships, setMemberships] = useState<ClientMembership[]>(() => cachedWorkspace?.memberships ?? []);
+  const [activities, setActivities] = useState<ClientActivity[]>(() => cachedWorkspace?.activities ?? []);
+  const [queueItems, setQueueItems] = useState<ClientActionQueueItem[]>(() => cachedWorkspace?.queueItems ?? []);
+  const [users, setUsers] = useState<User[]>(() => cachedWorkspace?.users ?? []);
+  const [loading, setLoading] = useState(() => !cachedWorkspace);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const handleAuthCleared = () => {
+      clearClientOperationsWorkspaceCache();
+      setOrganizations([]);
+      setOverview(null);
+      setMemberships([]);
+      setActivities([]);
+      setQueueItems([]);
+      setUsers([]);
+      setLoading(false);
+      setSaving(false);
+    };
+
+    window.addEventListener(AUTH_SESSION_CLEARED_EVENT, handleAuthCleared);
+    return () => window.removeEventListener(AUTH_SESSION_CLEARED_EVENT, handleAuthCleared);
+  }, []);
 
   const selectedId = useMemo(() => {
     return getDefaultClientOrganizationId(organizations, selectedFromQuery);
@@ -94,9 +135,19 @@ export function useClientOperationsWorkspace(): ClientOperationsWorkspace {
 
   const refreshOrganizations = useCallback(async () => {
     const nextOrganizations = await fetchClientOrganizations();
+    const cached = getCachedClientOperationsWorkspace(userId);
+    clientOperationsWorkspaceCache = {
+      userId,
+      organizations: nextOrganizations,
+      overview: cached?.overview ?? null,
+      memberships: cached?.memberships ?? [],
+      activities: cached?.activities ?? [],
+      queueItems: cached?.queueItems ?? [],
+      users: cached?.users ?? [],
+    };
     setOrganizations(nextOrganizations);
     return nextOrganizations;
-  }, []);
+  }, [userId]);
 
   const refreshClient = useCallback(async (organizationId = selectedId) => {
     if (!organizationId) {
@@ -113,11 +164,21 @@ export function useClientOperationsWorkspace(): ClientOperationsWorkspace {
       fetchClientActivity(organizationId, { limit: 30 }),
       fetchClientActionQueue(organizationId),
     ]);
+    const cached = getCachedClientOperationsWorkspace(userId);
+    clientOperationsWorkspaceCache = {
+      userId,
+      organizations: cached?.organizations ?? organizations,
+      overview: nextOverview,
+      memberships: nextMemberships,
+      activities: nextActivities,
+      queueItems: nextQueueItems,
+      users: cached?.users ?? users,
+    };
     setOverview(nextOverview);
     setMemberships(nextMemberships);
     setActivities(nextActivities);
     setQueueItems(nextQueueItems);
-  }, [selectedId]);
+  }, [organizations, selectedId, userId, users]);
 
   const refreshCurrent = useCallback(async () => {
     await refreshOrganizations();
@@ -153,13 +214,18 @@ export function useClientOperationsWorkspace(): ClientOperationsWorkspace {
       setActivities([]);
       setQueueItems([]);
       setUsers([]);
+      if (clientOperationsWorkspaceCache?.userId === userId) {
+        clientOperationsWorkspaceCache = null;
+      }
       return;
     }
 
     let isMounted = true;
     async function loadInitial() {
       try {
-        setLoading(true);
+        if (!getCachedClientOperationsWorkspace(userId)) {
+          setLoading(true);
+        }
         await refreshOrganizations();
       } catch (error) {
         console.error(error);
@@ -173,7 +239,7 @@ export function useClientOperationsWorkspace(): ClientOperationsWorkspace {
     return () => {
       isMounted = false;
     };
-  }, [canManageClients, refreshOrganizations, toast, userLoading]);
+  }, [canManageClients, refreshOrganizations, toast, userId, userLoading]);
 
   useEffect(() => {
     if (userLoading || !canManageClients || !shouldLoadUsers || users.length > 0) return;
@@ -182,7 +248,15 @@ export function useClientOperationsWorkspace(): ClientOperationsWorkspace {
     async function loadUsers() {
       try {
         const nextUsers = await fetchUsers();
-        if (isMounted) setUsers(nextUsers);
+        if (isMounted) {
+          if (clientOperationsWorkspaceCache?.userId === userId) {
+            clientOperationsWorkspaceCache = {
+              ...clientOperationsWorkspaceCache,
+              users: nextUsers,
+            };
+          }
+          setUsers(nextUsers);
+        }
       } catch (error) {
         console.error(error);
         toast.error("Failed to load approved users");
@@ -193,7 +267,7 @@ export function useClientOperationsWorkspace(): ClientOperationsWorkspace {
     return () => {
       isMounted = false;
     };
-  }, [canManageClients, shouldLoadUsers, toast, userLoading, users.length]);
+  }, [canManageClients, shouldLoadUsers, toast, userId, userLoading, users.length]);
 
   useEffect(() => {
     if (userLoading || !canManageClients || loading) return;

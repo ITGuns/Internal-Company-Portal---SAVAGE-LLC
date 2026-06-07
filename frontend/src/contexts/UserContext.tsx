@@ -66,80 +66,92 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshUser = useCallback(async () => {
+    async function verifySession(accessToken: string): Promise<Response> {
+      return fetch(buildAuthUrl('/me'), {
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+    }
+
+    async function applyVerifiedUser(response: Response): Promise<boolean> {
+      if (!response.ok) return false;
+
+      const data = await response.json();
+      if (!data.user) return true;
+
+      setUser(prev => {
+        const hasChanged = prev?.id !== data.user.id ||
+          prev?.email !== data.user.email ||
+          prev?.name !== data.user.name ||
+          prev?.avatar !== data.user.avatar ||
+          prev?.role !== data.user.role ||
+          prev?.isApproved !== data.user.isApproved ||
+          prev?.status !== data.user.status;
+        if (!hasChanged) return prev;
+        return data.user;
+      });
+      saveCurrentUser(data.user);
+      return true;
+    }
+
     try {
       setError(null);
       const storedUser = getCurrentUser();
 
-      if (storedUser) {
-        if (typeof window !== 'undefined' && sessionStorage.getItem('auth_error')) {
-          logout();
-          sessionStorage.removeItem('auth_error');
-          setIsLoading(false);
-          return;
-        }
-
-        setUser(storedUser);
-
-        let accessToken = getAuthToken();
-        if (!accessToken) {
-          accessToken = await refreshAccessToken();
-        }
-
-        if (!accessToken) {
-          logout();
-          setIsLoading(false);
-          return;
-        }
-
-        try {
-          const res = await fetch(buildAuthUrl('/me'), {
-            credentials: 'include',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`
-            }
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            if (data.user) {
-              setUser(prev => {
-                const hasChanged = prev?.id !== data.user.id ||
-                  prev?.email !== data.user.email ||
-                  prev?.name !== data.user.name ||
-                  prev?.avatar !== data.user.avatar ||
-                  prev?.role !== data.user.role ||
-                  prev?.isApproved !== data.user.isApproved ||
-                  prev?.status !== data.user.status;
-                if (!hasChanged) return prev;
-                return data.user;
-              });
-              saveCurrentUser(data.user);
-            }
-          } else if (res.status === 401 || res.status === 403) {
-            try {
-              const newAccessToken = await refreshAccessToken();
-              if (newAccessToken) {
-                return;
-              }
-            } catch (refreshErr) {
-              console.error('[UserContext] Token refresh failed:', refreshErr);
-            }
-
-            if (typeof window !== 'undefined') sessionStorage.setItem('auth_error', 'true');
-            logout();
-          }
-        } catch (apiErr) {
-          console.error('[UserContext] Failed to verify user session', apiErr);
-        }
-
-        setIsLoading(false);
-      } else {
+      if (!storedUser) {
         setUser(null);
-        setIsLoading(false);
+        return;
+      }
+
+      if (typeof window !== 'undefined' && sessionStorage.getItem('auth_error')) {
+        logout();
+        sessionStorage.removeItem('auth_error');
+        return;
+      }
+
+      setUser(storedUser);
+
+      let accessToken = getAuthToken();
+      if (!accessToken) {
+        accessToken = await refreshAccessToken();
+      }
+
+      if (!accessToken) {
+        logout();
+        return;
+      }
+
+      try {
+        let response = await verifySession(accessToken);
+
+        if (!response.ok && (response.status === 401 || response.status === 403)) {
+          try {
+            const refreshedAccessToken = await refreshAccessToken();
+            if (refreshedAccessToken) {
+              response = await verifySession(refreshedAccessToken);
+            }
+          } catch (refreshErr) {
+            console.error('[UserContext] Token refresh failed:', refreshErr);
+          }
+        }
+
+        if (await applyVerifiedUser(response)) {
+          return;
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          if (typeof window !== 'undefined') sessionStorage.setItem('auth_error', 'true');
+          logout();
+        }
+      } catch (apiErr) {
+        console.error('[UserContext] Failed to verify user session', apiErr);
       }
     } catch (err) {
       console.error('Error refreshing user:', err);
       setError('Failed to load user data');
+    } finally {
       setIsLoading(false);
     }
   }, [logout]);

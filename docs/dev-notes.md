@@ -3017,3 +3017,113 @@
 - Add Render workspace payment information in the Render dashboard.
 - Re-run `render blueprints validate ./render.yaml`.
 - Create the Blueprint, fill Supabase secrets, and verify `/health`.
+
+## 2026-06-07 - Navigation Loading Smoothness
+
+### Completed
+
+- Investigated why clicking client/admin navigation could feel like a full-screen reload.
+- Found the affected navigation links were mostly soft Next links already, but client portal and admin client operations pages remounted their workspace hooks per route and showed fresh loading states on each route change.
+- Added per-user workspace caches for the client portal and admin client operations hooks so previously loaded workspace data remains visible while the next route revalidates.
+- Converted the dashboard attention row from a plain anchor to a Next `Link` so internal dashboard actions use client-side navigation.
+- Replaced the protected-route full-screen auth spinner with shell-aware loading so session verification no longer blanks the whole viewport.
+- Cleared client workspace caches when the auth session is cleared so cached client/admin data is not retained after logout or session expiration.
+- Strengthened the visual-smoke client mocks so client portal routes verify the same bootstrap payload shape used by the app.
+- Strengthened visual-smoke route checks and the desktop sidebar click audit so dashboard body content leaking into non-dashboard routes fails the audit.
+
+### Files Changed
+
+- `frontend/src/hooks/useClientPortalWorkspace.ts`
+- `frontend/src/hooks/useClientOperationsWorkspace.ts`
+- `frontend/src/components/AuthLoadingState.tsx`
+- `frontend/src/components/AuthGuard.tsx`
+- `frontend/src/app/dashboard/page.tsx`
+- `frontend/scripts/visual-smoke.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the fix scoped to navigation smoothness instead of rewriting the app shell or adding new route layouts.
+- Keyed workspace caches by user id to avoid showing cached client/admin workspace data across users.
+- Kept protected content hidden while auth is unknown; the follow-up moved that loading state into the route body so the real shell remains mounted.
+- Removed the native-history app-shell fallback after Chrome proved it only synchronized route state and left dashboard content mounted under other route headings.
+- Left external links as plain anchors because those should still open or navigate like normal external links.
+
+### How to Test
+
+- Run `npm --prefix frontend test`.
+- Run `npm --prefix frontend run lint`.
+- Run `npm --prefix frontend run build`.
+- Run focused visual smoke for `/client`, `/client/reports`, `/client/work`, `/client/tickets`, `/operations/clients`, `/operations/clients/reports`, `/operations/clients/accounts`, and `/dashboard`; the admin dashboard pass also clicks desktop sidebar routes and checks for dashboard body leakage.
+- Verify a delayed `/backend-auth/me` response keeps the real app shell visible instead of the old full-screen `Loading...` view.
+
+### Next Steps
+
+- Monitor the preview URL for any remaining hard reloads caused by the legacy Vercel build configuration.
+
+## 2026-06-07 - Auth Shell Stability Follow-up
+
+### Completed
+
+- Fixed the follow-up issue where auth loading could replace the real workspace shell with a skeleton and make the screen look black during navigation or reloads.
+- Moved the auth gate inside the mounted app shell so the sidebar and header remain real UI while protected route content verifies the session.
+- Replaced the full-shell auth skeleton with a compact main-content status panel.
+- Fixed the session refresh path so a successful token refresh cannot leave `UserContext.isLoading` stuck.
+- Added delayed-auth visual smoke coverage that fails if the protected-route sidebar disappears while `/backend-auth/me` is slow.
+
+### Files Changed
+
+- `frontend/src/components/LayoutWrapper.tsx`
+- `frontend/src/components/AuthGuard.tsx`
+- `frontend/src/components/AuthLoadingState.tsx`
+- `frontend/src/contexts/UserContext.tsx`
+- `frontend/scripts/visual-smoke.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept protected content blocked only for unknown sessions; already-known sessions stay visible during background verification.
+- Kept the real shell mounted for protected routes instead of drawing a fake sidebar skeleton.
+- Left public auth pages free to render while session state is resolving so login/signup do not flash a skeleton.
+
+### How to Test
+
+- Run `npm --prefix frontend test`.
+- Run `npm --prefix frontend run lint`.
+- Run `npm --prefix frontend run build`.
+- Run focused visual smoke with `VISUAL_SMOKE_AUTH_DELAY_MS=4000` on `/dashboard` and `/task-tracking` to verify the sidebar remains present while auth verification is delayed.
+
+### Next Steps
+
+- Monitor the preview URL for any remaining shell flicker under slow production auth responses.
+
+## 2026-06-07 - Task Tracking Loading Header Polish
+
+### Completed
+
+- Removed the duplicate header area from the Task Tracking loading skeleton.
+- Kept the real fixed Task Tracking header visible while the task board body loads.
+- Added delayed task-loading visual smoke coverage so the task skeleton header cannot regress.
+
+### Files Changed
+
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/ui/Skeleton.tsx`
+- `frontend/scripts/visual-smoke.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Made the task-board skeleton header optional instead of removing it globally, preserving existing fallback behavior for any future direct skeleton use.
+- Verified the route-specific loading branch calls the skeleton without the header so the app header remains the only header.
+
+### How to Test
+
+- Run `npm --prefix frontend run lint`.
+- Run `npm --prefix frontend test`.
+- Run `npm --prefix frontend run build`.
+- Run focused visual smoke with `VISUAL_SMOKE_TASKS_DELAY_MS=4000` on `/task-tracking`.
+
+### Next Steps
+
+- Monitor the preview route for any remaining loading-state flicker under slow task responses.

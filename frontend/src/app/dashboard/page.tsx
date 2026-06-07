@@ -131,7 +131,7 @@ function AttentionRow({ item }: { item: DashboardAttentionItem }) {
       : 'bg-sky-500/10 text-sky-500';
 
   return (
-    <a
+    <Link
       href={item.href}
       className="motion-interactive flex items-start gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3 hover:border-[var(--accent)] hover:bg-[var(--surface-hover)] hover:shadow-[var(--shadow-sm)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
     >
@@ -150,7 +150,7 @@ function AttentionRow({ item }: { item: DashboardAttentionItem }) {
         <div className="mt-1 text-xs text-[var(--muted)]">{item.description}</div>
       </div>
       <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-[var(--muted)]" aria-hidden="true" />
-    </a>
+    </Link>
   );
 }
 

@@ -145,18 +145,19 @@ export function DashboardSkeleton() {
 }
 
 /** Task board skeleton — columns layout */
-export function TaskBoardSkeleton() {
+export function TaskBoardSkeleton({ includeHeader = true }: { includeHeader?: boolean } = {}) {
   return (
-    <div className="p-6 pt-3 space-y-6 animate-in fade-in duration-300">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <Skeleton className="h-7 w-40" />
-        <div className="flex gap-2">
-          <Skeleton className="h-9 w-9 rounded-lg" />
-          <Skeleton className="h-9 w-9 rounded-lg" />
-          <Skeleton className="h-9 w-28 rounded-lg" />
+    <div className={`${includeHeader ? 'p-6 pt-3 ' : ''}space-y-6 animate-in fade-in duration-300`}>
+      {includeHeader ? (
+        <div className="flex items-center justify-between" data-skeleton-region="task-board-header">
+          <Skeleton className="h-7 w-40" />
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-9 rounded-lg" />
+            <Skeleton className="h-9 w-9 rounded-lg" />
+            <Skeleton className="h-9 w-28 rounded-lg" />
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {/* Filter bar */}
       <div className="flex gap-2">

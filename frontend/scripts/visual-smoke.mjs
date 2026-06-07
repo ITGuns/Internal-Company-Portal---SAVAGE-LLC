@@ -55,6 +55,8 @@ const maxInteractionsPerRoute = Number(process.env.VISUAL_SMOKE_MAX_INTERACTIONS
 const interactionOffset = Number(process.env.VISUAL_SMOKE_INTERACTION_OFFSET || "0");
 const interactionTimeoutMs = Number(process.env.VISUAL_SMOKE_INTERACTION_TIMEOUT_MS || "1000");
 const interactionWaitMs = Number(process.env.VISUAL_SMOKE_INTERACTION_WAIT_MS || "500");
+const authDelayMs = Number(process.env.VISUAL_SMOKE_AUTH_DELAY_MS || "0");
+const tasksDelayMs = Number(process.env.VISUAL_SMOKE_TASKS_DELAY_MS || "0");
 const routeControlsOnly = process.env.VISUAL_SMOKE_ROUTE_CONTROLS_ONLY === "1";
 const requestedThemes = (process.env.VISUAL_SMOKE_THEMES || "dark,light")
   .split(",")
@@ -90,6 +92,10 @@ const clientNavigationLeakLabels = new Set([
 function findClientNavigationLeaks(labels) {
   if (smokePersona !== "client") return [];
   return labels.filter((label) => clientNavigationLeakLabels.has(label));
+}
+
+function isProtectedRoute(routePath) {
+  return !["/login", "/signup", "/forgot-password", "/reset-password"].includes(routePath);
 }
 
 const adminUser = {
@@ -593,6 +599,9 @@ async function installMocks(page, theme) {
     const path = url.pathname;
 
     if (path === "/backend-auth/me") {
+      if (authDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, authDelayMs));
+      }
       if (!user) {
         await route.fulfill(jsonResponse({ error: "Not authenticated" }, 401));
         return;
@@ -647,6 +656,9 @@ async function installMocks(page, theme) {
       return;
     }
     if (path.startsWith("/api/tasks")) {
+      if (tasksDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, tasksDelayMs));
+      }
       await route.fulfill(jsonResponse(tasks));
       return;
     }
@@ -720,6 +732,16 @@ async function installMocks(page, theme) {
     }
     if (path.startsWith("/api/file-directory")) {
       await route.fulfill(jsonResponse(path.endsWith("/children") ? [] : folders));
+      return;
+    }
+    if (path.startsWith("/api/clients/portal/bootstrap")) {
+      await route.fulfill(jsonResponse({
+        organizations: [clientOrganization],
+        selectedId: clientOrganization.id,
+        overview: clientOverview,
+        activities: clientActivities,
+        queueItems: clientQueue,
+      }));
       return;
     }
     if (path === "/api/clients/organizations") {
@@ -1104,6 +1126,11 @@ async function inspectRoute(browser, routePath, viewport, theme) {
       h1: document.querySelector("h1")?.textContent?.trim() || null,
       theme: root.getAttribute("data-theme"),
       hasLoginRedirect: !expectedRoutePath.startsWith("/login") && location.pathname.includes("/login"),
+      primarySidebarPresent: Boolean(document.querySelector("#primary-sidebar")),
+      dashboardBodyLeak: !["/", "/dashboard"].includes(expectedRoutePath)
+        && document.body.innerText.includes("Review today before work piles up."),
+      contentAuthLoadingVisible: document.body.innerText.includes("Checking session"),
+      taskBoardHeaderSkeletonVisible: Boolean(document.querySelector('[data-skeleton-region="task-board-header"]')),
       overflowX: root.scrollWidth - root.clientWidth,
       smallControls,
       sidebarLabels: textList("#primary-sidebar a"),
@@ -1126,6 +1153,66 @@ async function inspectRoute(browser, routePath, viewport, theme) {
   return { routePath, theme, viewport: viewport.name, metrics, pageErrors };
 }
 
+async function inspectShellNavigation(browser, viewport, theme) {
+  const page = await browser.newPage({
+    viewport: { width: viewport.width, height: viewport.height },
+  });
+  const pageErrors = [];
+  const issues = [];
+  const navigationPaths = [
+    "/task-tracking",
+    "/daily-logs",
+    "/file-directory",
+    "/operations/clients",
+  ];
+
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+
+  try {
+    await installMocks(page, theme);
+    await page.goto(`${baseUrl}/dashboard`, {
+      waitUntil: "domcontentloaded",
+      timeout: 30000,
+    });
+    await page.waitForTimeout(1500);
+
+    for (const navigationPath of navigationPaths) {
+      const link = page.locator(`#primary-sidebar a[href="${navigationPath}"]`).first();
+      if ((await link.count()) < 1) {
+        issues.push({ to: navigationPath, issue: "missing sidebar link" });
+        continue;
+      }
+
+      await link.click({ timeout: interactionTimeoutMs });
+      await page.waitForTimeout(1500);
+
+      const state = await page.evaluate((expectedPath) => ({
+        currentPath: location.pathname,
+        h1: document.querySelector("h1")?.textContent?.trim() || null,
+        dashboardBodyLeak: document.body.innerText.includes("Review today before work piles up."),
+        expectedPath,
+      }), navigationPath);
+
+      if (state.currentPath !== navigationPath) {
+        issues.push({ to: navigationPath, issue: "route did not change", state });
+      }
+      if (state.dashboardBodyLeak) {
+        issues.push({ to: navigationPath, issue: "dashboard body leaked after sidebar navigation", state });
+      }
+    }
+  } finally {
+    await page.close();
+  }
+
+  return {
+    theme,
+    viewport: viewport.name,
+    audited: navigationPaths.length,
+    issues,
+    pageErrors,
+  };
+}
+
 async function main() {
   const launchOptions = { headless: true };
   const chromeExecutable = findChromeExecutable();
@@ -1135,12 +1222,21 @@ async function main() {
 
   const browser = await chromium.launch(launchOptions);
   const results = [];
+  const shellNavigationResults = [];
 
   try {
     for (const routePath of routesToCheck) {
       for (const theme of themes) {
         for (const viewport of viewports) {
           results.push(await inspectRoute(browser, routePath, viewport, theme));
+        }
+      }
+    }
+    if (routesToCheck.includes("/dashboard") && smokePersona === "admin") {
+      for (const theme of themes) {
+        for (const viewport of viewports) {
+          if (viewport.name !== "desktop") continue;
+          shellNavigationResults.push(await inspectShellNavigation(browser, viewport, theme));
         }
       }
     }
@@ -1154,7 +1250,14 @@ async function main() {
     || result.metrics.smallControls.length > 0
     || result.metrics.clientNavigationLeaks.length > 0
     || result.metrics.clientLandingRedirectMiss
+    || result.metrics.dashboardBodyLeak
+    || (authDelayMs > 0 && isProtectedRoute(result.routePath) && !result.metrics.primarySidebarPresent)
+    || (tasksDelayMs > 0 && result.routePath === "/task-tracking" && result.metrics.taskBoardHeaderSkeletonVisible)
     || result.metrics.interactions.issues.length > 0
+    || result.pageErrors.length > 0
+  ));
+  const shellNavigationFailures = shellNavigationResults.filter((result) => (
+    result.issues.length > 0
     || result.pageErrors.length > 0
   ));
 
@@ -1167,6 +1270,10 @@ async function main() {
     appliedTheme: result.metrics.theme,
     overflowX: result.metrics.overflowX,
     smallControls: result.metrics.smallControls.length,
+    primarySidebarPresent: result.metrics.primarySidebarPresent,
+    contentAuthLoadingVisible: result.metrics.contentAuthLoadingVisible,
+    taskBoardHeaderSkeletonVisible: result.metrics.taskBoardHeaderSkeletonVisible,
+    dashboardBodyLeak: result.metrics.dashboardBodyLeak,
     clientNavigationLeaks: result.metrics.clientNavigationLeaks,
     clientLandingRedirectMiss: result.metrics.clientLandingRedirectMiss,
     interactions: result.metrics.interactions.enabled ? {
@@ -1180,8 +1287,21 @@ async function main() {
     pageErrors: result.pageErrors.length,
   }));
 
-  console.log(JSON.stringify({ ok: failures.length === 0, failures, summary }, null, 2));
-  process.exitCode = failures.length === 0 ? 0 : 1;
+  const ok = failures.length === 0 && shellNavigationFailures.length === 0;
+  console.log(JSON.stringify({
+    ok,
+    failures,
+    shellNavigationFailures,
+    summary,
+    shellNavigation: shellNavigationResults.map((result) => ({
+      theme: result.theme,
+      viewport: result.viewport,
+      audited: result.audited,
+      issues: result.issues.length,
+      pageErrors: result.pageErrors.length,
+    })),
+  }, null, 2));
+  process.exitCode = ok ? 0 : 1;
 }
 
 main().catch((error) => {
