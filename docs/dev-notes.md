@@ -3443,6 +3443,38 @@
 
 - Continue with another focused client backend split only after checking route coverage and preserving activity/authorization behavior.
 
+## 2026-06-08 - Sidebar Navigation Runtime And Client Mobile Access
+
+### Completed
+
+- Kept sidebar navigation inside the hydrated app runtime by routing normal internal sidebar clicks through `router.push`.
+- Preserved native browser behavior for modified clicks, middle clicks, and new-tab gestures.
+- Added a client-shell-only mobile button so client portal users can open the side navigation without restoring the removed top nav.
+- Updated visual smoke interaction discovery to skip readonly form fields.
+
+### Files Changed
+
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/scripts/visual-smoke.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept `next/link` in place for semantics and prefetching, then added an explicit guarded client-navigation handler because browser replay showed full document reloads from sidebar clicks.
+- Scoped the mobile opener to the client shell only; admin and employee routes continue using the normal header navigation toggle.
+
+### How to Test
+
+- Run `npm --prefix frontend test`.
+- Run `npm --prefix frontend run lint`.
+- Run `npm --prefix frontend run build`.
+- Run focused visual smoke for `/dashboard`, `/task-tracking`, `/operations`, `/operations/clients`, `/client`, and `/profile`.
+- Run a browser navigation replay for admin, employee, and client sidebar links and verify the runtime token persists.
+
+### Next Steps
+
+- Fix the production auth/backend CORS deployment issue before treating live authenticated production click-through as complete.
+
 ## 2026-06-07 - Client Roadmap And Assets Service Split
 
 ### Completed

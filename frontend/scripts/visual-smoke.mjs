@@ -849,9 +849,9 @@ async function installMocks(page, theme) {
 const interactiveSelector = [
   "a[href]",
   "button:not([disabled])",
-  "input:not([type='hidden']):not([disabled])",
+  "input:not([type='hidden']):not([disabled]):not([readonly])",
   "select:not([disabled])",
-  "textarea:not([disabled])",
+  "textarea:not([disabled]):not([readonly])",
   "[role='button']:not([aria-disabled='true'])",
   "[role='tab']:not([aria-disabled='true'])",
 ].join(",");
