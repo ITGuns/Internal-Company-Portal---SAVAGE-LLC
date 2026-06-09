@@ -4,6 +4,7 @@ import { useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
 import { getAuthenticatedLandingPath } from '@/lib/role-access';
+import { hasStoredAuthSession } from '@/lib/auth-session';
 import AuthLoadingState from './AuthLoadingState';
 
 interface AuthGuardProps {
@@ -23,6 +24,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   const { user, isLoading, logout } = useUser();
 
   const isExemptRoute = EXEMPT_ROUTES.includes(pathname);
+  const hasStoredSession = hasStoredAuthSession();
 
   useEffect(() => {
     // Don't redirect while still loading user data
@@ -50,12 +52,12 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     return <>{children}</>;
   }
 
-  // Keep the mounted workspace visible while a known session revalidates in the background.
-  if (isLoading && user) {
+  // Keep the mounted workspace visible while a known or stored session revalidates in the background.
+  if (isLoading && (user || (!isExemptRoute && hasStoredSession))) {
     return <>{children}</>;
   }
 
-  // Unknown protected sessions block the protected body; the outer shell hides workspace nav until auth is known.
+  // Truly anonymous protected sessions still block the protected body until redirect.
   if (isLoading) {
     return <AuthLoadingState isPublicRoute={isExemptRoute} />;
   }

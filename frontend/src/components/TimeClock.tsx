@@ -1,33 +1,29 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Play, Square, Loader2 } from 'lucide-react';
-import { clockIn, clockOut, fetchTimeEntries, getActiveEntry, type TimeEntry } from '@/lib/time-entries';
+import { clockIn, clockOut, fetchActiveTimeEntry, type TimeEntry } from '@/lib/time-entries';
 import { useToast } from '@/components/ToastProvider';
+
+const ACTIVE_TIME_ENTRY_QUERY_KEY = ['time-entries', 'active'] as const;
 
 export default function TimeClock() {
     const toast = useToast();
+    const queryClient = useQueryClient();
     const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
-    const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [elapsedTime, setElapsedTime] = useState(0); // seconds
     const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const { data: fetchedActiveEntry = null, isLoading: loading } = useQuery({
+        queryKey: ACTIVE_TIME_ENTRY_QUERY_KEY,
+        queryFn: fetchActiveTimeEntry,
+        staleTime: 30 * 1000,
+    });
 
-    // Initial load to check for active entry
     useEffect(() => {
-        async function loadActive() {
-            try {
-                const entries = await fetchTimeEntries();
-                const active = getActiveEntry(entries);
-                setActiveEntry(active || null);
-            } catch (err) {
-                console.error('Failed to load active entry:', err);
-            } finally {
-                setLoading(false);
-            }
-        }
-        loadActive();
-    }, []);
+        setActiveEntry(fetchedActiveEntry);
+    }, [fetchedActiveEntry]);
 
     // Timer logic
     useEffect(() => {
@@ -56,6 +52,7 @@ export default function TimeClock() {
             setActionLoading(true);
             const entry = await clockIn();
             setActiveEntry(entry);
+            queryClient.setQueryData(ACTIVE_TIME_ENTRY_QUERY_KEY, entry);
             toast.success("Clocked in successfully");
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Failed to clock in");
@@ -69,6 +66,7 @@ export default function TimeClock() {
             setActionLoading(true);
             await clockOut();
             setActiveEntry(null);
+            queryClient.setQueryData(ACTIVE_TIME_ENTRY_QUERY_KEY, null);
             toast.success("Clocked out successfully");
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Failed to clock out");

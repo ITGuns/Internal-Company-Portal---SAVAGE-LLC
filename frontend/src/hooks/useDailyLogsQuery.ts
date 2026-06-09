@@ -7,6 +7,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchDailyLogs,
+  fetchMyDailyLogs,
   fetchDailyLogsPaginated,
   createDailyLog,
   updateDailyLog,
@@ -19,17 +20,31 @@ import {
 
 const QUERY_KEY = ['daily-logs'] as const;
 
-export function useDailyLogs(department?: string, status?: string, logType?: string) {
+interface UseDailyLogsOptions {
+  enabled?: boolean;
+}
+
+export function useDailyLogs(department?: string, status?: string, logType?: string, options: UseDailyLogsOptions = {}) {
   return useQuery({
     queryKey: [...QUERY_KEY, department, status, logType],
     queryFn: () => fetchDailyLogs(department, status, logType),
+    enabled: options.enabled ?? true,
   });
 }
 
-export function useDailyLogsPaginated(page: number, limit: number, department?: string, status?: string, logType?: string) {
+export function useMyDailyLogs(options: UseDailyLogsOptions = {}) {
+  return useQuery({
+    queryKey: [...QUERY_KEY, 'mine'],
+    queryFn: fetchMyDailyLogs,
+    enabled: options.enabled ?? true,
+  });
+}
+
+export function useDailyLogsPaginated(page: number, limit: number, department?: string, status?: string, logType?: string, options: UseDailyLogsOptions = {}) {
   return useQuery({
     queryKey: [...QUERY_KEY, 'paginated', page, limit, department, status, logType],
     queryFn: () => fetchDailyLogsPaginated(page, limit, department, status, logType),
+    enabled: options.enabled ?? true,
     placeholderData: (prev) => prev,
   });
 }

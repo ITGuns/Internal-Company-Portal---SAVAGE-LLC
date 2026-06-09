@@ -38,3 +38,22 @@ export function clearAuthSession(): void {
   localStorage.removeItem(STORAGE_KEYS.USER);
   window.dispatchEvent(new Event(AUTH_SESSION_CLEARED_EVENT));
 }
+
+export function hasStoredAuthSession(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  const storedUser = localStorage.getItem(STORAGE_KEYS.USER);
+  const hasStoredUserSnapshot = Boolean(storedUser) && (() => {
+    try {
+      return Boolean(JSON.parse(storedUser as string));
+    } catch {
+      return false;
+    }
+  })();
+
+  return Boolean(
+    localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN) ||
+      localStorage.getItem(STORAGE_KEYS.LEGACY_REFRESH_TOKEN) ||
+      hasStoredUserSnapshot,
+  );
+}

@@ -164,6 +164,19 @@ export class PayrollController {
         })
 
         // TimeEntry endpoints
+        router.get('/time-entries/active', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const access = await this.getPayrollAccess(req)
+                if (!access) return res.sendStatus(401)
+
+                const entry = await this.service.getActiveTimeEntry(access.requesterId)
+                res.json(entry)
+            } catch (e) {
+                logger.error('Error fetching active time entry:', e)
+                res.status(500).json({ error: 'Failed to fetch active entry' })
+            }
+        })
+
         router.get('/time-entries', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const access = await this.getPayrollAccess(req)

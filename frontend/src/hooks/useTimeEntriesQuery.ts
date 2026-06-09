@@ -9,9 +9,14 @@ import { fetchTimeEntries } from '@/lib/time-entries';
 
 const QUERY_KEY = ['time-entries'] as const;
 
-export function useTimeEntries(startDate?: string, endDate?: string, userId?: string) {
+interface UseTimeEntriesOptions {
+  enabled?: boolean;
+}
+
+export function useTimeEntries(startDate?: string, endDate?: string, userId?: string, options: UseTimeEntriesOptions = {}) {
   return useQuery({
     queryKey: [...QUERY_KEY, startDate, endDate, userId],
     queryFn: () => fetchTimeEntries(startDate, endDate, userId),
+    enabled: options.enabled ?? true,
   });
 }

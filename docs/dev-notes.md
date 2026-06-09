@@ -3538,3 +3538,77 @@
 ### Next Steps
 
 - Audit other heavy routes for page-local state that should become route/session state only if users report similar route-return churn.
+
+## 2026-06-09 - Dashboard Loading Performance
+
+### Completed
+
+- Stopped the dashboard from holding the full content area behind one all-or-nothing skeleton after auth is ready.
+- Switched dashboard data loading to narrower production queries: paginated announcements, current-user daily logs, and today-scoped time entries.
+- Added a lightweight active time-entry endpoint for the clock control so it no longer loads historical payroll rows.
+- Shared the active clock lookup through React Query so duplicate desktop clock controls reuse one request.
+
+### Files Changed
+
+- `backend/src/payroll/payroll.controller.ts`
+- `backend/src/payroll/payroll.service.ts`
+- `frontend/src/app/dashboard/page.tsx`
+- `frontend/src/components/TimeClock.tsx`
+- `frontend/src/hooks/useAnnouncementsQuery.ts`
+- `frontend/src/hooks/useDailyLogsQuery.ts`
+- `frontend/src/hooks/useTimeEntriesQuery.ts`
+- `frontend/src/lib/daily-logs.ts`
+- `frontend/src/lib/time-entries.ts`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept existing dashboard cards and API contracts intact, but moved slow areas to widget-level loading.
+- Used the existing `/daily-logs/my-logs` ownership boundary for the dashboard daily-log status instead of paginating all users' logs.
+- Added `/api/payroll/time-entries/active` as a read-only authenticated endpoint for the current user only.
+
+### How to Test
+
+- Run `npm --prefix frontend test`.
+- Run `npm --prefix frontend run lint`.
+- Run `npm --prefix frontend run build`.
+- Run `npm --prefix backend test`.
+- Run `npm --prefix backend run build`.
+- Log in and open `/dashboard`; verify the command center renders while individual widgets load and the clock calls `/api/payroll/time-entries/active`.
+
+### Next Steps
+
+- Consider a dedicated backend dashboard summary endpoint if production task volume makes `/api/tasks` the next bottleneck.
+
+## 2026-06-09 - Auth Shell Loading State
+
+### Completed
+
+- Kept the workspace sidebar, admin navigation, and top header mounted while a stored authenticated session revalidates.
+- Removed the logged-in hard-refresh path that showed the centered "Checking session" blackout card before route content rendered.
+- Let route-level skeletons handle slow content loading, including Daily Logs under delayed session and data requests.
+
+### Files Changed
+
+- `frontend/src/components/AuthGuard.tsx`
+- `frontend/src/components/LayoutWrapper.tsx`
+- `frontend/src/contexts/UserContext.tsx`
+- `frontend/src/lib/auth-session.ts`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Hydrated `UserContext` from the stored user snapshot on first client render so role-based sidebar sections do not disappear during `/auth/me` revalidation.
+- Kept the centered auth loading state only for truly unknown protected sessions before redirect, not for known stored sessions.
+- Ignored malformed cached user snapshots when deciding whether a stored session exists.
+
+### How to Test
+
+- Run `npm --prefix frontend test`.
+- Run `npm --prefix frontend run lint`.
+- Run `npm --prefix frontend run build`.
+- Log in, hard-refresh `/daily-logs`, and verify the sidebar/header stay visible while the page content uses skeleton loading.
+
+### Next Steps
+
+- Deploy the latest frontend build after committing the current working tree so production receives the shell loading behavior.

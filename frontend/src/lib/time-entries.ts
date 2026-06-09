@@ -58,7 +58,23 @@ export async function fetchTimeEntries(startDate?: string, endDate?: string, use
 }
 
 /**
- * Clock In — returns the new TimeEntry, or throws with the server's error message
+ * Fetch the current user's open clock entry without loading historical payroll rows.
+ */
+export async function fetchActiveTimeEntry(): Promise<TimeEntry | null> {
+  try {
+    const res = await apiFetch('/payroll/time-entries/active');
+    if (res.status === 200) {
+      const data = await res.json();
+      return data ? mapBackendToFrontend(data) : null;
+    }
+  } catch (error) {
+    console.error('Failed to fetch active time entry:', error);
+  }
+  return null;
+}
+
+/**
+ * Clock In: returns the new TimeEntry, or throws with the server's error message.
  */
 export async function clockIn(): Promise<TimeEntry | null> {
   try {

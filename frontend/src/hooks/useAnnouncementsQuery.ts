@@ -22,17 +22,23 @@ import {
 
 const QUERY_KEY = ['announcements'] as const;
 
-export function useAnnouncements() {
+interface UseAnnouncementsOptions {
+  enabled?: boolean;
+}
+
+export function useAnnouncements(options: UseAnnouncementsOptions = {}) {
   return useQuery({
     queryKey: QUERY_KEY,
     queryFn: fetchAnnouncements,
+    enabled: options.enabled ?? true,
   });
 }
 
-export function useAnnouncementsPaginated(page: number, limit: number) {
+export function useAnnouncementsPaginated(page: number, limit: number, options: UseAnnouncementsOptions = {}) {
   return useQuery({
     queryKey: [...QUERY_KEY, 'paginated', page, limit],
     queryFn: () => fetchAnnouncementsPaginated(page, limit),
+    enabled: options.enabled ?? true,
     placeholderData: (prev) => prev,
   });
 }

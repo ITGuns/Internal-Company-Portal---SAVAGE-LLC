@@ -7,6 +7,7 @@ import AuthGuard from './AuthGuard';
 import CommandPalette from './CommandPalette';
 import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext';
 import { useUser } from '@/contexts/UserContext';
+import { hasStoredAuthSession } from '@/lib/auth-session';
 import { cn } from '@/lib/utils';
 
 interface LayoutWrapperProps {
@@ -27,7 +28,7 @@ function AuthenticatedShell({ children }: LayoutWrapperProps) {
   // Routes where sidebar should be hidden
   const noSidebarRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'];
   const hideSidebar = noSidebarRoutes.includes(pathname);
-  const isUnknownProtectedSession = isLoading && !user && !hideSidebar;
+  const isUnknownProtectedSession = isLoading && !user && !hideSidebar && !hasStoredAuthSession();
   const showWorkspaceShell = !hideSidebar && !isUnknownProtectedSession;
 
   return (

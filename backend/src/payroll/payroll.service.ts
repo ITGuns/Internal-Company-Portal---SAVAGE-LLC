@@ -108,11 +108,16 @@ export class PayrollService {
         })
     }
 
+    async getActiveTimeEntry(userId: string) {
+        return this.prisma.timeEntry.findFirst({
+            where: { userId, end: null },
+            orderBy: { start: 'desc' },
+        })
+    }
+
     async clockIn(userId: string) {
         // Check if already clocked in
-        const openEntry = await this.prisma.timeEntry.findFirst({
-            where: { userId, end: null }
-        })
+        const openEntry = await this.getActiveTimeEntry(userId)
         if (openEntry) throw new Error('Already clocked in')
 
         return this.prisma.timeEntry.create({
@@ -124,9 +129,7 @@ export class PayrollService {
     }
 
     async clockOut(userId: string) {
-        const openEntry = await this.prisma.timeEntry.findFirst({
-            where: { userId, end: null }
-        })
+        const openEntry = await this.getActiveTimeEntry(userId)
         if (!openEntry) throw new Error('Not clocked in')
 
         const end = new Date()

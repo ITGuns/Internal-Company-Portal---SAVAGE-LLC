@@ -84,6 +84,32 @@ export async function fetchDailyLogs(department?: string, status?: string, logTy
 }
 
 /**
+ * Fetch daily logs owned by the current authenticated user.
+ */
+export async function fetchMyDailyLogs(): Promise<DailyLog[]> {
+  try {
+    const res = await apiFetch('/daily-logs/my-logs');
+    if (res.status === 200) {
+      const data = await res.json();
+      if (!Array.isArray(data)) {
+        throw new Error(`Expected array but got ${typeof data}: ${JSON.stringify(data).slice(0, 100)}`);
+      }
+      return data.map((item: ApiDailyLog) => {
+        const mapped = mapApiLog(item);
+        if (mapped.date) {
+          const d = new Date(mapped.date);
+          mapped.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+        return mapped;
+      });
+    }
+  } catch (error: unknown) {
+    console.error('Failed to fetch your daily logs:', error);
+  }
+  return [];
+}
+
+/**
  * Fetch daily logs with pagination
  */
 export async function fetchDailyLogsPaginated(
