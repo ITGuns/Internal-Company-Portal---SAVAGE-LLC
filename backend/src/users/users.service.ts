@@ -9,6 +9,38 @@ import {
 
 const ONBOARDING_SETUP_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000
 
+const directoryUserSelect = {
+    id: true,
+    email: true,
+    name: true,
+    avatar: true,
+    status: true,
+    isApproved: true,
+    createdAt: true,
+    updatedAt: true,
+    roles: {
+        select: {
+            id: true,
+            role: true,
+            departmentId: true,
+            department: {
+                select: {
+                    id: true,
+                    name: true,
+                },
+            },
+        },
+    },
+    employeeProfile: {
+        select: {
+            jobTitle: true,
+            employmentType: true,
+        },
+    },
+} satisfies Prisma.UserSelect
+
+type DirectoryUser = Prisma.UserGetPayload<{ select: typeof directoryUserSelect }>
+
 export interface CreateUserDto {
     email: string
     name?: string
@@ -63,20 +95,17 @@ export class UsersService {
     /**
      * Get all users (with optional pagination)
      */
-    async findAll(page?: number, limit?: number) {
+    async findAll(page?: number, limit?: number): Promise<DirectoryUser[] | {
+        data: DirectoryUser[]
+        total: number
+        page: number
+        limit: number
+        totalPages: number
+    }> {
         const where = {
             status: {
                 in: ['active', 'vacation', 'leave', 'verified'] as string[],
             },
-        }
-
-        const include = {
-            roles: {
-                include: {
-                    department: true,
-                },
-            },
-            employeeProfile: true,
         }
 
         const orderBy = { createdAt: 'desc' as const }
@@ -85,7 +114,7 @@ export class UsersService {
             const [data, total] = await Promise.all([
                 this.prisma.user.findMany({
                     where,
-                    include,
+                    select: directoryUserSelect,
                     orderBy,
                     skip: (page - 1) * limit,
                     take: limit,
@@ -97,7 +126,7 @@ export class UsersService {
 
         return this.prisma.user.findMany({
             where,
-            include,
+            select: directoryUserSelect,
             orderBy,
         })
     }
@@ -324,7 +353,7 @@ export class UsersService {
     /**
      * Search users by name or email
      */
-    async search(query: string): Promise<User[]> {
+    async search(query: string): Promise<DirectoryUser[]> {
         return this.prisma.user.findMany({
             where: {
                 status: {
@@ -335,14 +364,7 @@ export class UsersService {
                     { name: { contains: query, mode: 'insensitive' } },
                 ],
             },
-            include: {
-                roles: {
-                    include: {
-                        department: true,
-                    },
-                },
-                employeeProfile: true,
-            },
+            select: directoryUserSelect,
         })
     }
 

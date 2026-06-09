@@ -146,14 +146,37 @@ const users = [
 ];
 
 const departments = [
-  { id: "dept-ops", name: "Operations", driveId: "drive-ops", _count: { tasks: 2, roles: 3 } },
-  { id: "dept-web", name: "Website Developers", driveId: "drive-web", _count: { tasks: 4, roles: 2 } },
+  {
+    id: "dept-ops",
+    name: "Operations",
+    driveId: "drive-ops",
+    _count: { tasks: 2, roles: 3 },
+    availableRoles: [
+      {
+        id: "role-admin",
+        name: "admin",
+        departmentId: "dept-ops",
+        department: { id: "dept-ops", name: "Operations" },
+      },
+    ],
+  },
+  {
+    id: "dept-web",
+    name: "Website Developers",
+    driveId: "drive-web",
+    _count: { tasks: 4, roles: 2 },
+    availableRoles: [
+      {
+        id: "role-web",
+        name: "Web Developer",
+        departmentId: "dept-web",
+        department: { id: "dept-web", name: "Website Developers" },
+      },
+    ],
+  },
 ];
 
-const roles = [
-  { id: "role-admin", name: "admin", department: departments[0] },
-  { id: "role-web", name: "Web Developer", department: departments[1] },
-];
+const roles = departments.flatMap((department) => department.availableRoles);
 
 const tasks = [
   {

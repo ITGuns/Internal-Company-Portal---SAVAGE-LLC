@@ -1,5 +1,48 @@
 # Development Notes
 
+## 2026-06-09 - Operations Loading Follow-Up
+
+### Completed
+
+- Removed the duplicate Operations roles API request by deriving role options from the departments payload that already includes `availableRoles`.
+- Restored deferred member-directory loading so `/operations` does not start the heavier `/api/users` request before the Members tab is opened.
+- Added an idle member prefetch after the visible Operations section is stable, keeping Members warm without competing with departments on first paint.
+- Limited automatic org-catalog sync to empty department catalogs so normal Operations visits do not trigger an extra sync POST.
+- Added a session-scoped departments cache so revisits can show org-catalog content immediately while React Query refreshes in the background.
+- Narrowed backend user-directory reads to the sanitized fields the API actually returns.
+- Made stored-session adoption hydration-safe so protected routes and the sidebar do not render different authenticated markup between server HTML and the first client frame.
+- Made the theme toggle hydrate from a stable default before syncing the saved browser theme, removing light-mode React hydration errors.
+
+### Files Changed
+
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/components/AuthGuard.tsx`
+- `frontend/src/components/ThemeToggle.tsx`
+- `frontend/src/contexts/UserContext.tsx`
+- `frontend/src/lib/operations-data.ts`
+- `frontend/scripts/visual-smoke.mjs`
+- `frontend/tests/operations-data.test.mjs`
+- `backend/src/users/users.service.ts`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the public departments and roles API contracts intact for signup and existing callers.
+- Avoided browser-caching authenticated member data; only the public org-catalog department payload is cached in the current browser session.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `npm --prefix backend test`
+- `npm --prefix backend run build`
+- Browser affected-flow audit: open `/operations`, confirm Departments and Roles no longer trigger separate `/api/roles` work, then open Members and confirm the member list loads without replacing the shell.
+
+### Next Steps
+
+- If production org-catalog endpoints still take multiple seconds after this change, move the backend off Vercel serverless/free cold starts or add a carefully invalidated backend cache for public org-catalog reads.
+
 ## 2026-06-07 - Client Directory Access Guard
 
 ### Completed

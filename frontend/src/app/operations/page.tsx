@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useRef, useTransition } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef, useTransition } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,13 +17,14 @@ import { assignUserRole, removeUserRole } from "@/lib/users";
 import { useUser } from "@/contexts/UserContext";
 import { hasFullAccess } from "@/lib/role-access";
 import {
+  deriveOperationsRolesFromDepartments,
   fetchOperationsDepartments,
   fetchOperationsMembers,
-  fetchOperationsRoles,
   OPERATIONS_CACHE_GC_MS,
   OPERATIONS_CORE_STALE_MS,
   OPERATIONS_MEMBERS_STALE_MS,
   OPERATIONS_QUERY_KEYS,
+  readCachedOperationsDepartments,
   syncOperationsOrgCatalog,
   type OperationsDepartment,
   type OperationsRole,
@@ -44,6 +45,26 @@ const OperationsMembersPanel = dynamic(() => import("@/components/operations/Ope
 type DeleteTarget =
   | { type: 'department'; id: string; name: string; tasks: number; roles: number }
   | { type: 'role'; id: string; name: string; departmentName?: string };
+
+const EMPTY_DEPARTMENTS: OperationsDepartment[] = [];
+const EMPTY_MEMBERS: OperationsMember[] = [];
+
+function scheduleOperationsMembersPrefetch(callback: () => void): () => void {
+  if (typeof window === 'undefined') return () => undefined;
+
+  const idleWindow = window as Window & {
+    requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+    cancelIdleCallback?: (handle: number) => void;
+  };
+
+  if (idleWindow.requestIdleCallback) {
+    const handle = idleWindow.requestIdleCallback(callback, { timeout: 3000 });
+    return () => idleWindow.cancelIdleCallback?.(handle);
+  }
+
+  const timeout = window.setTimeout(callback, 1200);
+  return () => window.clearTimeout(timeout);
+}
 
 export default function OperationsPage() {
   const { user } = useUser();
@@ -75,34 +96,24 @@ export default function OperationsPage() {
     gcTime: OPERATIONS_CACHE_GC_MS,
     placeholderData: keepPreviousData,
   });
-  const rolesQuery = useQuery({
-    queryKey: OPERATIONS_QUERY_KEYS.roles,
-    queryFn: fetchOperationsRoles,
-    staleTime: OPERATIONS_CORE_STALE_MS,
-    gcTime: OPERATIONS_CACHE_GC_MS,
-    placeholderData: keepPreviousData,
-  });
   const membersQuery = useQuery({
     queryKey: OPERATIONS_QUERY_KEYS.members,
     queryFn: fetchOperationsMembers,
-    enabled: canManageOrgSettings || activeTab === 'members',
+    enabled: activeTab === 'members',
     staleTime: OPERATIONS_MEMBERS_STALE_MS,
     gcTime: OPERATIONS_CACHE_GC_MS,
     placeholderData: keepPreviousData,
   });
 
-  const departments = departmentsQuery.data ?? [];
-  const roles = rolesQuery.data ?? [];
-  const members = (membersQuery.data ?? []) as OperationsMember[];
+  const departments = departmentsQuery.data ?? EMPTY_DEPARTMENTS;
+  const roles = useMemo(() => deriveOperationsRolesFromDepartments(departments), [departments]);
+  const members = (membersQuery.data ?? EMPTY_MEMBERS) as OperationsMember[];
   const departmentsLoading = departmentsQuery.isPending && departments.length === 0;
-  const rolesLoading = rolesQuery.isPending && roles.length === 0;
+  const rolesLoading = departmentsLoading && roles.length === 0;
   const membersLoading = membersQuery.isPending && members.length === 0;
 
   const refreshCoreOperationsData = useCallback(async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEYS.departments }),
-      queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEYS.roles }),
-    ]);
+    await queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEYS.departments });
   }, [queryClient]);
 
   const syncOrgCatalog = useCallback(async (options: { showToast?: boolean } = {}) => {
@@ -137,8 +148,8 @@ export default function OperationsPage() {
 
     if (tab === 'roles') {
       void queryClient.prefetchQuery({
-        queryKey: OPERATIONS_QUERY_KEYS.roles,
-        queryFn: fetchOperationsRoles,
+        queryKey: OPERATIONS_QUERY_KEYS.departments,
+        queryFn: fetchOperationsDepartments,
         staleTime: OPERATIONS_CORE_STALE_MS,
         gcTime: OPERATIONS_CACHE_GC_MS,
       });
@@ -153,8 +164,8 @@ export default function OperationsPage() {
         gcTime: OPERATIONS_CACHE_GC_MS,
       });
       void queryClient.prefetchQuery({
-        queryKey: OPERATIONS_QUERY_KEYS.roles,
-        queryFn: fetchOperationsRoles,
+        queryKey: OPERATIONS_QUERY_KEYS.departments,
+        queryFn: fetchOperationsDepartments,
         staleTime: OPERATIONS_CORE_STALE_MS,
         gcTime: OPERATIONS_CACHE_GC_MS,
       });
@@ -169,10 +180,41 @@ export default function OperationsPage() {
 
   useEffect(() => {
     if (!canManageOrgSettings || !userId || catalogSyncAttemptedRef.current) return;
+    if (!departmentsQuery.isFetched || departmentsQuery.isError || departments.length > 0) return;
     if (!shouldAutoSyncOperationsOrgCatalog(userId, canManageOrgSettings)) return;
     catalogSyncAttemptedRef.current = true;
     void syncOrgCatalog();
-  }, [canManageOrgSettings, syncOrgCatalog, userId]);
+  }, [
+    canManageOrgSettings,
+    departments.length,
+    departmentsQuery.isError,
+    departmentsQuery.isFetched,
+    syncOrgCatalog,
+    userId,
+  ]);
+
+  useEffect(() => {
+    if (departments.length > 0 || departmentsQuery.isFetched) return;
+
+    const cached = readCachedOperationsDepartments();
+    if (!cached) return;
+
+    queryClient.setQueryData(OPERATIONS_QUERY_KEYS.departments, cached.departments);
+  }, [departments.length, departmentsQuery.isFetched, queryClient]);
+
+  useEffect(() => {
+    if (!canManageOrgSettings || activeTab === 'members' || departmentsLoading || departmentsQuery.isError) return;
+    if (queryClient.getQueryData(OPERATIONS_QUERY_KEYS.members)) return;
+
+    return scheduleOperationsMembersPrefetch(() => {
+      void queryClient.prefetchQuery({
+        queryKey: OPERATIONS_QUERY_KEYS.members,
+        queryFn: fetchOperationsMembers,
+        staleTime: OPERATIONS_MEMBERS_STALE_MS,
+        gcTime: OPERATIONS_CACHE_GC_MS,
+      });
+    });
+  }, [activeTab, canManageOrgSettings, departmentsLoading, departmentsQuery.isError, queryClient]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -481,11 +523,11 @@ export default function OperationsPage() {
           ) : activeTab === 'roles' ? (
             rolesLoading ? (
               <OperationsGridSkeleton label="Loading roles" variant="role" />
-            ) : rolesQuery.isError ? (
+            ) : departmentsQuery.isError ? (
               <OperationsErrorState
                 title="Roles did not load"
-                description={rolesQuery.error instanceof Error ? rolesQuery.error.message : "Refresh this section to try again."}
-                onRetry={() => void rolesQuery.refetch()}
+                description={departmentsQuery.error instanceof Error ? departmentsQuery.error.message : "Refresh this section to try again."}
+                onRetry={() => void departmentsQuery.refetch()}
               />
             ) : roles.length === 0 ? (
               <EmptyState
@@ -531,7 +573,7 @@ export default function OperationsPage() {
               <OperationsMembersPanel
                 members={members}
                 availableRoles={roles}
-                canManageMembers={canManageOrgSettings && !rolesLoading && !rolesQuery.isError}
+                canManageMembers={canManageOrgSettings && !rolesLoading && !departmentsQuery.isError}
                 onAssignRole={handleAssignMemberRole}
                 onRemoveRole={handleRemoveMemberRole}
               />

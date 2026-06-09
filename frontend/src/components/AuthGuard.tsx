@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, ReactNode } from 'react';
+import { useEffect, useState, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
 import { getAuthenticatedLandingPath } from '@/lib/role-access';
@@ -22,9 +22,14 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, isLoading, logout } = useUser();
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   const isExemptRoute = EXEMPT_ROUTES.includes(pathname);
-  const hasStoredSession = hasStoredAuthSession();
+  const hasStoredSession = hasHydrated && hasStoredAuthSession();
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
 
   useEffect(() => {
     // Don't redirect while still loading user data
@@ -50,6 +55,10 @@ export default function AuthGuard({ children }: AuthGuardProps) {
 
   if (isLoading && isExemptRoute) {
     return <>{children}</>;
+  }
+
+  if (isLoading && !hasHydrated) {
+    return <AuthLoadingState isPublicRoute={isExemptRoute} />;
   }
 
   // Keep the mounted workspace visible while a known or stored session revalidates in the background.
