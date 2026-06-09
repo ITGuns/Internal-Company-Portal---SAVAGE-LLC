@@ -3612,3 +3612,33 @@
 ### Next Steps
 
 - Deploy the latest frontend build after committing the current working tree so production receives the shell loading behavior.
+
+## 2026-06-09 - Protected Route Skeleton Fallback
+
+### Completed
+
+- Removed the protected-route centered session-check fallback that could still appear during route remounts or uncached sessions.
+- Kept the workspace sidebar and command palette mounted for protected routes even while auth state is resolving.
+- Reused the normal header and page skeleton layout as the protected auth fallback so section navigation never drops to a blackout card.
+
+### Files Changed
+
+- `frontend/src/components/AuthLoadingState.tsx`
+- `frontend/src/components/LayoutWrapper.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Treated unknown protected-route auth loading as a workspace loading state, not a standalone auth card.
+- Left public auth routes without the workspace sidebar because login/signup/reset screens remain intentionally separate.
+
+### How to Test
+
+- Run `npm --prefix frontend test`.
+- Run `npm --prefix frontend run lint`.
+- Run `npm --prefix frontend run build`.
+- Log in, navigate between protected sidebar sections, and verify the shell stays visible without "Checking session" copy.
+
+### Next Steps
+
+- Keep future route-level loading states inside the existing shell rather than adding full-screen auth/loading cards.

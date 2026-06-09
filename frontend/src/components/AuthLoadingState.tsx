@@ -1,7 +1,21 @@
 'use client';
 
+import Header from './Header';
+import { PageSkeleton } from './ui/Skeleton';
+
 export default function AuthLoadingState({ isPublicRoute }: { isPublicRoute: boolean }) {
-  const label = isPublicRoute ? 'Preparing account access' : 'Checking session';
+  if (!isPublicRoute) {
+    return (
+      <main className="main-content-height bg-transparent text-[var(--foreground)]">
+        <div className="p-6 pt-3">
+          <Header />
+          <PageSkeleton cards={4} rows={5} />
+        </div>
+      </main>
+    );
+  }
+
+  const label = 'Preparing account access';
 
   return (
     <section
@@ -15,7 +29,7 @@ export default function AuthLoadingState({ isPublicRoute }: { isPublicRoute: boo
         <div className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-[var(--accent)] border-r-transparent" aria-hidden="true" />
         <div className="min-w-0">
           <div className="text-sm font-semibold">{label}</div>
-          <div className="mt-1 text-xs text-[var(--muted)]">Keeping the workspace ready while access is verified.</div>
+          <div className="mt-1 text-xs text-[var(--muted)]">Loading the account form.</div>
         </div>
       </div>
     </section>
