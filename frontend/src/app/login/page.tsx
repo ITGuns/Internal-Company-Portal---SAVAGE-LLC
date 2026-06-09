@@ -41,7 +41,9 @@ export default function LoginPage() {
       await refreshUser();
       router.push(getAuthenticatedLandingPath(loginResponse.user));
     } catch (err: unknown) {
-      console.error('Login error:', err);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Login error:', err);
+      }
       setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
       setLoading(false);
     }

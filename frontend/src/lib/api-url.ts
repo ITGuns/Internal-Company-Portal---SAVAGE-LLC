@@ -21,6 +21,14 @@ export function normalizeApiBaseUrl(baseUrl = APP_CONFIG.apiUrl): string {
   if (!trimmed) return DEFAULT_API_BASE_URL;
 
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    if (typeof window !== 'undefined') {
+      const configuredOrigin = new URL(trimmed).origin;
+      if (configuredOrigin !== window.location.origin) {
+        // Browser requests should use the app origin so Next/Vercel rewrites can own CORS.
+        return DEFAULT_API_BASE_URL;
+      }
+    }
+
     return trimmed.endsWith(API_PATH_SUFFIX) ? trimmed : `${trimmed}${API_PATH_SUFFIX}`;
   }
 

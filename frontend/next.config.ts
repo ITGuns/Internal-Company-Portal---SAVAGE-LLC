@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'i.pravatar.cc' },
     ],
   },
-  // Proxy all /api/* and /auth/* requests to the backend
+  // Proxy all /api/* and /backend-auth/* requests to the backend
   // This avoids CORS issues since the request comes from Next.js server → backend
   async rewrites() {
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:4000';

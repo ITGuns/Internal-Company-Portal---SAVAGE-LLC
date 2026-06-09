@@ -7,6 +7,7 @@ import {
 } from './auth-session';
 import { buildApiUrl, buildAuthUrl } from './api-url';
 
+export const BACKEND_CONNECTION_ERROR_MESSAGE = 'Could not reach the MyDeskii backend. Please refresh and try again.';
 
 export const getAuthToken = () => {
     if (typeof window !== 'undefined') {
@@ -46,9 +47,35 @@ export const getCurrentUser = () => {
     return null;
 }
 
-export const setCurrentUser = (user: Record<string, unknown>) => {
+export const setCurrentUser = (user: unknown) => {
     if (typeof window !== 'undefined') {
         localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+    }
+}
+
+function isFetchNetworkError(error: unknown): boolean {
+    return error instanceof TypeError && error.message === 'Failed to fetch'
+}
+
+function normalizeBackendError(error: unknown, fallbackMessage: string): Error {
+    if (isFetchNetworkError(error)) {
+        return new Error(BACKEND_CONNECTION_ERROR_MESSAGE)
+    }
+
+    return error instanceof Error ? error : new Error(fallbackMessage)
+}
+
+function logDevelopmentError(label: string, error: unknown) {
+    if (process.env.NODE_ENV !== 'production') {
+        console.error(label, error)
+    }
+}
+
+export async function readJsonResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
+    try {
+        return await response.json()
+    } catch {
+        throw new Error(response.status >= 500 ? BACKEND_CONNECTION_ERROR_MESSAGE : fallbackMessage)
     }
 }
 
@@ -100,7 +127,7 @@ export const loginWithEmail = async (credentials: LoginCredentials): Promise<Aut
             body: JSON.stringify(credentials)
         });
 
-        const data = await res.json();
+        const data = await readJsonResponse<AuthResponse & { error?: string }>(res, 'Login failed. Please try again.');
 
         if (res.ok && data.success && data.tokens) {
             // Store auth token and user data
@@ -113,8 +140,8 @@ export const loginWithEmail = async (credentials: LoginCredentials): Promise<Aut
         // Return error response
         throw new Error(data.error || 'Login failed');
     } catch (err) {
-        console.error('Email login error:', err);
-        throw err instanceof Error ? err : new Error('Login failed. Please try again.');
+        logDevelopmentError('Email login error:', err);
+        throw normalizeBackendError(err, 'Login failed. Please try again.');
     }
 }
 
@@ -136,32 +163,40 @@ export const logout = () => {
  * Request a password reset email
  */
 export const requestPasswordReset = async (email: string): Promise<{ success: boolean; message: string }> => {
-    const res = await fetch(buildAuthUrl('/forgot-password'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-        throw new Error(data.error || 'Failed to send reset email');
+    try {
+        const res = await fetch(buildAuthUrl('/forgot-password'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+        });
+        const data = await readJsonResponse<{ success: boolean; message: string; error?: string }>(res, 'Failed to send reset email');
+        if (!res.ok) {
+            throw new Error(data.error || 'Failed to send reset email');
+        }
+        return data;
+    } catch (err) {
+        throw normalizeBackendError(err, 'Failed to send reset email')
     }
-    return data;
 }
 
 /**
  * Reset password using token from email
  */
 export const resetPassword = async (token: string, email: string, password: string): Promise<{ success: boolean; message: string }> => {
-    const res = await fetch(buildAuthUrl('/reset-password'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, email, password }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-        throw new Error(data.error || 'Failed to reset password');
+    try {
+        const res = await fetch(buildAuthUrl('/reset-password'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, email, password }),
+        });
+        const data = await readJsonResponse<{ success: boolean; message: string; error?: string }>(res, 'Failed to reset password');
+        if (!res.ok) {
+            throw new Error(data.error || 'Failed to reset password');
+        }
+        return data;
+    } catch (err) {
+        throw normalizeBackendError(err, 'Failed to reset password')
     }
-    return data;
 }
 
 interface APIOptions extends RequestInit {
@@ -177,12 +212,18 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
         ...options.headers,
     }
 
-    const response = await fetch(buildApiUrl(endpoint), {
-        ...options,
-        cache: 'no-store',
-        credentials: 'include',
-        headers,
-    })
+    let response: Response
+
+    try {
+        response = await fetch(buildApiUrl(endpoint), {
+            ...options,
+            cache: 'no-store',
+            credentials: 'include',
+            headers,
+        })
+    } catch (err) {
+        throw normalizeBackendError(err, 'Request failed. Please try again.')
+    }
 
     const isAuthFailure = await isAuthFailureResponse(response);
 
@@ -209,8 +250,16 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
     }
 
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const message = errorData.details || errorData.error || `Request failed with status ${response.status}`;
+        let errorData: { details?: unknown; error?: unknown } = {};
+        try {
+            errorData = await readJsonResponse(response, `Request failed with status ${response.status}`);
+        } catch (err) {
+            throw normalizeBackendError(err, `Request failed with status ${response.status}`)
+        }
+
+        const details = typeof errorData.details === 'string' ? errorData.details : undefined;
+        const error = typeof errorData.error === 'string' ? errorData.error : undefined;
+        const message = details || error || `Request failed with status ${response.status}`;
         throw new Error(message);
     }
 

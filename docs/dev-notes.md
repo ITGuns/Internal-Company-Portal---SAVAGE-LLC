@@ -3685,3 +3685,48 @@
 ### Next Steps
 
 - Keep future route-level loading states inside the existing shell rather than adding full-screen auth/loading cards.
+
+## 2026-06-09 - Production QA Fixes
+
+### Completed
+
+- Fixed browser-side API/auth URL generation so production uses same-origin `/api` and `/backend-auth` routes instead of accidentally calling a configured cross-origin backend.
+- Added focused API URL tests for Vercel-style same-origin routing with a cross-origin `NEXT_PUBLIC_API_URL`.
+- Fixed production websocket URL resolution so non-loopback cross-origin realtime config uses the same-origin `/api/socket` route while local loopback development can still target `localhost:4000`.
+- Replaced raw fetch network failures with clearer MyDeskii backend connection errors.
+- Replaced signup option raw JSON parsing with the shared API helper and inline backend-connection fallback copy.
+- Kept expected login/auth failure console logging development-only so production relies on the visible form error.
+- Fixed the keyboard skip-link focus state so it becomes visible when focused.
+
+### Files Changed
+
+- `frontend/src/lib/api-url.ts`
+- `frontend/src/lib/socket-url.ts`
+- `frontend/src/lib/api.ts`
+- `frontend/src/app/login/page.tsx`
+- `frontend/src/app/signup/page.tsx`
+- `frontend/src/app/globals.css`
+- `frontend/next.config.ts`
+- `frontend/tests/api-url.test.mjs`
+- `frontend/tests/socket-url.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Browser clients should prefer same-origin backend routes so the deployed Next/Vercel proxy owns CORS and cookies.
+- Realtime connections should also prefer the app origin in production to avoid direct cross-origin socket requests.
+- Server-side URL normalization can still preserve absolute backend URLs for environments that need them.
+- Network failures should be presented as backend connection issues, not raw browser fetch errors.
+
+### How to Test
+
+- Run `npm --prefix frontend test`.
+- Run `npm --prefix frontend run lint`.
+- Run `npm --prefix frontend run build`.
+- Verify `/login`, `/signup`, `/forgot-password`, `/dashboard`, `/operations`, and `/task-tracking` do not call `deskibackend-1.onrender.com` from the browser.
+- Verify production realtime requests use the app origin with path `/api/socket`.
+- Press `Tab` on `/login` and verify "Skip to main content" appears visibly.
+
+### Next Steps
+
+- Deploy the latest build and confirm production login/signup calls use the same-origin Vercel backend routes.
