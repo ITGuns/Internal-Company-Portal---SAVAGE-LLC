@@ -1,5 +1,34 @@
 # Development Notes
 
+## 2026-06-11 - Expanded Project Overview Analytics
+
+### Completed
+
+- Added an expanded Project Overview dialog from the Task Tracking Project Organization panel.
+- Added per-project analytics for completion, open tasks, review tasks, overdue work, due-today work, estimates, tracked time, and target-date risk.
+- Kept existing project-card task filtering and project status actions intact.
+- Added unit coverage for project analytics calculations.
+
+### Files Changed
+
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/tasks/ProjectOverviewModal.tsx`
+- `frontend/src/components/tasks/ProjectAnalyticsCard.tsx`
+- `frontend/src/components/tasks/ProjectOverviewMetric.tsx`
+- `frontend/src/lib/task-project-analytics.ts`
+- `frontend/tests/task-project-analytics.test.mjs`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept analytics client-side because the page already loads the required `projects` and `tasks` data.
+- Capped the expanded project list at 48 visible project cards to avoid turning the modal into an unbounded large-list render.
+
+### How to Test
+
+- Open `/task-tracking`, click the Project Organization header or empty panel surface, confirm the expanded overview opens, project analytics render, project task-view toggles still work, and Esc closes the overview.
+
 ## 2026-06-11 - Neutral Task Detail Backdrop
 
 ### Completed

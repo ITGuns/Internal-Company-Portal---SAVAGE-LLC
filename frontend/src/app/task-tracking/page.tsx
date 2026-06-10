@@ -24,6 +24,7 @@ import {
   Pause,
   Play,
   FolderKanban,
+  Maximize2,
 } from "lucide-react";
 import { TaskBoardSkeleton } from '@/components/ui/Skeleton';
 import {
@@ -80,6 +81,7 @@ import BoardCard from "@/components/tasks/BoardCard";
 import TaskListRow from "@/components/tasks/TaskListRow";
 import TaskModal from "@/components/tasks/TaskModal";
 import TaskDetailModal from "@/components/tasks/TaskDetailModal";
+import ProjectOverviewModal from "@/components/tasks/ProjectOverviewModal";
 import TaskCalendarView from "@/components/tasks/TaskCalendarView";
 
 // Map backend status to nice labels
@@ -204,6 +206,7 @@ export default function TaskTrackingPage() {
 
   const [showDisplayMenu, setShowDisplayMenu] = useState(false);
   const [showEODModal, setShowEODModal] = useState(false);
+  const [showProjectOverview, setShowProjectOverview] = useState(false);
   const [pinnedFocusTaskId, setPinnedFocusTaskId] = useState<string | null>(null);
 
   const displayRef = useRef<HTMLDivElement>(null);
@@ -445,6 +448,25 @@ export default function TaskTrackingPage() {
     setSelectedTask(null);
   }
 
+  function openProjectOverview() {
+    setShowProjectOverview(true);
+  }
+
+  function closeProjectOverview() {
+    setShowProjectOverview(false);
+  }
+
+  function handleProjectPanelClick(event: React.MouseEvent<HTMLElement>) {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      openProjectOverview();
+      return;
+    }
+
+    if (target.closest("button, input, select, textarea, form, a")) return;
+    openProjectOverview();
+  }
+
   function clearDeepLinkFilter() {
     setDeepLinkFilter(null);
 
@@ -518,7 +540,7 @@ export default function TaskTrackingPage() {
 
     function handleProjectFilterEscape(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
-      if (showModal || selectedTask || showEODModal || showDisplayMenu) return;
+      if (showModal || selectedTask || showEODModal || showDisplayMenu || showProjectOverview) return;
 
       event.preventDefault();
       setFilterProjectId("");
@@ -526,7 +548,7 @@ export default function TaskTrackingPage() {
 
     document.addEventListener("keydown", handleProjectFilterEscape);
     return () => document.removeEventListener("keydown", handleProjectFilterEscape);
-  }, [filterProjectId, selectedTask, showDisplayMenu, showEODModal, showModal]);
+  }, [filterProjectId, selectedTask, showDisplayMenu, showEODModal, showModal, showProjectOverview]);
 
 
 
@@ -1030,17 +1052,26 @@ export default function TaskTrackingPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4">
+          <section
+            className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4"
+            onClick={handleProjectPanelClick}
+          >
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+              <button
+                type="button"
+                onClick={openProjectOverview}
+                className="-m-2 max-w-xl rounded-md p-2 text-left transition hover:bg-[var(--card-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                aria-label="Open expanded project overview"
+              >
+                <span className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
                   <FolderKanban className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" />
                   Project organization
-                </div>
-                <p className="mt-1 text-xs text-[var(--muted)]">
+                  <Maximize2 className="h-3.5 w-3.5 text-[var(--muted)]" aria-hidden="true" />
+                </span>
+                <span className="mt-1 block text-xs text-[var(--muted)]">
                   Assign tasks to projects, then track each project until completion.
-                </p>
-              </div>
+                </span>
+              </button>
 
               {canManageAssignments && (
                 <form onSubmit={handleCreateProject} className="grid w-full gap-2 xl:max-w-3xl xl:grid-cols-[minmax(10rem,1fr)_minmax(10rem,1fr)_minmax(8rem,0.8fr)_minmax(8rem,0.8fr)_auto]">
@@ -1648,6 +1679,18 @@ export default function TaskTrackingPage() {
           onAction={handleTaskAction}
         />
       )}
+
+      <ProjectOverviewModal
+        isOpen={showProjectOverview}
+        projects={projects}
+        tasks={tasks}
+        todayStr={todayStr}
+        filterProjectId={filterProjectId}
+        canManageAssignments={canManageAssignments}
+        onClose={closeProjectOverview}
+        onToggleProject={toggleProjectTaskView}
+        onProjectStatus={handleProjectStatus}
+      />
 
       {/* Log Report Modal */}
       <LogReportModal
