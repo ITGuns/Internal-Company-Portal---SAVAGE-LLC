@@ -22,8 +22,8 @@ export default function EmployeeSidebarItem({
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left p-3 rounded-lg transition-colors ${isSelected
-        ? "bg-[var(--accent)] border border-[var(--accent)]"
+      className={`w-full text-left p-3 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isSelected
+        ? "bg-[var(--accent)] border border-[var(--accent)] text-[var(--accent-foreground)]"
         : "hover:bg-[var(--card-surface)] border border-transparent"
         }`}
     >
@@ -39,15 +39,15 @@ export default function EmployeeSidebarItem({
 
         {/* Name, Email and Role */}
         <div className="flex-1 min-w-0 flex flex-col justify-center">
-          <h4 className={`font-semibold text-sm truncate leading-tight ${isSelected ? "text-white" : "text-[var(--foreground)]"
+          <h4 className={`font-semibold text-sm truncate leading-tight ${isSelected ? "text-[var(--accent-foreground)]" : "text-[var(--foreground)]"
             }`}>
             {employee.name}
           </h4>
-          <p className={`text-[10px] truncate leading-tight ${isSelected ? "text-white/70" : "text-[var(--muted)]"
+          <p className={`text-[10px] truncate leading-tight ${isSelected ? "text-[var(--accent-foreground)]" : "text-[var(--muted)]"
             }`}>
             {employee.email}
           </p>
-          <p className={`text-[10px] font-medium truncate leading-tight mt-0.5 ${isSelected ? "text-white/90" : "text-[var(--accent)]"
+          <p className={`text-[10px] font-medium truncate leading-tight mt-0.5 ${isSelected ? "text-[var(--accent-foreground)]" : "text-[var(--accent)]"
             }`}>
             {employee.role}
           </p>

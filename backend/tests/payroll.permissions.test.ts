@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { PayrollController } from '../src/payroll/payroll.controller'
 import {
   canAccessPayrollTarget,
   filterPayrollProfileUpdate,
@@ -20,6 +21,20 @@ assert.equal(hasPayrollManagementAccess([{ role: 'Contractor & Salary Payments' 
 assert.equal(hasPayrollManagementAccess([{ role: 'Project Manager' }]), false)
 assert.equal(hasPayrollManagementAccess([{ role: 'Website Developer' }]), false)
 assert.equal(hasPayrollManagementAccess([], true), true)
+
+const payrollRouter = new PayrollController().router() as any
+for (const method of ['post', 'patch', 'delete']) {
+  const routePath = method === 'post' ? '/events' : '/events/:id'
+  const eventMutationRoute = payrollRouter.stack.find((layer: any) =>
+    layer.route?.path === routePath &&
+    layer.route?.methods?.[method],
+  )
+  assert.ok(eventMutationRoute, `${method.toUpperCase()} ${routePath} route is registered`)
+  assert.ok(
+    eventMutationRoute.route.stack.length >= 3,
+    `${method.toUpperCase()} ${routePath} requires auth and payroll-management authorization`,
+  )
+}
 
 assert.equal(
   canAccessPayrollTarget({ requesterId: 'user-1', isPrivileged: false }, 'user-1'),

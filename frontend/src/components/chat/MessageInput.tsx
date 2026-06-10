@@ -84,7 +84,7 @@ export default function MessageInput({
                             key={emoji}
                             type="button"
                             onClick={() => onMessageChange(`${newMessage}${emoji}`)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm transition-colors hover:bg-[var(--background)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-sm transition-colors hover:bg-[var(--background)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                             aria-label={`Insert ${emoji}`}
                         >
                             <span aria-hidden="true">{emoji}</span>

@@ -6,6 +6,7 @@ import {
     getApprovedRoleAssignment,
 } from '../auth/signup.requests'
 import { createLogger } from '../observability/logger'
+import { isInternalEmployeeAccount } from './employees.security'
 
 const logger = createLogger('employees.service')
 
@@ -52,7 +53,7 @@ export class EmployeesService {
      * Get all deployed employees with their current-week hours computed
      */
     async getDeployed() {
-        const users = await this.prisma.user.findMany({
+        const accounts = await this.prisma.user.findMany({
             where: {
                 status: {
                     in: ['active', 'vacation', 'leave', 'verified'],
@@ -65,9 +66,15 @@ export class EmployeesService {
                         department: true,
                     },
                 },
+                clientMemberships: {
+                    select: {
+                        status: true,
+                    },
+                },
             },
             orderBy: { name: 'asc' },
         })
+        const users = accounts.filter(isInternalEmployeeAccount)
 
         // Compute current week boundaries (Mon–Sun)
         const now = new Date()

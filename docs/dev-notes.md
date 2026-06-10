@@ -1,5 +1,52 @@
 # Development Notes
 
+## 2026-06-10 - Feedback Batch Review Fixes
+
+### Completed
+
+- Centralized client-only role detection and excluded client-only accounts from deployed employee lists and bulk payslip generation.
+- Added payroll-management authorization to payroll event create, update, and delete routes.
+- Increased smoke-flagged touch targets on task project actions, task status filters, chat reactions, profile editor close, and segmented birthday inputs.
+- Reworked the selected payroll employee card to use accent foreground text instead of low-contrast white text on cyan.
+
+### Files Changed
+
+- `backend/src/org/org-access-policy.ts`
+- `backend/src/users/users.controller.ts`
+- `backend/src/employees/employees.security.ts`
+- `backend/src/employees/employees.service.ts`
+- `backend/src/payroll/payroll.controller.ts`
+- `backend/src/payroll/payroll.service.ts`
+- `backend/tests/employees.security.test.ts`
+- `backend/tests/payroll.permissions.test.ts`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/app/chat/page.tsx`
+- `frontend/src/components/chat/MessageInput.tsx`
+- `frontend/src/app/profile/page.tsx`
+- `frontend/src/components/forms/SegmentedDateInput.tsx`
+- `frontend/src/components/payroll/EmployeeSidebarItem.tsx`
+- `docs/api.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the privacy boundary server-side so hidden frontend controls are not the source of truth.
+- Treated client-only accounts as users with only client roles or client memberships; mixed internal/client-role users remain internal.
+- Kept the visual fixes scoped to accessibility regressions instead of redesigning the affected pages.
+
+### How to Test
+
+- `npm --prefix backend test`
+- `npm --prefix backend run build`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `VISUAL_SMOKE_ROUTES=/task-tracking,/chat,/profile,/payroll-calendar npm --prefix frontend run test:visual`
+
+### Next Steps
+
+- Keep client portal users confined to `/client` and admin client navigation as new workflows are added.
+
 ## 2026-06-10 - Feedback Batch Phase 4
 
 ### Completed

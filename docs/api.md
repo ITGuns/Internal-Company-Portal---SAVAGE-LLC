@@ -85,7 +85,7 @@ User directory endpoints sanitize sensitive fields before returning data to the 
 ### Employee Review
 
 - `GET /api/employees/pending` requires employee-management access.
-- `GET /api/employees/deployed` requires employee-management access.
+- `GET /api/employees/deployed` requires employee-management access and excludes client-only accounts from internal employee/payroll workflows.
 - `POST /api/employees/approve/:id` approves a pending employee application when the requester has employee-management access.
 - `POST /api/employees/reject/:id` rejects a pending employee application when the requester has employee-management access.
 
@@ -277,9 +277,9 @@ Configured admin bypass emails also receive payroll management access.
 ### Payroll Events
 
 - `GET /api/payroll/events` lists calendar events.
-- `POST /api/payroll/events` creates an event.
-- `PATCH /api/payroll/events/:id` updates an event.
-- `DELETE /api/payroll/events/:id` deletes an event.
+- `POST /api/payroll/events` creates an event and requires payroll-management access.
+- `PATCH /api/payroll/events/:id` updates an event and requires payroll-management access.
+- `DELETE /api/payroll/events/:id` deletes an event and requires payroll-management access.
 
 ### Time Entry Access
 
@@ -309,7 +309,7 @@ Configured admin bypass emails also receive payroll management access.
 - `POST /api/payroll/periods/ensure` ensures a period exists for a supplied date range.
 - `POST /api/payroll/periods` requires payroll-management access.
 - `POST /api/payroll/periods/:periodId/generate/:userId` requires payroll-management access.
-- `POST /api/payroll/periods/:periodId/generate-all` requires payroll-management access.
+- `POST /api/payroll/periods/:periodId/generate-all` requires payroll-management access and generates only for internal employee accounts.
 - Payslip preview/generation separates tracked hours from billable hours. Hours beyond the employee's `maxBillableHoursPerDay` are returned as pending overtime and are not included in automatic gross pay until approved or manually overridden by a privileged reviewer.
 - Payroll schemes currently supported are `weekdays`, `flat_30`, `flat_20`, and `flat_160_hours`.
 - `GET /api/payroll/my-payslips` returns self payslips by default and allows privileged `userId` review.

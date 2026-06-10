@@ -2,6 +2,7 @@ import { PrismaClient, TimeEntry, PayrollEvent, Prisma } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
 import { emailService } from '../email/email.service'
 import { createLogger } from '../observability/logger'
+import { isInternalEmployeeAccount } from '../employees/employees.security'
 
 const logger = createLogger('payroll.service')
 
@@ -688,14 +689,27 @@ export class PayrollService {
         const period = await this.prisma.payrollPeriod.findUnique({ where: { id: periodId } })
         if (!period) throw new Error('Period not found')
 
-        // Fetch all active employees (users with an 'active', 'vacation', or 'leave' status)
-        const employees = await this.prisma.user.findMany({
+        // Fetch active internal employees only; client-only accounts stay out of payroll generation.
+        const employeeAccounts = await this.prisma.user.findMany({
             where: {
                 status: {
                     in: ['active', 'verified', 'vacation', 'leave'],
                 },
-            }
+            },
+            include: {
+                roles: {
+                    select: {
+                        role: true,
+                    },
+                },
+                clientMemberships: {
+                    select: {
+                        status: true,
+                    },
+                },
+            },
         })
+        const employees = employeeAccounts.filter(isInternalEmployeeAccount)
 
         const results = []
         for (const emp of employees) {

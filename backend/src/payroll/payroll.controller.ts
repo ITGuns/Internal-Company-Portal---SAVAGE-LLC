@@ -109,7 +109,7 @@ export class PayrollController {
             }
         })
 
-        router.post('/events', authenticateToken, async (req: Request, res: Response) => {
+        router.post('/events', authenticateToken, requireRole(PAYROLL_MANAGEMENT_ROUTE_ROLES), async (req: Request, res: Response) => {
             try {
                 const user = (req as AuthRequest).user
                 const { title, date, type, description, isBuiltIn } = req.body
@@ -134,7 +134,7 @@ export class PayrollController {
             }
         })
 
-        router.patch('/events/:id', authenticateToken, async (req: Request, res: Response) => {
+        router.patch('/events/:id', authenticateToken, requireRole(PAYROLL_MANAGEMENT_ROUTE_ROLES), async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
                 const { title, date, type, description } = req.body
@@ -153,7 +153,7 @@ export class PayrollController {
             }
         })
 
-        router.delete('/events/:id', authenticateToken, async (req: Request, res: Response) => {
+        router.delete('/events/:id', authenticateToken, requireRole(PAYROLL_MANAGEMENT_ROUTE_ROLES), async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
                 await this.service.deleteEvent(id)

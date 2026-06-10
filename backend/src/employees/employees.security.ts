@@ -1,5 +1,6 @@
 import {
   hasManagementAccess,
+  isClientDirectoryOnlyRoleName,
   normalizeOrgRoleName,
 } from '../org/org-access-policy'
 
@@ -22,6 +23,10 @@ type EmployeeProfileLike = {
   paymentFrequency?: string | null
 }
 
+type ClientMembershipLike = {
+  status?: string | null
+}
+
 type EmployeeLike = {
   id: string
   email?: string | null
@@ -41,6 +46,7 @@ type EmployeeLike = {
   performance?: number | null
   employeeProfile?: EmployeeProfileLike | null
   roles?: RoleLike[]
+  clientMemberships?: ClientMembershipLike[]
   password?: string | null
   passwordResetToken?: string | null
   passwordResetExpiry?: Date | string | null
@@ -57,6 +63,25 @@ export function hasEmployeeManagementAccess(
   if (isConfiguredAdminEmail) return true
 
   return hasManagementAccess(roles)
+}
+
+function hasClientMembership(clientMemberships: ClientMembershipLike[] = []): boolean {
+  return clientMemberships.length > 0
+}
+
+export function isClientOnlyAccount(employee: Pick<EmployeeLike, 'roles' | 'clientMemberships'>): boolean {
+  const normalizedRoles = (employee.roles || [])
+    .map((assignment) => normalizeEmployeeRoleName(assignment.role))
+    .filter(Boolean)
+  const hasInternalRole = normalizedRoles.some((role) => !isClientDirectoryOnlyRoleName(role))
+  if (hasInternalRole) return false
+
+  return normalizedRoles.some(isClientDirectoryOnlyRoleName) ||
+    hasClientMembership(employee.clientMemberships)
+}
+
+export function isInternalEmployeeAccount(employee: Pick<EmployeeLike, 'roles' | 'clientMemberships'>): boolean {
+  return !isClientOnlyAccount(employee)
 }
 
 function serializeDate(value?: Date | string | null): string | null | undefined {

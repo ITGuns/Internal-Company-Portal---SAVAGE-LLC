@@ -10,7 +10,7 @@ import { validateAvatarValue } from '../uploads/upload.validation'
 import { sanitizeUserForDirectory, sanitizeUsersForDirectory } from './users.security'
 import { UserOnboardingConflictError, UserOnboardingValidationError } from './users.service'
 import { hasEmployeeManagementAccess } from '../employees/employees.security'
-import { hasFullAccess, normalizeOrgRoleName, type OrgRoleLike } from '../org/org-access-policy'
+import { hasFullAccess, hasInternalDirectoryAccess } from '../org/org-access-policy'
 import { resolvePaginationQuery } from '../http/pagination'
 import { createLogger } from '../observability/logger'
 
@@ -18,24 +18,6 @@ const logger = createLogger('users.users.controller')
 
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const CLIENT_DIRECTORY_ONLY_ROLES = new Set([
-    'client',
-    'client_owner',
-    'client_member',
-    'client_viewer',
-])
-
-function hasInternalDirectoryAccess(
-    roles: OrgRoleLike[] = [],
-    isConfiguredAdminEmail = false,
-): boolean {
-    if (hasFullAccess(roles, isConfiguredAdminEmail)) return true
-
-    return roles.some((assignment) => {
-        const normalizedRole = normalizeOrgRoleName(assignment.role)
-        return Boolean(normalizedRole && !CLIENT_DIRECTORY_ONLY_ROLES.has(normalizedRole))
-    })
-}
 
 export class UsersController {
     private service = new UsersService()

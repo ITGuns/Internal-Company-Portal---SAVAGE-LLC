@@ -1091,7 +1091,7 @@ export default function TaskTrackingPage() {
                         <button
                           type="button"
                           onClick={() => setFilterProjectId(filterProjectId === project.id ? "" : project.id)}
-                          className="rounded border border-[var(--border)] px-2 py-1 text-[10px] font-semibold text-[var(--accent)] hover:bg-[var(--card-bg)]"
+                          className="motion-interactive inline-flex min-h-10 items-center justify-center rounded border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--card-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                         >
                           {filterProjectId === project.id ? "All tasks" : "View"}
                         </button>
@@ -1106,7 +1106,7 @@ export default function TaskTrackingPage() {
                             <button
                               type="button"
                               onClick={() => handleProjectStatus(project, "completed")}
-                              className="rounded border border-emerald-500/30 px-2 py-1 text-[10px] font-semibold text-emerald-400 hover:bg-emerald-500/10"
+                              className="motion-interactive inline-flex min-h-10 items-center justify-center rounded border border-emerald-500/30 px-3 py-2 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                             >
                               Complete
                             </button>
@@ -1114,7 +1114,7 @@ export default function TaskTrackingPage() {
                             <button
                               type="button"
                               onClick={() => handleProjectStatus(project, "active")}
-                              className="rounded border border-[var(--border)] px-2 py-1 text-[10px] font-semibold text-[var(--accent)] hover:bg-[var(--card-bg)]"
+                              className="motion-interactive inline-flex min-h-10 items-center justify-center rounded border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--card-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                             >
                               Reopen
                             </button>
@@ -1123,7 +1123,7 @@ export default function TaskTrackingPage() {
                             <button
                               type="button"
                               onClick={() => handleProjectStatus(project, "paused")}
-                              className="rounded border border-amber-500/30 px-2 py-1 text-[10px] font-semibold text-amber-300 hover:bg-amber-500/10"
+                              className="motion-interactive inline-flex min-h-10 items-center justify-center rounded border border-amber-500/30 px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
                             >
                               Pause
                             </button>
@@ -1131,7 +1131,7 @@ export default function TaskTrackingPage() {
                             <button
                               type="button"
                               onClick={() => handleProjectStatus(project, "active")}
-                              className="rounded border border-[var(--border)] px-2 py-1 text-[10px] font-semibold text-[var(--accent)] hover:bg-[var(--card-bg)]"
+                              className="motion-interactive inline-flex min-h-10 items-center justify-center rounded border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--card-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                             >
                               Resume
                             </button>
@@ -1157,21 +1157,21 @@ export default function TaskTrackingPage() {
             <div className="flex flex-wrap items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-1">
               <button
                 type="button"
-                className={`motion-interactive min-h-9 rounded-[var(--radius-sm)] px-3 text-xs font-semibold ${filterStatus.length === 0 ? "bg-[var(--accent)] text-[var(--accent-foreground)]" : "text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]"}`}
+                className={`motion-interactive min-h-10 rounded-[var(--radius-sm)] px-3 text-xs font-semibold ${filterStatus.length === 0 ? "bg-[var(--accent)] text-[var(--accent-foreground)]" : "text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]"}`}
                 onClick={() => setFilterStatus([])}
               >
                 All Tasks
               </button>
               <button
                 type="button"
-                className={`motion-interactive min-h-9 rounded-[var(--radius-sm)] px-3 text-xs font-semibold ${isOpenOnlyFilter ? "bg-[var(--accent)] text-[var(--accent-foreground)]" : "text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]"}`}
+                className={`motion-interactive min-h-10 rounded-[var(--radius-sm)] px-3 text-xs font-semibold ${isOpenOnlyFilter ? "bg-[var(--accent)] text-[var(--accent-foreground)]" : "text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]"}`}
                 onClick={() => setFilterStatus(OPEN_TASK_STATUSES)}
               >
                 Open
               </button>
               <button
                 type="button"
-                className={`motion-interactive min-h-9 rounded-[var(--radius-sm)] px-3 text-xs font-semibold ${isCompletedOnlyFilter ? "bg-[var(--accent)] text-[var(--accent-foreground)]" : "text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]"}`}
+                className={`motion-interactive min-h-10 rounded-[var(--radius-sm)] px-3 text-xs font-semibold ${isCompletedOnlyFilter ? "bg-[var(--accent)] text-[var(--accent-foreground)]" : "text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]"}`}
                 onClick={() => setFilterStatus(["completed"])}
               >
                 Completed

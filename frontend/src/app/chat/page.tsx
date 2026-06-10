@@ -751,7 +751,7 @@ export default function UnifiedChatPage() {
                                                             key={reaction.emoji}
                                                             type="button"
                                                             onClick={() => handleToggleReaction(msg.id, reaction.emoji)}
-                                                            className={`inline-flex min-h-8 items-center gap-1 rounded-full border px-2 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${selected
+                                                            className={`inline-flex min-h-10 items-center gap-1 rounded-full border px-3 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${selected
                                                                 ? 'border-[var(--accent)] bg-[var(--accent)]/15 text-[var(--foreground)]'
                                                                 : 'border-[var(--border)] bg-[var(--card-surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
                                                                 }`}
@@ -768,7 +768,7 @@ export default function UnifiedChatPage() {
                                                             key={emoji}
                                                             type="button"
                                                             onClick={() => handleToggleReaction(msg.id, emoji)}
-                                                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--background)] text-sm shadow-sm transition-colors hover:bg-[var(--card-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                                            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--background)] text-sm shadow-sm transition-colors hover:bg-[var(--card-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                                                             aria-label={`React with ${emoji}`}
                                                         >
                                                             <span aria-hidden="true">{emoji}</span>

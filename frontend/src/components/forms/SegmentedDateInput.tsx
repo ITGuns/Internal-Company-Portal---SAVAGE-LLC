@@ -119,7 +119,7 @@ export default function SegmentedDateInput({
           aria-label={`${label} day`}
           aria-invalid={error ? "true" : "false"}
           aria-describedby={error ? errorId : helperText ? helperTextId : undefined}
-          className="min-h-8 min-w-0 w-full bg-transparent px-1 text-center text-sm outline-none"
+          className="min-h-10 min-w-0 w-full bg-transparent px-1 text-center text-sm outline-none"
         />
         <span className="text-[var(--muted)]">/</span>
         <input
@@ -132,7 +132,7 @@ export default function SegmentedDateInput({
           autoComplete="bday-month"
           aria-label={`${label} month`}
           aria-invalid={error ? "true" : "false"}
-          className="min-h-8 min-w-0 w-full bg-transparent px-1 text-center text-sm outline-none"
+          className="min-h-10 min-w-0 w-full bg-transparent px-1 text-center text-sm outline-none"
         />
         <span className="text-[var(--muted)]">/</span>
         <input
@@ -145,7 +145,7 @@ export default function SegmentedDateInput({
           autoComplete="bday-year"
           aria-label={`${label} year`}
           aria-invalid={error ? "true" : "false"}
-          className="min-h-8 min-w-0 w-full bg-transparent px-1 text-center text-sm outline-none"
+          className="min-h-10 min-w-0 w-full bg-transparent px-1 text-center text-sm outline-none"
         />
       </div>
       {helperText && !error ? (

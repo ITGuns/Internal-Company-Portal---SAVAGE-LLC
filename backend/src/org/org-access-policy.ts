@@ -109,6 +109,14 @@ const CLIENT_OPERATIONS_ROLES = new Set([
   'web_development_assistant',
 ])
 
+export const CLIENT_DIRECTORY_ONLY_ROLES = new Set([
+  'client',
+  'client_owner',
+  'client_admin',
+  'client_member',
+  'client_viewer',
+])
+
 function hasAccessRole(
   roles: OrgRoleLike[] = [],
   allowedRoles: Set<string>,
@@ -133,6 +141,10 @@ export function isPayrollManagementRoleName(role?: string | null): boolean {
 
 export function isClientOperationsRoleName(role?: string | null): boolean {
   return CLIENT_OPERATIONS_ROLES.has(normalizeOrgRoleName(role))
+}
+
+export function isClientDirectoryOnlyRoleName(role?: string | null): boolean {
+  return CLIENT_DIRECTORY_ONLY_ROLES.has(normalizeOrgRoleName(role))
 }
 
 export function hasFullAccess(
@@ -161,4 +173,16 @@ export function hasClientOperationsAccess(
   isConfiguredAdminEmail = false,
 ): boolean {
   return hasAccessRole(roles, CLIENT_OPERATIONS_ROLES, isConfiguredAdminEmail)
+}
+
+export function hasInternalDirectoryAccess(
+  roles: OrgRoleLike[] = [],
+  isConfiguredAdminEmail = false,
+): boolean {
+  if (hasFullAccess(roles, isConfiguredAdminEmail)) return true
+
+  return roles.some((assignment) => {
+    const normalizedRole = normalizeOrgRoleName(assignment.role)
+    return Boolean(normalizedRole && !CLIENT_DIRECTORY_ONLY_ROLES.has(normalizedRole))
+  })
 }
