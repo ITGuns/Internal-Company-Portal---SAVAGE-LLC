@@ -1,5 +1,32 @@
 # Development Notes
 
+## 2026-06-11 - Chat Message Reaction Side Actions
+
+### Completed
+
+- Moved each message quick-reaction trigger from the lower reaction row to a side action rail beside the message bubble.
+- Kept stored reaction chips below the message only when a message has actual reaction counts.
+- Added a focused helper and test for outgoing vs teammate message action placement.
+
+### Files Changed
+
+- `frontend/src/app/chat/page.tsx`
+- `frontend/src/lib/chat-message-layout.ts`
+- `frontend/tests/chat-message-layout.test.mjs`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Preserved the existing quick reaction set and `toggleMessageReaction` API contract.
+- Kept own-message edit/delete actions in the same side rail, with the reaction trigger visible beside the bubble.
+
+### How to Test
+
+- Open `/chat`, select a conversation, and confirm the reaction button sits beside each message bubble instead of below it.
+- Click the side reaction button, choose a quick reaction, and confirm the reaction chip/count appears below the message.
+- Confirm Escape closes the quick reaction picker.
+
 ## 2026-06-11 - Announcement Category Filters
 
 ### Completed

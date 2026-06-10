@@ -16,6 +16,7 @@ import MessageInput from '@/components/chat/MessageInput'
 import NewChatModal from '@/components/chat/NewChatModal'
 import CreateChannelModal from '@/components/chat/CreateChannelModal'
 import { useToast } from '@/components/ToastProvider'
+import { getChatMessageActionLayout } from '@/lib/chat-message-layout'
 
 const QUICK_REACTIONS = ['\u{1F44D}', '\u2705', '\u{1F602}', '\u{1F525}', '\u2764\uFE0F', '\u{1F440}']
 
@@ -674,6 +675,73 @@ export default function UnifiedChatPage() {
                                     const showHeader = i === 0 || messages[i - 1].senderId !== msg.senderId
                                     const reactionGroups = groupMessageReactions(msg.reactions)
                                     const isReactionPickerOpen = openReactionPickerId === msg.id
+                                    const actionLayout = getChatMessageActionLayout(isMe)
+                                    const messageActionRail = (
+                                        <div className={actionLayout.actionRail}>
+                                            {isMe && !editingMessageId && (
+                                                <div className={actionLayout.ownerActions}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleStartEdit(msg)}
+                                                        className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[var(--muted)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                                        aria-label="Edit message"
+                                                    >
+                                                        <Pencil className="w-3 h-3" aria-hidden="true" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteMessage(msg.id)}
+                                                        className="inline-flex h-10 w-10 items-center justify-center rounded-full text-red-500 transition-colors hover:bg-red-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
+                                                        aria-label="Delete message"
+                                                    >
+                                                        <Trash2 className="w-3 h-3" aria-hidden="true" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                            <div
+                                                ref={isReactionPickerOpen ? reactionPickerRef : undefined}
+                                                className="relative"
+                                            >
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOpenReactionPickerId(prev => prev === msg.id ? null : msg.id)}
+                                                    className={`inline-flex h-10 w-10 items-center justify-center rounded-full border text-sm shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isReactionPickerOpen
+                                                        ? 'border-[var(--accent)] bg-[var(--accent)]/15 text-[var(--foreground)]'
+                                                        : 'border-[var(--border)] bg-[var(--background)] text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]'
+                                                        }`}
+                                                    aria-label={isReactionPickerOpen ? 'Close quick reactions' : 'Open quick reactions'}
+                                                    aria-expanded={isReactionPickerOpen}
+                                                    aria-controls={`reaction-picker-${msg.id}`}
+                                                    title={isReactionPickerOpen ? 'Close quick reactions' : 'Open quick reactions'}
+                                                >
+                                                    <SmilePlus className="h-4 w-4" aria-hidden="true" />
+                                                </button>
+                                                {isReactionPickerOpen && (
+                                                    <div
+                                                        id={`reaction-picker-${msg.id}`}
+                                                        role="group"
+                                                        aria-label="Quick reactions"
+                                                        className={actionLayout.pickerPanel}
+                                                    >
+                                                        {QUICK_REACTIONS.map((emoji) => (
+                                                            <button
+                                                                key={emoji}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setOpenReactionPickerId(null)
+                                                                    void handleToggleReaction(msg.id, emoji)
+                                                                }}
+                                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-sm transition-colors hover:bg-[var(--background)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                                                aria-label={`React with ${emoji}`}
+                                                            >
+                                                                <span aria-hidden="true">{emoji}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )
 
                                     return (
                                         <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group`}>
@@ -686,18 +754,20 @@ export default function UnifiedChatPage() {
                                                 </div>
                                             )}
 
-                                            <div className="flex items-center max-w-[85%] md:max-w-[70%]">
-                                                {!isMe && showHeader && (
-                                                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 mr-2 border border-[var(--border)] self-end mb-1">
-                                                        <Image src={msg.sender.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.sender.name)}`} alt={msg.sender.name} width={32} height={32} className="w-full h-full object-cover" />
-                                                    </div>
-                                                )}
-                                                {!isMe && !showHeader && <div className="w-10 flex-shrink-0" />}
+                                            <div className={actionLayout.row}>
+                                                <div className={actionLayout.cluster}>
+                                                    {!isMe && showHeader && (
+                                                        <div className="mb-1 h-8 w-8 flex-shrink-0 self-end overflow-hidden rounded-full border border-[var(--border)]">
+                                                            <Image src={msg.sender.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.sender.name)}`} alt={msg.sender.name} width={32} height={32} className="h-full w-full object-cover" />
+                                                        </div>
+                                                    )}
+                                                    {!isMe && !showHeader && <div className="w-8 flex-shrink-0" />}
+                                                    {isMe && messageActionRail}
 
-                                                <div className={`relative px-4 py-2.5 rounded-2xl text-sm shadow-sm transition-all ${isMe
-                                                    ? 'bg-[var(--accent)] text-[var(--accent-foreground)] rounded-tr-none'
-                                                    : 'bg-[var(--card-surface)] text-[var(--foreground)] border border-[var(--border)] rounded-tl-none'
-                                                    }`}>
+                                                    <div className={`relative min-w-0 break-words px-4 py-2.5 rounded-2xl text-sm shadow-sm transition-all ${isMe
+                                                        ? 'bg-[var(--accent)] text-[var(--accent-foreground)] rounded-tr-none'
+                                                        : 'bg-[var(--card-surface)] text-[var(--foreground)] border border-[var(--border)] rounded-tl-none'
+                                                        }`}>
                                                     {editingMessageId === msg.id ? (
                                                         <div className="flex items-center gap-2">
                                                             <input
@@ -742,92 +812,34 @@ export default function UnifiedChatPage() {
                                                         </div>
                                                     )}
 
-                                                    {/* Message Actions (Edit + Delete) */}
-                                                    {isMe && !editingMessageId && (
-                                                        <div className="absolute -left-24 top-1/2 flex -translate-y-1/2 items-center gap-1 opacity-0 transition-all group-hover:opacity-100 group-focus-within:opacity-100">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleStartEdit(msg)}
-                                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[var(--muted)] transition-all hover:bg-[var(--background)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                                                                aria-label="Edit message"
-                                                            >
-                                                                <Pencil className="w-3 h-3" />
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleDeleteMessage(msg.id)}
-                                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-red-500 transition-all hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
-                                                                aria-label="Delete message"
-                                                            >
-                                                                <Trash2 className="w-3 h-3" />
-                                                            </button>
-                                                        </div>
-                                                    )}
+                                                    </div>
+                                                    {!isMe && messageActionRail}
                                                 </div>
                                             </div>
 
-                                            <div className={`mt-1 flex max-w-[85%] flex-wrap items-center gap-1 ${isMe ? 'justify-end pr-2' : 'pl-10'}`}>
-                                                {reactionGroups.map((reaction) => {
-                                                    const selected = myId ? reaction.userIds.has(myId) : false
+                                            {reactionGroups.length > 0 && (
+                                                <div className={actionLayout.reactionChips}>
+                                                    {reactionGroups.map((reaction) => {
+                                                        const selected = myId ? reaction.userIds.has(myId) : false
 
-                                                    return (
-                                                        <button
-                                                            key={reaction.emoji}
-                                                            type="button"
-                                                            onClick={() => handleToggleReaction(msg.id, reaction.emoji)}
-                                                            className={`inline-flex min-h-10 items-center gap-1 rounded-full border px-3 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${selected
-                                                                ? 'border-[var(--accent)] bg-[var(--accent)]/15 text-[var(--foreground)]'
-                                                                : 'border-[var(--border)] bg-[var(--card-surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
-                                                                }`}
-                                                            aria-label={`${selected ? 'Remove' : 'Add'} ${reaction.emoji} reaction`}
-                                                        >
-                                                            <span aria-hidden="true">{reaction.emoji}</span>
-                                                            <span>{reaction.count}</span>
-                                                        </button>
-                                                    )
-                                                })}
-                                                <div
-                                                    ref={isReactionPickerOpen ? reactionPickerRef : undefined}
-                                                    className="relative"
-                                                >
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setOpenReactionPickerId(prev => prev === msg.id ? null : msg.id)}
-                                                        className={`inline-flex h-10 w-10 items-center justify-center rounded-full border text-sm shadow-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isReactionPickerOpen
-                                                            ? 'border-[var(--accent)] bg-[var(--accent)]/15 text-[var(--foreground)]'
-                                                            : 'border-[var(--border)] bg-[var(--background)] text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]'
-                                                            }`}
-                                                        aria-label={isReactionPickerOpen ? 'Close quick reactions' : 'Open quick reactions'}
-                                                        aria-expanded={isReactionPickerOpen}
-                                                        aria-controls={`reaction-picker-${msg.id}`}
-                                                    >
-                                                        <SmilePlus className="h-4 w-4" aria-hidden="true" />
-                                                    </button>
-                                                    {isReactionPickerOpen && (
-                                                        <div
-                                                            id={`reaction-picker-${msg.id}`}
-                                                            role="group"
-                                                            aria-label="Quick reactions"
-                                                            className={`absolute bottom-full z-30 mb-2 flex w-max max-w-[calc(100vw-2rem)] items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--card-surface)]/95 p-1 shadow-xl backdrop-blur-md ${isMe ? 'right-0' : 'left-0'}`}
-                                                        >
-                                                            {QUICK_REACTIONS.map((emoji) => (
-                                                                <button
-                                                                    key={emoji}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setOpenReactionPickerId(null)
-                                                                        void handleToggleReaction(msg.id, emoji)
-                                                                    }}
-                                                                    className="inline-flex h-10 w-10 items-center justify-center rounded-full text-sm transition-colors hover:bg-[var(--background)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                                                                    aria-label={`React with ${emoji}`}
-                                                                >
-                                                                    <span aria-hidden="true">{emoji}</span>
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                                        return (
+                                                            <button
+                                                                key={reaction.emoji}
+                                                                type="button"
+                                                                onClick={() => handleToggleReaction(msg.id, reaction.emoji)}
+                                                                className={`inline-flex min-h-10 items-center gap-1 rounded-full border px-3 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${selected
+                                                                    ? 'border-[var(--accent)] bg-[var(--accent)]/15 text-[var(--foreground)]'
+                                                                    : 'border-[var(--border)] bg-[var(--card-surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
+                                                                    }`}
+                                                                aria-label={`${selected ? 'Remove' : 'Add'} ${reaction.emoji} reaction`}
+                                                            >
+                                                                <span aria-hidden="true">{reaction.emoji}</span>
+                                                                <span>{reaction.count}</span>
+                                                            </button>
+                                                        )
+                                                    })}
                                                 </div>
-                                            </div>
+                                            )}
 
                                             {/* Timestamp for my messages or if it's the last in a group */}
                                             {isMe && (
