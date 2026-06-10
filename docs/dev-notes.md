@@ -1,5 +1,30 @@
 # Development Notes
 
+## 2026-06-11 - Chat Sidebar Delete Button Polish
+
+### Completed
+
+- Replaced the oversized circular chat sidebar delete buttons with compact square icon actions.
+- Made channel and direct-message delete controls share one subtle class helper.
+- Kept destructive red styling for hover/focus instead of showing a full red or white blob by default.
+
+### Files Changed
+
+- `frontend/src/components/chat/ChatSidebar.tsx`
+- `frontend/src/lib/chat-sidebar-layout.ts`
+- `frontend/tests/chat-sidebar-layout.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept delete buttons hidden until row hover or keyboard focus so the sidebar remains scannable.
+- Preserved existing delete behavior and confirmation flow; this is visual/control polish only.
+
+### How to Test
+
+- Open `/chat`, hover a channel or direct-message row, and confirm the delete action appears as a small subtle icon button.
+- Focus the delete button by keyboard and confirm the visible focus ring and confirmation flow still work.
+
 ## 2026-06-11 - Chat Message Reaction Side Actions
 
 ### Completed
