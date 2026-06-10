@@ -11,6 +11,17 @@ Dashboard is the command-center entry point for the portal.
 - Dashboard workflow links use query params to open exact states: new task modal, new daily log modal, payroll calendar tab, and pending employee approvals.
 - Task attention links can open Task Tracking with overdue or in-progress filters applied.
 
+## Global Search
+
+The header search / command palette searches both navigation commands and authorized system records.
+
+- Page commands and the main sidebar remain role-aware, so client users do not see internal destinations and non-payroll roles do not get payroll-management shortcuts.
+- Backend global search returns only records the authenticated user can access.
+- Internal users can find visible tasks, daily logs, announcements, chat messages, file-directory folders, and internal people.
+- Client users can find assigned client-portal records that are active and client-visible.
+- Client operations roles can find client operations records across client workspaces.
+- Payroll records are finance/payroll-management scoped and are not returned to ordinary internal or client users.
+
 ## Task Tracking
 
 Task tracking supports calendar, board, and list views for task status, assignment, timing, and progress.

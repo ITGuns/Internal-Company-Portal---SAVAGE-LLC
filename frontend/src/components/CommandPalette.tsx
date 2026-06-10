@@ -4,7 +4,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
-import { hasClientOperationsAccess, hasClientPortalAccess, hasFullAccess } from "@/lib/role-access";
+import { hasClientOperationsAccess, hasClientPortalAccess, hasFullAccess, hasPayrollManagementAccess } from "@/lib/role-access";
+import { searchGlobal, type GlobalSearchResult, type GlobalSearchResultType } from "@/lib/global-search";
 import {
   BarChart3,
   CheckCircle2,
@@ -27,6 +28,8 @@ import {
   Wallet,
   Wrench,
   UserPlus,
+  FileText,
+  Clock,
 } from "lucide-react";
 
 interface CommandItem {
@@ -36,6 +39,7 @@ interface CommandItem {
   icon: React.ComponentType<{ className?: string }>;
   href: string;
   keywords?: string[];
+  source?: string;
 }
 
 const PROFILE_COMMAND: CommandItem = {
@@ -51,13 +55,16 @@ const INTERNAL_COMMANDS: CommandItem[] = [
   { id: "dashboard", label: "Dashboard", description: "Overview and stats", icon: Home, href: "/dashboard", keywords: ["home", "overview"] },
   { id: "tasks", label: "Task Tracking", description: "Manage and track tasks", icon: Grid, href: "/task-tracking", keywords: ["todo", "board", "kanban"] },
   { id: "task-calendar", label: "Task Calendar", description: "Task schedule and due dates", icon: CalendarDays, href: "/task-calendar", keywords: ["schedule", "due dates", "calendar"] },
-  { id: "payroll", label: "Payroll Calendar", description: "Schedules and time entries", icon: DollarSign, href: "/payroll-calendar", keywords: ["salary", "pay", "time", "clock"] },
-  { id: "payroll-dashboard", label: "Payroll Dashboard", description: "Payroll review and reporting", icon: LayoutDashboard, href: "/payroll-dashboard", keywords: ["salary", "payroll", "reports", "audit"] },
   { id: "payslips", label: "My Payslips", description: "Payslip history and downloads", icon: Wallet, href: "/my-payslips", keywords: ["pay", "salary", "history", "download"] },
   { id: "announcements", label: "Announcements", description: "Company news and updates", icon: Megaphone, href: "/announcements", keywords: ["news", "updates", "events"] },
   { id: "daily-logs", label: "Daily Logs", description: "Daily work activity reports", icon: Users, href: "/daily-logs", keywords: ["reports", "activity", "work"] },
   { id: "chat", label: "Messages & Chat", description: "Team communication", icon: MessageSquare, href: "/chat", keywords: ["messages", "dm", "channel"] },
   { id: "files", label: "File Directory", description: "Shared documents and files", icon: Folder, href: "/file-directory", keywords: ["documents", "drive", "upload"] },
+];
+
+const PAYROLL_MANAGEMENT_COMMANDS: CommandItem[] = [
+  { id: "payroll", label: "Payroll Calendar", description: "Schedules and time entries", icon: DollarSign, href: "/payroll-calendar", keywords: ["salary", "payroll", "time", "clock", "finance"] },
+  { id: "payroll-dashboard", label: "Payroll Dashboard", description: "Payroll review and reporting", icon: LayoutDashboard, href: "/payroll-dashboard", keywords: ["salary", "payroll", "reports", "audit", "finance"] },
 ];
 
 const CLIENT_COMMANDS: CommandItem[] = [
@@ -84,10 +91,49 @@ const ADMIN_COMMANDS: CommandItem[] = [
   { id: "whiteboard", label: "Whiteboard", description: "Admin brainstorming workspace", icon: PencilRuler, href: "/whiteboard", keywords: ["draw", "canvas", "brainstorm"] },
 ];
 
+const globalSearchIconByType: Record<GlobalSearchResultType, CommandItem["icon"]> = {
+  task: Grid,
+  "daily-log": FileText,
+  announcement: Megaphone,
+  person: User,
+  message: MessageSquare,
+  file: Folder,
+  client: BriefcaseBusiness,
+  "client-project": BriefcaseBusiness,
+  "client-ticket": Ticket,
+  "client-work": Grid,
+  "client-approval": CheckCircle2,
+  "client-report": BarChart3,
+  "client-resource": Folder,
+  "client-asset": Folder,
+  "client-calendar": CalendarDays,
+  "client-roadmap": ClipboardList,
+  "client-update": FileText,
+  "client-activity": Clock,
+  "payroll-event": DollarSign,
+  "payroll-time": Clock,
+  "payroll-payslip": Wallet,
+  "payroll-profile": User,
+};
+
+function globalResultToCommand(result: GlobalSearchResult): CommandItem {
+  return {
+    id: `global:${result.id}`,
+    label: result.title,
+    description: [result.section, result.subtitle].filter(Boolean).join(" - "),
+    icon: globalSearchIconByType[result.type] || Search,
+    href: result.href,
+    source: result.section,
+  };
+}
+
 export default function CommandPalette() {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [globalResults, setGlobalResults] = useState<GlobalSearchResult[]>([]);
+  const [globalSearching, setGlobalSearching] = useState(false);
+  const [globalSearchError, setGlobalSearchError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -96,18 +142,20 @@ export default function CommandPalette() {
   const isClientPortalUser = hasClientPortalAccess(user);
   const canAccessClientOperations = hasClientOperationsAccess(user);
   const canUseFullAccessAdmin = hasFullAccess(user);
+  const canUsePayrollManagement = hasPayrollManagementAccess(user);
   const commands = useMemo(() => {
     if (isClientPortalUser) return CLIENT_COMMANDS;
 
     return [
       ...INTERNAL_COMMANDS,
+      ...(canUsePayrollManagement ? PAYROLL_MANAGEMENT_COMMANDS : []),
       ...(canAccessClientOperations ? CLIENT_OPERATIONS_COMMANDS : []),
       ...(canUseFullAccessAdmin ? ADMIN_COMMANDS : []),
       PROFILE_COMMAND,
     ];
-  }, [canAccessClientOperations, canUseFullAccessAdmin, isClientPortalUser]);
+  }, [canAccessClientOperations, canUseFullAccessAdmin, canUsePayrollManagement, isClientPortalUser]);
 
-  const filtered = query.trim()
+  const filteredCommands = query.trim()
     ? commands.filter((cmd) => {
         const q = query.toLowerCase();
         return (
@@ -117,10 +165,16 @@ export default function CommandPalette() {
         );
       })
     : commands;
+  const globalCommandResults = query.trim().length >= 2
+    ? globalResults.map(globalResultToCommand)
+    : [];
+  const filtered = [...filteredCommands, ...globalCommandResults];
 
   const close = useCallback(() => {
     setIsOpen(false);
     setQuery("");
+    setGlobalResults([]);
+    setGlobalSearchError("");
     setSelectedIndex(0);
   }, []);
 
@@ -150,6 +204,41 @@ export default function CommandPalette() {
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    const normalizedQuery = query.trim();
+    if (!isOpen || normalizedQuery.length < 2) {
+      setGlobalResults([]);
+      setGlobalSearching(false);
+      setGlobalSearchError("");
+      return;
+    }
+
+    let cancelled = false;
+    const timeout = window.setTimeout(() => {
+      setGlobalSearching(true);
+      setGlobalSearchError("");
+
+      searchGlobal(normalizedQuery)
+        .then((results) => {
+          if (!cancelled) setGlobalResults(results);
+        })
+        .catch((error) => {
+          if (!cancelled) {
+            setGlobalResults([]);
+            setGlobalSearchError(error instanceof Error ? error.message : "Search failed");
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setGlobalSearching(false);
+        });
+    }, 180);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [isOpen, query]);
 
   // Reset selection when query changes
   useEffect(() => {
@@ -215,9 +304,9 @@ export default function CommandPalette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search pages..."
+            placeholder="Search pages, tasks, clients, messages..."
             className="flex-1 py-4 bg-transparent text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none text-base"
-            aria-label="Search pages"
+            aria-label="Search everything you can access"
             autoComplete="off"
           />
           <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-1 text-xs font-mono text-[var(--muted)] bg-[var(--card-bg)] rounded border border-[var(--border)]">
@@ -226,10 +315,20 @@ export default function CommandPalette() {
         </div>
 
         {/* Results */}
-        <div ref={listRef} className="max-h-72 overflow-y-auto py-2 chat-scroll" role="listbox">
+        <div ref={listRef} className="max-h-80 overflow-y-auto py-2 chat-scroll" role="listbox">
+          {globalSearching ? (
+            <div className="px-4 pb-2 pt-1 text-xs text-[var(--muted)]">
+              Searching records you can access...
+            </div>
+          ) : null}
+          {globalSearchError ? (
+            <div className="mx-4 mb-2 rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-300">
+              {globalSearchError}
+            </div>
+          ) : null}
           {filtered.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-[var(--muted)]">
-              No results found.
+              {query.trim().length < 2 ? "Type at least 2 characters to search records." : "No authorized results found."}
             </div>
           ) : (
             filtered.map((cmd, index) => {
@@ -265,6 +364,11 @@ export default function CommandPalette() {
                       <div className="text-xs text-[var(--muted)] truncate">{cmd.description}</div>
                     )}
                   </div>
+                  {cmd.source ? (
+                    <span className="hidden shrink-0 rounded-[var(--radius-sm)] border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--muted)] sm:inline">
+                      {cmd.source}
+                    </span>
+                  ) : null}
                 </button>
               );
             })
@@ -285,6 +389,7 @@ export default function CommandPalette() {
             <kbd className="px-1.5 py-0.5 font-mono bg-[var(--card-bg)] rounded border border-[var(--border)]">esc</kbd>
             close
           </span>
+          <span className="ml-auto hidden sm:inline">authorized results only</span>
         </div>
       </div>
     </div>

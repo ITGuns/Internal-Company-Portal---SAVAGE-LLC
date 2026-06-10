@@ -37,6 +37,7 @@ import {
   hasClientWorkspaceShellAccess,
   hasFullAccess,
   hasManagementAccess,
+  hasPayrollManagementAccess,
 } from '@/lib/role-access';
 import { cn } from '@/lib/utils';
 
@@ -154,6 +155,7 @@ export default function Sidebar() {
   const canUseFullAccessAdmin = hasFullAccess(user);
   const canAccessClientOperations = useMemo(() => hasClientOperationsAccess(user), [user]);
   const canUseOperationsAdmin = useMemo(() => hasManagementAccess(user), [user]);
+  const canUsePayrollManagement = useMemo(() => hasPayrollManagementAccess(user), [user]);
   const hasRoleBasedClientPortalAccess = useMemo(() => hasClientPortalAccess(user), [user]);
   const usesClientShell = useMemo(
     () => hasClientWorkspaceShellAccess(user, hasClientWorkspace),
@@ -217,7 +219,7 @@ export default function Sidebar() {
     { href: '/dashboard', icon: Home, label: 'Dashboard' },
     { href: '/task-tracking', icon: Grid, label: 'Task Tracking' },
     { href: '/daily-logs', icon: Users, label: 'Daily Logs' },
-    { href: '/payroll-calendar', icon: CalendarDays, label: 'Payroll Calendar' },
+    ...(canUsePayrollManagement ? [{ href: '/payroll-calendar', icon: CalendarDays, label: 'Payroll Calendar' }] : []),
     { href: '/my-payslips', icon: DollarSign, label: 'My Payslips' },
   ];
 

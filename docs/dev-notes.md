@@ -1,5 +1,55 @@
 # Development Notes
 
+## 2026-06-10 - Authorization-Aware Global Search
+
+### Completed
+
+- Added authenticated `GET /api/search` to search permitted tasks, daily logs, announcements, chat messages, files, people, client records, and payroll records.
+- Wired the header command palette to debounce backend global search and merge authorized record results with page commands.
+- Restricted payroll-management page commands and payroll record results to payroll-management roles or configured admin emails.
+- Restricted the main sidebar Payroll Calendar destination to payroll-management roles; employee payslips remain available through My Payslips.
+- Kept client users scoped to active assigned client organizations and client-visible records.
+
+### Files Changed
+
+- `backend/src/main.ts`
+- `backend/src/search/search.access.ts`
+- `backend/src/search/search.clients.ts`
+- `backend/src/search/search.controller.ts`
+- `backend/src/search/search.internal.ts`
+- `backend/src/search/search.payroll.ts`
+- `backend/src/search/search.service.ts`
+- `backend/src/search/search.types.ts`
+- `backend/src/search/search.utils.ts`
+- `backend/tests/run-tests.ts`
+- `backend/tests/search.access.test.ts`
+- `frontend/src/components/CommandPalette.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/lib/global-search.ts`
+- `docs/api.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Search authorization is enforced server-side instead of trusting the frontend command palette.
+- Payroll search is treated as finance/payroll-management scope; ordinary employees can still search safe internal records but cannot discover payroll records through global search.
+
+### How to Test
+
+- `node -r ts-node/register tests/search.access.test.ts`
+- `npm --prefix backend test`
+- `npm --prefix backend run build`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run build`
+- `npm --prefix frontend run test:visual` with `VISUAL_SMOKE_BASE_URL=http://127.0.0.1:3001` and `VISUAL_SMOKE_ROUTES=/profile`
+- Open the command palette and search as admin, employee, and client personas to confirm results match authorization.
+
+### Next Steps
+
+- Add record-specific deep links for daily-log and chat-message results if those pages gain detail-route support.
+
 ## 2026-06-10 - Daily Log Department Field Removal
 
 ### Completed

@@ -74,6 +74,17 @@ User directory endpoints sanitize sensitive fields before returning data to the 
 - `POST /api/users/:id/roles` and `DELETE /api/users/:id/roles/:role` are full-access admin-only role assignment routes.
 - The Operations member editor uses sanitized `GET /api/users` responses plus these user-role routes; authorization changes are enforced by backend role checks, not by frontend-only visibility.
 
+## Global Search
+
+`GET /api/search?q=:query` returns cross-system search results for the authenticated user.
+
+- Results are server-authorized before any record is returned; the frontend command palette is not the source of access control.
+- Internal users can search permitted tasks, daily logs, announcements, chat messages, file-directory folders, and internal directory people.
+- Client users can search only active assigned client organizations and records marked client-visible.
+- Client operations roles can search client operations records across organizations.
+- Payroll events, time entries, payslips, and payroll profiles are returned only for payroll-management roles or configured admin emails.
+- Queries shorter than two characters return an empty list; result sets are capped per record group.
+
 ## Employees
 
 ### Public Verification Requests
