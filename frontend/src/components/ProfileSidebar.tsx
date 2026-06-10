@@ -62,7 +62,7 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
   return createPortal(
     <>
       <div
-        className="fixed inset-0 z-[9997] bg-black/30 backdrop-blur-sm motion-fade-in"
+        className="portal-form-backdrop fixed inset-0 z-[9997] motion-fade-in"
         onClick={onClose}
       />
 

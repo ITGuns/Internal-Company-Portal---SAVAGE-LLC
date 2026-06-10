@@ -116,7 +116,7 @@ export default function TaskDetailModal({ task, onClose, onEdit, onAction }: Tas
 
   return (
     <div
-      className="fixed z-50 flex items-start justify-center bg-[var(--scrim)] px-4 pt-16 backdrop-blur-[2px]"
+      className="portal-form-backdrop fixed z-50 flex items-start justify-center px-4 pt-16"
       style={{
         top: 0,
         left: "var(--sidebar-width, 16rem)",

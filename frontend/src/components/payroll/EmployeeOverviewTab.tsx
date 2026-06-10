@@ -452,7 +452,7 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
             />
 
             {employeeToDelete && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div className="portal-form-backdrop fixed inset-0 z-50 flex items-center justify-center">
                     <div className="bg-[var(--card-bg)] rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
                         <h3 className="text-lg font-bold text-[var(--foreground)] mb-2">
                             Remove Employee?

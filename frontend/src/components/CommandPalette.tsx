@@ -285,7 +285,7 @@ export default function CommandPalette() {
       onClick={close}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" />
+      <div className="portal-form-backdrop absolute inset-0" aria-hidden="true" />
 
       {/* Palette */}
       <div

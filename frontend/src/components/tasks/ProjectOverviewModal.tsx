@@ -82,7 +82,7 @@ export default function ProjectOverviewModal({
       <button
         type="button"
         tabIndex={-1}
-        className="absolute inset-0 cursor-default bg-[var(--scrim)] backdrop-blur-[2px]"
+        className="portal-form-backdrop absolute inset-0 cursor-default"
         onClick={onClose}
         aria-label="Close project overview"
       />

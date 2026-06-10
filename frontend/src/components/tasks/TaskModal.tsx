@@ -149,7 +149,7 @@ export default function TaskModal({
 
   return (
     <div
-      className="fixed z-50 flex items-start justify-center bg-gray-100/80 pt-20 motion-fade-in"
+      className="portal-form-backdrop fixed z-50 flex items-start justify-center pt-20 motion-fade-in"
       style={{
         top: 0,
         left: "var(--sidebar-width, 16rem)",

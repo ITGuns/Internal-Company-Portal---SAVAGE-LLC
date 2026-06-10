@@ -1,5 +1,42 @@
 # Development Notes
 
+## 2026-06-11 - Neutral Form Backdrops
+
+### Completed
+
+- Added a shared `portal-form-backdrop` utility for neutral dark scrims with stronger backdrop blur.
+- Replaced hardcoded light, gray, and black modal overlays across task, chat, payroll, command palette, side drawers, approval, and shared modal surfaces.
+- Darkened the light-theme scrim token so forms no longer sit over a pale washed-out layer.
+
+### Files Changed
+
+- `frontend/src/app/globals.css`
+- `frontend/src/components/Modal.tsx`
+- `frontend/src/components/tasks/TaskModal.tsx`
+- `frontend/src/components/tasks/TaskDetailModal.tsx`
+- `frontend/src/components/tasks/ProjectOverviewModal.tsx`
+- `frontend/src/components/tasks/LogReportModal.tsx`
+- `frontend/src/components/chat/NewChatModal.tsx`
+- `frontend/src/components/chat/CreateChannelModal.tsx`
+- `frontend/src/components/CommandPalette.tsx`
+- `frontend/src/components/NotificationSidebar.tsx`
+- `frontend/src/components/ProfileSidebar.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/AuthGuard.tsx`
+- `frontend/src/components/payroll/EmployeeOverviewTab.tsx`
+- `frontend/src/app/my-payslips/page.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Centralized backdrop styling in CSS instead of repeating opacity and blur values per modal.
+- Kept modal panels and form fields unchanged; only the layer behind overlays changed.
+
+### How to Test
+
+- Open `/task-tracking?new=1`, command palette, chat create modals, and a shared `Modal` route and confirm the backdrop is neutral/dark blur, not a light gray wash.
+- Run visual smoke against task, chat, announcements, payroll, and profile-adjacent routes.
+
 ## 2026-06-11 - Task Modal Account Assignment
 
 ### Completed

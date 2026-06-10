@@ -91,7 +91,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
         </div>
 
         {/* Approval Overlay */}
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-[2px]">
+        <div className="portal-form-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="w-full max-w-md rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card-bg)] p-8 text-center shadow-[var(--shadow-md)] animate-in fade-in zoom-in duration-200">
             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-[var(--radius-md)] bg-[var(--priority-medium-bg)]">
               <div className="h-9 w-9 animate-spin rounded-full border-4 border-[var(--priority-medium)] border-t-transparent" />

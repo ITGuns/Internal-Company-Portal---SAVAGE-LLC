@@ -266,7 +266,7 @@ export default function Sidebar() {
       {mobileOpen ? (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-[var(--scrim)] backdrop-blur-[2px] md:hidden"
+          className="portal-form-backdrop fixed inset-0 z-40 md:hidden"
           onClick={closeMobileSidebar}
           aria-label="Close navigation"
         />

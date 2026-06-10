@@ -125,7 +125,7 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
     }[logType];
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+        <div className="portal-form-backdrop fixed inset-0 z-[9999] flex items-center justify-center p-4">
             <Card className="w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
                 <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--card-surface)]">
                     <div className="flex items-center gap-2">
