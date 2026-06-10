@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import Header from '@/components/Header'
 import Button from '@/components/Button'
-import { MessageSquare, Paperclip, Trash2, Pencil, Check, X, Search } from 'lucide-react'
+import { MessageSquare, Paperclip, Trash2, Pencil, Check, X, Search, SmilePlus } from 'lucide-react'
 import Image from 'next/image'
 import { fetchConversations, fetchMessages, sendMessage, createConversation, deleteMessage, deleteConversation, editMessage, searchMessages, fetchOnlineUsers, markAsRead, toggleMessageReaction, type Message, type Conversation, type SearchResult, type MessageReaction, type MessageReactionToggleResult } from '@/lib/chat'
 import { fetchUsers, type User as SystemUser } from '@/lib/users'
@@ -74,7 +74,30 @@ export default function UnifiedChatPage() {
     const [searchTerm, setSearchTerm] = useState('')
     const [searchResults, setSearchResults] = useState<SearchResult[]>([])
     const [searching, setSearching] = useState(false)
+    const [openReactionPickerId, setOpenReactionPickerId] = useState<string | null>(null)
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const reactionPickerRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        if (!openReactionPickerId) return
+
+        const handlePointerDown = (event: PointerEvent) => {
+            if (reactionPickerRef.current?.contains(event.target as Node)) return
+            setOpenReactionPickerId(null)
+        }
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setOpenReactionPickerId(null)
+        }
+
+        document.addEventListener('pointerdown', handlePointerDown)
+        document.addEventListener('keydown', handleKeyDown)
+
+        return () => {
+            document.removeEventListener('pointerdown', handlePointerDown)
+            document.removeEventListener('keydown', handleKeyDown)
+        }
+    }, [openReactionPickerId])
 
     // Clear global badge when on this page
     useEffect(() => {
@@ -650,6 +673,7 @@ export default function UnifiedChatPage() {
                                     const isMe = msg.senderId === myId
                                     const showHeader = i === 0 || messages[i - 1].senderId !== msg.senderId
                                     const reactionGroups = groupMessageReactions(msg.reactions)
+                                    const isReactionPickerOpen = openReactionPickerId === msg.id
 
                                     return (
                                         <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group`}>
@@ -742,7 +766,7 @@ export default function UnifiedChatPage() {
                                                 </div>
                                             </div>
 
-                                            <div className={`mt-1 flex max-w-[85%] flex-wrap gap-1 ${isMe ? 'justify-end pr-2' : 'pl-10'}`}>
+                                            <div className={`mt-1 flex max-w-[85%] flex-wrap items-center gap-1 ${isMe ? 'justify-end pr-2' : 'pl-10'}`}>
                                                 {reactionGroups.map((reaction) => {
                                                     const selected = myId ? reaction.userIds.has(myId) : false
 
@@ -762,18 +786,46 @@ export default function UnifiedChatPage() {
                                                         </button>
                                                     )
                                                 })}
-                                                <div className="flex gap-1">
-                                                    {QUICK_REACTIONS.map((emoji) => (
-                                                        <button
-                                                            key={emoji}
-                                                            type="button"
-                                                            onClick={() => handleToggleReaction(msg.id, emoji)}
-                                                            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--background)] text-sm shadow-sm transition-colors hover:bg-[var(--card-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                                                            aria-label={`React with ${emoji}`}
+                                                <div
+                                                    ref={isReactionPickerOpen ? reactionPickerRef : undefined}
+                                                    className="relative"
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setOpenReactionPickerId(prev => prev === msg.id ? null : msg.id)}
+                                                        className={`inline-flex h-10 w-10 items-center justify-center rounded-full border text-sm shadow-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isReactionPickerOpen
+                                                            ? 'border-[var(--accent)] bg-[var(--accent)]/15 text-[var(--foreground)]'
+                                                            : 'border-[var(--border)] bg-[var(--background)] text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]'
+                                                            }`}
+                                                        aria-label={isReactionPickerOpen ? 'Close quick reactions' : 'Open quick reactions'}
+                                                        aria-expanded={isReactionPickerOpen}
+                                                        aria-controls={`reaction-picker-${msg.id}`}
+                                                    >
+                                                        <SmilePlus className="h-4 w-4" aria-hidden="true" />
+                                                    </button>
+                                                    {isReactionPickerOpen && (
+                                                        <div
+                                                            id={`reaction-picker-${msg.id}`}
+                                                            role="group"
+                                                            aria-label="Quick reactions"
+                                                            className={`absolute bottom-full z-30 mb-2 flex w-max max-w-[calc(100vw-2rem)] items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--card-surface)]/95 p-1 shadow-xl backdrop-blur-md ${isMe ? 'right-0' : 'left-0'}`}
                                                         >
-                                                            <span aria-hidden="true">{emoji}</span>
-                                                        </button>
-                                                    ))}
+                                                            {QUICK_REACTIONS.map((emoji) => (
+                                                                <button
+                                                                    key={emoji}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setOpenReactionPickerId(null)
+                                                                        void handleToggleReaction(msg.id, emoji)
+                                                                    }}
+                                                                    className="inline-flex h-10 w-10 items-center justify-center rounded-full text-sm transition-colors hover:bg-[var(--background)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                                                    aria-label={`React with ${emoji}`}
+                                                                >
+                                                                    <span aria-hidden="true">{emoji}</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
 

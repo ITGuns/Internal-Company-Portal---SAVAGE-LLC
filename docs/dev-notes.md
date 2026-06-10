@@ -1,5 +1,30 @@
 # Development Notes
 
+## 2026-06-11 - Expandable Chat Emoji Controls
+
+### Completed
+
+- Collapsed per-message quick reactions behind one compact expandable reaction button.
+- Kept stored reaction chips visible so participants can still see and toggle actual reaction counts.
+- Collapsed composer quick emoji shortcuts behind the smile button with outside-click and Escape dismissal.
+
+### Files Changed
+
+- `frontend/src/app/chat/page.tsx`
+- `frontend/src/components/chat/MessageInput.tsx`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the existing quick reaction set and `toggleMessageReaction` API contract unchanged.
+- Avoided adding an emoji-picker dependency until a separate source review is needed for a full emoji/GIF library.
+
+### How to Test
+
+- Open `/chat`, select a conversation, click a message reaction button, confirm the quick reaction row expands and closes after selection or Escape.
+- Click the composer smile button, confirm the emoji shortcuts expand, insert into the message input, and dismiss on outside click or Escape.
+
 ## 2026-06-11 - Expanded Project Overview Analytics
 
 ### Completed

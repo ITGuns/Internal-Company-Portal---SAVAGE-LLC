@@ -160,6 +160,6 @@ Company Chat supports internal direct messages, group/channel conversations, rea
 
 - Users can edit or delete their own messages.
 - Users can attach files, images, and GIFs through the message composer.
-- The composer includes quick emoji insertion.
-- Messages support stored quick reactions; reaction chips show counts and can be toggled by conversation participants.
+- The composer includes expandable quick emoji insertion.
+- Messages support stored quick reactions; reaction chips show counts and can be toggled by conversation participants, while quick reaction shortcuts expand from each message action button.
 - Reactions are broadcast through the same conversation room as message events.

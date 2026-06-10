@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Send, Paperclip, Smile, X } from 'lucide-react'
 
 interface MessageInputProps {
@@ -29,6 +29,29 @@ export default function MessageInput({
     placeholder,
 }: MessageInputProps) {
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const emojiPickerRef = useRef<HTMLDivElement>(null)
+    const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
+
+    useEffect(() => {
+        if (!emojiPickerOpen) return
+
+        const handlePointerDown = (event: PointerEvent) => {
+            if (emojiPickerRef.current?.contains(event.target as Node)) return
+            setEmojiPickerOpen(false)
+        }
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setEmojiPickerOpen(false)
+        }
+
+        document.addEventListener('pointerdown', handlePointerDown)
+        document.addEventListener('keydown', handleKeyDown)
+
+        return () => {
+            document.removeEventListener('pointerdown', handlePointerDown)
+            document.removeEventListener('keydown', handleKeyDown)
+        }
+    }, [emojiPickerOpen])
 
     return (
         <div className="p-4 bg-[var(--card-surface)] border-t border-[var(--border)] shadow-lg">
@@ -77,19 +100,44 @@ export default function MessageInput({
                 >
                     <Paperclip className="w-5 h-5" />
                 </button>
-                <div className="hidden items-center gap-1 sm:flex" aria-label="Quick emoji">
-                    <Smile className="w-4 h-4 text-[var(--muted)]" aria-hidden="true" />
-                    {QUICK_EMOJI.map((emoji) => (
-                        <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => onMessageChange(`${newMessage}${emoji}`)}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-sm transition-colors hover:bg-[var(--background)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                            aria-label={`Insert ${emoji}`}
+                <div ref={emojiPickerRef} className="relative shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => setEmojiPickerOpen(prev => !prev)}
+                        className={`inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${emojiPickerOpen
+                            ? 'bg-[var(--accent)]/15 text-[var(--foreground)]'
+                            : 'text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--accent)]'
+                            }`}
+                        aria-label={emojiPickerOpen ? 'Close emoji shortcuts' : 'Open emoji shortcuts'}
+                        aria-expanded={emojiPickerOpen}
+                        aria-controls="message-emoji-picker"
+                        title="Emoji shortcuts"
+                    >
+                        <Smile className="w-5 h-5" aria-hidden="true" />
+                    </button>
+                    {emojiPickerOpen && (
+                        <div
+                            id="message-emoji-picker"
+                            role="group"
+                            aria-label="Quick emoji"
+                            className="absolute bottom-full left-0 z-20 mb-3 flex w-max max-w-[calc(100vw-2rem)] items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--card-surface)]/95 p-1 shadow-xl backdrop-blur-md"
                         >
-                            <span aria-hidden="true">{emoji}</span>
-                        </button>
-                    ))}
+                            {QUICK_EMOJI.map((emoji) => (
+                                <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={() => {
+                                        onMessageChange(`${newMessage}${emoji}`)
+                                        setEmojiPickerOpen(false)
+                                    }}
+                                    className="inline-flex h-10 w-10 items-center justify-center rounded-full text-sm transition-colors hover:bg-[var(--background)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                    aria-label={`Insert ${emoji}`}
+                                >
+                                    <span aria-hidden="true">{emoji}</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
                 <div className="relative min-w-0 flex-1">
                     <input
