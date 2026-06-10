@@ -1,5 +1,32 @@
 # Development Notes
 
+## 2026-06-11 - Announcement Category Filters
+
+### Completed
+
+- Made the top announcement category cards functional filter buttons.
+- Added shared announcement filter helper logic for category options, URL parsing, filtering, and post counts.
+- Synced announcement filters to the `category` URL query parameter and added Birthdays to the lower filter tab row.
+
+### Files Changed
+
+- `frontend/src/app/announcements/page.tsx`
+- `frontend/src/lib/announcement-filters.ts`
+- `frontend/tests/announcement-filters.test.mjs`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Used real `<button>` elements for the category cards so click, keyboard, focus, and pressed state behave like controls.
+- Kept filtering frontend-side because the page already fetches the authenticated announcement list and filters it locally.
+
+### How to Test
+
+- Open `/announcements`, click each category card, and confirm the feed, tab row, counts, and `category` URL query update.
+- Use `All Posts` or an empty filtered state action to clear the filter.
+- Run `npm --prefix frontend test`, `npm --prefix frontend run lint`, `npm --prefix frontend run build`, and focused visual smoke for `/announcements`.
+
 ## 2026-06-11 - Payroll Audit Filter Bar
 
 ### Completed

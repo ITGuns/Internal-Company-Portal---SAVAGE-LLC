@@ -158,6 +158,14 @@ Payroll Calendar tracks calendar events, employee time entries, and payroll revi
 - Employee payroll setup includes max billable hours per day and a salary divisor scheme: weekdays credited, flat 30 days, flat 20 days, or flat 160 hours.
 - Payslip previews and generation show tracked hours, billable hours, and pending overtime separately. Automatic gross pay excludes time beyond the daily billable cap until a manager manually overrides or approves it.
 
+## Announcements
+
+Announcements centralize company updates, shoutouts, events, and birthdays for internal users.
+
+- Category cards filter the feed by Company News, Shoutouts, Events, or Birthdays and show current post counts.
+- The category tab row uses the same filters, includes Birthdays, resets pagination on filter changes, and reflects the active filter in the `category` URL query parameter.
+- Empty filtered states let users return to all posts without losing the announcement page context.
+
 ## Company Chat
 
 Company Chat supports internal direct messages, group/channel conversations, realtime updates, and message correction.

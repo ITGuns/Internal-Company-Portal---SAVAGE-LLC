@@ -1,17 +1,16 @@
 "use client";
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Header from '@/components/Header'
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
-import Card from '@/components/Card'
 import { AnnouncementSkeleton } from '@/components/ui/Skeleton'
 import EmptyState from '@/components/ui/EmptyState'
 import AnnouncementCard from '@/components/announcements/AnnouncementCard'
 import AnnouncementFormModal from '@/components/announcements/AnnouncementFormModal'
 import Pagination from '@/components/ui/Pagination'
 import { useToast } from '@/components/ToastProvider'
-import { Megaphone, Plus, Calendar, Trophy, Cake, Trash2, AlertCircle } from 'lucide-react'
+import { Megaphone, Plus, Calendar, Trophy, Cake, Trash2, AlertCircle, type LucideIcon } from 'lucide-react'
 import {
   addAnnouncement,
   updateAnnouncement,
@@ -22,18 +21,59 @@ import {
   type Announcement,
   type AnnouncementCategory as Category,
 } from '@/lib/announcements'
+import {
+  ANNOUNCEMENT_FILTER_OPTIONS,
+  countAnnouncementsByCategory,
+  filterAnnouncementsByCategory,
+  getAnnouncementFilterFromSearch,
+  type AnnouncementFilterCategory,
+} from '@/lib/announcement-filters'
+import { cn } from '@/lib/utils'
 import { useAnnouncements } from '@/hooks/useAnnouncementsQuery'
 import { useQueryClient } from '@tanstack/react-query'
 import { useUser } from '@/contexts/UserContext'
 
-type FilterCategory = 'all' | Category;
+const CATEGORY_PRESENTATION: Record<Category, {
+  icon: LucideIcon;
+  iconClassName: string;
+  iconSurfaceClassName: string;
+  activeClassName: string;
+}> = {
+  'company-news': {
+    icon: Megaphone,
+    iconClassName: 'text-blue-400',
+    iconSurfaceClassName: 'bg-blue-500/10',
+    activeClassName: 'border-blue-400/70 bg-blue-500/10',
+  },
+  shoutouts: {
+    icon: Trophy,
+    iconClassName: 'text-amber-300',
+    iconSurfaceClassName: 'bg-amber-500/10',
+    activeClassName: 'border-amber-300/70 bg-amber-500/10',
+  },
+  events: {
+    icon: Calendar,
+    iconClassName: 'text-violet-300',
+    iconSurfaceClassName: 'bg-violet-500/10',
+    activeClassName: 'border-violet-300/70 bg-violet-500/10',
+  },
+  birthdays: {
+    icon: Cake,
+    iconClassName: 'text-pink-300',
+    iconSurfaceClassName: 'bg-pink-500/10',
+    activeClassName: 'border-pink-300/70 bg-pink-500/10',
+  },
+};
 
 export default function AnnouncementsPage() {
   const toast = useToast();
   const { user: currentUser } = useUser();
   const queryClient = useQueryClient();
   const { data: announcements = [], isLoading: loading } = useAnnouncements();
-  const [activeFilter, setActiveFilter] = useState<FilterCategory>('all');
+  const [activeFilter, setActiveFilter] = useState<AnnouncementFilterCategory>(() => {
+    if (typeof window === 'undefined') return 'all';
+    return getAnnouncementFilterFromSearch(new URLSearchParams(window.location.search));
+  });
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
   const [showModal, setShowModal] = useState(false);
@@ -54,16 +94,33 @@ export default function AnnouncementsPage() {
   const [birthdayDate, setBirthdayDate] = useState('');
   const [isImportant, setIsImportant] = useState(false);
 
-  const filteredAnnouncements = activeFilter === 'all'
-    ? announcements
-    : announcements.filter(a => a.category === activeFilter);
+  const filteredAnnouncements = useMemo(
+    () => filterAnnouncementsByCategory(announcements, activeFilter),
+    [activeFilter, announcements],
+  );
 
   const totalPages = Math.ceil(filteredAnnouncements.length / PAGE_SIZE);
   const paginatedAnnouncements = filteredAnnouncements.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const activeFilterOption = ANNOUNCEMENT_FILTER_OPTIONS.find((option) => option.value === activeFilter);
 
-  const handleFilterChange = (filter: FilterCategory) => {
+  const handleFilterChange = (filter: AnnouncementFilterCategory) => {
     setActiveFilter(filter);
     setPage(1);
+
+    if (typeof window === 'undefined') return;
+
+    const searchParams = new URLSearchParams(window.location.search);
+    if (filter === 'all') {
+      searchParams.delete('category');
+    } else {
+      searchParams.set('category', filter);
+    }
+
+    const nextQuery = searchParams.toString();
+    const nextUrl = nextQuery
+      ? `${window.location.pathname}?${nextQuery}`
+      : window.location.pathname;
+    window.history.replaceState(null, '', nextUrl);
   };
 
   const handleAddAnnouncement = async () => {
@@ -194,6 +251,19 @@ export default function AnnouncementsPage() {
     return (currentUser && announcement.eventDetails?.going.includes(String(currentUser.id))) || false;
   };
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const syncFilterFromUrl = () => {
+      setActiveFilter(getAnnouncementFilterFromSearch(new URLSearchParams(window.location.search)));
+      setPage(1);
+    };
+
+    syncFilterFromUrl();
+    window.addEventListener('popstate', syncFilterFromUrl);
+    return () => window.removeEventListener('popstate', syncFilterFromUrl);
+  }, []);
+
   // Close menu when clicking outside or pressing Escape
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -237,46 +307,43 @@ export default function AnnouncementsPage() {
           subtitle="Stay updated with company news and celebrate achievements"
         />
 
-        <div className="mt-6 flex items-center justify-between">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 flex-1">
-            <Card variant="interactive" padding="md" className="text-center">
-              <div className="w-12 h-12 mx-auto mb-2 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                <Megaphone className="w-6 h-6 text-blue-500" />
-              </div>
-              <div className="font-semibold text-sm">Company News</div>
-              <div className="text-xs text-[var(--muted)] mt-1">Important updates</div>
-            </Card>
+        <div className="mt-6 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:flex-1">
+            {ANNOUNCEMENT_FILTER_OPTIONS.map((option) => {
+              const presentation = CATEGORY_PRESENTATION[option.value];
+              const Icon = presentation.icon;
+              const count = countAnnouncementsByCategory(announcements, option.value);
+              const isActive = activeFilter === option.value;
 
-            <Card variant="interactive" padding="md" className="text-center">
-              <div className="w-12 h-12 mx-auto mb-2 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                <Trophy className="w-6 h-6 text-amber-500" />
-              </div>
-              <div className="font-semibold text-sm">Shoutouts</div>
-              <div className="text-xs text-[var(--muted)] mt-1">Celebrate success</div>
-            </Card>
-
-            <Card variant="interactive" padding="md" className="text-center">
-              <div className="w-12 h-12 mx-auto mb-2 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-purple-500" />
-              </div>
-              <div className="font-semibold text-sm">Events</div>
-              <div className="text-xs text-[var(--muted)] mt-1">Upcoming activities</div>
-            </Card>
-
-            <Card variant="interactive" padding="md" className="text-center">
-              <div className="w-12 h-12 mx-auto mb-2 rounded-lg bg-pink-500/10 flex items-center justify-center">
-                <Cake className="w-6 h-6 text-pink-500" />
-              </div>
-              <div className="font-semibold text-sm">Birthdays</div>
-              <div className="text-xs text-[var(--muted)] mt-1">Celebrate team</div>
-            </Card>
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={isActive}
+                  onClick={() => handleFilterChange(option.value)}
+                  className={cn(
+                    'min-h-[130px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-4 text-center shadow-[var(--shadow-sm)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:border-[var(--accent)] hover:bg-[var(--surface-hover)] hover:shadow-[var(--shadow-md)] active:translate-y-px active:scale-[0.995] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]',
+                    isActive && presentation.activeClassName,
+                  )}
+                >
+                  <span className={cn('mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-lg', presentation.iconSurfaceClassName)}>
+                    <Icon className={cn('h-6 w-6', presentation.iconClassName)} aria-hidden="true" />
+                  </span>
+                  <span className="block text-sm font-semibold text-[var(--foreground)]">{option.label}</span>
+                  <span className="mt-1 block text-xs text-[var(--muted)]">{option.description}</span>
+                  <span className="mt-3 inline-flex min-h-7 items-center rounded-full border border-[var(--border)] px-2 text-[11px] font-medium text-[var(--muted)]">
+                    {count} {count === 1 ? 'post' : 'posts'}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           <Button
             onClick={() => setShowModal(true)}
             variant="primary"
             icon={<Plus className="w-4 h-4" />}
-            className="ml-4 whitespace-nowrap"
+            className="whitespace-nowrap xl:ml-4"
           >
             New Announcement
           </Button>
@@ -359,49 +426,49 @@ export default function AnnouncementsPage() {
         </Modal>
 
         <div className="mt-6">
-          <div className="flex items-center gap-2 border-b border-[var(--border)]">
-            <Button
-              onClick={() => handleFilterChange('all')}
-              variant="ghost"
-              size="sm"
-              className={`${activeFilter === 'all' ? 'text-[var(--foreground)] border-b-2 border-[var(--foreground)] rounded-b-none' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
-            >
-              All Posts
-            </Button>
-            <Button
-              onClick={() => handleFilterChange('company-news')}
-              variant="ghost"
-              size="sm"
-              className={`${activeFilter === 'company-news' ? 'text-[var(--foreground)] border-b-2 border-[var(--foreground)] rounded-b-none' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
-            >
-              Company News
-            </Button>
-            <Button
-              onClick={() => handleFilterChange('shoutouts')}
-              variant="ghost"
-              size="sm"
-              className={`${activeFilter === 'shoutouts' ? 'text-[var(--foreground)] border-b-2 border-[var(--foreground)] rounded-b-none' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
-            >
-              Shoutouts
-            </Button>
-            <Button
-              onClick={() => handleFilterChange('events')}
-              variant="ghost"
-              size="sm"
-              className={`${activeFilter === 'events' ? 'text-[var(--foreground)] border-b-2 border-[var(--foreground)] rounded-b-none' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
-            >
-              Events
-            </Button>
+          <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)]">
+            {[
+              { value: 'all' as const, label: 'All Posts', count: announcements.length },
+              ...ANNOUNCEMENT_FILTER_OPTIONS.map((option) => ({
+                value: option.value,
+                label: option.label,
+                count: countAnnouncementsByCategory(announcements, option.value),
+              })),
+            ].map((option) => (
+              <Button
+                key={option.value}
+                onClick={() => handleFilterChange(option.value)}
+                variant="ghost"
+                size="sm"
+                aria-pressed={activeFilter === option.value}
+                className={cn(
+                  activeFilter === option.value
+                    ? 'rounded-b-none border-b-2 border-[var(--foreground)] text-[var(--foreground)]'
+                    : 'text-[var(--muted)] hover:text-[var(--foreground)]',
+                )}
+              >
+                {option.label}
+                <span className="rounded-full bg-[var(--card-surface)] px-1.5 py-0.5 text-[11px] text-[var(--muted)]">
+                  {option.count}
+                </span>
+              </Button>
+            ))}
           </div>
 
           <div className="mt-6 space-y-4">
             {filteredAnnouncements.length === 0 ? (
               <EmptyState
                 icon={Megaphone}
-                title="No announcements yet"
-                description="Company announcements and updates will appear here"
-                actionLabel="Create Announcement"
-                onAction={() => setShowModal(true)}
+                title={activeFilterOption ? `No ${activeFilterOption.label.toLowerCase()} yet` : 'No announcements yet'}
+                description={activeFilterOption ? `${activeFilterOption.label} posts will appear here.` : 'Company announcements and updates will appear here.'}
+                actionLabel={activeFilter === 'all' ? 'Create Announcement' : 'View All Posts'}
+                onAction={() => {
+                  if (activeFilter === 'all') {
+                    setShowModal(true);
+                  } else {
+                    handleFilterChange('all');
+                  }
+                }}
               />
             ) : (
               <>
