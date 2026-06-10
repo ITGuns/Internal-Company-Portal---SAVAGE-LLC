@@ -1,5 +1,41 @@
 # Development Notes
 
+## 2026-06-11 - Daily Log HH:MM And Task-Derived Status
+
+### Completed
+
+- Changed the Daily Log hours input from a number spinner to an `HH:MM` text input with blur normalization.
+- Added a `Today` action to the Daily Log date field label row.
+- Removed the manual Daily Log status field from the add/edit form.
+- Preserved Task Tracking status metadata on imported Daily Log tasks and displayed task status badges in logs.
+- Derived the saved Daily Log status from logged task rows.
+
+### Files Changed
+
+- `frontend/src/app/daily-logs/page.tsx`
+- `frontend/src/components/forms/FormField.tsx`
+- `frontend/src/components/ui/StatusBadge.tsx`
+- `frontend/src/lib/daily-log-format.ts`
+- `frontend/src/lib/daily-log-task-import.ts`
+- `frontend/src/lib/daily-logs.ts`
+- `frontend/tests/daily-log-format.test.mjs`
+- `frontend/tests/daily-log-task-import.test.mjs`
+- `docs/features.md`
+- `docs/api.md`
+- `docs/database.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the backend Daily Log status contract intact, but made the frontend derive it from task state.
+- Kept review-stage tasks separate from bulk import while preserving their status if the user adds them.
+
+### How to Test
+
+- Open `/daily-logs`, click `Add Log`, confirm `Hours Logged` uses `HH:MM`, `Date` has `Today`, and the form has no manual Status selector.
+- Import or add tasks, confirm task badges show Completed, Review, or In Progress, then save and verify the submitted log status follows the task rows.
+- Run `npm --prefix frontend test`, `npm --prefix frontend run lint`, and `npm --prefix frontend run build`.
+
 ## 2026-06-11 - Neutral Form Backdrops
 
 ### Completed

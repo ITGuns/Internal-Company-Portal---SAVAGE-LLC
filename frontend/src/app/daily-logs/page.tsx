@@ -29,6 +29,14 @@ import {
   type LogTask,
 } from '@/lib/daily-logs';
 import {
+  deriveDailyLogStatusFromTasks,
+  formatDecimalHoursAsClock,
+  getLocalTodayDateInput,
+  normalizeHoursClockInput,
+  normalizeLogTaskStatus,
+  parseHoursClockToDecimal,
+} from '@/lib/daily-log-format';
+import {
   getDailyLogTaskImportOptions,
   getDailyLogTaskReviewOptions,
   mergeDailyLogTasksWithImports,
@@ -39,6 +47,20 @@ import { getDailyLogReviewSummary } from '@/lib/daily-log-review';
 import { hasManagementAccess } from '@/lib/role-access';
 
 type DateFilter = 'today' | 'week' | 'month' | 'all';
+
+const INITIAL_STATUS_FILTERS: Record<LogStatus, boolean> = {
+  completed: true,
+  review: true,
+  'in-progress': true,
+  blocked: true,
+};
+
+const STATUS_FILTER_OPTIONS: Array<{ value: LogStatus; label: string }> = [
+  { value: 'completed', label: 'Completed' },
+  { value: 'review', label: 'Review' },
+  { value: 'in-progress', label: 'In Progress' },
+  { value: 'blocked', label: 'Blocked' },
+];
 
 export default function DailyLogsPage() {
   const toast = useToast();
@@ -62,23 +84,16 @@ export default function DailyLogsPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
   const [departmentFilter, setDepartmentFilter] = useState<string>(DEPARTMENTS[0]);
   const [userFilter, setUserFilter] = useState<string>('all');
-  const [statusFilters, setStatusFilters] = useState({
-    completed: true,
-    'in-progress': true,
-    blocked: true,
-  });
+  const [statusFilters, setStatusFilters] = useState<Record<LogStatus, boolean>>(INITIAL_STATUS_FILTERS);
   const [logTypeFilter, setLogTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 15;
 
   // Form state
-  const [formDate, setFormDate] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  });
-  const [formHours, setFormHours] = useState<number>(8);
-  const [formStatus, setFormStatus] = useState<LogStatus>('in-progress');
+  const [formDate, setFormDate] = useState(getLocalTodayDateInput);
+  const [formHours, setFormHours] = useState(() => formatDecimalHoursAsClock(8));
+  const [formHoursError, setFormHoursError] = useState('');
   const [formTasks, setFormTasks] = useState<LogTask[]>([]);
   const [formTaskInput, setFormTaskInput] = useState('');
   const [formShiftNotes, setFormShiftNotes] = useState('');
@@ -132,8 +147,7 @@ export default function DailyLogsPage() {
   const reviewSummary = getDailyLogReviewSummary(logs, {
     selectedUserId: userFilter === 'all' ? undefined : userFilter,
   });
-  const now = new Date();
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const todayStr = getLocalTodayDateInput();
 
   // Filter logs
   const filteredLogs = logs.filter(log => {
@@ -197,7 +211,7 @@ export default function DailyLogsPage() {
   const weekLogs = getThisWeekLogs(logs).length;
   const yourLogs = currentUser ? logs.filter(l => l.authorId === String(currentUser.id)).length : 0;
   const todayLogs = logs.filter((log) => log.date === todayStr).length;
-  const blockedLogs = filteredLogs.filter((log) => log.status === 'blocked').length;
+  const reviewLogs = filteredLogs.filter((log) => log.status === 'review').length;
 
   const handleAddTask = () => {
     if (!formTaskInput.trim()) return;
@@ -205,15 +219,18 @@ export default function DailyLogsPage() {
       id: `task-${Date.now()}`,
       text: formTaskInput.trim(),
       completed: false,
+      status: 'in_progress',
     };
     setFormTasks([...formTasks, newTask]);
     setFormTaskInput('');
   };
 
   const handleToggleTask = (taskId: string) => {
-    setFormTasks(formTasks.map(task =>
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    ));
+    setFormTasks(formTasks.map(task => {
+      if (task.id !== taskId) return task;
+      const completed = !task.completed;
+      return { ...task, completed, status: completed ? 'completed' : 'in_progress' };
+    }));
   };
 
   const handleRemoveTask = (taskId: string) => {
@@ -235,23 +252,31 @@ export default function DailyLogsPage() {
     if (formTasks.length === 0) return;
 
     try {
+      const parsedHours = parseHoursClockToDecimal(formHours);
+      if (parsedHours === null) {
+        setFormHoursError('Use HH:MM, for example 08:00.');
+        toast.error('Hours logged must use HH:MM format');
+        return;
+      }
+
+      const derivedStatus = deriveDailyLogStatusFromTasks(formTasks);
       let savedLog: DailyLog | null = null;
 
       if (editingLog) {
         savedLog = await updateDailyLog(editingLog.id, {
           date: formDate,
-          hoursLogged: formHours,
+          hoursLogged: parsedHours,
           tasks: formTasks,
-          status: formStatus,
+          status: derivedStatus,
           shiftNotes: formShiftNotes,
           logType: formLogType,
         });
       } else {
         savedLog = await createDailyLog({
           date: formDate,
-          hoursLogged: formHours,
+          hoursLogged: parsedHours,
           tasks: formTasks,
-          status: formStatus,
+          status: derivedStatus,
           shiftNotes: formShiftNotes,
           logType: formLogType,
         });
@@ -272,11 +297,9 @@ export default function DailyLogsPage() {
   };
 
   const resetForm = () => {
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    setFormDate(today);
-    setFormHours(8);
-    setFormStatus('in-progress');
+    setFormDate(getLocalTodayDateInput());
+    setFormHours(formatDecimalHoursAsClock(8));
+    setFormHoursError('');
     setFormTasks([]);
     setFormTaskInput('');
     setFormShiftNotes('');
@@ -288,6 +311,8 @@ export default function DailyLogsPage() {
     await toggleLogLike(logId);
     queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
   };
+
+  const derivedFormStatus = deriveDailyLogStatusFromTasks(formTasks);
 
   return (
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
@@ -319,7 +344,7 @@ export default function DailyLogsPage() {
             {[
               { label: "Today", value: todayLogs, caption: "Logs submitted" },
               { label: "Your logs", value: yourLogs, caption: "Personal history" },
-              { label: "Blocked", value: blockedLogs, caption: "Needs follow-up" },
+              { label: "Review", value: reviewLogs, caption: "Awaiting check" },
             ].map((item) => (
               <div key={item.label} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2">
                 <div className="text-xs text-[var(--muted)]">{item.label}</div>
@@ -345,7 +370,7 @@ export default function DailyLogsPage() {
                     setDateFilter('today');
                     setDepartmentFilter(DEPARTMENTS[0]);
                     setUserFilter('all');
-                    setStatusFilters({ completed: true, 'in-progress': true, blocked: true });
+                    setStatusFilters({ ...INITIAL_STATUS_FILTERS });
                     setSearchQuery('');
                   }}
                 >
@@ -415,33 +440,17 @@ export default function DailyLogsPage() {
               <div>
                 <label className="block text-sm font-medium mb-2">Status</label>
                 <div className="space-y-2">
-                  <label className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] px-2">
-                    <input
-                      type="checkbox"
-                      checked={statusFilters.completed}
-                      onChange={(e) => setStatusFilters({ ...statusFilters, completed: e.target.checked })}
-                      className="w-4 h-4 rounded [color-scheme:light] dark:[color-scheme:dark]"
-                    />
-                    <span className="text-sm">Completed</span>
-                  </label>
-                  <label className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] px-2">
-                    <input
-                      type="checkbox"
-                      checked={statusFilters['in-progress']}
-                      onChange={(e) => setStatusFilters({ ...statusFilters, 'in-progress': e.target.checked })}
-                      className="w-4 h-4 rounded [color-scheme:light] dark:[color-scheme:dark]"
-                    />
-                    <span className="text-sm">In Progress</span>
-                  </label>
-                  <label className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] px-2">
-                    <input
-                      type="checkbox"
-                      checked={statusFilters.blocked}
-                      onChange={(e) => setStatusFilters({ ...statusFilters, blocked: e.target.checked })}
-                      className="w-4 h-4 rounded [color-scheme:light] dark:[color-scheme:dark]"
-                    />
-                    <span className="text-sm">Blocked</span>
-                  </label>
+                  {STATUS_FILTER_OPTIONS.map((option) => (
+                    <label key={option.value} className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] px-2">
+                      <input
+                        type="checkbox"
+                        checked={statusFilters[option.value]}
+                        onChange={(e) => setStatusFilters({ ...statusFilters, [option.value]: e.target.checked })}
+                        className="w-4 h-4 rounded [color-scheme:light] dark:[color-scheme:dark]"
+                      />
+                      <span className="text-sm">{option.label}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
 
@@ -553,32 +562,43 @@ export default function DailyLogsPage() {
                         <div className="mb-4">
                           <div className="text-sm font-medium mb-2">What I Did Today:</div>
                           <div className="space-y-1">
-                            {log.tasks.map(task => (
-                              <div key={task.id} className="flex items-start gap-2 text-sm">
-                                {task.completed ? (
-                                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
-                                ) : (
-                                  <div className="w-4 h-4 rounded-full border-2 border-[var(--border)] flex-shrink-0 mt-0.5" />
-                                )}
-                                <div className="min-w-0">
-                                  <span className={task.completed ? 'line-through text-[var(--muted)]' : ''}>
-                                    {task.text}
-                                  </span>
-                                  {task.id.startsWith('task:') && (
-                                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-[var(--muted)]">
-                                      <span className="rounded bg-sky-500/10 px-1.5 py-0.5 text-sky-600 dark:text-sky-300">
-                                        Task Tracking
-                                      </span>
-                                      {taskLookup.get(task.id.slice('task:'.length))?.workSessions?.length ? (
-                                        <span>
-                                          {taskLookup.get(task.id.slice('task:'.length))?.workSessions?.length} session{taskLookup.get(task.id.slice('task:'.length))?.workSessions?.length === 1 ? '' : 's'}
-                                        </span>
-                                      ) : null}
-                                    </div>
+                            {log.tasks.map(task => {
+                              const taskStatus = normalizeLogTaskStatus(task);
+                              const linkedTaskId = task.sourceTaskId || (task.id.startsWith('task:') ? task.id.slice('task:'.length) : '');
+                              const linkedTask = linkedTaskId ? taskLookup.get(linkedTaskId) : undefined;
+
+                              return (
+                                <div key={task.id} className="flex items-start gap-2 text-sm">
+                                  {taskStatus === 'completed' ? (
+                                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                                  ) : (
+                                    <div className="w-4 h-4 rounded-full border-2 border-[var(--border)] flex-shrink-0 mt-0.5" />
                                   )}
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className={taskStatus === 'completed' ? 'line-through text-[var(--muted)]' : ''}>
+                                        {task.text}
+                                      </span>
+                                      <StatusBadge status={taskStatus} size="sm" />
+                                    </div>
+                                    {linkedTaskId && (
+                                      <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-[var(--muted)]">
+                                        <span className="rounded bg-sky-500/10 px-1.5 py-0.5 text-sky-600 dark:text-sky-300">
+                                          Task Tracking
+                                        </span>
+                                        {linkedTask?.workSessions?.length ? (
+                                          <span>
+                                            {linkedTask.workSessions.length} session{linkedTask.workSessions.length === 1 ? '' : 's'}
+                                          </span>
+                                        ) : task.sessionCount ? (
+                                          <span>{task.sessionCount} session{task.sessionCount === 1 ? '' : 's'}</span>
+                                        ) : null}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
 
@@ -654,16 +674,38 @@ export default function DailyLogsPage() {
                 value={formDate}
                 onChange={setFormDate}
                 icon={Clock}
+                labelAction={
+                  <button
+                    type="button"
+                    onClick={() => setFormDate(getLocalTodayDateInput())}
+                    className="text-xs font-semibold text-[var(--accent)] transition-colors hover:text-[var(--accent-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card-bg)]"
+                  >
+                    Today
+                  </button>
+                }
               />
               <FormField
                 id="log-hours"
                 label="Hours Logged"
-                type="number"
+                type="text"
                 value={formHours}
-                onChange={(val) => setFormHours(Number(val))}
-                min={0}
-                max={24}
-                step={0.5}
+                onChange={(val) => {
+                  setFormHours(val);
+                  if (formHoursError) setFormHoursError('');
+                }}
+                onBlur={() => {
+                  const normalized = normalizeHoursClockInput(formHours);
+                  if (normalized === null) {
+                    setFormHoursError('Use HH:MM, for example 08:00.');
+                    return;
+                  }
+                  setFormHours(normalized || '00:00');
+                  setFormHoursError('');
+                }}
+                error={formHoursError}
+                placeholder="08:00"
+                inputMode="decimal"
+                helperText="Use HH:MM."
               />
             </div>
 
@@ -682,21 +724,10 @@ export default function DailyLogsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Status</label>
-              <select
-                value={formStatus}
-                onChange={(e) => setFormStatus(e.target.value as LogStatus)}
-                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] dark:[color-scheme:dark]"
-                aria-label="Status"
-              >
-                <option value="in-progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="blocked">Blocked</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Tasks Completed Today</label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-medium">Tasks Logged Today</label>
+                <StatusBadge status={derivedFormStatus} size="sm" />
+              </div>
               <div className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--card-surface)] p-3">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div className="flex items-start gap-2">
@@ -704,7 +735,7 @@ export default function DailyLogsPage() {
                     <div>
                       <div className="text-sm font-medium">Import from Task Tracking</div>
                       <p className="mt-0.5 text-xs text-[var(--muted)]">
-                        Completed and in-progress tasks assigned to you for {formDate}.
+                        Completed and in-progress tasks assigned to you for {formDate}. Review-stage tasks appear below.
                       </p>
                     </div>
                   </div>
@@ -734,9 +765,7 @@ export default function DailyLogsPage() {
                         <div className="min-w-0">
                           <div className="truncate text-sm font-medium">{option.text}</div>
                           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-                            <span className={option.completed ? 'text-emerald-500' : 'text-blue-500'}>
-                              {option.completed ? 'Completed' : 'In Progress'}
-                            </span>
+                            <StatusBadge status={option.status === 'in_progress' ? 'in-progress' : option.status} size="sm" />
                             {typeof option.progress === 'number' && (
                               <span>{option.progress}% progress</span>
                             )}
@@ -808,26 +837,36 @@ export default function DailyLogsPage() {
               </div>
 
               <div className="space-y-2 max-h-64 overflow-y-auto chat-scroll">
-                {formTasks.map(task => (
-                  <div key={task.id} className="flex items-center gap-2 p-2 bg-[var(--card-surface)] rounded">
-                    <input
-                      type="checkbox"
-                      checked={task.completed}
-                      onChange={() => handleToggleTask(task.id)}
-                      className="w-4 h-4 rounded [color-scheme:light] dark:[color-scheme:dark]"
-                      aria-label="Mark task as completed"
-                    />
-                    <span className={`flex-1 text-sm ${task.completed ? 'line-through text-[var(--muted)]' : ''}`}>
-                      {task.text}
-                    </span>
-                    <button
-                      onClick={() => handleRemoveTask(task.id)}
-                      className="text-red-500 hover:text-red-600 text-sm"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
+                {formTasks.map(task => {
+                  const taskStatus = normalizeLogTaskStatus(task);
+
+                  return (
+                    <div key={task.id} className="flex items-center gap-2 rounded bg-[var(--card-surface)] p-2">
+                      <input
+                        type="checkbox"
+                        checked={taskStatus === 'completed'}
+                        onChange={() => handleToggleTask(task.id)}
+                        className="w-4 h-4 rounded [color-scheme:light] dark:[color-scheme:dark]"
+                        aria-label="Mark task as completed"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`text-sm ${taskStatus === 'completed' ? 'line-through text-[var(--muted)]' : ''}`}>
+                            {task.text}
+                          </span>
+                          <StatusBadge status={taskStatus} size="sm" />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTask(task.id)}
+                        className="min-h-10 rounded-[var(--radius-md)] px-2 text-sm text-red-500 hover:bg-red-500/10 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/70"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

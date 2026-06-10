@@ -4,15 +4,21 @@
  */
 
 import { apiFetch } from './api';
+import type { DailyLogTaskStatus, DerivedDailyLogStatus } from './daily-log-format';
 import type { ApiDailyLog, ApiDailyLogLike } from './types/api';
 import type { PaginatedResponse } from './types/pagination';
 
-export type LogStatus = 'completed' | 'in-progress' | 'blocked';
+export type LogStatus = DerivedDailyLogStatus;
 
 export interface LogTask {
   id: string;
+  sourceTaskId?: string;
   text: string;
   completed: boolean;
+  status?: DailyLogTaskStatus | string;
+  progress?: number | null;
+  sessionCount?: number;
+  trackedMinutes?: number;
 }
 
 export interface DailyLog {

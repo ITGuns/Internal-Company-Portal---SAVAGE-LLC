@@ -62,7 +62,7 @@ Task tracking supports calendar, board, and list views for task status, assignme
 
 ## Daily Logs
 
-Daily logs track EOD, weekly, and monthly work summaries by date, department, status, hours, task list, and shift notes.
+Daily logs track EOD, weekly, and monthly work summaries by date, department, task-derived status, HH:MM hours, task list, and shift notes.
 
 - Employee logs use the department assigned to the employee account.
 - Full-access admins, project managers, operations managers, and chief operations officers can review or override log departments when their access allows it.
@@ -71,12 +71,16 @@ Daily logs track EOD, weekly, and monthly work summaries by date, department, st
 ### Task Import Behavior
 
 - `/daily-logs?new=1` opens the Add Daily Log modal automatically.
+- The Add Daily Log modal uses `HH:MM` hour entry and normalizes numeric input such as `8` to `08:00`.
+- The Date field includes a `Today` shortcut in the label row.
+- Users no longer choose a log status manually in the form; the log derives its stored status from the logged task rows.
 - The Add Daily Log modal includes an `Import from Task Tracking` section.
 - The import section suggests completed and in-progress tasks assigned to the logged-in user for the selected log date.
 - Completed task suggestions use `completedAt` for the selected date; completed tasks without `completedAt` are not inferred from due or update dates.
 - Review-stage tasks appear in a separate optional section, with task-session counts and tracked minutes when available.
 - Suggested tasks can be imported individually or in bulk with `Import All`.
 - Imported completed tasks are checked in the daily-log task list; imported in-progress tasks remain unchecked.
+- Imported Task Tracking entries retain source task IDs and task statuses so saved logs can show Completed, Review, or In Progress badges.
 - Manual task entry remains available for work that was not created in Task Tracking.
 
 ### Manager Review

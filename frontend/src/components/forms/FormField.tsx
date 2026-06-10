@@ -16,6 +16,8 @@ export interface FormFieldProps {
   value: string | number;
   /** Change handler */
   onChange: (value: string) => void;
+  /** Blur handler */
+  onBlur?: () => void;
   /** Optional error message */
   error?: string;
   /** Optional placeholder text */
@@ -28,6 +30,8 @@ export interface FormFieldProps {
   icon?: LucideIcon;
   /** Optional helper text */
   helperText?: string;
+  /** Optional control rendered on the right side of the label row */
+  labelAction?: React.ReactNode;
   /** Additional CSS classes for the input */
   className?: string;
   /** Minimum value (for number/date inputs) */
@@ -53,12 +57,14 @@ export default function FormField({
   type = 'text',
   value,
   onChange,
+  onBlur,
   error,
   placeholder,
   required = false,
   disabled = false,
   icon: Icon,
   helperText,
+  labelAction,
   className = '',
   min,
   max,
@@ -69,18 +75,21 @@ export default function FormField({
   return (
     <div className="w-full">
       {/* Label */}
-      <label
-        htmlFor={id}
-        className="block text-sm font-medium text-[var(--foreground)] mb-2"
-      >
-        <div className="flex items-center gap-2">
-          {Icon && <Icon className="w-4 h-4" />}
-          <span>
-            {label}
-            {required && <span className="text-red-500 ml-1">*</span>}
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <label
+          htmlFor={id}
+          className="block text-sm font-medium text-[var(--foreground)]"
+        >
+          <span className="flex items-center gap-2">
+            {Icon && <Icon className="w-4 h-4" />}
+            <span>
+              {label}
+              {required && <span className="text-red-500 ml-1">*</span>}
+            </span>
           </span>
-        </div>
-      </label>
+        </label>
+        {labelAction && <div className="shrink-0">{labelAction}</div>}
+      </div>
 
       {/* Input */}
       <input
@@ -89,6 +98,7 @@ export default function FormField({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
         disabled={disabled}
         placeholder={placeholder}
         min={min}

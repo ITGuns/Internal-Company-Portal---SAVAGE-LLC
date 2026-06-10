@@ -20,8 +20,13 @@ interface ImportableTask {
 
 interface ExistingLogTask {
   id: string;
+  sourceTaskId?: string;
   text: string;
   completed: boolean;
+  status?: ImportableTaskStatus | 'review' | string;
+  progress?: number | null;
+  sessionCount?: number;
+  trackedMinutes?: number;
 }
 
 export interface DailyLogTaskImportOption extends ExistingLogTask {
@@ -139,8 +144,13 @@ export function mergeDailyLogTasksWithImports(
 
     nextTasks.push({
       id: option.id,
+      sourceTaskId: option.sourceTaskId,
       text: option.text,
       completed: option.completed,
+      status: option.status,
+      progress: option.progress,
+      sessionCount: option.sessionCount,
+      trackedMinutes: option.trackedMinutes,
     });
     existingIds.add(option.id);
     existingIds.add(option.sourceTaskId);
@@ -152,7 +162,9 @@ export function mergeDailyLogTasksWithImports(
 export function buildDailyLogTasksFromTaskReport(tasks: ImportableTask[]): ExistingLogTask[] {
   return tasks.map((task) => ({
     id: `task:${task.id}`,
+    sourceTaskId: task.id,
     text: task.title,
     completed: task.status === 'completed',
+    status: task.status,
   }));
 }

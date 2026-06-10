@@ -2,9 +2,9 @@
 
 import React from 'react';
 
-export type TaskStatus = 'pending' | 'in_progress' | 'in-progress' | 'completed' | 'blocked';
+export type TaskStatus = 'pending' | 'in_progress' | 'in-progress' | 'review' | 'completed' | 'blocked';
 export type TaskPriority = 'Low' | 'Med' | 'Medium' | 'High';
-export type LogStatus = 'completed' | 'in-progress' | 'blocked';
+export type LogStatus = 'completed' | 'review' | 'in-progress' | 'blocked';
 
 interface StatusBadgeProps {
   /** Status value (pending, in_progress, completed, blocked) */
@@ -84,6 +84,8 @@ function getStatusLabel(status: TaskStatus | LogStatus): string {
       return 'Pending';
     case 'in-progress':
       return 'In Progress';
+    case 'review':
+      return 'Review';
     case 'completed':
       return 'Completed';
     case 'blocked':
@@ -116,6 +118,8 @@ function getStatusColorClasses(status: TaskStatus | LogStatus): string {
       return 'text-[var(--status-pending)] bg-[var(--status-pending-bg)]';
     case 'in-progress':
       return 'text-[var(--status-in-progress)] bg-[var(--status-in-progress-bg)]';
+    case 'review':
+      return 'text-[var(--priority-medium)] bg-[var(--priority-medium-bg)]';
     case 'completed':
       return 'text-[var(--status-completed)] bg-[var(--status-completed-bg)]';
     case 'blocked':

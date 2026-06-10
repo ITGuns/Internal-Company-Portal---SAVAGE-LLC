@@ -174,6 +174,8 @@ test('does not suggest or import tasks that are already present in the log', () 
     'task:already-imported',
     'task:new-progress-task',
   ]);
+  assert.equal(merged[1].sourceTaskId, 'new-progress-task');
+  assert.equal(merged[1].status, 'in_progress');
 });
 
 test('surfaces review-stage tasks separately without auto-importing them', () => {
@@ -247,13 +249,17 @@ test('builds Daily Log task objects from Task Tracking reports', () => {
   assert.deepEqual(JSON.parse(JSON.stringify(logTasks)), [
     {
       id: 'task:completed-task',
+      sourceTaskId: 'completed-task',
       text: 'Ship EOD report integration',
       completed: true,
+      status: 'completed',
     },
     {
       id: 'task:active-task',
+      sourceTaskId: 'active-task',
       text: 'Review daily log handoff',
       completed: false,
+      status: 'in_progress',
     },
   ]);
 });

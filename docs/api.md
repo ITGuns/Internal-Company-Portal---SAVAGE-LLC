@@ -258,6 +258,8 @@ All daily-log endpoints require authentication.
 - `PATCH /api/daily-logs/:id` updates a log when the requester owns it or has management access.
 - `DELETE /api/daily-logs/:id` deletes a log when the requester owns it or has management access.
 - `POST /api/daily-logs/:id/like` toggles the authenticated user's like.
+- Frontend create/update flows derive the submitted `status` from task JSON instead of exposing a manual status field in the Daily Log form.
+- Daily-log task JSON may include optional `sourceTaskId`, `status`, `progress`, `sessionCount`, and `trackedMinutes` fields for Task Tracking imports.
 
 Daily-log department handling is server-managed:
 
