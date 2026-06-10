@@ -31,6 +31,16 @@ export interface DailyLog {
   logType?: string; // daily, weekly, monthly
 }
 
+export interface CreateDailyLogInput {
+  date: string;
+  hoursLogged: number;
+  tasks: LogTask[];
+  status?: LogStatus;
+  shiftNotes?: string;
+  logType?: string;
+  department?: string;
+}
+
 // Helper to map API data to Frontend interface
 const mapApiLog = (data: ApiDailyLog): DailyLog => {
   return {
@@ -151,26 +161,18 @@ export async function fetchDailyLogsPaginated(
 /**
  * Add a new daily log
  */
-export async function createDailyLog(
-  department: string,
-  date: string,
-  hoursLogged: number,
-  tasks: LogTask[],
-  status: LogStatus = 'in-progress',
-  shiftNotes: string = '',
-  logType: string = 'daily'
-): Promise<DailyLog | null> {
+export async function createDailyLog(input: CreateDailyLogInput): Promise<DailyLog | null> {
   try {
-    const payload = {
-      content: `Daily Log - ${date}`, // Generated content
-      department,
-      date, // Send as plain YYYY-MM-DD — backend stores as noon UTC to avoid day-shift
-      hoursLogged,
-      tasks, // Send JSON
-      status,
-      shiftNotes,
-      logType
+    const payload: Record<string, unknown> = {
+      content: `Daily Log - ${input.date}`, // Generated content
+      date: input.date, // Send as plain YYYY-MM-DD, backend stores as noon UTC to avoid day-shift
+      hoursLogged: input.hoursLogged,
+      tasks: input.tasks, // Send JSON
+      status: input.status || 'in-progress',
+      shiftNotes: input.shiftNotes || '',
+      logType: input.logType || 'daily'
     };
+    if (input.department) payload.department = input.department;
 
     const res = await apiFetch('/daily-logs', {
       method: 'POST',

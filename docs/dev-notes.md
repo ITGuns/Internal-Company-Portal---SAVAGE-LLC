@@ -1,5 +1,36 @@
 # Development Notes
 
+## 2026-06-10 - Daily Log Department Field Removal
+
+### Completed
+
+- Removed the Department selector from the Add/Edit Daily Log modal.
+- Changed daily-log create requests to omit department so the backend derives it from the authenticated user's assigned role.
+- Stopped daily-log edits from resubmitting department while keeping department display and filtering for stored logs.
+
+### Files Changed
+
+- `frontend/src/app/daily-logs/page.tsx`
+- `frontend/src/lib/daily-logs.ts`
+- `frontend/src/hooks/useDailyLogsQuery.ts`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the backend as the source of truth for daily-log department assignment.
+- Preserved department filters because managers still need to review stored logs by department.
+
+### How to Test
+
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run build`
+- `VISUAL_SMOKE_BASE_URL=http://127.0.0.1:3001 VISUAL_SMOKE_ROUTES=/daily-logs VISUAL_SMOKE_THEMES=dark npm --prefix frontend run test:visual`
+
+### Next Steps
+
+- None.
+
 ## 2026-06-10 - Feedback Batch Review Fixes
 
 ### Completed

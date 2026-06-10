@@ -45,7 +45,6 @@ export default function DailyLogsPage() {
   const { user: currentUser } = useUser();
   const currentUserDepartment = currentUser?.department;
   const canReviewTeamLogs = hasManagementAccess(currentUser);
-  const canEditLogDepartment = canReviewTeamLogs;
   const queryClient = useQueryClient();
   const { data: logs = [], isLoading: loading } = useDailyLogs();
   const currentUserId = currentUser?.id ? String(currentUser.id) : '';
@@ -78,20 +77,12 @@ export default function DailyLogsPage() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   });
-  const [formDepartment, setFormDepartment] = useState('');
   const [formHours, setFormHours] = useState<number>(8);
   const [formStatus, setFormStatus] = useState<LogStatus>('in-progress');
   const [formTasks, setFormTasks] = useState<LogTask[]>([]);
   const [formTaskInput, setFormTaskInput] = useState('');
   const [formShiftNotes, setFormShiftNotes] = useState('');
   const [formLogType, setFormLogType] = useState<string>('daily');
-  const logDepartmentOptions = useMemo(
-    () => Array.from(new Set([
-      ...DEPARTMENTS.filter((department) => department !== 'All Departments'),
-      ...(currentUserDepartment ? [currentUserDepartment] : []),
-    ])),
-    [currentUserDepartment],
-  );
   const taskImportOptions = useMemo(
     () => getDailyLogTaskImportOptions(trackedTasks, {
       currentUserId,
@@ -115,10 +106,6 @@ export default function DailyLogsPage() {
 
   // Set default department when user loads
   useEffect(() => {
-    if (currentUserDepartment) {
-      setFormDepartment(previous => previous || currentUserDepartment);
-    }
-
     if (currentUserDepartment && !canReviewTeamLogs) {
       setDepartmentFilter(previous => {
         if (previous === DEPARTMENTS[0]) {
@@ -245,13 +232,13 @@ export default function DailyLogsPage() {
   };
 
   const handleSubmit = async () => {
-    const effectiveDepartment = canEditLogDepartment ? formDepartment : currentUserDepartment || formDepartment;
-    if (!effectiveDepartment || formTasks.length === 0) return;
+    if (formTasks.length === 0) return;
 
     try {
+      let savedLog: DailyLog | null = null;
+
       if (editingLog) {
-        await updateDailyLog(editingLog.id, {
-          department: effectiveDepartment,
+        savedLog = await updateDailyLog(editingLog.id, {
           date: formDate,
           hoursLogged: formHours,
           tasks: formTasks,
@@ -259,12 +246,22 @@ export default function DailyLogsPage() {
           shiftNotes: formShiftNotes,
           logType: formLogType,
         });
-        toast.success('Daily log updated successfully');
       } else {
-        await createDailyLog(effectiveDepartment, formDate, formHours, formTasks, formStatus, formShiftNotes, formLogType);
-        toast.success('Daily log added successfully');
+        savedLog = await createDailyLog({
+          date: formDate,
+          hoursLogged: formHours,
+          tasks: formTasks,
+          status: formStatus,
+          shiftNotes: formShiftNotes,
+          logType: formLogType,
+        });
       }
 
+      if (!savedLog) {
+        throw new Error('Daily log save returned no data');
+      }
+
+      toast.success(editingLog ? 'Daily log updated successfully' : 'Daily log added successfully');
       queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
       resetForm();
       setShowModal(false);
@@ -278,7 +275,6 @@ export default function DailyLogsPage() {
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     setFormDate(today);
-    setFormDepartment(currentUser?.department || '');
     setFormHours(8);
     setFormStatus('in-progress');
     setFormTasks([]);
@@ -292,8 +288,6 @@ export default function DailyLogsPage() {
     await toggleLogLike(logId);
     queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
   };
-
-  const effectiveFormDepartment = canEditLogDepartment ? formDepartment : currentUserDepartment || formDepartment;
 
   return (
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
@@ -674,27 +668,6 @@ export default function DailyLogsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Department</label>
-              <select
-                value={formDepartment}
-                onChange={(e) => setFormDepartment(e.target.value)}
-                disabled={!canEditLogDepartment}
-                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] disabled:cursor-not-allowed disabled:opacity-70 dark:[color-scheme:dark]"
-                aria-label="Department"
-              >
-                <option value="">Select department</option>
-                {logDepartmentOptions.map(dept => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
-              {!canEditLogDepartment && (
-                <p className="mt-1 text-xs text-[var(--muted)]">
-                  Daily Logs use the department assigned to your account.
-                </p>
-              )}
-            </div>
-
-            <div>
               <label className="block text-sm font-medium mb-2">Log Type</label>
               <select
                 value={formLogType}
@@ -890,7 +863,7 @@ export default function DailyLogsPage() {
               <Button
                 variant="success"
                 onClick={handleSubmit}
-                disabled={!effectiveFormDepartment || formTasks.length === 0}
+                disabled={formTasks.length === 0}
                 icon={<Plus className="w-4 h-4" />}
               >
                 {editingLog ? 'Update Log' : 'Add Log'}

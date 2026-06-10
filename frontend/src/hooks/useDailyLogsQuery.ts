@@ -13,9 +13,8 @@ import {
   updateDailyLog,
   deleteDailyLog,
   toggleLogLike,
+  type CreateDailyLogInput,
   type DailyLog,
-  type LogTask,
-  type LogStatus,
 } from '@/lib/daily-logs';
 
 const QUERY_KEY = ['daily-logs'] as const;
@@ -52,24 +51,7 @@ export function useDailyLogsPaginated(page: number, limit: number, department?: 
 export function useCreateDailyLog() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (args: {
-      department: string;
-      date: string;
-      hoursLogged: number;
-      tasks: LogTask[];
-      status?: LogStatus;
-      shiftNotes?: string;
-      logType?: string;
-    }) =>
-      createDailyLog(
-        args.department,
-        args.date,
-        args.hoursLogged,
-        args.tasks,
-        args.status,
-        args.shiftNotes,
-        args.logType,
-      ),
+    mutationFn: (args: CreateDailyLogInput) => createDailyLog(args),
     onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
   });
 }
