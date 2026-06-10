@@ -935,14 +935,14 @@ export default function TaskTrackingPage() {
 
   if (isLoading && tasks.length === 0) {
     return (
-      <main className="h-[calc(100vh-112px)] bg-[var(--background)] text-[var(--foreground)] flex flex-col overflow-hidden">
-        <div className="motion-content-enter p-6 pt-0 flex flex-col flex-1 min-h-0">
+      <main className="min-h-[calc(100dvh-112px)] overflow-x-hidden bg-[var(--background)] text-[var(--foreground)]">
+        <div className="motion-content-enter flex min-h-0 flex-col p-6 pt-0">
           <Header
             title="Task Tracking"
             subtitle="Track and manage tasks, assignments, and progress."
           />
 
-          <div className="mt-6 flex flex-col flex-1 min-h-0 gap-4">
+          <div className="mt-6 flex flex-col gap-4">
             <TaskBoardSkeleton includeHeader={false} />
           </div>
         </div>
@@ -951,14 +951,14 @@ export default function TaskTrackingPage() {
   }
 
   return (
-    <main className="h-[calc(100vh-112px)] bg-[var(--background)] text-[var(--foreground)] flex flex-col overflow-hidden">
-      <div className="motion-content-enter p-6 pt-0 flex flex-col flex-1 min-h-0">
+    <main className="min-h-[calc(100dvh-112px)] overflow-x-hidden bg-[var(--background)] text-[var(--foreground)]">
+      <div className="motion-content-enter flex min-h-0 flex-col p-6 pt-0">
         <Header
           title="Task Tracking"
           subtitle="Track and manage tasks, assignments, and progress."
         />
 
-        <div className="mt-6 flex flex-col flex-1 min-h-0 gap-4">
+        <div className="mt-6 flex flex-col gap-4 pb-8">
           <section className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div className="min-w-0">
@@ -1547,7 +1547,7 @@ export default function TaskTrackingPage() {
           )}
 
           {view === "grid" && (
-            <div key="task-grid-view" className="motion-view-enter flex-1 min-h-0 overflow-hidden flex flex-col">
+            <div key="task-grid-view" className="motion-view-enter min-h-[28rem] overflow-hidden">
               {sortedTasks.length === 0 && (
                 <EmptyState
                   icon={CheckSquare}
@@ -1559,11 +1559,11 @@ export default function TaskTrackingPage() {
               )}
 
               {sortedTasks.length > 0 && (
-                <div className="overflow-x-auto flex-1 chat-scroll pb-2">
-                  <div className="flex gap-4 h-full" style={{ width: 'max-content' }}>
+                <div className="overflow-x-auto chat-scroll pb-3">
+                  <div className="flex min-w-max items-stretch gap-4">
                     {columns.map(col => (
-                      <div className="w-[300px] h-full flex flex-col" key={col.id}>
-                        <Card className="flex flex-col overflow-hidden bg-[var(--card-bg)] h-full shadow-sm border-[var(--border)]">
+                      <div className="flex min-h-[28rem] w-[300px] flex-col" key={col.id}>
+                        <Card className="flex min-h-[28rem] flex-col overflow-hidden bg-[var(--card-bg)] shadow-sm border-[var(--border)]">
                           <div className={`px-4 py-3 flex items-center justify-between border-b flex-shrink-0 ${groupBy === 'priority' && col.id === 'High' ? 'border-red-500/30 bg-red-500/5' : 'border-[var(--border)]'
                             }`}>
                             <div className="text-sm font-semibold truncate">
@@ -1574,7 +1574,7 @@ export default function TaskTrackingPage() {
                             </div>
                             <MoreHorizontal className="w-4 h-4 text-[var(--muted)]" />
                           </div>
-                          <div className="p-3 bg-[var(--card-surface)] flex-1 overflow-y-auto chat-scroll scroll-smooth">
+                          <div className="max-h-[34rem] min-h-[20rem] flex-1 overflow-y-auto bg-[var(--card-surface)] p-3 chat-scroll scroll-smooth">
                             {col.items.length === 0 ? (
                               <div className="py-10 text-center opacity-50 text-xs">Empty</div>
                             ) : (
@@ -1598,7 +1598,7 @@ export default function TaskTrackingPage() {
           )}
 
           {view === "list" && (
-            <div key="task-list-view" className="motion-view-enter flex-1 overflow-y-auto chat-scroll pr-2 pb-6">
+            <div key="task-list-view" className="motion-view-enter pb-6">
               {sortedTasks.length === 0 ? (
                 <EmptyState
                   icon={CheckSquare}
@@ -1623,7 +1623,7 @@ export default function TaskTrackingPage() {
           )}
 
           {view === "calendar" && (
-            <div key="task-calendar-view" className="motion-view-enter flex-1 min-h-0">
+            <div key="task-calendar-view" className="motion-view-enter pb-6">
               <TaskCalendarView
                 events={events}
                 todaysTasks={todaysTasks}

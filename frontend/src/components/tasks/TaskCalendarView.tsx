@@ -30,50 +30,52 @@ export default function TaskCalendarView({
   onOpenTask,
 }: TaskCalendarViewProps) {
   return (
-    <div className="flex-1 overflow-y-auto chat-scroll pr-2 pb-6 space-y-6">
-      <div className="rounded border border-[var(--border)] bg-[var(--card-bg)] p-4">
-        <LazyFullCalendar
-          initialView="dayGridMonth"
-          headerToolbar={{
-            left: "prev,next today",
-            center: "title",
-            right: "dayGridMonth,dayGridWeek,dayGridDay",
-          }}
-          events={events}
-          eventContent={(arg) => {
-            const task = arg.event.extendedProps.task;
-            const statusDot: Record<string, string> = {
-              todo: "#6b7280",
-              in_progress: "#3b82f6",
-              review: "#f59e0b",
-              completed: "#10b981",
-            };
-            return (
-              <div className="flex items-center gap-1 px-1.5 py-0.5 w-full overflow-hidden">
-                <span
-                  style={{
-                    width: 5,
-                    height: 5,
-                    borderRadius: "50%",
-                    background: statusDot[task?.status] || "#6b7280",
-                    flexShrink: 0,
-                    display: "inline-block",
-                  }}
-                />
-                <span className="text-[10px] font-semibold text-white whitespace-nowrap overflow-hidden text-ellipsis leading-tight">
-                  {arg.event.title}
-                </span>
-              </div>
-            );
-          }}
-          eventClick={(arg) => {
-            if (arg.event.extendedProps.task) {
-              onOpenTask(arg.event.extendedProps.task);
-            }
-          }}
-          dayMaxEvents={3}
-          height={600}
-        />
+    <div className="space-y-6 pb-6">
+      <div className="overflow-x-auto rounded border border-[var(--border)] bg-[var(--card-bg)] p-4 chat-scroll">
+        <div className="min-w-[42rem] md:min-w-0">
+          <LazyFullCalendar
+            initialView="dayGridMonth"
+            headerToolbar={{
+              left: "prev,next today",
+              center: "title",
+              right: "dayGridMonth,dayGridWeek,dayGridDay",
+            }}
+            events={events}
+            eventContent={(arg) => {
+              const task = arg.event.extendedProps.task;
+              const statusDot: Record<string, string> = {
+                todo: "#6b7280",
+                in_progress: "#3b82f6",
+                review: "#f59e0b",
+                completed: "#10b981",
+              };
+              return (
+                <div className="flex items-center gap-1 px-1.5 py-0.5 w-full overflow-hidden">
+                  <span
+                    style={{
+                      width: 5,
+                      height: 5,
+                      borderRadius: "50%",
+                      background: statusDot[task?.status] || "#6b7280",
+                      flexShrink: 0,
+                      display: "inline-block",
+                    }}
+                  />
+                  <span className="text-[10px] font-semibold text-white whitespace-nowrap overflow-hidden text-ellipsis leading-tight">
+                    {arg.event.title}
+                  </span>
+                </div>
+              );
+            }}
+            eventClick={(arg) => {
+              if (arg.event.extendedProps.task) {
+                onOpenTask(arg.event.extendedProps.task);
+              }
+            }}
+            dayMaxEvents={3}
+            height={600}
+          />
+        </div>
       </div>
 
       {/* Weekly Summary Cards */}

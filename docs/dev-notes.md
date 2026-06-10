@@ -1,5 +1,31 @@
 # Development Notes
 
+## 2026-06-11 - Task Tracking Board And Calendar Scroll
+
+### Completed
+
+- Removed the fixed-height Task Tracking page trap that clipped the board and calendar views.
+- Let the Task Tracking page scroll normally while keeping kanban columns horizontally scrollable.
+- Gave board columns stable minimum height and capped long column bodies with their own scroll.
+- Let the calendar and its summary cards remain reachable below the fold.
+
+### Files Changed
+
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/tasks/TaskCalendarView.tsx`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept task data, filters, project behavior, and FullCalendar contracts unchanged.
+- Used page-level vertical scrolling for the route because Work Focus and Project Organization can make the task views taller than a single viewport.
+
+### How to Test
+
+- Open `/task-tracking`, switch to card view, and confirm the kanban columns are not clipped and the page can scroll down.
+- Switch to calendar view, scroll below the calendar, and confirm the due-today, overdue, and overview cards are reachable.
+
 ## 2026-06-11 - Expandable Chat Emoji Controls
 
 ### Completed

@@ -24,7 +24,7 @@ The header search / command palette searches both navigation commands and author
 
 ## Task Tracking
 
-Task tracking supports calendar, board, and list views for task status, assignment, timing, and progress.
+Task tracking supports calendar, board, and list views for task status, assignment, timing, and progress. Board and calendar views stay in the normal page scroll so tall work focus, project, calendar, and summary sections remain reachable.
 
 ### Assignment Behavior
 
