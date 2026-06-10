@@ -49,6 +49,7 @@ function calcProgress(elapsedSecs: number, estimatedMinutes: number | undefined)
 
 export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
   const assigneeName = task.assignee?.name || task.assignee?.email || "Unassigned";
+  const collaboratorCount = task.collaborators?.length || 0;
   const liveElapsed = useLiveElapsed(task.timerStatus, task.timerStart, task.totalElapsed || 0);
   const progress = task.status === 'completed' ? 100 : calcProgress(liveElapsed, task.estimatedTime);
   const actionButtonClass =
@@ -75,6 +76,17 @@ export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
               {task.description}
             </div>
           ) : null}
+
+          {task.project?.name && (
+            <div className="mt-2 inline-flex max-w-full rounded border border-[var(--accent)]/30 bg-[var(--accent)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--accent)]">
+              <span className="truncate">{task.project.name}</span>
+            </div>
+          )}
+          {collaboratorCount > 0 && (
+            <div className="mt-2 inline-flex max-w-full rounded border border-[var(--border)] bg-[var(--card-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--muted)]">
+              +{collaboratorCount} collaborator{collaboratorCount === 1 ? "" : "s"}
+            </div>
+          )}
 
           {/* Dates */}
           {(task.startDate || task.dueDate) && (

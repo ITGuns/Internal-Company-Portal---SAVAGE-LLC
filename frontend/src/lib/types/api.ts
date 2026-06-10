@@ -114,6 +114,8 @@ export interface ApiEmployeeProfile {
   baseSalary?: number;
   jobTitle?: string;
   department?: { name: string };
+  payrollScheme?: string;
+  maxBillableHoursPerDay?: number;
 }
 
 export interface ApiEmployee {
@@ -133,6 +135,8 @@ export interface ApiEmployee {
   performance?: number | null;
   department?: string;
   role?: string;
+  payrollScheme?: string;
+  maxBillableHoursPerDay?: number;
   employeeProfile?: ApiEmployeeProfile;
 }
 
@@ -182,6 +186,38 @@ export interface ApiTaskWorkSession {
   user?: { id: string; name: string | null; email: string; avatar: string | null };
 }
 
+export interface ApiTaskProject {
+  id: string;
+  name: string;
+  description?: string | null;
+  status: string;
+  color?: string | null;
+  departmentId?: string | null;
+  ownerId?: string | null;
+  createdById?: string | null;
+  startDate?: string | null;
+  targetDate?: string | null;
+  completedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  department?: { id: string; name: string } | null;
+  owner?: { id: string; name: string | null; email: string; avatar: string | null } | null;
+  creator?: { id: string; name: string | null; email: string; avatar: string | null } | null;
+  _count?: { tasks?: number };
+}
+
+export interface ApiTaskCollaborator {
+  id: string;
+  taskId: string;
+  userId: string;
+  invitedById?: string | null;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+  user?: { id: number | string; name: string | null; email: string; avatar: string | null };
+  invitedBy?: { id: number | string; name: string | null; email: string; avatar: string | null } | null;
+}
+
 export interface ApiTask {
   id: string;
   title: string;
@@ -193,10 +229,13 @@ export interface ApiTask {
   notes?: unknown;
   departmentId?: string;
   department?: { id: string; name: string; availableRoles?: Array<{ id: string; name: string; departmentId?: string | null }> };
+  projectId?: string | null;
+  project?: ApiTaskProject | null;
   assigneeId?: number | string;
   assignee?: { id: number | string; name: string | null; email: string; avatar: string | null };
   createdById?: number | string;
   creator?: { id: number | string; name: string | null; email: string; avatar: string | null };
+  collaborators?: ApiTaskCollaborator[];
   role?: string;
   progress?: number;
   timerStatus?: string;

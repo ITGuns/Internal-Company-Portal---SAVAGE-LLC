@@ -18,6 +18,7 @@ model User {
   email  String  @unique
   name   String?
   avatar String?
+  managerId String?
 
   // Profile fields (added in migration 20260217105259)
   phone       String?
@@ -52,9 +53,12 @@ model User {
   dailyLogLikes        DailyLogLike[]
   participants         Participant[]
   messages             Message[]
+  messageReactions     MessageReaction[]
   employeeProfile      EmployeeProfile?
   payslips             Payslip[]
   taskWorkSessions     TaskWorkSession[]
+  taskCollaborations   TaskCollaborator[] @relation("TaskCollaboratorUser")
+  taskCollaboratorInvites TaskCollaborator[] @relation("TaskCollaboratorInviter")
   clientMemberships    ClientMembership[]
   clientTicketsCreated ClientTicket[]        @relation("ClientTicketCreator")
   clientTicketsAssigned ClientTicket[]       @relation("ClientTicketAssignee")
@@ -68,8 +72,13 @@ model User {
   clientReportsCreated ClientReport[]        @relation("ClientReportCreator")
   clientCalendarItemsCreated ClientCalendarItem[] @relation("ClientCalendarItemCreator")
   clientActivities ClientActivity[]          @relation("ClientActivityActor")
+  manager              User?         @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull)
+  directReports        User[]        @relation("UserManager")
+  ownedTaskProjects    TaskProject[] @relation("TaskProjectOwner")
+  createdTaskProjects  TaskProject[] @relation("TaskProjectCreator")
 
   @@index([email])
+  @@index([managerId])
 }
 
 model Department {
@@ -83,6 +92,7 @@ model Department {
   tasks          Task[]
   roles          UserRole[]
   availableRoles AvailableRole[]
+  taskProjects   TaskProject[]
 
   @@index([name])
 }
@@ -113,6 +123,7 @@ model Task {
   departmentId String?
   assigneeId   String?
   createdById  String?
+  projectId    String?
 
   progress      Int?      @default(0)
   timerStatus   String?   @default("stopped")
@@ -128,13 +139,62 @@ model Task {
   department   Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   assignee     User?             @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   creator      User?             @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  project      TaskProject?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
   workSessions TaskWorkSession[]
+  collaborators TaskCollaborator[]
 
   @@index([status])
   @@index([departmentId])
   @@index([assigneeId])
   @@index([createdById])
+  @@index([projectId])
   @@index([completedAt])
+}
+
+model TaskProject {
+  id           String    @id @default(cuid())
+  name         String
+  description  String?
+  status       String    @default("active")
+  color        String?
+  departmentId String?
+  ownerId      String?
+  createdById  String?
+  startDate    DateTime?
+  targetDate   DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  owner      User?       @relation("TaskProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  creator    User?       @relation("TaskProjectCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  tasks      Task[]
+
+  @@index([status])
+  @@index([departmentId])
+  @@index([ownerId])
+  @@index([createdById])
+}
+
+model TaskCollaborator {
+  id          String   @id @default(cuid())
+  taskId      String
+  userId      String
+  invitedById String?
+  status      String   @default("invited")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  task      Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User  @relation("TaskCollaboratorUser", fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy User? @relation("TaskCollaboratorInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@unique([taskId, userId])
+  @@index([taskId])
+  @@index([userId])
+  @@index([invitedById])
+  @@index([status])
 }
 
 model TaskWorkSession {
@@ -752,6 +812,8 @@ model EmployeeProfile {
   baseSalary       Float?  @default(0)
   currency         String  @default("PHP")
   paymentFrequency String  @default("Semi-Monthly")
+  payrollScheme    String  @default("weekdays")
+  maxBillableHoursPerDay Float @default(8)
   bankAccount      String?
   taxId            String?
 
@@ -863,11 +925,27 @@ model Message {
   // Relations
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  reactions    MessageReaction[]
 
   @@index([conversationId])
   @@index([senderId])
   @@index([conversationId, createdAt])
   @@index([senderId, createdAt])
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+  @@index([userId])
 }
 
 // ============================================

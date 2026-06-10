@@ -2,9 +2,10 @@
 
 import React from "react";
 import Button from "@/components/Button";
+import SegmentedDateInput from "@/components/forms/SegmentedDateInput";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { Trash2, X } from "lucide-react";
-import type { TaskPriority, TaskStatus, TaskDepartment, TaskUser, Task } from "@/lib/tasks";
+import type { TaskPriority, TaskStatus, TaskDepartment, TaskUser, Task, TaskProject } from "@/lib/tasks";
 import { getPrimaryTaskAssignmentFromRoles } from "@/lib/task-access";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -14,10 +15,10 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   completed: "Completed",
 };
 
-const OTHER_ROLE_VALUE = "__manual_role__";
 const fieldControlClass =
   "w-full min-h-10 rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
 const selectControlClass = `${fieldControlClass} portal-select`;
+type EstimatedTimeUnit = "minutes" | "hours" | "days";
 
 interface TaskModalProps {
   editTaskData: Task | null;
@@ -27,6 +28,8 @@ interface TaskModalProps {
   setDescription: (v: string) => void;
   assigneeId: number | string;
   setAssigneeId: (v: number | string) => void;
+  collaboratorIds: string[];
+  setCollaboratorIds: (v: string[]) => void;
   dueDate: string;
   setDueDate: (v: string) => void;
   startDate: string;
@@ -35,19 +38,23 @@ interface TaskModalProps {
   setPriority: (v: TaskPriority) => void;
   departmentId: string;
   setDepartmentId: (v: string) => void;
-  role: string;
+  projectId: string;
+  setProjectId: (v: string) => void;
   setRole: (v: string) => void;
   status: TaskStatus;
   setStatus: (v: TaskStatus) => void;
   estimatedTime: string;
   setEstimatedTime: (v: string) => void;
+  estimatedTimeUnit: EstimatedTimeUnit;
+  setEstimatedTimeUnit: (v: EstimatedTimeUnit) => void;
   progress: number;
-  setProgress: (v: number) => void;
   progressNotes: string;
   setProgressNotes: (v: string) => void;
   departments: TaskDepartment[];
   users: TaskUser[];
+  projects: TaskProject[];
   canManageAssignments: boolean;
+  onCreateDepartment?: (name: string) => Promise<void>;
   assignmentSummary?: {
     assigneeName: string;
     departmentName?: string;
@@ -68,6 +75,8 @@ export default function TaskModal({
   setDescription,
   assigneeId,
   setAssigneeId,
+  collaboratorIds,
+  setCollaboratorIds,
   dueDate,
   setDueDate,
   startDate,
@@ -76,37 +85,40 @@ export default function TaskModal({
   setPriority,
   departmentId,
   setDepartmentId,
-  role,
+  projectId,
+  setProjectId,
   setRole,
   status,
   setStatus,
   estimatedTime,
   setEstimatedTime,
+  estimatedTimeUnit,
+  setEstimatedTimeUnit,
   progress,
   progressNotes,
   setProgressNotes,
   departments,
   users,
+  projects,
   canManageAssignments,
+  onCreateDepartment,
   assignmentSummary,
   onAssignToCurrentUser,
   onSubmit,
   onDelete,
   onClose,
 }: TaskModalProps) {
-  const [isManualRoleMode, setIsManualRoleMode] = React.useState(false);
   const dialogTitleId = React.useId();
   const dialogDescriptionId = React.useId();
   const fieldIdPrefix = React.useId();
   const { dialogRef, handleDialogKeyDown } = useDialogA11y({ onClose });
-  const selectedDepartment = departments.find(
-    (department) => department.id?.toString() === departmentId?.toString(),
-  );
-  const availableRoles = selectedDepartment?.availableRoles?.map((availableRole) => availableRole.name) || [];
-  const showManualRoleInput = isManualRoleMode || Boolean(role && selectedDepartment && !availableRoles.includes(role));
+  const [showDepartmentCreate, setShowDepartmentCreate] = React.useState(false);
+  const [newDepartmentName, setNewDepartmentName] = React.useState("");
+  const [isCreatingDepartment, setIsCreatingDepartment] = React.useState(false);
 
   function handleAssigneeChange(nextAssigneeId: string) {
     setAssigneeId(nextAssigneeId);
+    setCollaboratorIds(collaboratorIds.filter((userId) => String(userId) !== String(nextAssigneeId)));
 
     const selectedUser = users.find((user) => String(user.id) === String(nextAssigneeId));
     const selectedAssignment = getPrimaryTaskAssignmentFromRoles(selectedUser?.roles);
@@ -116,23 +128,27 @@ export default function TaskModal({
       setDepartmentId(selectedAssignment.departmentId);
     }
     setRole(selectedAssignment.role);
-    setIsManualRoleMode(false);
   }
 
-  function handleRoleSelect(nextRole: string) {
-    if (nextRole === OTHER_ROLE_VALUE) {
-      setIsManualRoleMode(true);
-      setRole("");
-      return;
+  async function handleCreateDepartment() {
+    if (!onCreateDepartment || !newDepartmentName.trim()) return;
+
+    setIsCreatingDepartment(true);
+    try {
+      await onCreateDepartment(newDepartmentName.trim());
+      setNewDepartmentName("");
+      setShowDepartmentCreate(false);
+    } finally {
+      setIsCreatingDepartment(false);
     }
-
-    setIsManualRoleMode(false);
-    setRole(nextRole);
   }
 
-  function clearManualRole() {
-    setIsManualRoleMode(false);
-    setRole("");
+  function toggleCollaborator(userId: string) {
+    setCollaboratorIds(
+      collaboratorIds.includes(userId)
+        ? collaboratorIds.filter((id) => id !== userId)
+        : [...collaboratorIds, userId],
+    );
   }
 
   return (
@@ -207,16 +223,26 @@ export default function TaskModal({
             <>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label htmlFor={`${fieldIdPrefix}-department`} className="block text-sm mb-1 font-medium">
-                    Department <span className="text-red-500">*</span>
-                  </label>
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <label htmlFor={`${fieldIdPrefix}-department`} className="block text-sm font-medium">
+                      Department <span className="text-red-500">*</span>
+                    </label>
+                    {onCreateDepartment ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowDepartmentCreate((current) => !current)}
+                        className="text-xs font-medium text-[var(--accent)] hover:underline"
+                      >
+                        New department
+                      </button>
+                    ) : null}
+                  </div>
                   <select
                     id={`${fieldIdPrefix}-department`}
                     value={departmentId}
                     onChange={(event) => {
                       setDepartmentId(event.target.value);
                       setRole("");
-                      setIsManualRoleMode(false);
                     }}
                     className={selectControlClass}
                     required
@@ -229,6 +255,27 @@ export default function TaskModal({
                       </option>
                     ))}
                   </select>
+                  {showDepartmentCreate ? (
+                    <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                      <input
+                        value={newDepartmentName}
+                        onChange={(event) => setNewDepartmentName(event.target.value)}
+                        placeholder="Department name"
+                        className={fieldControlClass}
+                        aria-label="New department name"
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        loading={isCreatingDepartment}
+                        disabled={!newDepartmentName.trim() || isCreatingDepartment}
+                        onClick={() => void handleCreateDepartment()}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div>
@@ -250,8 +297,7 @@ export default function TaskModal({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
+              <div>
                   <div className="flex items-center justify-between gap-2">
                     <label htmlFor={`${fieldIdPrefix}-assignee`} className="block text-sm mb-1 font-medium">
                       Assign To <span className="text-red-500">*</span>
@@ -281,57 +327,40 @@ export default function TaskModal({
                       </option>
                     ))}
                   </select>
-                </div>
+              </div>
 
-                <div>
-                  <label htmlFor={`${fieldIdPrefix}-role`} className="block text-sm mb-1 font-medium">
-                    Role <span className="text-red-500">*</span>
-                  </label>
-                  {showManualRoleInput ? (
-                    <div className="flex gap-2">
-                      <input
-                        id={`${fieldIdPrefix}-role`}
-                        type="text"
-                        value={role}
-                        onChange={(event) => {
-                          setIsManualRoleMode(true);
-                          setRole(event.target.value);
-                        }}
-                        placeholder="Type a role..."
-                        className={fieldControlClass}
-                        autoFocus
-                        required
-                        aria-label="Manual role"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={clearManualRole}
-                        className="px-3"
-                        aria-label="Return to role dropdown"
-                        title="Return to role dropdown"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
+              <div>
+                <div id={`${fieldIdPrefix}-collaborators-label`} className="block text-sm mb-1 font-medium">
+                  Collaborators
+                </div>
+                <div
+                  role="group"
+                  aria-labelledby={`${fieldIdPrefix}-collaborators-label`}
+                  className="max-h-36 overflow-y-auto rounded-md border border-[var(--border)] bg-[var(--card-surface)] p-2 chat-scroll"
+                >
+                  {users.filter((user) => String(user.id) !== String(assigneeId)).length === 0 ? (
+                    <div className="px-2 py-3 text-sm text-[var(--muted)]">No other members available.</div>
                   ) : (
-                    <select
-                      id={`${fieldIdPrefix}-role`}
-                      value={role}
-                      onChange={(event) => handleRoleSelect(event.target.value)}
-                      disabled={!departmentId}
-                      className={selectControlClass}
-                      aria-label="Role"
-                      required
-                    >
-                      <option value="">Select role</option>
-                      {availableRoles.map((roleOption) => (
-                        <option key={roleOption} value={roleOption}>
-                          {roleOption}
-                        </option>
-                      ))}
-                      <option value={OTHER_ROLE_VALUE}>Other / type a role</option>
-                    </select>
+                    users
+                      .filter((user) => String(user.id) !== String(assigneeId))
+                      .map((user) => {
+                        const userId = String(user.id);
+                        return (
+                          <label
+                            key={userId}
+                            className="flex min-h-9 cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-[var(--card-bg)]"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={collaboratorIds.includes(userId)}
+                              onChange={() => toggleCollaborator(userId)}
+                              className="h-4 w-4 rounded border-[var(--border)] accent-[var(--accent)]"
+                            />
+                            <span className="min-w-0 flex-1 truncate">{user.name || user.email}</span>
+                            {user.role ? <span className="text-xs text-[var(--muted)]">{user.role}</span> : null}
+                          </label>
+                        );
+                      })
                   )}
                 </div>
               </div>
@@ -342,11 +371,11 @@ export default function TaskModal({
                 <div className="text-xs font-semibold uppercase text-[var(--muted)]">Assignment</div>
                 <div className="mt-1 text-sm font-medium">{assignmentSummary?.assigneeName || "You"}</div>
                 <div className="mt-1 text-xs text-[var(--muted)]">
-                  {assignmentSummary?.departmentName || "Department not set"} / {assignmentSummary?.role || "Role not set"}
+                  {assignmentSummary?.departmentName || "Department not set"}
                 </div>
                 {!assignmentSummary?.isReady && (
                   <p className="mt-2 text-xs text-red-500">
-                    Ask an admin to assign your department and role before creating tasks.
+                    Ask an admin to complete your task assignment before creating tasks.
                   </p>
                 )}
               </div>
@@ -371,33 +400,40 @@ export default function TaskModal({
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label htmlFor={`${fieldIdPrefix}-start-date`} className="block text-sm mb-1 font-medium">Start Date</label>
-              <input
-                id={`${fieldIdPrefix}-start-date`}
-                type="date"
-                value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
-                className={fieldControlClass}
-                aria-label="Start Date"
-              />
-            </div>
+          <div>
+            <label htmlFor={`${fieldIdPrefix}-project`} className="block text-sm mb-1 font-medium">
+              Project
+            </label>
+            <select
+              id={`${fieldIdPrefix}-project`}
+              value={projectId}
+              onChange={(event) => setProjectId(event.target.value)}
+              className={selectControlClass}
+              aria-label="Project"
+            >
+              <option value="">No project</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}{project.status === "completed" ? " (completed)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            <div>
-              <label htmlFor={`${fieldIdPrefix}-due-date`} className="block text-sm mb-1 font-medium">
-                Due Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                id={`${fieldIdPrefix}-due-date`}
-                type="date"
-                value={dueDate}
-                onChange={(event) => setDueDate(event.target.value)}
-                className={fieldControlClass}
-                aria-label="Due Date"
-                required
-              />
-            </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <SegmentedDateInput
+              id={`${fieldIdPrefix}-start-date`}
+              label="Start Date"
+              value={startDate}
+              onChange={setStartDate}
+            />
+
+            <SegmentedDateInput
+              id={`${fieldIdPrefix}-due-date`}
+              label="Due Date"
+              value={dueDate}
+              onChange={setDueDate}
+            />
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -422,17 +458,33 @@ export default function TaskModal({
             </div>
             <div>
               <label htmlFor={`${fieldIdPrefix}-estimated-time`} className="block text-sm mb-1 font-medium">
-                ETOC (Est. Minutes) <span className="text-red-500">*</span>
+                ETOC <span className="text-red-500">*</span>
               </label>
-              <input
-                id={`${fieldIdPrefix}-estimated-time`}
-                type="number"
-                value={estimatedTime}
-                onChange={(event) => setEstimatedTime(event.target.value)}
-                placeholder="e.g. 60"
-                className={fieldControlClass}
-                required
-              />
+              <div className="grid grid-cols-[minmax(0,1fr)_132px] gap-2">
+                <input
+                  id={`${fieldIdPrefix}-estimated-time`}
+                  type="number"
+                  min="0"
+                  step={estimatedTimeUnit === "minutes" ? "1" : "0.25"}
+                  inputMode="decimal"
+                  value={estimatedTime}
+                  onChange={(event) => setEstimatedTime(event.target.value)}
+                  placeholder={estimatedTimeUnit === "minutes" ? "e.g. 90" : "e.g. 1.5"}
+                  className={fieldControlClass}
+                  required
+                />
+                <select
+                  id={`${fieldIdPrefix}-estimated-time-unit`}
+                  value={estimatedTimeUnit}
+                  onChange={(event) => setEstimatedTimeUnit(event.target.value as EstimatedTimeUnit)}
+                  className={selectControlClass}
+                  aria-label="ETOC unit"
+                >
+                  <option value="minutes">Minutes</option>
+                  <option value="hours">Hours</option>
+                  <option value="days">Days</option>
+                </select>
+              </div>
             </div>
           </div>
 

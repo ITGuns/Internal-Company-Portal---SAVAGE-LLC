@@ -6,7 +6,7 @@ import Header from '@/components/Header'
 import Button from '@/components/Button'
 import { MessageSquare, Paperclip, Trash2, Pencil, Check, X, Search } from 'lucide-react'
 import Image from 'next/image'
-import { fetchConversations, fetchMessages, sendMessage, createConversation, deleteMessage, deleteConversation, editMessage, searchMessages, fetchOnlineUsers, markAsRead, type Message, type Conversation, type SearchResult } from '@/lib/chat'
+import { fetchConversations, fetchMessages, sendMessage, createConversation, deleteMessage, deleteConversation, editMessage, searchMessages, fetchOnlineUsers, markAsRead, toggleMessageReaction, type Message, type Conversation, type SearchResult, type MessageReaction, type MessageReactionToggleResult } from '@/lib/chat'
 import { fetchUsers, type User as SystemUser } from '@/lib/users'
 import { useSocket } from '@/context/SocketContext'
 import { useUser } from '@/contexts/UserContext'
@@ -16,6 +16,26 @@ import MessageInput from '@/components/chat/MessageInput'
 import NewChatModal from '@/components/chat/NewChatModal'
 import CreateChannelModal from '@/components/chat/CreateChannelModal'
 import { useToast } from '@/components/ToastProvider'
+
+const QUICK_REACTIONS = ['\u{1F44D}', '\u2705', '\u{1F602}', '\u{1F525}', '\u2764\uFE0F', '\u{1F440}']
+
+function groupMessageReactions(reactions: MessageReaction[] = []) {
+    return reactions.reduce<Array<{ emoji: string; count: number; userIds: Set<string> }>>((groups, reaction) => {
+        const existing = groups.find(group => group.emoji === reaction.emoji)
+        if (existing) {
+            existing.count += 1
+            existing.userIds.add(String(reaction.userId))
+            return groups
+        }
+
+        groups.push({
+            emoji: reaction.emoji,
+            count: 1,
+            userIds: new Set([String(reaction.userId)]),
+        })
+        return groups
+    }, [])
+}
 
 export default function UnifiedChatPage() {
     const { socket, isConnected, clearChatBadge } = useSocket()
@@ -304,6 +324,10 @@ export default function UnifiedChatPage() {
             setMessages(prev => prev.map(m => m.id === messageId ? { ...m, content, editedAt } : m))
         }
 
+        const handleReactionUpdated = ({ messageId, reactions }: MessageReactionToggleResult) => {
+            setMessages(prev => prev.map(m => m.id === messageId ? { ...m, reactions } : m))
+        }
+
         const handleChatRead = ({ conversationId, userId }: { conversationId: string; userId: string }) => {
             // If *we* marked it read (from another tab), zero out our local count
             if (String(userId) === String(currentUser?.id)) {
@@ -316,6 +340,7 @@ export default function UnifiedChatPage() {
         socket.on('chat:conversation_created', handleNewConversation)
         socket.on('chat:user_left', handleUserLeft)
         socket.on('chat:message_edited', handleMessageEdited)
+        socket.on('chat:reaction_updated', handleReactionUpdated)
         socket.on('chat:read', handleChatRead)
 
         return () => {
@@ -324,6 +349,7 @@ export default function UnifiedChatPage() {
             socket.off('chat:conversation_created', handleNewConversation)
             socket.off('chat:user_left', handleUserLeft)
             socket.off('chat:message_edited', handleMessageEdited)
+            socket.off('chat:reaction_updated', handleReactionUpdated)
             socket.off('chat:read', handleChatRead)
         }
     }, [socket, isConnected, selectedId, currentUser, clearChatBadge])
@@ -462,6 +488,18 @@ export default function UnifiedChatPage() {
         } catch (err) {
             console.error(err)
             toast.error("Failed to edit message")
+        }
+    }
+
+    const handleToggleReaction = async (messageId: string, emoji: string) => {
+        if (messageId.startsWith('temp-')) return
+
+        try {
+            const result = await toggleMessageReaction(messageId, emoji)
+            setMessages(prev => prev.map(m => m.id === messageId ? { ...m, reactions: result.reactions } : m))
+        } catch (err) {
+            console.error(err)
+            toast.error("Failed to update reaction")
         }
     }
 
@@ -611,6 +649,7 @@ export default function UnifiedChatPage() {
                                     const myId = currentUser?.id ? String(currentUser.id) : undefined
                                     const isMe = msg.senderId === myId
                                     const showHeader = i === 0 || messages[i - 1].senderId !== msg.senderId
+                                    const reactionGroups = groupMessageReactions(msg.reactions)
 
                                     return (
                                         <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group`}>
@@ -700,6 +739,41 @@ export default function UnifiedChatPage() {
                                                             </button>
                                                         </div>
                                                     )}
+                                                </div>
+                                            </div>
+
+                                            <div className={`mt-1 flex max-w-[85%] flex-wrap gap-1 ${isMe ? 'justify-end pr-2' : 'pl-10'}`}>
+                                                {reactionGroups.map((reaction) => {
+                                                    const selected = myId ? reaction.userIds.has(myId) : false
+
+                                                    return (
+                                                        <button
+                                                            key={reaction.emoji}
+                                                            type="button"
+                                                            onClick={() => handleToggleReaction(msg.id, reaction.emoji)}
+                                                            className={`inline-flex min-h-8 items-center gap-1 rounded-full border px-2 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${selected
+                                                                ? 'border-[var(--accent)] bg-[var(--accent)]/15 text-[var(--foreground)]'
+                                                                : 'border-[var(--border)] bg-[var(--card-surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
+                                                                }`}
+                                                            aria-label={`${selected ? 'Remove' : 'Add'} ${reaction.emoji} reaction`}
+                                                        >
+                                                            <span aria-hidden="true">{reaction.emoji}</span>
+                                                            <span>{reaction.count}</span>
+                                                        </button>
+                                                    )
+                                                })}
+                                                <div className="flex gap-1">
+                                                    {QUICK_REACTIONS.map((emoji) => (
+                                                        <button
+                                                            key={emoji}
+                                                            type="button"
+                                                            onClick={() => handleToggleReaction(msg.id, emoji)}
+                                                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--background)] text-sm shadow-sm transition-colors hover:bg-[var(--card-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                                            aria-label={`React with ${emoji}`}
+                                                        >
+                                                            <span aria-hidden="true">{emoji}</span>
+                                                        </button>
+                                                    ))}
                                                 </div>
                                             </div>
 

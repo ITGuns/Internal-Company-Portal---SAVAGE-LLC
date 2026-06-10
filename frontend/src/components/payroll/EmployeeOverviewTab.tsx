@@ -59,6 +59,8 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                 salary: emp.salary || (emp.employeeProfile?.baseSalary) || 0,
                 department: emp.department || (emp.employeeProfile?.department?.name) || "Operations",
                 role: emp.role || (emp.employeeProfile?.jobTitle) || "Member",
+                payrollScheme: emp.payrollScheme || emp.employeeProfile?.payrollScheme || "weekdays",
+                maxBillableHoursPerDay: emp.maxBillableHoursPerDay || emp.employeeProfile?.maxBillableHoursPerDay || 8,
                 avatar: emp.avatar || (emp.name?.[0] || "U"),
                 status: (emp.status || "active") as Employee['status'],
                 email: emp.email || "no-email@company.com"

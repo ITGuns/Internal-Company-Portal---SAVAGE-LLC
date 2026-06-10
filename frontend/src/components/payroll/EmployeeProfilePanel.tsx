@@ -10,6 +10,8 @@ import {
   Calendar,
   Mail,
   Upload,
+  Clock,
+  WalletCards,
 } from "lucide-react";
 import Button from "@/components/Button";
 import type { Employee, Payslip } from "@/lib/payroll-calendar/types";
@@ -22,6 +24,13 @@ interface EmployeeProfilePanelProps {
   onViewPayslip: (payslip: Payslip) => void;
   onDownloadPDF: (payslip: Payslip) => void;
 }
+
+const PAYROLL_SCHEME_LABELS: Record<string, string> = {
+  weekdays: "Weekdays credited",
+  flat_30: "Flat 30 days",
+  flat_20: "Flat 20 days",
+  flat_160_hours: "Flat 160 hours",
+};
 
 export default function EmployeeProfilePanel({
   employee,
@@ -114,6 +123,32 @@ export default function EmployeeProfilePanel({
       </div>
 
       {/* Documents / Payslips */}
+      <div>
+        <h4 className="text-sm font-semibold mb-3 text-[var(--foreground)]">
+          Payroll Setup
+        </h4>
+        <div className="grid grid-cols-1 gap-2">
+          <div className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--card-surface)] p-3 text-sm">
+            <Clock className="w-4 h-4 text-[var(--muted)] mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <div className="text-xs text-[var(--muted)]">Max billable hours / day</div>
+              <div className="font-semibold text-[var(--foreground)]">
+                {employee.maxBillableHoursPerDay || 8} hours
+              </div>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--card-surface)] p-3 text-sm">
+            <WalletCards className="w-4 h-4 text-[var(--muted)] mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <div className="text-xs text-[var(--muted)]">Salary divisor scheme</div>
+              <div className="font-semibold text-[var(--foreground)]">
+                {PAYROLL_SCHEME_LABELS[employee.payrollScheme || "weekdays"] || "Weekdays credited"}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div>
         <h4 className="text-sm font-semibold mb-3 text-[var(--foreground)] flex justify-between items-center">
           <span>Payslip History</span>

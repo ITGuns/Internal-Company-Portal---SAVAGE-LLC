@@ -133,7 +133,7 @@ export default function SignUpPage() {
       <div className={styles.card}>
         <div className={styles.header}>
           <h1 className={styles.title}>Create Account</h1>
-          <p className={styles.subtitle}>Request access to MyDeskii</p>
+          <p className={styles.subtitle}>Request access to Deskii</p>
         </div>
 
         {success ? (
@@ -257,7 +257,7 @@ export default function SignUpPage() {
               </select>
               <p className={styles.helperText}>
                 {!departmentId
-                  ? 'Choose a department first so MyDeskii can show the right roles.'
+                  ? 'Choose a department first so Deskii can show the right roles.'
                   : roleOptions.length === 0
                     ? 'No signup roles are configured for this department yet.'
                     : `${roleOptions.length} role option${roleOptions.length === 1 ? '' : 's'} available for this department.`}

@@ -23,6 +23,7 @@ import {
   Download,
   Pause,
   Play,
+  FolderKanban,
 } from "lucide-react";
 import { TaskBoardSkeleton } from '@/components/ui/Skeleton';
 import {
@@ -33,13 +34,25 @@ import {
   getTaskViewPreference,
   saveTaskViewPreference,
   type Task,
+  type TaskProject,
+  type TaskProjectStatus,
   type TaskPriority,
   type TaskStatus,
+  type UpdateTaskPayload,
 } from "@/lib/tasks";
-import { useTasks, useUsers, useDepartments } from "@/hooks/useTasksQuery";
+import {
+  useTasks,
+  useUsers,
+  useDepartments,
+  useTaskProjects,
+  useCreateTaskProject,
+  useUpdateTaskProject,
+} from "@/hooks/useTasksQuery";
 import { useQueryClient } from "@tanstack/react-query";
 import { ClipboardCheck } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
+import { apiFetch } from "@/lib/api";
+import { hasFullAccess } from "@/lib/role-access";
 import {
   canManageTaskAssignments,
   getUserTaskAssignment,
@@ -53,6 +66,11 @@ import {
   taskMatchesDeepLinkFilter,
   type TaskDeepLinkFilter,
 } from "@/lib/task-deep-links";
+import {
+  getSelectedFocusTask,
+  getTaskFocusStorageKey,
+} from "@/lib/task-focus";
+import { taskMatchesSearchQuery } from "@/lib/task-search";
 import { getReopenedTaskProgress, type TaskQuickAction } from "@/lib/task-status-actions";
 
 // Lazy-loaded heavy components
@@ -71,6 +89,13 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   review: "Review",
   completed: "Completed"
 };
+const OPEN_TASK_STATUSES: TaskStatus[] = ["todo", "in_progress", "review"];
+const PROJECT_STATUS_LABELS: Record<TaskProjectStatus, string> = {
+  active: "Active",
+  paused: "Paused",
+  completed: "Completed",
+  archived: "Archived",
+};
 
 const formatMinutes = (minutes: number) => {
   if (!minutes) return "0h";
@@ -79,6 +104,62 @@ const formatMinutes = (minutes: number) => {
   if (h > 0) return `${h}h${m > 0 ? ` ${m}m` : ""}`;
   return `${m}m`;
 };
+
+type EstimatedTimeUnit = "minutes" | "hours" | "days";
+
+const ESTIMATED_TIME_UNIT_MULTIPLIERS: Record<EstimatedTimeUnit, number> = {
+  minutes: 1,
+  hours: 60,
+  days: 1440,
+};
+
+function getEstimatedTimeDisplay(minutes?: number): { value: string; unit: EstimatedTimeUnit } {
+  if (!minutes) return { value: "", unit: "hours" };
+  if (minutes % ESTIMATED_TIME_UNIT_MULTIPLIERS.days === 0) {
+    return { value: String(minutes / ESTIMATED_TIME_UNIT_MULTIPLIERS.days), unit: "days" };
+  }
+  if (minutes % ESTIMATED_TIME_UNIT_MULTIPLIERS.hours === 0) {
+    return { value: String(minutes / ESTIMATED_TIME_UNIT_MULTIPLIERS.hours), unit: "hours" };
+  }
+  return { value: String(minutes), unit: "minutes" };
+}
+
+function convertEstimatedTimeToMinutes(value: string, unit: EstimatedTimeUnit): number | null {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return Math.max(1, Math.round(parsed * ESTIMATED_TIME_UNIT_MULTIPLIERS[unit]));
+}
+
+function getTaskFocusOptionLabel(task: Task): string {
+  const metadata = [
+    STATUS_LABELS[task.status],
+    task.project?.name,
+    task.assignee?.name || task.assignee?.email,
+    task.dueDate ? `Due ${task.dueDate}` : null,
+  ].filter(Boolean).join(" - ");
+
+  return metadata ? `${task.title} - ${metadata}` : task.title;
+}
+
+function replaceTaskInQueryData(currentData: unknown, updatedTask: Task) {
+  if (Array.isArray(currentData)) {
+    return currentData.map((task) => task.id === updatedTask.id ? updatedTask : task);
+  }
+
+  if (
+    currentData &&
+    typeof currentData === "object" &&
+    "data" in currentData &&
+    Array.isArray((currentData as { data?: unknown }).data)
+  ) {
+    return {
+      ...currentData,
+      data: (currentData as { data: Task[] }).data.map((task) => task.id === updatedTask.id ? updatedTask : task),
+    };
+  }
+
+  return currentData;
+}
 
 export default function TaskTrackingPage() {
   const toast = useToast();
@@ -89,8 +170,12 @@ export default function TaskTrackingPage() {
   const { data: tasks = [], isLoading: tasksLoading } = useTasks();
   const { data: departments = [] } = useDepartments();
   const { data: users = [] } = useUsers();
+  const { data: projects = [] } = useTaskProjects();
+  const createProjectMutation = useCreateTaskProject();
+  const updateProjectMutation = useUpdateTaskProject();
   const currentUserId = currentUser?.id ? String(currentUser.id) : "";
   const canManageAssignments = canManageTaskAssignments(currentUser);
+  const canManageDepartments = hasFullAccess(currentUser);
   const currentUserAssignment = useMemo(
     () => getUserTaskAssignment(currentUser, users),
     [currentUser, users],
@@ -110,19 +195,42 @@ export default function TaskTrackingPage() {
   const [filterPriority, setFilterPriority] = useState<TaskPriority[]>([]);
   const [filterUserId, setFilterUserId] = useState<number | string>("");
   const [filterDeptId, setFilterDeptId] = useState<string>("");
+  const [filterProjectId, setFilterProjectId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
 
   const [sortBy, setSortBy] = useState<"dueDate" | "priority" | "title" | "status">("dueDate");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [groupBy, setGroupBy] = useState<"status" | "priority" | "department" | "assignee" | "none">("status");
+  const [groupBy, setGroupBy] = useState<"status" | "priority" | "department" | "assignee" | "project" | "none">("status");
 
   const [showDisplayMenu, setShowDisplayMenu] = useState(false);
   const [showEODModal, setShowEODModal] = useState(false);
+  const [pinnedFocusTaskId, setPinnedFocusTaskId] = useState<string | null>(null);
 
   const displayRef = useRef<HTMLDivElement>(null);
   const appliedDefaultUserFilterRef = useRef(false);
   const handledCreateDeepLinkRef = useRef(false);
   const openedDeepLinkTaskRef = useRef<string | null>(null);
+  const focusStorageKey = useMemo(
+    () => getTaskFocusStorageKey(currentUserId),
+    [currentUserId],
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setPinnedFocusTaskId(window.localStorage.getItem(focusStorageKey));
+  }, [focusStorageKey]);
+
+  const savePinnedFocusTask = useCallback((taskId: string | null) => {
+    setPinnedFocusTaskId(taskId);
+
+    if (typeof window === "undefined") return;
+
+    if (taskId) {
+      window.localStorage.setItem(focusStorageKey, taskId);
+    } else {
+      window.localStorage.removeItem(focusStorageKey);
+    }
+  }, [focusStorageKey]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -212,8 +320,14 @@ export default function TaskTrackingPage() {
     try {
       const updatedTask = await updateTask(taskId, updates);
       if (updatedTask) {
-        queryClient.invalidateQueries({ queryKey: ['tasks'] });
-        queryClient.invalidateQueries({ queryKey: ['tasks', 'detail', taskId] });
+        queryClient.setQueriesData({ queryKey: ['tasks'] }, (currentData) =>
+          replaceTaskInQueryData(currentData, updatedTask),
+        );
+        queryClient.setQueryData(['tasks', 'detail', taskId], (currentData: Task | undefined) => ({
+          ...currentData,
+          ...updatedTask,
+          workSessions: updatedTask.workSessions ?? currentData?.workSessions,
+        }));
         toast.success(`Task ${action === 'complete' ? 'completed' : action === 'reopen' ? 'reopened' : (action === 'play' ? 'started' : 'paused')}`);
       }
     } catch {
@@ -230,17 +344,24 @@ export default function TaskTrackingPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [assigneeId, setAssigneeId] = useState<number | string>("");
+  const [collaboratorIds, setCollaboratorIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState("");
   const [startDate, setStartDate] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("Med");
   const [departmentId, setDepartmentId] = useState("");
+  const [projectId, setProjectId] = useState("");
   const [role, setRole] = useState("");
   const [status, setStatus] = useState<TaskStatus>("todo");
   const [estimatedTime, setEstimatedTime] = useState<string>("");
+  const [estimatedTimeUnit, setEstimatedTimeUnit] = useState<EstimatedTimeUnit>("hours");
 
   const [editTaskData, setEditTaskData] = useState<Task | null>(null);
   const [progress, setProgress] = useState(0);
   const [progressNotes, setProgressNotes] = useState("");
+  const [projectName, setProjectName] = useState("");
+  const [projectDescription, setProjectDescription] = useState("");
+  const [projectDepartmentId, setProjectDepartmentId] = useState("");
+  const [projectTargetDate, setProjectTargetDate] = useState("");
 
   function applyCurrentUserAssignment() {
     if (!currentUserId) return;
@@ -260,15 +381,18 @@ export default function TaskTrackingPage() {
     setTitle("");
     setDescription("");
     setAssigneeId(canManageAssignments ? "" : currentUserId);
+    setCollaboratorIds([]);
     setDueDate("");
     setStartDate("");
     setPriority("Med");
     setDepartmentId(canManageAssignments ? "" : currentUserAssignment?.departmentId || "");
+    setProjectId("");
     setRole(canManageAssignments ? "" : currentUserAssignment?.role || "");
     setStatus("todo");
     setProgress(0);
     setProgressNotes("");
     setEstimatedTime("");
+    setEstimatedTimeUnit("hours");
     setShowModal(true);
   }, [
     canManageAssignments,
@@ -297,15 +421,19 @@ export default function TaskTrackingPage() {
     setTitle(task.title);
     setDescription(task.description || "");
     setAssigneeId(task.assigneeId || "");
+    setCollaboratorIds((task.collaborators || []).map((collaborator) => collaborator.userId));
     setDueDate(task.dueDate || "");
     setStartDate(task.startDate || "");
     setPriority(task.priority);
     setDepartmentId(task.departmentId || "");
+    setProjectId(task.projectId || "");
     setRole(task.role || "");
     setStatus(task.status);
     setProgress(task.progress || 0);
     setProgressNotes("");
-    setEstimatedTime(task.estimatedTime?.toString() || "");
+    const estimatedTimeDisplay = getEstimatedTimeDisplay(task.estimatedTime);
+    setEstimatedTime(estimatedTimeDisplay.value);
+    setEstimatedTimeUnit(estimatedTimeDisplay.unit);
     setShowModal(true);
   }
 
@@ -393,15 +521,16 @@ export default function TaskTrackingPage() {
     const effectiveAssigneeId = canManageAssignments ? assigneeId : currentUserId;
     const effectiveDepartmentId = canManageAssignments ? departmentId : currentUserAssignment?.departmentId || "";
     const effectiveRole = canManageAssignments ? role : currentUserAssignment?.role || "";
+    const estimatedTimeMinutes = convertEstimatedTimeToMinutes(estimatedTime, estimatedTimeUnit);
 
-    if (!title.trim() || !description.trim() || !dueDate || !estimatedTime) {
+    if (!title.trim() || !description.trim() || !estimatedTimeMinutes) {
       toast.error("Please fill in all required fields");
       return;
     }
 
-    if (canManageAssignments && (!effectiveDepartmentId || !effectiveAssigneeId || !effectiveRole)) {
+    if (canManageAssignments && (!effectiveDepartmentId || !effectiveAssigneeId)) {
       toast.error(
-        "Please choose an assignee, department, and role",
+        "Please choose an assignee and department",
       );
       return;
     }
@@ -414,21 +543,23 @@ export default function TaskTrackingPage() {
     try {
       if (editTaskData) {
         // Update existing
-        const updates: Record<string, unknown> = {
+        const updates: UpdateTaskPayload = {
           title: title.trim(),
           description: description.trim(),
           status,
           priority,
-          dueDate,
-          startDate: startDate || undefined,
-          estimatedTime: parseInt(estimatedTime),
+          projectId: projectId || null,
+          dueDate: dueDate || null,
+          startDate: startDate || null,
+          estimatedTime: estimatedTimeMinutes,
           progress,
         };
 
         if (canManageAssignments) {
           updates.departmentId = effectiveDepartmentId;
           updates.assigneeId = effectiveAssigneeId;
-          updates.role = effectiveRole;
+          updates.role = effectiveRole || undefined;
+          updates.collaboratorIds = collaboratorIds;
         }
 
         if (progressNotes.trim()) {
@@ -450,11 +581,13 @@ export default function TaskTrackingPage() {
           priority,
           departmentId: effectiveDepartmentId,
           assigneeId: effectiveAssigneeId,
-          dueDate,
+          projectId: projectId || undefined,
+          collaboratorIds: canManageAssignments ? collaboratorIds : undefined,
+          dueDate: dueDate || undefined,
           startDate: startDate || undefined,
-          role: effectiveRole,
+          role: effectiveRole || undefined,
           notes: [],
-          estimatedTime: parseInt(estimatedTime),
+          estimatedTime: estimatedTimeMinutes,
         });
         queryClient.invalidateQueries({ queryKey: ['tasks'] });
         toast.success("Task created");
@@ -481,6 +614,67 @@ export default function TaskTrackingPage() {
     }
   }
 
+  async function handleCreateProject(event: React.FormEvent) {
+    event.preventDefault();
+
+    if (!projectName.trim()) {
+      toast.error("Project name is required");
+      return;
+    }
+
+    try {
+      const project = await createProjectMutation.mutateAsync({
+        name: projectName.trim(),
+        description: projectDescription.trim() || null,
+        status: "active",
+        departmentId: projectDepartmentId || null,
+        targetDate: projectTargetDate || null,
+      });
+      setProjectName("");
+      setProjectDescription("");
+      setProjectDepartmentId("");
+      setProjectTargetDate("");
+      setFilterProjectId(project.id);
+      toast.success("Project created");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create project");
+    }
+  }
+
+  async function handleProjectStatus(project: TaskProject, status: TaskProjectStatus) {
+    try {
+      await updateProjectMutation.mutateAsync({
+        id: project.id,
+        data: {
+          status,
+          completedAt: status === "completed" ? new Date().toISOString() : null,
+        },
+      });
+      toast.success(`Project marked ${PROJECT_STATUS_LABELS[status].toLowerCase()}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update project");
+    }
+  }
+
+  async function handleCreateDepartmentFromTaskModal(name: string) {
+    const response = await apiFetch('/departments', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      throw new Error(errorBody.error || 'Failed to create department');
+    }
+
+    const department = await response.json();
+    await queryClient.invalidateQueries({ queryKey: ['departments'] });
+    if (department?.id) {
+      setDepartmentId(department.id);
+    }
+    toast.success("Department created");
+  }
+
   const handleDownloadPDF = async () => {
     try {
       const [{ jsPDF }, { default: autoTable }] = await Promise.all([
@@ -489,16 +683,22 @@ export default function TaskTrackingPage() {
       ]);
 
       const doc = new jsPDF('landscape');
+      const generatedAt = new Date();
+      const generatedBy = currentUser?.name || currentUser?.email || "Unknown user";
+      const generatedAtLabel = new Intl.DateTimeFormat(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(generatedAt);
 
-      // Add Title
       doc.setFontSize(20);
-      doc.text("Task Report", 14, 15);
+      doc.text("Deskii Report", 14, 15);
 
       doc.setFontSize(10);
-      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 22);
+      doc.text(`Generated by: ${generatedBy}`, 14, 23);
+      doc.text(`Generated at: ${generatedAtLabel}`, 14, 29);
+      doc.text(`Tasks included: ${sortedTasks.length}`, 14, 35);
 
-      // Table Header
-      const tableColumn = ["Task Name", "Status", "Priority", "Department", "Assignee", "Start Date", "Due Date", "Progress", "ETOC (m)"];
+      const tableColumn = ["Task Name", "Status", "Priority", "Project", "Department", "Assignee", "Start Date", "Due Date", "Progress", "ETOC", "Creator"];
       const tableRows: string[][] = [];
 
       sortedTasks.forEach(task => {
@@ -506,31 +706,32 @@ export default function TaskTrackingPage() {
           task.title,
           STATUS_LABELS[task.status] || task.status,
           task.priority,
+          task.project?.name || "No project",
           task.department?.name || "N/A",
           task.assignee?.name || task.assignee?.email || "Unassigned",
-          task.startDate || "—",
-          task.dueDate || "No Date",
+          task.startDate || "-",
+          task.dueDate || "No due date",
           `${task.progress || 0}%`,
-          task.estimatedTime ? formatMinutes(task.estimatedTime) : "-"
+          task.estimatedTime ? formatMinutes(task.estimatedTime) : "-",
+          task.creator?.name || task.creator?.email || "Unknown",
         ];
         tableRows.push(taskData);
       });
 
-      // Generate Table
       autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
-        startY: 30,
+        startY: 42,
         theme: 'grid',
-        headStyles: { fillColor: [59, 130, 246] }, // Blue-500
-        styles: { fontSize: 8 },
-        margin: { top: 30 },
+        headStyles: { fillColor: [23, 217, 245], textColor: [4, 16, 24] },
+        styles: { fontSize: 8, cellPadding: 2 },
+        margin: { top: 42 },
       });
 
-      const filename = `Task_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+      const filename = `Deskii_Report_${generatedAt.toISOString().split('T')[0]}.pdf`;
       doc.save(filename);
 
-      toast.success("PDF Report generated successfully");
+      toast.success("Deskii report generated successfully");
     } catch (err) {
       console.error("PDF generation error:", err);
       toast.error("Failed to generate PDF");
@@ -546,7 +747,8 @@ export default function TaskTrackingPage() {
     if (filterPriority.length > 0 && !filterPriority.includes(t.priority)) return false;
     if (filterUserId && t.assigneeId?.toString() !== filterUserId.toString()) return false;
     if (filterDeptId && t.departmentId?.toString() !== filterDeptId.toString()) return false;
-    if (searchQuery.trim() && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (filterProjectId && (t.projectId || "") !== filterProjectId) return false;
+    if (!taskMatchesSearchQuery(t, searchQuery)) return false;
     return true;
   });
 
@@ -605,6 +807,17 @@ export default function TaskTrackingPage() {
       label: 'Unassigned',
       items: sortedTasks.filter(t => !t.assigneeId)
     });
+  } else if (groupBy === "project") {
+    columns = projects.map(project => ({
+      id: project.id,
+      label: project.name,
+      items: sortedTasks.filter(t => t.projectId === project.id)
+    }));
+    columns.push({
+      id: 'no-project',
+      label: 'No Project',
+      items: sortedTasks.filter(t => !t.projectId)
+    });
   } else {
     // Single column if no grouping
     columns = [{ id: 'all', label: 'All Tasks', items: sortedTasks }];
@@ -617,14 +830,18 @@ export default function TaskTrackingPage() {
   const inProgressCount = filteredTasks.filter(t => t.status === 'in_progress').length;
   const reviewCount = filteredTasks.filter(t => t.status === 'review').length;
   const openCount = filteredTasks.filter(t => t.status !== 'completed').length;
-  const activeFilterCount = filterStatus.length + filterPriority.length + (filterUserId ? 1 : 0) + (filterDeptId ? 1 : 0);
-  const focusTask =
-    overdueTasks[0]
-    || todaysTasks[0]
-    || sortedTasks.find((task) => task.status === 'in_progress')
-    || sortedTasks.find((task) => task.status === 'review')
-    || sortedTasks.find((task) => task.status === 'todo')
-    || null;
+  const activeFilterCount = filterStatus.length + filterPriority.length + (filterUserId ? 1 : 0) + (filterDeptId ? 1 : 0) + (filterProjectId ? 1 : 0);
+  const isCompletedOnlyFilter = filterStatus.length === 1 && filterStatus[0] === "completed";
+  const isOpenOnlyFilter = OPEN_TASK_STATUSES.every((statusOption) => filterStatus.includes(statusOption)) && filterStatus.length === OPEN_TASK_STATUSES.length;
+  const focusCandidateTasks = sortedTasks.filter((task) => task.status !== "completed");
+  const focusSelection = getSelectedFocusTask(tasks, focusCandidateTasks, pinnedFocusTaskId, todayStr);
+  const focusTask = focusSelection.task;
+  const focusSelectTasks = focusTask && !focusCandidateTasks.some((task) => task.id === focusTask.id)
+    ? [focusTask, ...focusCandidateTasks]
+    : focusCandidateTasks;
+  const selectedProject = filterProjectId
+    ? projects.find((project) => project.id === filterProjectId)
+    : null;
   const deepLinkFilterLabel = getTaskFilterLabel(deepLinkFilter);
   const deepLinkFilterDescription = getTaskFilterDescription(deepLinkFilter);
 
@@ -718,14 +935,45 @@ export default function TaskTrackingPage() {
                 ) : (
                   <p className="mt-1 text-sm text-[var(--muted)]">No open tasks in the current view.</p>
                 )}
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <label htmlFor="task-focus-select" className="sr-only">Focus task</label>
+                  <select
+                    id="task-focus-select"
+                    value={focusSelection.mode === "pinned" ? pinnedFocusTaskId || "" : ""}
+                    onChange={(event) => savePinnedFocusTask(event.target.value || null)}
+                    className="min-h-10 w-full max-w-md rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
+                    aria-label="Choose focus task"
+                  >
+                    <option value="">
+                      {focusSelection.mode === "auto" ? `Auto: ${focusTask?.title || "No open task"}` : "Auto focus"}
+                    </option>
+                    {focusSelectTasks.map((task) => (
+                      <option key={task.id} value={task.id}>
+                        {getTaskFocusOptionLabel(task)}
+                      </option>
+                    ))}
+                  </select>
+                  {pinnedFocusTaskId ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      icon={<X className="w-4 h-4" />}
+                      onClick={() => savePinnedFocusTask(null)}
+                    >
+                      Clear focus
+                    </Button>
+                  ) : null}
+                </div>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-4 xl:min-w-[28rem]">
+              <div className="grid gap-2 sm:grid-cols-5 xl:min-w-[34rem]">
                 {[
                   { label: "Open", value: openCount },
                   { label: "Overdue", value: overdueTasks.length },
                   { label: "Due today", value: todaysTasks.length },
                   { label: "Review", value: reviewCount },
+                  { label: "Completed", value: completedCount },
                 ].map((item) => (
                   <div key={item.label} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2">
                     <div className="text-xs text-[var(--muted)]">{item.label}</div>
@@ -763,6 +1011,140 @@ export default function TaskTrackingPage() {
             </div>
           </section>
 
+          <section className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+                  <FolderKanban className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" />
+                  Project organization
+                </div>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Assign tasks to projects, then track each project until completion.
+                </p>
+              </div>
+
+              {canManageAssignments && (
+                <form onSubmit={handleCreateProject} className="grid w-full gap-2 xl:max-w-3xl xl:grid-cols-[minmax(10rem,1fr)_minmax(10rem,1fr)_minmax(8rem,0.8fr)_minmax(8rem,0.8fr)_auto]">
+                  <input
+                    value={projectName}
+                    onChange={(event) => setProjectName(event.target.value)}
+                    placeholder="Project name"
+                    className="min-h-10 rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 text-sm outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
+                    aria-label="Project name"
+                  />
+                  <input
+                    value={projectDescription}
+                    onChange={(event) => setProjectDescription(event.target.value)}
+                    placeholder="Short description"
+                    className="min-h-10 rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 text-sm outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
+                    aria-label="Project description"
+                  />
+                  <select
+                    value={projectDepartmentId}
+                    onChange={(event) => setProjectDepartmentId(event.target.value)}
+                    className="portal-select min-h-10 rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 text-sm outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
+                    aria-label="Project department"
+                  >
+                    <option value="">Any department</option>
+                    {departments.map((department) => (
+                      <option key={department.id} value={department.id}>
+                        {department.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    value={projectTargetDate}
+                    onChange={(event) => setProjectTargetDate(event.target.value)}
+                    type="date"
+                    className="min-h-10 rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 text-sm outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
+                    aria-label="Project target date"
+                  />
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    icon={<Plus className="w-4 h-4" />}
+                    disabled={createProjectMutation.isPending}
+                  >
+                    Add
+                  </Button>
+                </form>
+              )}
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {projects.length === 0 ? (
+                <div className="rounded-md border border-dashed border-[var(--border)] bg-[var(--card-surface)] p-4 text-sm text-[var(--muted)]">
+                  No task projects yet.
+                </div>
+              ) : (
+                projects.slice(0, 8).map((project) => {
+                  const taskCount = project.taskCount ?? tasks.filter((task) => task.projectId === project.id).length;
+                  return (
+                    <div key={project.id} className="rounded-md border border-[var(--border)] bg-[var(--card-surface)] p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold">{project.name}</div>
+                          <div className="mt-1 text-xs text-[var(--muted)]">
+                            {taskCount} task{taskCount === 1 ? "" : "s"} - {PROJECT_STATUS_LABELS[project.status]}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setFilterProjectId(filterProjectId === project.id ? "" : project.id)}
+                          className="rounded border border-[var(--border)] px-2 py-1 text-[10px] font-semibold text-[var(--accent)] hover:bg-[var(--card-bg)]"
+                        >
+                          {filterProjectId === project.id ? "All tasks" : "View"}
+                        </button>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1 text-[10px] text-[var(--muted)]">
+                        {project.department?.name && <span>{project.department.name}</span>}
+                        {project.targetDate && <span>Target {project.targetDate}</span>}
+                      </div>
+                      {canManageAssignments && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {project.status !== "completed" ? (
+                            <button
+                              type="button"
+                              onClick={() => handleProjectStatus(project, "completed")}
+                              className="rounded border border-emerald-500/30 px-2 py-1 text-[10px] font-semibold text-emerald-400 hover:bg-emerald-500/10"
+                            >
+                              Complete
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleProjectStatus(project, "active")}
+                              className="rounded border border-[var(--border)] px-2 py-1 text-[10px] font-semibold text-[var(--accent)] hover:bg-[var(--card-bg)]"
+                            >
+                              Reopen
+                            </button>
+                          )}
+                          {project.status === "active" ? (
+                            <button
+                              type="button"
+                              onClick={() => handleProjectStatus(project, "paused")}
+                              className="rounded border border-amber-500/30 px-2 py-1 text-[10px] font-semibold text-amber-300 hover:bg-amber-500/10"
+                            >
+                              Pause
+                            </button>
+                          ) : project.status === "paused" ? (
+                            <button
+                              type="button"
+                              onClick={() => handleProjectStatus(project, "active")}
+                              className="rounded border border-[var(--border)] px-2 py-1 text-[10px] font-semibold text-[var(--accent)] hover:bg-[var(--card-bg)]"
+                            >
+                              Resume
+                            </button>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </section>
+
           <div className="flex flex-wrap items-center gap-3 mb-4">
             <Button
               onClick={openNewTask}
@@ -771,6 +1153,30 @@ export default function TaskTrackingPage() {
             >
               New Task
             </Button>
+
+            <div className="flex flex-wrap items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-1">
+              <button
+                type="button"
+                className={`motion-interactive min-h-9 rounded-[var(--radius-sm)] px-3 text-xs font-semibold ${filterStatus.length === 0 ? "bg-[var(--accent)] text-[var(--accent-foreground)]" : "text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]"}`}
+                onClick={() => setFilterStatus([])}
+              >
+                All Tasks
+              </button>
+              <button
+                type="button"
+                className={`motion-interactive min-h-9 rounded-[var(--radius-sm)] px-3 text-xs font-semibold ${isOpenOnlyFilter ? "bg-[var(--accent)] text-[var(--accent-foreground)]" : "text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]"}`}
+                onClick={() => setFilterStatus(OPEN_TASK_STATUSES)}
+              >
+                Open
+              </button>
+              <button
+                type="button"
+                className={`motion-interactive min-h-9 rounded-[var(--radius-sm)] px-3 text-xs font-semibold ${isCompletedOnlyFilter ? "bg-[var(--accent)] text-[var(--accent-foreground)]" : "text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]"}`}
+                onClick={() => setFilterStatus(["completed"])}
+              >
+                Completed
+              </button>
+            </div>
 
             <Button
               onClick={handleDownloadPDF}
@@ -791,7 +1197,7 @@ export default function TaskTrackingPage() {
 
             <div className="relative" ref={displayRef}>
               <Button
-                variant={(filterStatus.length || filterPriority.length || filterUserId || filterDeptId) ? "primary" : "secondary"}
+                variant={(filterStatus.length || filterPriority.length || filterUserId || filterDeptId || filterProjectId) ? "primary" : "secondary"}
                 icon={<ArrowUpDown className="w-4 h-4" />}
                 onClick={() => setShowDisplayMenu(!showDisplayMenu)}
                 className="min-w-[120px]"
@@ -800,8 +1206,8 @@ export default function TaskTrackingPage() {
               </Button>
 
               {showDisplayMenu && (
-                <div className="motion-panel-in absolute top-full right-0 mt-2 w-80 max-w-[calc(100vw-3rem)] bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-xl z-30 p-4 dropdown-glass glass overflow-hidden flex flex-col max-h-[85vh] sm:left-0 sm:right-auto">
-                  <div className="flex justify-between items-center mb-4 border-b border-[var(--border)] pb-2">
+                <div className="motion-panel-in fixed bottom-6 left-4 right-4 top-28 z-30 flex min-h-0 flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4 shadow-xl dropdown-glass glass sm:left-auto sm:right-6 sm:w-80">
+                  <div className="mb-4 flex shrink-0 items-center justify-between border-b border-[var(--border)] pb-2">
                     <span className="font-bold text-sm">Display & Filter</span>
                     <button
                       className="text-[10px] text-[var(--accent)] hover:underline uppercase font-bold"
@@ -810,6 +1216,7 @@ export default function TaskTrackingPage() {
                         setFilterPriority([]);
                         setFilterUserId(!canManageAssignments && currentUserId ? currentUserId : "");
                         setFilterDeptId("");
+                        setFilterProjectId("");
                         setSortBy("dueDate");
                         setSortOrder("asc");
                         setGroupBy("status");
@@ -819,7 +1226,7 @@ export default function TaskTrackingPage() {
                     </button>
                   </div>
 
-                  <div className="overflow-y-auto chat-scroll pr-1 flex-1">
+                  <div className="chat-scroll min-h-0 flex-1 overflow-y-auto pr-1">
                     {/* Sort By */}
                     <div className="mb-4">
                       <label className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-2">Sort By</label>
@@ -860,6 +1267,7 @@ export default function TaskTrackingPage() {
                           { val: "priority", label: "Priority" },
                           { val: "department", label: "Department" },
                           { val: "assignee", label: "Assignee" },
+                          { val: "project", label: "Project" },
                           { val: "none", label: "No Grouping" },
                         ].map(opt => (
                           <button
@@ -952,6 +1360,19 @@ export default function TaskTrackingPage() {
                           {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                         </select>
                       </div>
+
+                      <div>
+                        <label htmlFor="filter-project" className="text-[10px] uppercase font-bold text-[var(--muted)] block mb-1">Project</label>
+                        <select
+                          id="filter-project"
+                          value={filterProjectId}
+                          onChange={(e) => setFilterProjectId(e.target.value)}
+                          className="w-full bg-[var(--background)] border border-[var(--border)] rounded p-1.5 text-xs"
+                        >
+                          <option value="">All Projects</option>
+                          {projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -962,10 +1383,11 @@ export default function TaskTrackingPage() {
               <div className="relative mr-2 w-full sm:w-auto">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--muted)]" />
                 <input
-                  placeholder="Search tasks..."
+                  placeholder="Search tasks, people, projects..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="motion-interactive min-h-10 w-48 rounded-full border border-[var(--border)] bg-[var(--card-bg)] py-2 pl-8 pr-3 text-xs outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  aria-label="Search tasks, people, projects, departments, dates, notes, and status"
                 />
               </div>
               <Button
@@ -997,6 +1419,25 @@ export default function TaskTrackingPage() {
               />
             </div>
           </div>
+
+          {filterProjectId && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded border border-[var(--accent)]/30 bg-[var(--accent)]/10 px-4 py-3 text-sm">
+              <div className="min-w-0">
+                <div className="font-semibold text-[var(--foreground)]">Viewing project tasks</div>
+                <div className="mt-0.5 text-xs text-[var(--muted)]">
+                  {selectedProject?.name || "Selected project"} - {sortedTasks.length} result{sortedTasks.length === 1 ? "" : "s"}. General tasks are hidden while this project filter is active.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFilterProjectId("")}
+                className="inline-flex min-h-9 items-center gap-1 rounded border border-[var(--accent)]/40 bg-[var(--card-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--surface-hover)]"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
+                Back to all tasks
+              </button>
+            </div>
+          )}
 
           {(deepLinkFilterLabel || taskLinkError) && (
             <div className="mb-4 space-y-2">
@@ -1138,17 +1579,21 @@ export default function TaskTrackingPage() {
           title={title} setTitle={setTitle}
           description={description} setDescription={setDescription}
           assigneeId={assigneeId} setAssigneeId={setAssigneeId}
+          collaboratorIds={collaboratorIds} setCollaboratorIds={setCollaboratorIds}
           dueDate={dueDate} setDueDate={setDueDate}
           startDate={startDate} setStartDate={setStartDate}
           priority={priority} setPriority={setPriority}
           departmentId={departmentId} setDepartmentId={setDepartmentId}
-          role={role} setRole={setRole}
+          projectId={projectId} setProjectId={setProjectId}
+          setRole={setRole}
           status={status} setStatus={setStatus}
           estimatedTime={estimatedTime} setEstimatedTime={setEstimatedTime}
-          progress={progress} setProgress={setProgress}
+          estimatedTimeUnit={estimatedTimeUnit} setEstimatedTimeUnit={setEstimatedTimeUnit}
+          progress={progress}
           progressNotes={progressNotes} setProgressNotes={setProgressNotes}
-          departments={departments} users={users}
+          departments={departments} users={users} projects={projects}
           canManageAssignments={canManageAssignments}
+          onCreateDepartment={canManageDepartments ? handleCreateDepartmentFromTaskModal : undefined}
           assignmentSummary={{
             assigneeName: currentUser?.name || currentUser?.email || "You",
             departmentName: currentUserAssignment?.departmentName,

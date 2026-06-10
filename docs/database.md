@@ -10,6 +10,7 @@ Current additive migrations related to the recent release:
 - `202605210002_task_creator`
 - `202605240001_client_portal_foundation`
 - `202605270002_client_activity`
+- `202606100001_task_projects_org_reporting`
 
 Migration SQL is now tracked. Do not ignore migration SQL files or rely on local schema drift.
 
@@ -85,7 +86,7 @@ The field is nullable so existing client organizations are not backfilled into a
 - Department and role APIs preserve persisted role rows and merge any missing org-catalog default roles for matching departments.
 - The default org catalog is defined in `backend/src/org/org-access-policy.ts` and mirrored in `frontend/src/lib/departments.ts`.
 - The current default departments are Owners / Founders, Project Management, Operations, Digital Marketing, Analytics / Data, Automation / Tech, Website Developers, and Payroll / Finance.
-- No schema migration is required for org chart changes as long as they fit existing `Department`, `AvailableRole`, and `UserRole` records.
+- `User.managerId` stores flexible reporting lines for the Operations org chart. It is a nullable self-relation with `onDelete: SetNull`, so removing a manager does not delete direct reports.
 
 ## Signup Approval
 
@@ -99,6 +100,8 @@ Payroll-sensitive fields also live on `EmployeeProfile`.
 
 - Compensation, currency, payment frequency, bank account, and tax ID are protected fields.
 - Directory serializers must not expose sensitive payroll/profile fields.
+- `EmployeeProfile.payrollScheme` stores the salary divisor rule for payroll calculation. Supported values are `weekdays`, `flat_30`, `flat_20`, and `flat_160_hours`.
+- `EmployeeProfile.maxBillableHoursPerDay` stores the daily cap used to split tracked time into billable hours and pending overtime.
 
 ## Task Tracking
 
@@ -114,6 +117,22 @@ Payroll-sensitive fields also live on `EmployeeProfile`.
 - Uses `onDelete: SetNull` so historical tasks survive user removal.
 - Indexed for creator-scoped visibility checks.
 - `Task.assigneeId` remains the current task owner/worker through the `TaskAssignee` relation.
+
+`TaskCollaborator` stores task collaboration invitations without changing the primary assignee contract.
+
+- Links each task to invited employee collaborators through `(taskId, userId)`.
+- Uses `onDelete: Cascade` for task/user cleanup and `onDelete: SetNull` for the inviter relation.
+- `status` currently supports invitation-state reads such as `invited`, `accepted`, and `declined`.
+- A unique `(taskId, userId)` constraint prevents duplicate collaborator rows.
+- Indexes on task, user, inviter, and status support task detail reads, collaborator-scoped visibility, and future invitation inboxes.
+
+`TaskProject` stores internal task project groupings for Task Tracking.
+
+- `Task.projectId` links a task to an optional project through `onDelete: SetNull`.
+- `TaskProject.departmentId` can scope a project to a department, but remains nullable for cross-functional work.
+- `TaskProject.ownerId` and `createdById` link to `User` with `onDelete: SetNull`.
+- Project status supports active, paused, completed, and archived UI states.
+- Project and project-task indexes support dashboard filtering, grouping, and project progress views.
 
 `TaskWorkSession` stores timer work history.
 
@@ -143,6 +162,7 @@ Payroll-sensitive fields also live on `EmployeeProfile`.
 
 - Period generation is restricted through payroll controller permissions.
 - Payslip reads are self-service by default and privileged for management review.
+- Automatic payslip generation uses billable hours after applying the employee daily cap. Pending overtime is recorded as a zero-amount `PayrollItem` note until a manager approves or manually overrides pay.
 
 `PayrollEvent` stores calendar-level payroll events.
 
@@ -175,6 +195,7 @@ Chat, announcements, notifications, uploads, and file-directory records are part
 
 - Chat room authorization depends on conversation participation.
 - Chat performance indexes support conversation type lookup, recently updated conversation ordering, participant lookup by user, message pagination, and unread-count scans.
+- `MessageReaction` stores per-user emoji reactions with a unique `(messageId, userId, emoji)` constraint so toggling a reaction cannot create duplicates.
 - File-directory permissions are enforced in the controller/service layer; do not expose unsafe file tree mutations from unauthenticated routes.
 - Uploaded files are served through authenticated `/api/uploads/files/:filename` routes.
 - Uploaded file metadata and served files should be treated as authenticated portal data unless a route explicitly makes them public.

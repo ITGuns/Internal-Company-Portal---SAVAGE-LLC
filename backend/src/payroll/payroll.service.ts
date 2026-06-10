@@ -28,6 +28,8 @@ export interface UpdateTimeEntryDto {
     notes?: string | null
 }
 
+type PayrollScheme = 'weekdays' | 'flat_30' | 'flat_20' | 'flat_160_hours'
+
 interface TimeEntryAccessOptions {
     requesterId: string
     canManageAny?: boolean
@@ -35,6 +37,15 @@ interface TimeEntryAccessOptions {
 
 export class PayrollForbiddenError extends Error { }
 export class PayrollNotFoundError extends Error { }
+
+const DEFAULT_MAX_BILLABLE_HOURS_PER_DAY = 8
+const DEFAULT_PAYROLL_SCHEME: PayrollScheme = 'weekdays'
+const PAYROLL_SCHEME_LABELS: Record<PayrollScheme, string> = {
+    weekdays: 'Weekdays of month',
+    flat_30: 'Flat 30 days',
+    flat_20: 'Flat 20 days',
+    flat_160_hours: 'Flat 160 hours',
+}
 
 export class PayrollService {
     private prisma: PrismaClient
@@ -162,6 +173,83 @@ export class PayrollService {
         }
     }
 
+    private normalizePositiveNumber(value: unknown, fallback: number): number {
+        const parsed = typeof value === 'number' ? value : parseFloat(String(value))
+        if (!Number.isFinite(parsed) || parsed <= 0) return fallback
+        return parsed
+    }
+
+    private normalizePayrollScheme(value: unknown): PayrollScheme {
+        if (value === 'flat_30' || value === 'flat_20' || value === 'flat_160_hours' || value === 'weekdays') {
+            return value
+        }
+        return DEFAULT_PAYROLL_SCHEME
+    }
+
+    private getPayrollRateContext(profile: {
+        baseSalary?: number | null
+        payrollScheme?: string | null
+        maxBillableHoursPerDay?: number | null
+    }, startDate: Date, endDate: Date) {
+        const monthlySalary = profile.baseSalary || 0
+        const maxBillableHoursPerDay = this.normalizePositiveNumber(
+            profile.maxBillableHoursPerDay,
+            DEFAULT_MAX_BILLABLE_HOURS_PER_DAY,
+        )
+        const payrollScheme = this.normalizePayrollScheme(profile.payrollScheme)
+        const midpointDate = this.getMidpointDate(startDate, endDate)
+
+        if (payrollScheme === 'flat_160_hours') {
+            return {
+                monthlySalary,
+                payrollScheme,
+                payrollSchemeLabel: PAYROLL_SCHEME_LABELS[payrollScheme],
+                maxBillableHoursPerDay,
+                divisorHours: 160,
+                hourlyRate: monthlySalary / 160,
+                dailyRate: (monthlySalary / 160) * maxBillableHoursPerDay,
+            }
+        }
+
+        const divisorDays = payrollScheme === 'flat_30'
+            ? 30
+            : payrollScheme === 'flat_20'
+                ? 20
+                : this.getWeekdaysInMonth(midpointDate)
+        const dailyRate = divisorDays > 0 ? monthlySalary / divisorDays : 0
+
+        return {
+            monthlySalary,
+            payrollScheme,
+            payrollSchemeLabel: PAYROLL_SCHEME_LABELS[payrollScheme],
+            maxBillableHoursPerDay,
+            divisorDays,
+            hourlyRate: maxBillableHoursPerDay > 0 ? dailyRate / maxBillableHoursPerDay : 0,
+            dailyRate,
+        }
+    }
+
+    private summarizeDailyHours(
+        dailyHours: Map<string, number>,
+        maxBillableHoursPerDay: number,
+    ) {
+        let totalHours = 0
+        let billableHours = 0
+        let pendingOvertimeHours = 0
+
+        dailyHours.forEach((hours) => {
+            totalHours += hours
+            billableHours += Math.min(hours, maxBillableHoursPerDay)
+            pendingOvertimeHours += Math.max(0, hours - maxBillableHoursPerDay)
+        })
+
+        return {
+            totalHours,
+            billableHours,
+            pendingOvertimeHours,
+        }
+    }
+
     async addManualEntry(userId: string, start: Date, end: Date | null, notes?: string) {
         this.validateTimeRange(start, end)
 
@@ -247,6 +335,16 @@ export class PayrollService {
         }
         if (data.currency !== undefined) updateData.currency = data.currency
         if (data.paymentFrequency !== undefined) updateData.paymentFrequency = data.paymentFrequency
+        if (data.payrollScheme !== undefined) {
+            updateData.payrollScheme = this.normalizePayrollScheme(data.payrollScheme)
+        }
+        if (data.maxBillableHoursPerDay !== undefined) {
+            const maxBillableHoursPerDay = parseFloat(String(data.maxBillableHoursPerDay))
+            if (!Number.isFinite(maxBillableHoursPerDay) || maxBillableHoursPerDay <= 0) {
+                throw new Error('Invalid max billable hours per day')
+            }
+            updateData.maxBillableHoursPerDay = maxBillableHoursPerDay
+        }
         if (data.bankAccount !== undefined) updateData.bankAccount = data.bankAccount
         if (data.taxId !== undefined) updateData.taxId = data.taxId
 
@@ -329,6 +427,12 @@ export class PayrollService {
      * Calculate total hours for an employee in a given period
      */
     async calculateEmployeeHours(userId: string, startDate: Date, endDate: Date) {
+        const profile = await this.getEmployeeProfile(userId)
+        const maxBillableHoursPerDay = this.normalizePositiveNumber(
+            profile.maxBillableHoursPerDay,
+            DEFAULT_MAX_BILLABLE_HOURS_PER_DAY,
+        )
+
         // 1. Try fetching TimeEntries (Clock In/Out)
         const timeEntries = await this.prisma.timeEntry.findMany({
             where: {
@@ -338,12 +442,17 @@ export class PayrollService {
             }
         })
 
-        let totalMinutes = timeEntries.reduce((sum, entry) => sum + (entry.duration || 0), 0)
-        let totalHours = totalMinutes / 60
+        const dailyHours = new Map<string, number>()
+        timeEntries.forEach((entry) => {
+            const dateKey = entry.start.toISOString().slice(0, 10)
+            dailyHours.set(dateKey, (dailyHours.get(dateKey) || 0) + ((entry.duration || 0) / 60))
+        })
+
+        let summary = this.summarizeDailyHours(dailyHours, maxBillableHoursPerDay)
         let source = 'Time Entries'
 
         // 2. Fallback to Daily Logs
-        if (totalHours === 0) {
+        if (summary.totalHours === 0) {
             const logs = await this.prisma.dailyLog.findMany({
                 where: {
                     authorId: userId,
@@ -351,12 +460,20 @@ export class PayrollService {
                     date: { gte: startDate, lte: endDate }
                 }
             })
-            totalHours = logs.reduce((sum, log) => sum + (log.hoursLogged || 0), 0)
-            if (totalHours > 0) source = 'Daily Logs'
+            const logDailyHours = new Map<string, number>()
+            logs.forEach((log) => {
+                const dateKey = log.date.toISOString().slice(0, 10)
+                logDailyHours.set(dateKey, (logDailyHours.get(dateKey) || 0) + (log.hoursLogged || 0))
+            })
+            summary = this.summarizeDailyHours(logDailyHours, maxBillableHoursPerDay)
+            if (summary.totalHours > 0) source = 'Daily Logs'
         }
 
         return {
-            totalHours,
+            totalHours: summary.totalHours,
+            billableHours: summary.billableHours,
+            pendingOvertimeHours: summary.pendingOvertimeHours,
+            maxBillableHoursPerDay,
             source
         }
     }
@@ -391,21 +508,28 @@ export class PayrollService {
      */
     async previewPayslip(userId: string, startDate: Date, endDate: Date) {
         const profile = await this.getEmployeeProfile(userId)
-        const { totalHours, source } = await this.calculateEmployeeHours(userId, startDate, endDate)
-
-        // Use midpoint to determine the "primary" month for the divisor (e.g. March)
-        const midpointDate = this.getMidpointDate(startDate, endDate)
-        const weekdaysInMonth = this.getWeekdaysInMonth(midpointDate)
-        const dailyRate = profile.baseSalary / weekdaysInMonth
-        const hourlyRate = dailyRate / 8 // Standard 8 hour workday assumption
-        const grossPay = totalHours * hourlyRate
+        const {
+            totalHours,
+            billableHours,
+            pendingOvertimeHours,
+            maxBillableHoursPerDay,
+            source,
+        } = await this.calculateEmployeeHours(userId, startDate, endDate)
+        const rateContext = this.getPayrollRateContext(profile, startDate, endDate)
+        const grossPay = billableHours * rateContext.hourlyRate
 
         return {
             totalHours,
+            billableHours,
+            pendingOvertimeHours,
             source,
-            hourlyRate,
+            hourlyRate: rateContext.hourlyRate,
+            dailyRate: rateContext.dailyRate,
             grossPay,
-            monthlySalary: profile.baseSalary
+            monthlySalary: profile.baseSalary,
+            payrollScheme: rateContext.payrollScheme,
+            payrollSchemeLabel: rateContext.payrollSchemeLabel,
+            maxBillableHoursPerDay,
         }
     }
 
@@ -451,21 +575,28 @@ export class PayrollService {
             }
         } else {
             // Automatic path
-            const { totalHours: calcHours } = await this.calculateEmployeeHours(userId, period.startDate, period.endDate)
-            totalHours = calcHours;
-
-            // Use midpoint to determine the "primary" month for the divisor (e.g. March)
-            const midpointDate = this.getMidpointDate(period.startDate, period.endDate)
-            const weekdaysInMonth = this.getWeekdaysInMonth(midpointDate)
-            const dailyRate = profile.baseSalary / weekdaysInMonth
-            const hourlyRate = dailyRate / 8
-            grossPay = totalHours * hourlyRate
+            const {
+                totalHours: trackedHours,
+                billableHours,
+                pendingOvertimeHours,
+            } = await this.calculateEmployeeHours(userId, period.startDate, period.endDate)
+            const rateContext = this.getPayrollRateContext(profile, period.startDate, period.endDate)
+            totalHours = billableHours;
+            grossPay = billableHours * rateContext.hourlyRate
 
             items.push({
                 type: 'earning',
-                description: `Work Hours (${totalHours} hrs)`,
+                description: `Billable Work Hours (${billableHours} hrs, ${trackedHours} tracked) - ${rateContext.payrollSchemeLabel}`,
                 amount: grossPay
             })
+
+            if (pendingOvertimeHours > 0) {
+                items.push({
+                    type: 'overtime_pending',
+                    description: `Pending overtime (${pendingOvertimeHours} hrs) - not billable until approved`,
+                    amount: 0,
+                })
+            }
 
             netPay = grossPay;
         }

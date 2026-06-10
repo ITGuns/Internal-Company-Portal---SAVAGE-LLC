@@ -11,6 +11,7 @@ import {
     normalizeChatCursor,
     normalizeChatLimit,
     normalizeMessageContent,
+    normalizeReactionEmoji,
     normalizeSearchQuery,
 } from './chat.limits'
 import { createLogger } from '../observability/logger'
@@ -225,6 +226,33 @@ export class ChatController {
                 res.sendStatus(200)
             } catch (error) {
                 res.status(500).json({ error: 'Failed to mark as read' })
+            }
+        })
+
+        // Delete message
+        router.post('/messages/:id/reactions', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                // @ts-ignore
+                const userId = (req as AuthRequest).user.userId
+                const messageId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+                const emoji = normalizeReactionEmoji(req.body?.emoji)
+
+                if (!emoji) {
+                    return res.status(400).json({ error: 'Unsupported reaction' })
+                }
+
+                const result = await this.service.toggleReaction(messageId, userId, emoji)
+
+                if (!result) {
+                    return res.status(403).json({ error: 'Not found or not authorized' })
+                }
+
+                notificationService.emitToRoom(`conversation:${result.conversationId}`, 'chat:reaction_updated', result)
+
+                res.json(result)
+            } catch (error) {
+                logger.error(error)
+                res.status(500).json({ error: 'Failed to update reaction' })
             }
         })
 

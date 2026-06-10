@@ -33,6 +33,13 @@ export interface OperationsMember extends RoleAccessUser {
   name?: string | null;
   status?: string | null;
   isApproved?: boolean | null;
+  managerId?: string | null;
+  manager?: {
+    id: string;
+    email: string;
+    name?: string | null;
+    avatar?: string | null;
+  } | null;
   roles?: MemberRoleAssignment[];
   employeeProfile?: {
     jobTitle?: string | null;

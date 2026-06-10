@@ -23,6 +23,8 @@ const PAYROLL_PROFILE_UPDATE_FIELDS = new Set([
   'baseSalary',
   'currency',
   'paymentFrequency',
+  'payrollScheme',
+  'maxBillableHoursPerDay',
   'bankAccount',
   'taxId',
 ])
@@ -33,6 +35,8 @@ const PROTECTED_PAYROLL_PROFILE_FIELDS = new Set([
   'baseSalary',
   'currency',
   'paymentFrequency',
+  'payrollScheme',
+  'maxBillableHoursPerDay',
   'bankAccount',
   'taxId',
 ])

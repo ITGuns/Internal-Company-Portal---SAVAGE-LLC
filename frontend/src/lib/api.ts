@@ -7,7 +7,7 @@ import {
 } from './auth-session';
 import { buildApiUrl, buildAuthUrl } from './api-url';
 
-export const BACKEND_CONNECTION_ERROR_MESSAGE = 'Could not reach the MyDeskii backend. Please refresh and try again.';
+export const BACKEND_CONNECTION_ERROR_MESSAGE = 'Could not reach the Deskii backend. Please refresh and try again.';
 
 export const getAuthToken = () => {
     if (typeof window !== 'undefined') {
@@ -335,13 +335,8 @@ export const uploadAvatar = async (userId: string | number, file: File | string)
             });
         }
 
-        const token = getAuthToken();
-        const response = await fetch(buildApiUrl(`/users/${userId}/avatar`), {
+        const response = await apiFetch(`/users/${userId}/avatar`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-            },
             body: JSON.stringify({ avatar: avatarData }),
         });
 

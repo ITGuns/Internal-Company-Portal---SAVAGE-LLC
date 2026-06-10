@@ -560,6 +560,8 @@ export default function DashboardPage() {
 
               <div
                 ref={chatScrollRef}
+                tabIndex={0}
+                aria-label="Company chat messages"
                 className="chat-scroll flex-1 space-y-3 overflow-y-auto bg-[var(--card-bg)] p-4"
               >
                 {messages.length === 0 ? (

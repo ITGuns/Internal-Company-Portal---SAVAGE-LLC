@@ -9,12 +9,36 @@ export interface Message {
     attachment?: string;
     editedAt?: string;
     createdAt: string;
+    reactions?: MessageReaction[];
     sender: {
         id: string;
         name: string;
         avatar: string;
         email: string;
     };
+}
+
+export interface MessageReaction {
+    id: string;
+    messageId: string;
+    userId: string;
+    emoji: string;
+    createdAt?: string;
+    user?: {
+        id: string;
+        name: string | null;
+        avatar: string | null;
+        email: string;
+    };
+}
+
+export interface MessageReactionToggleResult {
+    messageId: string;
+    conversationId: string;
+    emoji: string;
+    userId: string;
+    active: boolean;
+    reactions: MessageReaction[];
 }
 
 export interface Conversation {
@@ -86,6 +110,14 @@ export const editMessage = async (messageId: string, content: string): Promise<M
     const res = await apiFetch(`/chat/messages/${messageId}`, {
         method: 'PATCH',
         body: JSON.stringify({ content }),
+    });
+    return res.json();
+};
+
+export const toggleMessageReaction = async (messageId: string, emoji: string): Promise<MessageReactionToggleResult> => {
+    const res = await apiFetch(`/chat/messages/${messageId}/reactions`, {
+        method: 'POST',
+        body: JSON.stringify({ emoji }),
     });
     return res.json();
 };

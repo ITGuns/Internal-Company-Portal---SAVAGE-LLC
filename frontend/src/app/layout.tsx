@@ -20,8 +20,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SAVAGE LLC | Internal Portal",
-  description: "Internal management portal for SAVAGE LLC operations and payroll.",
+  title: "Deskii",
+  description: "Secure workspace operations for teams and clients.",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/deskii-logo.svg",
+  },
 };
 
 export default function RootLayout({

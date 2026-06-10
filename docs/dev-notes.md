@@ -1,5 +1,254 @@
 # Development Notes
 
+## 2026-06-10 - Feedback Batch Phase 4
+
+### Completed
+
+- Added payroll setup fields for `payrollScheme` and `maxBillableHoursPerDay` with additive migration `202606100003_payroll_schemes`.
+- Updated payslip preview/generation to separate tracked hours, billable hours, and pending overtime; automatic gross pay now uses billable hours after the daily cap.
+- Surfaced payroll scheme and daily billable cap in employee edit/profile and payslip generation UI.
+- Added additive `MessageReaction` schema/migration plus authenticated chat reaction toggling and realtime `chat:reaction_updated` broadcasts.
+- Added quick emoji insertion and visible image/GIF attachment affordance in the chat composer.
+
+### Files Changed
+
+- `backend/prisma/schema.prisma`
+- `backend/prisma/migrations/202606100003_payroll_schemes/migration.sql`
+- `backend/prisma/migrations/202606100004_chat_message_reactions/migration.sql`
+- `backend/src/payroll/payroll.controller.ts`
+- `backend/src/payroll/payroll.permissions.ts`
+- `backend/src/payroll/payroll.service.ts`
+- `backend/src/chat/chat.controller.ts`
+- `backend/src/chat/chat.limits.ts`
+- `backend/src/chat/chat.service.ts`
+- `backend/src/employees/employees.security.ts`
+- `backend/src/users/users.controller.ts`
+- `backend/tests/chat.limits.test.ts`
+- `backend/tests/employees.security.test.ts`
+- `backend/tests/payroll.permissions.test.ts`
+- `frontend/src/app/chat/page.tsx`
+- `frontend/src/components/chat/MessageInput.tsx`
+- `frontend/src/components/payroll/EmployeeEditModal.tsx`
+- `frontend/src/components/payroll/EmployeeProfilePanel.tsx`
+- `frontend/src/components/payroll/GeneratePayslipModal.tsx`
+- `frontend/src/lib/chat.ts`
+- `frontend/src/lib/payroll-calendar/types.ts`
+- `frontend/src/lib/types/api.ts`
+- `docs/api.md`
+- `docs/database.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept overtime approval as an explicit later workflow; this slice prevents overtime from silently becoming billable by separating pending overtime in previews and generated items.
+- Restricted chat reactions to a built-in quick reaction set for this deploy instead of adding a third-party emoji/GIF dependency without source review.
+- Kept message reactions scoped to conversation participants through backend authorization, not frontend-only controls.
+
+### How to Test
+
+- `npx prisma validate --schema backend/prisma/schema.prisma`
+- `npx prisma generate --schema backend/prisma/schema.prisma`
+- `npm --prefix backend run prisma:deploy`
+- `npm --prefix backend test`
+- `npm --prefix backend run build`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `git diff --check`
+
+### Next Steps
+
+- Add a durable overtime request/approval queue before paying pending overtime automatically.
+- Add admin chat export/archive controls as a separate governance slice.
+- Review any third-party GIF/emoji picker source before adding a dependency.
+
+## 2026-06-10 - Feedback Batch Phase 3
+
+### Completed
+
+- Removed the duplicate `/client` entry from normal employee Work navigation while preserving client-shell navigation for client users and `/operations/clients` for admin client management.
+- Added metadata-aware Task Tracking search that matches task title, description, status, priority, notes, project, department, assignee, creator, and collaborators.
+- Added per-user pinned Work Focus selection with automatic fallback to overdue, due-today, in-progress, review, then todo work.
+- Added additive `TaskCollaborator` schema and migration for collaborator invitations on internal tasks.
+- Added backend collaborator visibility so invited/accepted collaborators can read shared tasks.
+- Added manager/admin task collaborator controls in the task modal, collaborator badges in task list/card views, and collaborator names in task details.
+
+### Files Changed
+
+- `backend/prisma/schema.prisma`
+- `backend/prisma/migrations/202606100002_task_collaborators/migration.sql`
+- `backend/src/tasks/tasks.controller.ts`
+- `backend/src/tasks/tasks.permissions.ts`
+- `backend/src/tasks/tasks.service.ts`
+- `backend/tests/tasks.permissions.test.ts`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/tasks/BoardCard.tsx`
+- `frontend/src/components/tasks/TaskDetailModal.tsx`
+- `frontend/src/components/tasks/TaskListRow.tsx`
+- `frontend/src/components/tasks/TaskModal.tsx`
+- `frontend/src/lib/task-focus.ts`
+- `frontend/src/lib/task-search.ts`
+- `frontend/src/lib/tasks.ts`
+- `frontend/src/lib/types/api.ts`
+- `frontend/tests/task-focus.test.mjs`
+- `frontend/tests/task-search.test.mjs`
+- `docs/api.md`
+- `docs/database.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept `Task.assigneeId` as the primary owner/worker and added collaborators beside it to avoid breaking existing task ownership, timer, report, and notification contracts.
+- Restricted collaborator editing to task assignment managers/admins for this slice because collaborator changes affect server-side task visibility.
+- Treated collaborator invitations as readable task sharing immediately, with `status` available for a later accept/decline inbox.
+- Kept Work Focus pinning local and per-user because it is a personal workflow preference, not shared task data.
+
+### How to Test
+
+- `npx prisma validate --schema backend/prisma/schema.prisma`
+- `npx prisma generate --schema backend/prisma/schema.prisma`
+- `npm --prefix backend test`
+- `npm --prefix backend run build`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+
+### Next Steps
+
+- Apply `backend/prisma/migrations/202606100002_task_collaborators` before deploying code that reads or writes `TaskCollaborator`.
+- Add a collaborator accept/decline inbox if the product wants explicit acceptance instead of immediate readable invites.
+- Add drag ordering for Work Focus after the pinned-focus model is verified in browser QA.
+
+## 2026-06-10 - Feedback Batch Phase 2
+
+### Completed
+
+- Added additive Prisma migration `202606100001_task_projects_org_reporting` for internal task projects and flexible manager reporting lines.
+- Added task project APIs for listing, creating, updating, deleting, and assigning projects to tasks.
+- Added `User.managerId` updates for full-access admins with self-manager and cycle protection.
+- Added Task Tracking project organization UI, project filters/grouping, project labels on task cards/list/detail, and project data in Deskii PDF reports.
+- Added full-access admin quick-add department support inside the Task Tracking modal.
+- Added shared segmented day/month/year date inputs for task start/due dates and profile birthday editing.
+- Fixed segmented date inputs so narrow profile drawers cannot push the `YYYY` segment outside the field.
+- Added a compact profile phone country-code picker with custom `+###` entry while preserving a single saved international phone string.
+- Added Operations `Org Chart` tab for scalable manager/direct-report viewing and manager assignment.
+- Applied the new local database migration with `npm --prefix backend run prisma:deploy`.
+
+### Files Changed
+
+- `backend/prisma/schema.prisma`
+- `backend/prisma/migrations/202606100001_task_projects_org_reporting/migration.sql`
+- `backend/src/tasks/tasks.controller.ts`
+- `backend/src/tasks/tasks.service.ts`
+- `backend/src/users/users.controller.ts`
+- `backend/src/users/users.security.ts`
+- `backend/src/users/users.service.ts`
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/forms/SegmentedDateInput.tsx`
+- `frontend/src/components/ProfilePhoneInput.tsx`
+- `frontend/src/components/operations/OperationsOrgChartPanel.tsx`
+- `frontend/src/components/ProfileEditForm.tsx`
+- `frontend/src/components/tasks/BoardCard.tsx`
+- `frontend/src/components/tasks/TaskDetailModal.tsx`
+- `frontend/src/components/tasks/TaskListRow.tsx`
+- `frontend/src/components/tasks/TaskModal.tsx`
+- `frontend/src/hooks/useTasksQuery.ts`
+- `frontend/src/lib/country-calling-codes.ts`
+- `frontend/src/lib/member-role-management.ts`
+- `frontend/src/lib/operations-session.ts`
+- `frontend/src/lib/phone-number.ts`
+- `frontend/src/lib/tasks.ts`
+- `frontend/src/lib/types/api.ts`
+- `frontend/src/lib/users.ts`
+- `docs/api.md`
+- `docs/database.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept task projects as an internal `TaskProject` model instead of reusing client `ClientProject` records because internal task organization and client-facing project delivery have different visibility and ownership rules.
+- Made project assignment optional so existing tasks and future one-off work do not require a project.
+- Limited Task Tracking quick-add department to full-access admins because department writes are admin-only on the backend.
+- Used `User.managerId` self-relations for org chart flexibility instead of fixed role depth assumptions.
+- Kept profile phone storage as one backend string and handled country-code presets on the frontend to avoid an unnecessary schema/API migration.
+
+### How to Test
+
+- `npm --prefix backend run prisma:generate`
+- `npm --prefix backend run prisma:deploy`
+- `npx dotenv -e .env -- prisma validate` from `backend`
+- `npm --prefix backend run build`
+- `npm --prefix backend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `npm --prefix frontend test`
+- `git diff --check`
+
+### Next Steps
+
+- Apply `backend/prisma/migrations/202606100001_task_projects_org_reporting` to production before deploying code that uses `TaskProject` or `User.managerId`.
+- Add Apple OAuth only after Apple Developer credentials and callback URLs are available.
+- Continue visual QA on real production data after deployment because project/org-chart density depends on actual member and task volume.
+
+## 2026-06-10 - Feedback Batch Phase 1
+
+### Completed
+
+- Rebranded the visible app/login shell from MyDeskii to Deskii without renaming technical storage keys.
+- Added local Deskii logo and favicon assets plus app metadata icons.
+- Reworked the login page into a more dynamic Deskii auth surface with Google sign-in access and a disabled Apple sign-in placeholder until Apple credentials/backend strategy exist.
+- Added workspace-aware login copy using `NEXT_PUBLIC_WORKSPACE_NAME` with a `?workspace=` override for client-specific sign-in links.
+- Fixed profile editing usability with collapsible edit controls, US phone defaults, optional profile fields, and authenticated avatar uploads through the shared API helper.
+- Removed the manual Role field from task forms while preserving backend-compatible role auto-fill from the selected assignee.
+- Made task due dates optional end-to-end, including clearing existing due/start dates on edit.
+- Added ETOC unit selection for minutes, hours, and days while storing estimated time in minutes.
+- Added visible All/Open/Completed task quick filters, improved PDF export metadata, and renamed exports to Deskii reports.
+- Reduced task timer action latency by updating React Query task caches in place instead of refetching every task after play/pause/complete.
+- Changed the Task Tracking Organize dropdown into a viewport-fixed scroll panel so it does not get cut off near the page bottom.
+
+### Files Changed
+
+- `backend/src/tasks/tasks.service.ts`
+- `frontend/public/deskii-logo.svg`
+- `frontend/public/favicon.svg`
+- `frontend/src/app/layout.tsx`
+- `frontend/src/app/login/page.tsx`
+- `frontend/src/app/login/login.module.css`
+- `frontend/src/app/profile/page.tsx`
+- `frontend/src/app/signup/page.tsx`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/ProfileEditForm.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/tasks/TaskModal.tsx`
+- `frontend/src/lib/api.ts`
+- `frontend/src/lib/tasks.ts`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept Apple sign-in disabled because working Apple OAuth requires Apple Developer credentials and backend strategy configuration.
+- Kept internal task `role` data in the API/database for compatibility, but removed manual role selection from the user-facing task form.
+- Left org chart hierarchy and task projects for the next phase because both need database-backed models and migration review.
+
+### How to Test
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `npm --prefix backend test`
+- `npm --prefix backend run build`
+- Browser affected-flow audit: `/login`, `/signup`, `/profile`, and `/task-tracking`.
+
+### Next Steps
+
+- Implement flexible org chart reporting lines with an additive schema migration.
+- Implement internal task projects with a separate `TaskProject` model and task assignment/filtering UI.
+- Add real Apple OAuth after the required Apple credentials and callback URLs are available.
+
 ## 2026-06-09 - Operations Loading Follow-Up
 
 ### Completed

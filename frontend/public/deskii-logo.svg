@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Deskii logo</title>
+  <rect width="64" height="64" rx="12" fill="#050816"/>
+  <rect x="8" y="8" width="48" height="48" rx="10" fill="#09111f" stroke="#17d9f5" stroke-width="2"/>
+  <path d="M23 18h10.5c10.4 0 17.5 5.4 17.5 14s-7.1 14-17.5 14H23V18Z" fill="none" stroke="#f5fbff" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M28 27h5.4c4.1 0 6.6 1.8 6.6 5s-2.5 5-6.6 5H28V27Z" fill="#17d9f5"/>
+</svg>

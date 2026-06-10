@@ -41,6 +41,9 @@ import type { MemberRoleAssignment, OperationsMember } from "@/lib/member-role-m
 const OperationsMembersPanel = dynamic(() => import("@/components/operations/OperationsMembersPanel"), {
   loading: () => <MembersPanelSkeleton />,
 });
+const OperationsOrgChartPanel = dynamic(() => import("@/components/operations/OperationsOrgChartPanel"), {
+  loading: () => <MembersPanelSkeleton />,
+});
 
 type DeleteTarget =
   | { type: 'department'; id: string; name: string; tasks: number; roles: number }
@@ -99,7 +102,7 @@ export default function OperationsPage() {
   const membersQuery = useQuery({
     queryKey: OPERATIONS_QUERY_KEYS.members,
     queryFn: fetchOperationsMembers,
-    enabled: activeTab === 'members',
+    enabled: activeTab === 'members' || activeTab === 'org-chart',
     staleTime: OPERATIONS_MEMBERS_STALE_MS,
     gcTime: OPERATIONS_CACHE_GC_MS,
     placeholderData: keepPreviousData,
@@ -156,7 +159,7 @@ export default function OperationsPage() {
       return;
     }
 
-    if (tab === 'members') {
+    if (tab === 'members' || tab === 'org-chart') {
       void queryClient.prefetchQuery({
         queryKey: OPERATIONS_QUERY_KEYS.members,
         queryFn: fetchOperationsMembers,
@@ -203,7 +206,7 @@ export default function OperationsPage() {
   }, [departments.length, departmentsQuery.isFetched, queryClient]);
 
   useEffect(() => {
-    if (!canManageOrgSettings || activeTab === 'members' || departmentsLoading || departmentsQuery.isError) return;
+    if (!canManageOrgSettings || activeTab === 'members' || activeTab === 'org-chart' || departmentsLoading || departmentsQuery.isError) return;
     if (queryClient.getQueryData(OPERATIONS_QUERY_KEYS.members)) return;
 
     return scheduleOperationsMembersPrefetch(() => {
@@ -345,6 +348,26 @@ export default function OperationsPage() {
     }
   }
 
+  async function handleUpdateMemberManager(memberId: string, managerId: string | null) {
+    try {
+      const response = await apiFetch(`/users/${memberId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ managerId }),
+      });
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.error || 'Failed to update reporting line');
+      }
+
+      toast.success('Reporting line updated');
+      await queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEYS.members });
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update reporting line');
+      throw error;
+    }
+  }
+
   return (
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-6 pt-0">
@@ -387,6 +410,17 @@ export default function OperationsPage() {
               className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'members' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
             >
               Members
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'org-chart'}
+              onMouseEnter={() => prefetchOperationsTab('org-chart')}
+              onFocus={() => prefetchOperationsTab('org-chart')}
+              onClick={() => selectTab('org-chart')}
+              className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'org-chart' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
+            >
+              Org Chart
             </button>
             <button
               type="button"
@@ -448,7 +482,7 @@ export default function OperationsPage() {
                   </Button>
                 ) : null}
               </>
-            ) : activeTab === 'members' ? (
+            ) : activeTab === 'members' || activeTab === 'org-chart' ? (
               <Link
                 href="/operations/onboarding"
                 className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] shadow-[0_12px_32px_-22px_var(--accent)] transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-105 active:translate-y-px"
@@ -576,6 +610,22 @@ export default function OperationsPage() {
                 canManageMembers={canManageOrgSettings && !rolesLoading && !departmentsQuery.isError}
                 onAssignRole={handleAssignMemberRole}
                 onRemoveRole={handleRemoveMemberRole}
+              />
+            )
+          ) : activeTab === 'org-chart' ? (
+            membersLoading ? (
+              <MembersPanelSkeleton />
+            ) : membersQuery.isError ? (
+              <OperationsErrorState
+                title="Organization chart did not load"
+                description={membersQuery.error instanceof Error ? membersQuery.error.message : "Refresh this section to try again."}
+                onRetry={() => void membersQuery.refetch()}
+              />
+            ) : (
+              <OperationsOrgChartPanel
+                members={members}
+                canManageMembers={canManageOrgSettings}
+                onUpdateManager={handleUpdateMemberManager}
               />
             )
           ) : (

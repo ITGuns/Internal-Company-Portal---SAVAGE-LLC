@@ -9,6 +9,13 @@ import Button from "@/components/Button";
 import type { Employee } from "@/lib/payroll-calendar/types";
 import { DEPARTMENTS, DEPARTMENT_ROLES } from "@/lib/departments";
 
+const PAYROLL_SCHEMES = [
+  { value: "weekdays", label: "Weekdays credited" },
+  { value: "flat_30", label: "Flat 30 days" },
+  { value: "flat_20", label: "Flat 20 days" },
+  { value: "flat_160_hours", label: "Flat 160 hours" },
+];
+
 interface EmployeeEditModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -27,6 +34,8 @@ export default function EmployeeEditModal({
   const [role, setRole] = useState("");
   const [department, setDepartment] = useState("");
   const [salary, setSalary] = useState("");
+  const [maxBillableHoursPerDay, setMaxBillableHoursPerDay] = useState("8");
+  const [payrollScheme, setPayrollScheme] = useState("weekdays");
   const [status, setStatus] = useState<"active" | "vacation" | "leave" | "pending" | "verified">("active");
 
   // Update form when employee changes
@@ -37,6 +46,8 @@ export default function EmployeeEditModal({
       setRole(employee.role);
       setDepartment(employee.department);
       setSalary(employee.salary.toString());
+      setMaxBillableHoursPerDay(String(employee.maxBillableHoursPerDay || 8));
+      setPayrollScheme(employee.payrollScheme || "weekdays");
       setStatus(employee.status);
     }
   }, [employee]);
@@ -53,6 +64,8 @@ export default function EmployeeEditModal({
       role: role.trim(),
       department: department.trim(),
       salary: parseFloat(salary) || employee.salary,
+      maxBillableHoursPerDay: parseFloat(maxBillableHoursPerDay) || employee.maxBillableHoursPerDay || 8,
+      payrollScheme,
       status,
     });
 
@@ -226,6 +239,41 @@ export default function EmployeeEditModal({
                 step="any"
                 required
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
+                Max billable hours / day <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                value={maxBillableHoursPerDay}
+                onChange={(e) => setMaxBillableHoursPerDay(e.target.value)}
+                className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+                min="0.25"
+                step="0.25"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
+                Payroll scheme <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={payrollScheme}
+                onChange={(e) => setPayrollScheme(e.target.value)}
+                className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+                required
+              >
+                {PAYROLL_SCHEMES.map((scheme) => (
+                  <option key={scheme.value} value={scheme.value}>
+                    {scheme.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

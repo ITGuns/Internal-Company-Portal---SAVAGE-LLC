@@ -43,6 +43,10 @@ function fmt(n: number) {
   return n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function fmtHours(n: number) {
+  return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+
 // ── Component ────────────────────────────────────────────
 
 export default function GeneratePayslipModal({
@@ -62,6 +66,10 @@ export default function GeneratePayslipModal({
   const [hoursWorked, setHoursWorked] = useState<number>(0);
   const [hourlyRate, setHourlyRate] = useState<number>(0);   // derived from preview
   const [grossPay, setGrossPay] = useState<number>(0);
+  const [trackedHours, setTrackedHours] = useState<number>(0);
+  const [pendingOvertimeHours, setPendingOvertimeHours] = useState<number>(0);
+  const [maxBillableHoursPerDay, setMaxBillableHoursPerDay] = useState<number>(selectedEmployee?.maxBillableHoursPerDay || 8);
+  const [payrollSchemeLabel, setPayrollSchemeLabel] = useState("Weekdays of month");
   const [isCalculating, setIsCalculating] = useState(false);
   const [hoursManual, setHoursManual] = useState(false);       // true = user edited manually
   const hoursManualRef = useRef(hoursManual);
@@ -81,6 +89,7 @@ export default function GeneratePayslipModal({
   useEffect(() => {
     if (selectedEmployee) {
       setEmployeeId(selectedEmployee.id.toString());
+      setMaxBillableHoursPerDay(selectedEmployee.maxBillableHoursPerDay || 8);
     } else if (employees.length > 0) {
       setEmployeeId(current => current || employees[0].id.toString());
     }
@@ -96,12 +105,16 @@ export default function GeneratePayslipModal({
       );
       if (res.ok) {
         const data = await res.json();
-        const hrs = overrideHours ?? data.totalHours ?? 0;
+        const hrs = overrideHours ?? data.billableHours ?? data.totalHours ?? 0;
         const rate = data.hourlyRate ?? 0;
         const manualHoursEnabled = hoursManualRef.current;
         const currentHours = hoursWorkedRef.current;
 
         setHourlyRate(rate);
+        setTrackedHours(data.totalHours ?? hrs);
+        setPendingOvertimeHours(data.pendingOvertimeHours ?? 0);
+        setMaxBillableHoursPerDay(data.maxBillableHoursPerDay ?? selectedEmployee?.maxBillableHoursPerDay ?? 8);
+        setPayrollSchemeLabel(data.payrollSchemeLabel ?? "Weekdays of month");
         if (!manualHoursEnabled || overrideHours !== undefined) {
           hoursManualRef.current = false;
           hoursWorkedRef.current = hrs;
@@ -119,7 +132,7 @@ export default function GeneratePayslipModal({
     } finally {
       setIsCalculating(false);
     }
-  }, [employeeId, payPeriodStart, payPeriodEnd]);
+  }, [employeeId, payPeriodStart, payPeriodEnd, selectedEmployee?.maxBillableHoursPerDay]);
 
   // Auto-fetch whenever employee or dates change
   useEffect(() => {
@@ -293,8 +306,23 @@ export default function GeneratePayslipModal({
                 )}
               </div>
               <p className="text-[10px] text-[var(--muted)] mt-1">
-                Auto-filled from Daily Logs and Timers. You can override this value manually.
+                Auto-filled with billable hours from daily logs and timers. Decimal overrides are allowed when payroll needs a manager correction.
               </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2">
+                <p className="text-[10px] uppercase font-semibold text-[var(--muted)]">Tracked</p>
+                <p className="text-sm font-bold text-[var(--foreground)]">{fmtHours(trackedHours)}h</p>
+              </div>
+              <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/15 px-3 py-2">
+                <p className="text-[10px] uppercase font-semibold text-emerald-700 dark:text-emerald-300">Billable</p>
+                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{fmtHours(hoursWorked)}h</p>
+              </div>
+              <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/15 px-3 py-2">
+                <p className="text-[10px] uppercase font-semibold text-blue-700 dark:text-blue-300">Pending overtime</p>
+                <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{fmtHours(pendingOvertimeHours)}h</p>
+              </div>
             </div>
 
             {/* Gross Pay */}
@@ -302,7 +330,10 @@ export default function GeneratePayslipModal({
               <div>
                 <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">Gross Pay</p>
                 <p className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70 mt-0.5">
-                  {hoursWorked} hours
+                  {fmtHours(hoursWorked)} billable hours at PHP {fmt(hourlyRate)} / hour
+                </p>
+                <p className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70 mt-0.5">
+                  {payrollSchemeLabel}; cap {fmtHours(maxBillableHoursPerDay)}h/day
                 </p>
               </div>
               <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">

@@ -2,11 +2,15 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Button from "@/components/Button";
+import SegmentedDateInput from "@/components/forms/SegmentedDateInput";
 import ProfileFormInput from "@/components/ProfileFormInput";
+import ProfilePhoneInput from "@/components/ProfilePhoneInput";
 import UserAvatar from "@/assets/icons/UserAvatar";
 import { useToast } from "@/components/ToastProvider";
 import { useUser } from "@/contexts/UserContext";
 import { updateUserProfile, uploadAvatar } from "@/lib/api";
+import { DEFAULT_COUNTRY_CALLING_CODE } from "@/lib/country-calling-codes";
+import { isValidInternationalPhone, normalizePhoneForSave } from "@/lib/phone-number";
 import { Camera, Calendar, Mail, MapPin, Phone, User } from "lucide-react";
 
 export interface EditableUserProfile {
@@ -52,10 +56,10 @@ const profileFieldConfigs: Array<{
 }> = [
   { id: "name", label: "Full Name", icon: User, autoComplete: "name", required: true },
   { id: "email", label: "Email Address", icon: Mail, type: "email", autoComplete: "email", inputMode: "email", required: true, readOnly: true, helperText: "Email changes are handled by an administrator." },
-  { id: "birthday", label: "Birthday", icon: Calendar, type: "date", autoComplete: "bday", required: true },
-  { id: "phone", label: "Phone Number", icon: Phone, type: "tel", placeholder: "+63 XXX XXX XXXX", autoComplete: "tel", inputMode: "tel", required: true },
-  { id: "address", label: "Address", icon: MapPin, placeholder: "Street address", autoComplete: "street-address", required: true },
-  { id: "city", label: "City", icon: MapPin, placeholder: "City", autoComplete: "address-level2", required: true },
+  { id: "birthday", label: "Birthday", icon: Calendar, autoComplete: "bday" },
+  { id: "phone", label: "Phone Number", icon: Phone, type: "tel", placeholder: "+1 (555) 012-3456", autoComplete: "tel", inputMode: "tel" },
+  { id: "address", label: "Address", icon: MapPin, placeholder: "Street address", autoComplete: "street-address" },
+  { id: "city", label: "City", icon: MapPin, placeholder: "City", autoComplete: "address-level2" },
 ];
 
 function normalizeDateInput(value?: string) {
@@ -68,7 +72,7 @@ function buildProfileFormData(user: EditableUserProfile | null): ProfileFormStat
     name: user?.name || "",
     email: user?.email || "",
     birthday: normalizeDateInput(user?.birthday),
-    phone: user?.phone || "",
+    phone: user?.phone || DEFAULT_COUNTRY_CALLING_CODE,
     address: user?.address || "",
     city: user?.city || "",
     avatar: user?.avatar || "",
@@ -103,24 +107,12 @@ export default function ProfileEditForm({ user, onSave, onCancel }: ProfileEditF
       newErrors.email = "Invalid email format";
     }
 
-    if (!formData.birthday) {
-      newErrors.birthday = "Birthday is required";
-    } else if (new Date(formData.birthday) > new Date()) {
+    if (formData.birthday && new Date(formData.birthday) > new Date()) {
       newErrors.birthday = "Birthday cannot be in the future";
     }
 
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Phone number is required";
-    } else if (!/^[\d\s\-+()]+$/.test(formData.phone)) {
-      newErrors.phone = "Invalid phone number format";
-    }
-
-    if (!formData.address.trim()) {
-      newErrors.address = "Address is required";
-    }
-
-    if (!formData.city.trim()) {
-      newErrors.city = "City is required";
+    if (!isValidInternationalPhone(formData.phone)) {
+      newErrors.phone = "Choose a country code and enter a valid phone number";
     }
 
     setErrors(newErrors);
@@ -193,10 +185,10 @@ export default function ProfileEditForm({ user, onSave, onCancel }: ProfileEditF
       const shouldClearAvatar = hasAvatarChanged && !formData.avatar;
       const profileResponse = await updateUserProfile(user.id, {
         name: formData.name,
-        phone: formData.phone,
-        birthday: formData.birthday,
-        address: formData.address,
-        city: formData.city,
+        phone: normalizePhoneForSave(formData.phone),
+        birthday: formData.birthday || "",
+        address: formData.address.trim(),
+        city: formData.city.trim(),
         ...(shouldClearAvatar ? { avatar: "" } : {}),
       });
 
@@ -266,15 +258,45 @@ export default function ProfileEditForm({ user, onSave, onCancel }: ProfileEditF
         <p className="mt-2 text-xs text-[var(--muted)]">JPG, PNG or GIF. Max size 5MB.</p>
       </div>
 
-      {profileFieldConfigs.map((field) => (
-        <ProfileFormInput
-          key={field.id}
-          {...field}
-          value={formData[field.id]}
-          onChange={(value) => handleChange(field.id, value)}
-          error={errors[field.id]}
-        />
-      ))}
+      {profileFieldConfigs.map((field) => {
+        if (field.id === "birthday") {
+          return (
+            <SegmentedDateInput
+              key={field.id}
+              id={field.id}
+              label={field.label}
+              icon={field.icon}
+              value={formData[field.id]}
+              onChange={(value) => handleChange(field.id, value)}
+              error={errors[field.id]}
+            />
+          );
+        }
+
+        if (field.id === "phone") {
+          return (
+            <ProfilePhoneInput
+              key={field.id}
+              id={field.id}
+              label={field.label}
+              value={formData[field.id]}
+              onChange={(value) => handleChange(field.id, value)}
+              error={errors[field.id]}
+              required={field.required}
+            />
+          );
+        }
+
+        return (
+          <ProfileFormInput
+            key={field.id}
+            {...field}
+            value={formData[field.id]}
+            onChange={(value) => handleChange(field.id, value)}
+            error={errors[field.id]}
+          />
+        );
+      })}
 
       <div className="flex flex-col gap-3 pt-2 sm:flex-row">
         <Button type="button" variant="secondary" className="flex-1" onClick={resetForm} disabled={isSubmitting}>

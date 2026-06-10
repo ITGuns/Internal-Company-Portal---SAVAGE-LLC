@@ -49,6 +49,8 @@ const deployed = serializeDeployedEmployee({
     jobTitle: 'Designer',
     employmentType: 'Full Time',
     baseSalary: 75000,
+    payrollScheme: 'flat_160_hours',
+    maxBillableHoursPerDay: 7.5,
     bankAccount: '456',
     taxId: 'TIN',
   },
@@ -73,6 +75,8 @@ assert.deepEqual(deployed, {
   role: 'Designer',
   department: 'Operations',
   salary: 75000,
+  payrollScheme: 'flat_160_hours',
+  maxBillableHoursPerDay: 7.5,
   hoursThisWeek: 8,
   performance: 0,
 })

@@ -14,6 +14,7 @@ const directoryUserSelect = {
     email: true,
     name: true,
     avatar: true,
+    managerId: true,
     status: true,
     isApproved: true,
     createdAt: true,
@@ -32,9 +33,17 @@ const directoryUserSelect = {
         },
     },
     employeeProfile: {
+      select: {
+        jobTitle: true,
+        employmentType: true,
+      },
+    },
+    manager: {
         select: {
-            jobTitle: true,
-            employmentType: true,
+            id: true,
+            email: true,
+            name: true,
+            avatar: true,
         },
     },
 } satisfies Prisma.UserSelect
@@ -67,6 +76,7 @@ export interface UpdateUserDto {
     status?: string      // active, pending, vacation, leave
     appliedDate?: string // ISO date string
     isApproved?: boolean
+    managerId?: string | null
 }
 
 export class UsersService {
@@ -299,6 +309,9 @@ export class UsersService {
         if (data.citizenship !== undefined) updateData.citizenship = data.citizenship
         if (data.status !== undefined) updateData.status = data.status
         if (data.isApproved !== undefined) updateData.isApproved = data.isApproved
+        if (data.managerId !== undefined) {
+            updateData.manager = data.managerId ? { connect: { id: data.managerId } } : { disconnect: true }
+        }
 
         // Handle date conversions
         if (data.birthday !== undefined) {
@@ -312,6 +325,26 @@ export class UsersService {
             where: { id },
             data: updateData,
         })
+    }
+
+    async wouldCreateManagerCycle(userId: string, managerId: string): Promise<boolean> {
+        if (userId === managerId) return true
+
+        const visited = new Set<string>([userId])
+        let currentManagerId: string | null | undefined = managerId
+
+        while (currentManagerId) {
+            if (visited.has(currentManagerId)) return true
+            visited.add(currentManagerId)
+
+            const manager = await this.prisma.user.findUnique({
+                where: { id: currentManagerId },
+                select: { managerId: true },
+            })
+            currentManagerId = manager?.managerId
+        }
+
+        return false
     }
 
     /**

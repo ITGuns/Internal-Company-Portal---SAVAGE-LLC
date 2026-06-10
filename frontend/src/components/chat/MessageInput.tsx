@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useRef } from 'react'
-import { Send, Paperclip, X } from 'lucide-react'
+import { Send, Paperclip, Smile, X } from 'lucide-react'
 
 interface MessageInputProps {
     newMessage: string
@@ -14,6 +14,8 @@ interface MessageInputProps {
     onClearAttachment: () => void
     placeholder: string
 }
+
+const QUICK_EMOJI = ['\u{1F44D}', '\u2705', '\u{1F602}', '\u{1F525}', '\u2764\uFE0F', '\u{1F440}']
 
 export default function MessageInput({
     newMessage,
@@ -50,7 +52,10 @@ export default function MessageInput({
                     </div>
                     <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold truncate">{attachment?.name}</p>
-                        <p className="text-[10px] text-[var(--muted)]">{(attachment!.size / 1024).toFixed(1)} KB</p>
+                        <p className="text-[10px] text-[var(--muted)]">
+                            {(attachment!.size / 1024).toFixed(1)} KB
+                            {attachment?.type === 'image/gif' ? ' GIF' : ''}
+                        </p>
                     </div>
                 </div>
             )}
@@ -67,10 +72,25 @@ export default function MessageInput({
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--muted)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                    aria-label="Attach file"
+                    aria-label="Attach file, image, or GIF"
+                    title="Attach file, image, or GIF"
                 >
                     <Paperclip className="w-5 h-5" />
                 </button>
+                <div className="hidden items-center gap-1 sm:flex" aria-label="Quick emoji">
+                    <Smile className="w-4 h-4 text-[var(--muted)]" aria-hidden="true" />
+                    {QUICK_EMOJI.map((emoji) => (
+                        <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => onMessageChange(`${newMessage}${emoji}`)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm transition-colors hover:bg-[var(--background)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                            aria-label={`Insert ${emoji}`}
+                        >
+                            <span aria-hidden="true">{emoji}</span>
+                        </button>
+                    ))}
+                </div>
                 <div className="relative min-w-0 flex-1">
                     <input
                         value={newMessage}

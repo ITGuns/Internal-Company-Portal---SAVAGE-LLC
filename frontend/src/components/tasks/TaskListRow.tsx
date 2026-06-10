@@ -42,6 +42,7 @@ function calcProgress(elapsedSecs: number, estimatedMinutes: number | undefined)
 export default function TaskListRow({ task, onClick, onAction }: TaskListRowProps) {
   const liveElapsed = useLiveElapsed(task.timerStatus, task.timerStart, task.totalElapsed || 0);
   const autoProgress = task.status === 'completed' ? 100 : calcProgress(liveElapsed, task.estimatedTime);
+  const collaboratorCount = task.collaborators?.length || 0;
   const actionButtonClass =
     "inline-flex min-h-10 items-center gap-1.5 rounded-md border border-transparent px-2.5 py-1.5 text-xs font-medium transition hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
 
@@ -75,9 +76,21 @@ export default function TaskListRow({ task, onClick, onAction }: TaskListRowProp
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[10px] bg-[var(--card-bg)] px-1 rounded border border-[var(--border)] text-[var(--muted)]">
-            {task.department?.name}
-          </span>
+          {task.project?.name && (
+            <span className="max-w-32 truncate text-[10px] bg-[var(--accent)]/10 px-1 rounded border border-[var(--accent)]/30 text-[var(--accent)]">
+              {task.project.name}
+            </span>
+          )}
+          {task.department?.name && (
+            <span className="text-[10px] bg-[var(--card-bg)] px-1 rounded border border-[var(--border)] text-[var(--muted)]">
+              {task.department.name}
+            </span>
+          )}
+          {collaboratorCount > 0 && (
+            <span className="text-[10px] bg-[var(--card-bg)] px-1 rounded border border-[var(--border)] text-[var(--muted)]">
+              +{collaboratorCount} collaborator{collaboratorCount === 1 ? "" : "s"}
+            </span>
+          )}
         </div>
       </div>
 

@@ -155,7 +155,6 @@ export default function Sidebar() {
   const canAccessClientOperations = useMemo(() => hasClientOperationsAccess(user), [user]);
   const canUseOperationsAdmin = useMemo(() => hasManagementAccess(user), [user]);
   const hasRoleBasedClientPortalAccess = useMemo(() => hasClientPortalAccess(user), [user]);
-  const canUseClientPortal = hasRoleBasedClientPortalAccess || hasClientWorkspace;
   const usesClientShell = useMemo(
     () => hasClientWorkspaceShellAccess(user, hasClientWorkspace),
     [hasClientWorkspace, user],
@@ -216,7 +215,6 @@ export default function Sidebar() {
 
   const employeeMainItems: NavItemConfig[] = [
     { href: '/dashboard', icon: Home, label: 'Dashboard' },
-    ...(canUseClientPortal ? [{ href: '/client', icon: BriefcaseBusiness, label: 'Client Portal', activeMode: 'exact' as SidebarNavActiveMode }] : []),
     { href: '/task-tracking', icon: Grid, label: 'Task Tracking' },
     { href: '/daily-logs', icon: Users, label: 'Daily Logs' },
     { href: '/payroll-calendar', icon: CalendarDays, label: 'Payroll Calendar' },
@@ -286,10 +284,10 @@ export default function Sidebar() {
           <header className="flex h-24 items-center justify-between border-b border-[var(--sidebar-border)] px-5">
             <div className={cn('flex min-w-0 items-center gap-3', desktopCollapsed && 'md:justify-center')}>
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--card-surface)] text-sm font-bold text-[var(--accent)] shadow-[0_0_24px_-14px_var(--accent)]" aria-hidden="true">
-                M
+                D
               </div>
               <div className={cn('min-w-0', desktopCollapsed && 'md:sr-only')}>
-                <div className="truncate text-base font-semibold tracking-tight">MyDeskii</div>
+                <div className="truncate text-base font-semibold tracking-tight">Deskii</div>
                 <div className="mt-0.5 text-xs text-[var(--muted)]">SAVAGE LLC workspace</div>
               </div>
             </div>

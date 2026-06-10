@@ -27,7 +27,14 @@ export interface TaskAccessPolicy {
 export interface ReadableTask {
   assigneeId?: string | null
   createdById?: string | null
+  collaborators?: Array<{
+    userId?: string | null
+    status?: string | null
+  }> | null
 }
+
+const READABLE_COLLABORATOR_STATUSES = ['invited', 'accepted']
+const READABLE_COLLABORATOR_STATUS_SET = new Set(READABLE_COLLABORATOR_STATUSES)
 
 export function normalizeRoleName(role: string): string {
   return normalizeOrgRoleName(role)
@@ -54,18 +61,32 @@ export function getPrimaryTaskAssignment(roles: TaskRoleAssignment[]): PrimaryTa
   }
 }
 
-export function getTaskVisibilityFilter(access: TaskAccessPolicy): { OR?: Array<{ assigneeId?: string; createdById?: string }> } {
+export function getTaskVisibilityFilter(access: TaskAccessPolicy): { OR?: Array<Record<string, unknown>> } {
   if (access.isPrivileged) return {}
   return {
     OR: [
       { assigneeId: access.requesterId },
       { createdById: access.requesterId },
+      {
+        collaborators: {
+          some: {
+            userId: access.requesterId,
+            status: { in: READABLE_COLLABORATOR_STATUSES },
+          },
+        },
+      },
     ],
   }
 }
 
 export function canReadTask(access: TaskAccessPolicy, task: ReadableTask): boolean {
-  return access.isPrivileged || task.assigneeId === access.requesterId || task.createdById === access.requesterId
+  return access.isPrivileged
+    || task.assigneeId === access.requesterId
+    || task.createdById === access.requesterId
+    || Boolean(task.collaborators?.some((collaborator) =>
+      collaborator.userId === access.requesterId
+      && READABLE_COLLABORATOR_STATUS_SET.has(collaborator.status || ''),
+    ))
 }
 
 export function canRequestAssigneeTasks(access: TaskAccessPolicy, assigneeId: string): boolean {

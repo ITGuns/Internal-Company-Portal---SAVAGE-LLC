@@ -1,4 +1,4 @@
-export const OPERATIONS_TABS = ['departments', 'roles', 'members', 'clients'] as const;
+export const OPERATIONS_TABS = ['departments', 'roles', 'members', 'org-chart', 'clients'] as const;
 
 export type OperationsTab = (typeof OPERATIONS_TABS)[number];
 

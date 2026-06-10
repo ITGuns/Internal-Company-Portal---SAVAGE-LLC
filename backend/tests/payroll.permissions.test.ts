@@ -39,9 +39,11 @@ assert.deepEqual(
     baseSalary: 50000,
     bankAccount: '123',
     taxId: 'TIN',
+    payrollScheme: 'flat_160_hours',
+    maxBillableHoursPerDay: 8,
     unknown: 'ignored',
   }),
-  ['baseSalary', 'bankAccount', 'taxId'],
+  ['baseSalary', 'bankAccount', 'taxId', 'payrollScheme', 'maxBillableHoursPerDay'],
 )
 
 assert.deepEqual(
@@ -49,6 +51,8 @@ assert.deepEqual(
     {
       baseSalary: 50000,
       currency: 'PHP',
+      payrollScheme: 'flat_160_hours',
+      maxBillableHoursPerDay: 7.5,
       bankAccount: '123',
       taxId: 'TIN',
       requestedRole: 'admin',
@@ -60,6 +64,8 @@ assert.deepEqual(
     data: {
       baseSalary: 50000,
       currency: 'PHP',
+      payrollScheme: 'flat_160_hours',
+      maxBillableHoursPerDay: 7.5,
       bankAccount: '123',
       taxId: 'TIN',
     },
@@ -73,12 +79,14 @@ assert.deepEqual(
       baseSalary: 50000,
       bankAccount: '123',
       taxId: 'TIN',
+      payrollScheme: 'flat_20',
+      maxBillableHoursPerDay: 6,
     },
     { isPrivileged: false },
   ),
   {
     data: {},
-    rejectedFields: ['baseSalary', 'bankAccount', 'taxId'],
+    rejectedFields: ['baseSalary', 'bankAccount', 'taxId', 'payrollScheme', 'maxBillableHoursPerDay'],
   },
 )
 

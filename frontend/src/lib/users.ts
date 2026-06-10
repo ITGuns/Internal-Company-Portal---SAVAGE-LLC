@@ -10,6 +10,13 @@ export interface User {
     avatar?: string;
     status?: string;
     isApproved?: boolean;
+    managerId?: string | null;
+    manager?: {
+        id: string;
+        email: string;
+        name?: string | null;
+        avatar?: string | null;
+    } | null;
     createdAt: string;
     updatedAt: string;
     roles?: MemberRoleAssignment[];

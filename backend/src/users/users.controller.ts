@@ -307,7 +307,24 @@ export class UsersController {
         router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
-                const { name, email, avatar, birthday, phone, address, city, citizenship, status, appliedDate, salary, role, department } = req.body
+                const {
+                    name,
+                    email,
+                    avatar,
+                    birthday,
+                    phone,
+                    address,
+                    city,
+                    citizenship,
+                    status,
+                    appliedDate,
+                    salary,
+                    role,
+                    department,
+                    managerId,
+                    payrollScheme,
+                    maxBillableHoursPerDay,
+                } = req.body
                 const authReq = req as AuthRequest
                 const requesterId = authReq.user?.userId
                 if (!requesterId) {
@@ -328,7 +345,18 @@ export class UsersController {
                     return res.status(403).json({ error: 'Unauthorized to update another user' })
                 }
 
-                const protectedFields = ['status', 'appliedDate', 'salary', 'role', 'department', 'departmentId', 'isApproved']
+                const protectedFields = [
+                    'status',
+                    'appliedDate',
+                    'salary',
+                    'role',
+                    'department',
+                    'departmentId',
+                    'isApproved',
+                    'managerId',
+                    'payrollScheme',
+                    'maxBillableHoursPerDay',
+                ]
                 const requestedProtectedFields = protectedFields.filter(field =>
                     Object.prototype.hasOwnProperty.call(req.body, field)
                 )
@@ -337,6 +365,34 @@ export class UsersController {
                     return res.status(403).json({
                         error: 'Only authorized managers can update employee status, payroll, role, or department fields',
                     })
+                }
+
+                let normalizedManagerId: string | null | undefined
+                if (managerId !== undefined) {
+                    if (!isPrivileged) {
+                        return res.status(403).json({ error: 'Only authorized managers can update reporting lines' })
+                    }
+                    if (managerId !== null && typeof managerId !== 'string') {
+                        return res.status(400).json({ error: 'Manager ID must be a string or null' })
+                    }
+
+                    normalizedManagerId = typeof managerId === 'string' && managerId.trim()
+                        ? managerId.trim()
+                        : null
+
+                    if (normalizedManagerId === id) {
+                        return res.status(400).json({ error: 'A member cannot report to themselves' })
+                    }
+
+                    if (normalizedManagerId) {
+                        const manager = await this.service.findById(normalizedManagerId)
+                        if (!manager) {
+                            return res.status(400).json({ error: 'Manager not found' })
+                        }
+                        if (await this.service.wouldCreateManagerCycle(id, normalizedManagerId)) {
+                            return res.status(400).json({ error: 'Reporting line would create a cycle' })
+                        }
+                    }
                 }
 
                 const avatarValidation = avatar === undefined ? undefined : validateAvatarValue(avatar)
@@ -382,14 +438,16 @@ export class UsersController {
                     status,
                     appliedDate,
                     isApproved: status !== undefined ? status !== 'pending' : undefined,
+                    managerId: normalizedManagerId,
                 })
 
                 // Handle Salary / Payroll Update
-                if (salary !== undefined) {
+                if (salary !== undefined || payrollScheme !== undefined || maxBillableHoursPerDay !== undefined) {
                     await this.payrollService.getEmployeeProfile(id) // Ensure profile exists
                     await this.payrollService.updateEmployeeProfile(id, {
-                        baseSalary: salary,
-                        currency: 'PHP' // Default to PHP as requested
+                        ...(salary !== undefined ? { baseSalary: salary, currency: 'PHP' } : {}),
+                        ...(payrollScheme !== undefined ? { payrollScheme } : {}),
+                        ...(maxBillableHoursPerDay !== undefined ? { maxBillableHoursPerDay } : {}),
                     })
                 }
 

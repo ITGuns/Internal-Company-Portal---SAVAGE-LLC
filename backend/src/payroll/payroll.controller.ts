@@ -82,7 +82,8 @@ export class PayrollController {
             error.message === 'Invalid start time' ||
             error.message === 'Invalid end time' ||
             error.message === 'End time must be after start time' ||
-            error.message === 'Invalid base salary'
+            error.message === 'Invalid base salary' ||
+            error.message === 'Invalid max billable hours per day'
         )) {
             return res.status(400).json({ error: error.message })
         }

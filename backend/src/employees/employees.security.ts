@@ -14,6 +14,8 @@ type EmployeeProfileLike = {
   jobTitle?: string | null
   employmentType?: string | null
   baseSalary?: number | null
+  payrollScheme?: string | null
+  maxBillableHoursPerDay?: number | null
   bankAccount?: string | null
   taxId?: string | null
   currency?: string | null
@@ -90,6 +92,8 @@ export function serializeDeployedEmployee(employee: EmployeeLike) {
     role: employee.role || employee.employeeProfile?.jobTitle || primaryRole?.role || 'Member',
     department: employee.department || primaryRole?.department?.name || 'Operations',
     salary: employee.salary ?? employee.employeeProfile?.baseSalary ?? 0,
+    payrollScheme: employee.employeeProfile?.payrollScheme ?? 'weekdays',
+    maxBillableHoursPerDay: employee.employeeProfile?.maxBillableHoursPerDay ?? 8,
     hoursThisWeek: employee.hoursThisWeek ?? 0,
     performance: employee.performance ?? null,
   }

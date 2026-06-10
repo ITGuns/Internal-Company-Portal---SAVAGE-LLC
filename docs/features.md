@@ -28,8 +28,16 @@ Task tracking supports calendar, board, and list views for task status, assignme
 - Full-access admins, project managers, operations managers, and chief operations officers can assign tasks to other employees.
 - Manager/admin assignment controls include an `Assign to me` shortcut.
 - Selecting an assignee in the task modal auto-fills that employee's primary department and role when available.
+- Full-access admins can quick-add a new department from the task modal when a task requires a department that does not exist yet.
 - New task records store `createdById` separately from `assigneeId`, so requester visibility no longer depends only on assignment.
 - Task role options come from backend department `availableRoles` instead of frontend-only constants.
+- Manager/admin task forms can invite additional employee collaborators while preserving the primary assignee.
+- Collaborator chips appear on task cards/list rows, and task details show the invited collaborator names.
+- Task projects can be created in Task Tracking, assigned to tasks, filtered, grouped, paused/resumed, and marked complete.
+- Project assignment appears on task cards, list rows, detail modals, calendar/report data, and exported Deskii task reports.
+- Start and due date fields use segmented day/month/year inputs that move focus forward as the user completes each segment.
+- Task search matches task title, description, status, priority, notes, project, department, assignee, creator, and collaborators.
+- Work Focus can stay automatic or be pinned to a selected task per user.
 
 ### Detail And Work History
 
@@ -84,6 +92,7 @@ Operations manages departments, role options, and client account administration.
 - Role-option APIs preserve existing configured roles and add missing org-chart defaults for matching departments, so admin onboarding is not blocked by stale seed data.
 - Admin Operations syncs the default org chart into persisted department and role rows so `/operations` displays the planned structure even on databases that still contain older department records.
 - The Operations `Members` tab lists internal users/employees, shows their active authorization groups, and lets full-access admins add or remove role assignments through the server-controlled user-role APIs.
+- The Operations `Org Chart` tab builds a flexible manager/direct-report hierarchy from member reporting lines and lets full-access admins update each member's manager.
 - Department and role deletes now require a typed confirmation modal.
 - The delete action stays disabled until the exact target name is typed.
 - Department delete confirmation displays linked task and user-role counts when provided by the API.
@@ -129,3 +138,15 @@ Payroll Calendar tracks calendar events, employee time entries, and payroll revi
 - Time entries can be edited from today's entry list or from the selected day review panel.
 - Time entry deletion now opens a typed confirmation modal and stays disabled until `DELETE` is typed.
 - Payroll profile compensation and banking fields are protected by backend role checks.
+- Employee payroll setup includes max billable hours per day and a salary divisor scheme: weekdays credited, flat 30 days, flat 20 days, or flat 160 hours.
+- Payslip previews and generation show tracked hours, billable hours, and pending overtime separately. Automatic gross pay excludes time beyond the daily billable cap until a manager manually overrides or approves it.
+
+## Company Chat
+
+Company Chat supports internal direct messages, group/channel conversations, realtime updates, and message correction.
+
+- Users can edit or delete their own messages.
+- Users can attach files, images, and GIFs through the message composer.
+- The composer includes quick emoji insertion.
+- Messages support stored quick reactions; reaction chips show counts and can be toggled by conversation participants.
+- Reactions are broadcast through the same conversation room as message events.

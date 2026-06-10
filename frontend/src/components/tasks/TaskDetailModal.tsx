@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Clock3,
   Edit3,
+  FolderKanban,
   RotateCcw,
   Timer,
   UserRound,
@@ -108,6 +109,7 @@ export default function TaskDetailModal({ task, onClose, onEdit, onAction }: Tas
     ? 100
     : getReopenedTaskProgress({ ...activeTask, totalElapsed: liveElapsed });
   const assigneeName = activeTask.assignee?.name || activeTask.assignee?.email || "Unassigned";
+  const collaborators = activeTask.collaborators || [];
   const remainingLabel = summary.isOverEstimate
     ? `${formatDurationSeconds(summary.trackedSeconds - summary.estimatedSeconds)} over`
     : formatDurationSeconds(summary.remainingSeconds);
@@ -241,6 +243,26 @@ export default function TaskDetailModal({ task, onClose, onEdit, onAction }: Tas
                 <div className="font-medium">
                   {activeTask.department?.name || "No department"}
                   {activeTask.role ? ` / ${activeTask.role}` : ""}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 text-sm">
+              <FolderKanban className="mt-0.5 h-4 w-4 text-[var(--muted)]" />
+              <div>
+                <div className="text-xs text-[var(--muted)]">Project</div>
+                <div className="font-medium">{activeTask.project?.name || "No project"}</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 text-sm">
+              <UserRound className="mt-0.5 h-4 w-4 text-[var(--muted)]" />
+              <div className="min-w-0">
+                <div className="text-xs text-[var(--muted)]">Collaborators</div>
+                <div className="font-medium">
+                  {collaborators.length > 0
+                    ? collaborators
+                        .map((collaborator) => collaborator.user?.name || collaborator.user?.email || "Invited member")
+                        .join(", ")
+                    : "None"}
                 </div>
               </div>
             </div>
