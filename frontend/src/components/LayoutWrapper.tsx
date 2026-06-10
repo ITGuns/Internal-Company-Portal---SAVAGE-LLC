@@ -57,9 +57,9 @@ function AuthenticatedShell({ children }: LayoutWrapperProps) {
 export default function LayoutWrapper({ children }: LayoutWrapperProps) {
   return (
     <SidebarProvider>
-      <AuthenticatedShell>
-        <AuthGuard>{children}</AuthGuard>
-      </AuthenticatedShell>
+      <AuthGuard>
+        <AuthenticatedShell>{children}</AuthenticatedShell>
+      </AuthGuard>
     </SidebarProvider>
   );
 }

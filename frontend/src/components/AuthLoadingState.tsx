@@ -1,14 +1,21 @@
 'use client';
 
-import Header from './Header';
 import { PageSkeleton } from './ui/Skeleton';
 
 export default function AuthLoadingState({ isPublicRoute }: { isPublicRoute: boolean }) {
   if (!isPublicRoute) {
     return (
-      <main className="main-content-height bg-transparent text-[var(--foreground)]">
-        <div className="p-6 pt-3">
-          <Header />
+      <main
+        className="min-h-[100dvh] bg-transparent p-4 text-[var(--foreground)] md:p-6"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        <div className="mx-auto max-w-[1480px]">
+          <header className="mb-6 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface-raised)]/90 p-4 shadow-[var(--shadow-sm)] backdrop-blur md:p-5">
+            <div className="text-base font-semibold tracking-tight md:text-xl">Preparing account access</div>
+            <p className="mt-1 text-sm text-[var(--muted)]">Checking your session and permissions before loading the workspace.</p>
+          </header>
           <PageSkeleton cards={4} rows={5} />
         </div>
       </main>

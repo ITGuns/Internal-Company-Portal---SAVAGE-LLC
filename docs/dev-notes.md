@@ -1,5 +1,30 @@
 # Development Notes
 
+## 2026-06-11 - Auth Refresh Shell Guard
+
+### Completed
+
+- Moved the authenticated workspace shell behind the auth guard so the sidebar does not render before identity is known.
+- Replaced the protected-route loading header fallback with a neutral account-access loading state.
+- Stopped rendering protected workspace content during loading when only a stored token exists and no user snapshot is available.
+
+### Files Changed
+
+- `frontend/src/components/AuthGuard.tsx`
+- `frontend/src/components/AuthLoadingState.tsx`
+- `frontend/src/components/LayoutWrapper.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- A stored token alone is not enough to render role-gated navigation; the workspace shell needs a user snapshot first.
+- Anonymous or stale sessions should redirect to login instead of briefly showing a Guest workspace.
+
+### How to Test
+
+- Hard refresh `/dashboard` with an admin session and confirm admin sidebar items remain visible.
+- Clear auth storage or use an expired token, then open `/dashboard` and confirm it routes to login without a Guest workspace shell.
+
 ## 2026-06-11 - Operations Department Drive Metadata Removal
 
 ### Completed
