@@ -513,6 +513,21 @@ export default function TaskTrackingPage() {
     showModal,
   ]);
 
+  useEffect(() => {
+    if (!filterProjectId) return;
+
+    function handleProjectFilterEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      if (showModal || selectedTask || showEODModal || showDisplayMenu) return;
+
+      event.preventDefault();
+      setFilterProjectId("");
+    }
+
+    document.addEventListener("keydown", handleProjectFilterEscape);
+    return () => document.removeEventListener("keydown", handleProjectFilterEscape);
+  }, [filterProjectId, selectedTask, showDisplayMenu, showEODModal, showModal]);
+
 
 
   async function handleSubmit(e: React.FormEvent) {
@@ -654,6 +669,10 @@ export default function TaskTrackingPage() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update project");
     }
+  }
+
+  function toggleProjectTaskView(projectId: string) {
+    setFilterProjectId((currentProjectId) => (currentProjectId === projectId ? "" : projectId));
   }
 
   async function handleCreateDepartmentFromTaskModal(name: string) {
@@ -1079,29 +1098,45 @@ export default function TaskTrackingPage() {
               ) : (
                 projects.slice(0, 8).map((project) => {
                   const taskCount = project.taskCount ?? tasks.filter((task) => task.projectId === project.id).length;
+                  const isViewingProject = filterProjectId === project.id;
                   return (
-                    <div key={project.id} className="rounded-md border border-[var(--border)] bg-[var(--card-surface)] p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold">{project.name}</div>
-                          <div className="mt-1 text-xs text-[var(--muted)]">
-                            {taskCount} task{taskCount === 1 ? "" : "s"} - {PROJECT_STATUS_LABELS[project.status]}
+                    <article
+                      key={project.id}
+                      className={`relative overflow-hidden rounded-md border p-3 transition-[background-color,border-color,box-shadow] duration-150 ${
+                        isViewingProject
+                          ? "border-[var(--accent)] bg-[var(--accent)]/10 shadow-[inset_0_0_0_1px_rgba(23,217,245,0.16)]"
+                          : "border-[var(--border)] bg-[var(--card-surface)] hover:border-[var(--accent)]/50 hover:bg-[var(--card-bg)]"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        aria-pressed={isViewingProject}
+                        aria-label={isViewingProject ? `Exit ${project.name} project task view` : `View tasks in ${project.name}`}
+                        title={isViewingProject ? "Back to all tasks" : "View project tasks"}
+                        onClick={() => toggleProjectTaskView(project.id)}
+                        className="absolute inset-0 z-10 cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card-bg)]"
+                      />
+                      <div className="pointer-events-none relative z-20 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold">{project.name}</div>
+                            <div className="mt-1 text-xs text-[var(--muted)]">
+                              {taskCount} task{taskCount === 1 ? "" : "s"} - {PROJECT_STATUS_LABELS[project.status]}
+                            </div>
                           </div>
+                          {isViewingProject ? (
+                            <span className="shrink-0 rounded border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-2 py-1 text-[10px] font-semibold uppercase text-[var(--accent)]">
+                              Viewing
+                            </span>
+                          ) : null}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setFilterProjectId(filterProjectId === project.id ? "" : project.id)}
-                          className="motion-interactive inline-flex min-h-10 items-center justify-center rounded border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--card-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                        >
-                          {filterProjectId === project.id ? "All tasks" : "View"}
-                        </button>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-1 text-[10px] text-[var(--muted)]">
-                        {project.department?.name && <span>{project.department.name}</span>}
-                        {project.targetDate && <span>Target {project.targetDate}</span>}
+                        <div className="mt-2 flex flex-wrap gap-1 text-[10px] text-[var(--muted)]">
+                          {project.department?.name && <span>{project.department.name}</span>}
+                          {project.targetDate && <span>Target {project.targetDate}</span>}
+                        </div>
                       </div>
                       {canManageAssignments && (
-                        <div className="mt-3 flex flex-wrap gap-2">
+                        <div className="relative z-30 mt-3 flex flex-wrap gap-2">
                           {project.status !== "completed" ? (
                             <button
                               type="button"
@@ -1138,7 +1173,7 @@ export default function TaskTrackingPage() {
                           ) : null}
                         </div>
                       )}
-                    </div>
+                    </article>
                   );
                 })
               )}
@@ -1425,7 +1460,7 @@ export default function TaskTrackingPage() {
               <div className="min-w-0">
                 <div className="font-semibold text-[var(--foreground)]">Viewing project tasks</div>
                 <div className="mt-0.5 text-xs text-[var(--muted)]">
-                  {selectedProject?.name || "Selected project"} - {sortedTasks.length} result{sortedTasks.length === 1 ? "" : "s"}. General tasks are hidden while this project filter is active.
+                  {selectedProject?.name || "Selected project"} - {sortedTasks.length} result{sortedTasks.length === 1 ? "" : "s"}. Click the project card again or press Esc to return.
                 </div>
               </div>
               <button

@@ -1,5 +1,31 @@
 # Development Notes
 
+## 2026-06-11 - Project Card Task View Toggle
+
+### Completed
+
+- Changed Task Tracking project cards so clicking the card opens that project's task view.
+- Clicking the selected project card again now returns to all tasks.
+- Added Escape-key support to clear the active project task view when no task modal, detail modal, EOD modal, or display menu is open.
+- Preserved project action buttons so Complete, Pause, Reopen, and Resume do not trigger the card filter.
+
+### Files Changed
+
+- `frontend/src/app/task-tracking/page.tsx`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Reused the existing `filterProjectId` state instead of adding a second project-view state.
+- Kept the visible `Back to all tasks` banner as an explicit escape hatch while making the card itself the main toggle target.
+
+### How to Test
+
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend test`
+- Open `/task-tracking`, click a project card, confirm only that project's tasks are shown, click the same card again, then repeat with Esc.
+
 ## 2026-06-10 - Authorization-Aware Global Search
 
 ### Completed
