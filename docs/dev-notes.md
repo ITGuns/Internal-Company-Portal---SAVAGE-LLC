@@ -1,5 +1,30 @@
 # Development Notes
 
+## 2026-06-11 - Task Modal Account Assignment
+
+### Completed
+
+- Removed the visible Department selector and quick-add department control from the Task Tracking task modal.
+- Kept task create/update payloads populated from the selected assignee's account department and role.
+- Added manager/admin helper copy that shows whether the selected assignee has a usable account assignment.
+
+### Files Changed
+
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/tasks/TaskModal.tsx`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Department and role remain part of the task API contract, but the form no longer asks users to choose them manually.
+- If an assignee account has no department/role assignment, task creation stops with account-assignment guidance instead of allowing stale form state.
+
+### How to Test
+
+- Open `/task-tracking?new=1`, confirm the task modal has no Department field, select an assignee, and confirm the account assignment hint appears.
+- Submit a task and confirm the payload still includes the selected assignee's account department and role.
+
 ## 2026-06-11 - Task Modal Date And Estimate Inputs
 
 ### Completed

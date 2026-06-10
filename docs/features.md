@@ -38,8 +38,7 @@ Task tracking supports calendar, board, and list views for task status, assignme
 - Employees do not manually choose their own assignee or role in the task modal.
 - Full-access admins, project managers, operations managers, and chief operations officers can assign tasks to other employees.
 - Manager/admin assignment controls include an `Assign to me` shortcut.
-- Selecting an assignee in the task modal auto-fills that employee's primary department and role when available.
-- Full-access admins can quick-add a new department from the task modal when a task requires a department that does not exist yet.
+- Task forms do not collect department manually; selecting an assignee uses that employee's primary account department and role.
 - New task records store `createdById` separately from `assigneeId`, so requester visibility no longer depends only on assignment.
 - Task role options come from backend department `availableRoles` instead of frontend-only constants.
 - Manager/admin task forms can invite additional employee collaborators while preserving the primary assignee.

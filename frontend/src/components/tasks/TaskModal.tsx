@@ -5,7 +5,7 @@ import Button from "@/components/Button";
 import SegmentedDateInput from "@/components/forms/SegmentedDateInput";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { Trash2, X } from "lucide-react";
-import type { TaskPriority, TaskStatus, TaskDepartment, TaskUser, Task, TaskProject } from "@/lib/tasks";
+import type { TaskPriority, TaskStatus, TaskUser, Task, TaskProject } from "@/lib/tasks";
 import { getPrimaryTaskAssignmentFromRoles } from "@/lib/task-access";
 import {
   formatEstimatedMinutesAsClock,
@@ -40,7 +40,6 @@ interface TaskModalProps {
   setStartDate: (v: string) => void;
   priority: TaskPriority;
   setPriority: (v: TaskPriority) => void;
-  departmentId: string;
   setDepartmentId: (v: string) => void;
   projectId: string;
   setProjectId: (v: string) => void;
@@ -52,11 +51,9 @@ interface TaskModalProps {
   progress: number;
   progressNotes: string;
   setProgressNotes: (v: string) => void;
-  departments: TaskDepartment[];
   users: TaskUser[];
   projects: TaskProject[];
   canManageAssignments: boolean;
-  onCreateDepartment?: (name: string) => Promise<void>;
   assignmentSummary?: {
     assigneeName: string;
     departmentName?: string;
@@ -85,7 +82,6 @@ export default function TaskModal({
   setStartDate,
   priority,
   setPriority,
-  departmentId,
   setDepartmentId,
   projectId,
   setProjectId,
@@ -97,11 +93,9 @@ export default function TaskModal({
   progress,
   progressNotes,
   setProgressNotes,
-  departments,
   users,
   projects,
   canManageAssignments,
-  onCreateDepartment,
   assignmentSummary,
   onAssignToCurrentUser,
   onSubmit,
@@ -112,10 +106,15 @@ export default function TaskModal({
   const dialogDescriptionId = React.useId();
   const fieldIdPrefix = React.useId();
   const { dialogRef, handleDialogKeyDown } = useDialogA11y({ onClose });
-  const [showDepartmentCreate, setShowDepartmentCreate] = React.useState(false);
-  const [newDepartmentName, setNewDepartmentName] = React.useState("");
-  const [isCreatingDepartment, setIsCreatingDepartment] = React.useState(false);
   const todayDate = getLocalTodayDateInput();
+  const selectedAssignee = users.find((user) => String(user.id) === String(assigneeId));
+  const selectedAssigneeAssignment = getPrimaryTaskAssignmentFromRoles(selectedAssignee?.roles);
+  const selectedAssigneeAssignmentLabel = selectedAssigneeAssignment
+    ? [
+        selectedAssigneeAssignment.departmentName || selectedAssigneeAssignment.departmentId || "Assigned department",
+        selectedAssigneeAssignment.role,
+      ].filter(Boolean).join(" / ")
+    : "";
 
   function normalizeEstimatedTime() {
     const minutes = parseEstimatedClockToMinutes(estimatedTime);
@@ -130,25 +129,14 @@ export default function TaskModal({
 
     const selectedUser = users.find((user) => String(user.id) === String(nextAssigneeId));
     const selectedAssignment = getPrimaryTaskAssignmentFromRoles(selectedUser?.roles);
-    if (!selectedAssignment) return;
-
-    if (selectedAssignment.departmentId) {
-      setDepartmentId(selectedAssignment.departmentId);
+    if (!selectedAssignment) {
+      setDepartmentId("");
+      setRole("");
+      return;
     }
-    setRole(selectedAssignment.role);
-  }
 
-  async function handleCreateDepartment() {
-    if (!onCreateDepartment || !newDepartmentName.trim()) return;
-
-    setIsCreatingDepartment(true);
-    try {
-      await onCreateDepartment(newDepartmentName.trim());
-      setNewDepartmentName("");
-      setShowDepartmentCreate(false);
-    } finally {
-      setIsCreatingDepartment(false);
-    }
+    setDepartmentId(selectedAssignment.departmentId || "");
+    setRole(selectedAssignment.role || "");
   }
 
   function toggleCollaborator(userId: string) {
@@ -231,81 +219,6 @@ export default function TaskModal({
             <>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <label htmlFor={`${fieldIdPrefix}-department`} className="block text-sm font-medium">
-                      Department <span className="text-red-500">*</span>
-                    </label>
-                    {onCreateDepartment ? (
-                      <button
-                        type="button"
-                        onClick={() => setShowDepartmentCreate((current) => !current)}
-                        className="text-xs font-medium text-[var(--accent)] hover:underline"
-                      >
-                        New department
-                      </button>
-                    ) : null}
-                  </div>
-                  <select
-                    id={`${fieldIdPrefix}-department`}
-                    value={departmentId}
-                    onChange={(event) => {
-                      setDepartmentId(event.target.value);
-                      setRole("");
-                    }}
-                    className={selectControlClass}
-                    required
-                    aria-label="Department"
-                  >
-                    <option value="">Select department</option>
-                    {departments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {department.name}
-                      </option>
-                    ))}
-                  </select>
-                  {showDepartmentCreate ? (
-                    <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                      <input
-                        value={newDepartmentName}
-                        onChange={(event) => setNewDepartmentName(event.target.value)}
-                        placeholder="Department name"
-                        className={fieldControlClass}
-                        aria-label="New department name"
-                      />
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        loading={isCreatingDepartment}
-                        disabled={!newDepartmentName.trim() || isCreatingDepartment}
-                        onClick={() => void handleCreateDepartment()}
-                      >
-                        Add
-                      </Button>
-                    </div>
-                  ) : null}
-                </div>
-
-                <div>
-                  <label htmlFor={`${fieldIdPrefix}-priority`} className="block text-sm mb-1 font-medium">
-                    Priority <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    id={`${fieldIdPrefix}-priority`}
-                    value={priority}
-                    onChange={(event) => setPriority(event.target.value as TaskPriority)}
-                    className={selectControlClass}
-                    aria-label="Priority"
-                    required
-                  >
-                    <option value="Low">Low</option>
-                    <option value="Med">Med</option>
-                    <option value="High">High</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
                   <div className="flex items-center justify-between gap-2">
                     <label htmlFor={`${fieldIdPrefix}-assignee`} className="block text-sm mb-1 font-medium">
                       Assign To <span className="text-red-500">*</span>
@@ -335,6 +248,40 @@ export default function TaskModal({
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label htmlFor={`${fieldIdPrefix}-priority`} className="block text-sm mb-1 font-medium">
+                    Priority <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id={`${fieldIdPrefix}-priority`}
+                    value={priority}
+                    onChange={(event) => setPriority(event.target.value as TaskPriority)}
+                    className={selectControlClass}
+                    aria-label="Priority"
+                    required
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Med">Med</option>
+                    <option value="High">High</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="rounded border border-[var(--border)] bg-[var(--background)] p-3">
+                <div className="text-xs font-semibold uppercase text-[var(--muted)]">Account Assignment</div>
+                {!assigneeId ? (
+                  <p className="mt-1 text-xs text-[var(--muted)]">
+                    Select an assignee to use the assignment saved on their account.
+                  </p>
+                ) : selectedAssigneeAssignment ? (
+                  <p className="mt-1 text-sm font-medium">{selectedAssigneeAssignmentLabel}</p>
+                ) : (
+                  <p className="mt-1 text-xs text-red-500">
+                    This account needs an assigned department and role before tasks can be assigned.
+                  </p>
+                )}
               </div>
 
               <div>

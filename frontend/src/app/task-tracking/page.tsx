@@ -52,10 +52,9 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { ClipboardCheck } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
-import { apiFetch } from "@/lib/api";
-import { hasFullAccess } from "@/lib/role-access";
 import {
   canManageTaskAssignments,
+  getPrimaryTaskAssignmentFromRoles,
   getUserTaskAssignment,
 } from "@/lib/task-access";
 import { shouldOpenCreateFromSearch } from "@/lib/dashboard-deep-links";
@@ -153,7 +152,6 @@ export default function TaskTrackingPage() {
   const updateProjectMutation = useUpdateTaskProject();
   const currentUserId = currentUser?.id ? String(currentUser.id) : "";
   const canManageAssignments = canManageTaskAssignments(currentUser);
-  const canManageDepartments = hasFullAccess(currentUser);
   const currentUserAssignment = useMemo(
     () => getUserTaskAssignment(currentUser, users),
     [currentUser, users],
@@ -345,12 +343,8 @@ export default function TaskTrackingPage() {
     if (!currentUserId) return;
 
     setAssigneeId(currentUserId);
-    if (currentUserAssignment?.departmentId) {
-      setDepartmentId(currentUserAssignment.departmentId);
-    }
-    if (currentUserAssignment?.role) {
-      setRole(currentUserAssignment.role);
-    }
+    setDepartmentId(currentUserAssignment?.departmentId || "");
+    setRole(currentUserAssignment?.role || "");
   }
 
   const openNewTask = useCallback(() => {
@@ -528,8 +522,14 @@ export default function TaskTrackingPage() {
     e.preventDefault();
 
     const effectiveAssigneeId = canManageAssignments ? assigneeId : currentUserId;
-    const effectiveDepartmentId = canManageAssignments ? departmentId : currentUserAssignment?.departmentId || "";
-    const effectiveRole = canManageAssignments ? role : currentUserAssignment?.role || "";
+    const selectedAssignee = users.find((user) => String(user.id) === String(effectiveAssigneeId));
+    const selectedAssigneeAssignment = getPrimaryTaskAssignmentFromRoles(selectedAssignee?.roles);
+    const effectiveDepartmentId = canManageAssignments
+      ? selectedAssigneeAssignment?.departmentId || (editTaskData ? departmentId : "")
+      : currentUserAssignment?.departmentId || "";
+    const effectiveRole = canManageAssignments
+      ? selectedAssigneeAssignment?.role || (editTaskData ? role : "")
+      : currentUserAssignment?.role || "";
     const estimatedTimeMinutes = parseEstimatedClockToMinutes(estimatedTime);
 
     if (!title.trim() || !description.trim()) {
@@ -542,10 +542,8 @@ export default function TaskTrackingPage() {
       return;
     }
 
-    if (canManageAssignments && (!effectiveDepartmentId || !effectiveAssigneeId)) {
-      toast.error(
-        "Please choose an assignee and department",
-      );
+    if (canManageAssignments && (!effectiveAssigneeId || !effectiveDepartmentId || !effectiveRole)) {
+      toast.error("Choose an assignee with an assigned department and role in their account");
       return;
     }
 
@@ -672,25 +670,6 @@ export default function TaskTrackingPage() {
 
   function toggleProjectTaskView(projectId: string) {
     setFilterProjectId((currentProjectId) => (currentProjectId === projectId ? "" : projectId));
-  }
-
-  async function handleCreateDepartmentFromTaskModal(name: string) {
-    const response = await apiFetch('/departments', {
-      method: 'POST',
-      body: JSON.stringify({ name }),
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.json().catch(() => ({}));
-      throw new Error(errorBody.error || 'Failed to create department');
-    }
-
-    const department = await response.json();
-    await queryClient.invalidateQueries({ queryKey: ['departments'] });
-    if (department?.id) {
-      setDepartmentId(department.id);
-    }
-    toast.success("Department created");
   }
 
   const handleDownloadPDF = async () => {
@@ -1626,16 +1605,15 @@ export default function TaskTrackingPage() {
           dueDate={dueDate} setDueDate={setDueDate}
           startDate={startDate} setStartDate={setStartDate}
           priority={priority} setPriority={setPriority}
-          departmentId={departmentId} setDepartmentId={setDepartmentId}
+          setDepartmentId={setDepartmentId}
           projectId={projectId} setProjectId={setProjectId}
           setRole={setRole}
           status={status} setStatus={setStatus}
           estimatedTime={estimatedTime} setEstimatedTime={setEstimatedTime}
           progress={progress}
           progressNotes={progressNotes} setProgressNotes={setProgressNotes}
-          departments={departments} users={users} projects={projects}
+          users={users} projects={projects}
           canManageAssignments={canManageAssignments}
-          onCreateDepartment={canManageDepartments ? handleCreateDepartmentFromTaskModal : undefined}
           assignmentSummary={{
             assigneeName: currentUser?.name || currentUser?.email || "You",
             departmentName: currentUserAssignment?.departmentName,
