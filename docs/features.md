@@ -48,7 +48,8 @@ Task tracking supports calendar, board, and list views for task status, assignme
 - Clicking a task project card filters the task list to that project; clicking the selected card again, pressing Esc, or using `Back to all tasks` clears the project view.
 - Opening the Project Organization panel expands a project overview dialog with per-project analytics for completion, open work, review load, overdue work, due-today work, estimates, tracked time, and target-date risk.
 - Project assignment appears on task cards, list rows, detail modals, calendar/report data, and exported Deskii task reports.
-- Start and due date fields use segmented day/month/year inputs that move focus forward as the user completes each segment.
+- Start and due date fields use segmented day/month/year inputs with `Today` shortcuts that move focus forward as the user completes each segment.
+- Task estimates use `HH:MM` input in the modal while the API continues storing estimated time as total minutes.
 - Task search matches task title, description, status, priority, notes, project, department, assignee, creator, and collaborators.
 - Work Focus can stay automatic or be pinned to a selected task per user.
 

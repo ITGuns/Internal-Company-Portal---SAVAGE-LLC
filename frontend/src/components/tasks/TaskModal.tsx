@@ -7,6 +7,11 @@ import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { Trash2, X } from "lucide-react";
 import type { TaskPriority, TaskStatus, TaskDepartment, TaskUser, Task, TaskProject } from "@/lib/tasks";
 import { getPrimaryTaskAssignmentFromRoles } from "@/lib/task-access";
+import {
+  formatEstimatedMinutesAsClock,
+  getLocalTodayDateInput,
+  parseEstimatedClockToMinutes,
+} from "@/lib/task-estimate";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "To Do",
@@ -18,7 +23,6 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 const fieldControlClass =
   "w-full min-h-10 rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
 const selectControlClass = `${fieldControlClass} portal-select`;
-type EstimatedTimeUnit = "minutes" | "hours" | "days";
 
 interface TaskModalProps {
   editTaskData: Task | null;
@@ -45,8 +49,6 @@ interface TaskModalProps {
   setStatus: (v: TaskStatus) => void;
   estimatedTime: string;
   setEstimatedTime: (v: string) => void;
-  estimatedTimeUnit: EstimatedTimeUnit;
-  setEstimatedTimeUnit: (v: EstimatedTimeUnit) => void;
   progress: number;
   progressNotes: string;
   setProgressNotes: (v: string) => void;
@@ -92,8 +94,6 @@ export default function TaskModal({
   setStatus,
   estimatedTime,
   setEstimatedTime,
-  estimatedTimeUnit,
-  setEstimatedTimeUnit,
   progress,
   progressNotes,
   setProgressNotes,
@@ -115,6 +115,14 @@ export default function TaskModal({
   const [showDepartmentCreate, setShowDepartmentCreate] = React.useState(false);
   const [newDepartmentName, setNewDepartmentName] = React.useState("");
   const [isCreatingDepartment, setIsCreatingDepartment] = React.useState(false);
+  const todayDate = getLocalTodayDateInput();
+
+  function normalizeEstimatedTime() {
+    const minutes = parseEstimatedClockToMinutes(estimatedTime);
+    if (!minutes) return;
+
+    setEstimatedTime(formatEstimatedMinutesAsClock(minutes));
+  }
 
   function handleAssigneeChange(nextAssigneeId: string) {
     setAssigneeId(nextAssigneeId);
@@ -421,19 +429,41 @@ export default function TaskModal({
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <SegmentedDateInput
-              id={`${fieldIdPrefix}-start-date`}
-              label="Start Date"
-              value={startDate}
-              onChange={setStartDate}
-            />
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+              <SegmentedDateInput
+                id={`${fieldIdPrefix}-start-date`}
+                label="Start Date"
+                value={startDate}
+                onChange={setStartDate}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="min-h-10 shrink-0 px-4"
+                onClick={() => setStartDate(todayDate)}
+              >
+                Today
+              </Button>
+            </div>
 
-            <SegmentedDateInput
-              id={`${fieldIdPrefix}-due-date`}
-              label="Due Date"
-              value={dueDate}
-              onChange={setDueDate}
-            />
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+              <SegmentedDateInput
+                id={`${fieldIdPrefix}-due-date`}
+                label="Due Date"
+                value={dueDate}
+                onChange={setDueDate}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="min-h-10 shrink-0 px-4"
+                onClick={() => setDueDate(todayDate)}
+              >
+                Today
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -460,31 +490,25 @@ export default function TaskModal({
               <label htmlFor={`${fieldIdPrefix}-estimated-time`} className="block text-sm mb-1 font-medium">
                 ETOC <span className="text-red-500">*</span>
               </label>
-              <div className="grid grid-cols-[minmax(0,1fr)_132px] gap-2">
-                <input
-                  id={`${fieldIdPrefix}-estimated-time`}
-                  type="number"
-                  min="0"
-                  step={estimatedTimeUnit === "minutes" ? "1" : "0.25"}
-                  inputMode="decimal"
-                  value={estimatedTime}
-                  onChange={(event) => setEstimatedTime(event.target.value)}
-                  placeholder={estimatedTimeUnit === "minutes" ? "e.g. 90" : "e.g. 1.5"}
-                  className={fieldControlClass}
-                  required
-                />
-                <select
-                  id={`${fieldIdPrefix}-estimated-time-unit`}
-                  value={estimatedTimeUnit}
-                  onChange={(event) => setEstimatedTimeUnit(event.target.value as EstimatedTimeUnit)}
-                  className={selectControlClass}
-                  aria-label="ETOC unit"
-                >
-                  <option value="minutes">Minutes</option>
-                  <option value="hours">Hours</option>
-                  <option value="days">Days</option>
-                </select>
-              </div>
+              <input
+                id={`${fieldIdPrefix}-estimated-time`}
+                name="estimatedTime"
+                type="text"
+                inputMode="text"
+                autoComplete="off"
+                value={estimatedTime}
+                onChange={(event) => setEstimatedTime(event.target.value)}
+                onBlur={normalizeEstimatedTime}
+                placeholder="HH:MM"
+                pattern="\d{1,3}:[0-5]\d"
+                title="Use HH:MM, for example 01:30"
+                aria-describedby={`${fieldIdPrefix}-estimated-time-help`}
+                className={fieldControlClass}
+                required
+              />
+              <p id={`${fieldIdPrefix}-estimated-time-help`} className="mt-1 text-xs text-[var(--muted)]">
+                Use HH:MM, for example 01:30.
+              </p>
             </div>
           </div>
 

@@ -73,6 +73,7 @@ import {
 } from "@/lib/task-focus";
 import { taskMatchesSearchQuery } from "@/lib/task-search";
 import { getReopenedTaskProgress, type TaskQuickAction } from "@/lib/task-status-actions";
+import { formatEstimatedMinutesAsClock, parseEstimatedClockToMinutes } from "@/lib/task-estimate";
 
 // Lazy-loaded heavy components
 const LogReportModal = dynamic(() => import("@/components/tasks/LogReportModal"), { ssr: false });
@@ -106,31 +107,6 @@ const formatMinutes = (minutes: number) => {
   if (h > 0) return `${h}h${m > 0 ? ` ${m}m` : ""}`;
   return `${m}m`;
 };
-
-type EstimatedTimeUnit = "minutes" | "hours" | "days";
-
-const ESTIMATED_TIME_UNIT_MULTIPLIERS: Record<EstimatedTimeUnit, number> = {
-  minutes: 1,
-  hours: 60,
-  days: 1440,
-};
-
-function getEstimatedTimeDisplay(minutes?: number): { value: string; unit: EstimatedTimeUnit } {
-  if (!minutes) return { value: "", unit: "hours" };
-  if (minutes % ESTIMATED_TIME_UNIT_MULTIPLIERS.days === 0) {
-    return { value: String(minutes / ESTIMATED_TIME_UNIT_MULTIPLIERS.days), unit: "days" };
-  }
-  if (minutes % ESTIMATED_TIME_UNIT_MULTIPLIERS.hours === 0) {
-    return { value: String(minutes / ESTIMATED_TIME_UNIT_MULTIPLIERS.hours), unit: "hours" };
-  }
-  return { value: String(minutes), unit: "minutes" };
-}
-
-function convertEstimatedTimeToMinutes(value: string, unit: EstimatedTimeUnit): number | null {
-  const parsed = Number.parseFloat(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) return null;
-  return Math.max(1, Math.round(parsed * ESTIMATED_TIME_UNIT_MULTIPLIERS[unit]));
-}
 
 function getTaskFocusOptionLabel(task: Task): string {
   const metadata = [
@@ -356,7 +332,6 @@ export default function TaskTrackingPage() {
   const [role, setRole] = useState("");
   const [status, setStatus] = useState<TaskStatus>("todo");
   const [estimatedTime, setEstimatedTime] = useState<string>("");
-  const [estimatedTimeUnit, setEstimatedTimeUnit] = useState<EstimatedTimeUnit>("hours");
 
   const [editTaskData, setEditTaskData] = useState<Task | null>(null);
   const [progress, setProgress] = useState(0);
@@ -395,7 +370,6 @@ export default function TaskTrackingPage() {
     setProgress(0);
     setProgressNotes("");
     setEstimatedTime("");
-    setEstimatedTimeUnit("hours");
     setShowModal(true);
   }, [
     canManageAssignments,
@@ -434,9 +408,7 @@ export default function TaskTrackingPage() {
     setStatus(task.status);
     setProgress(task.progress || 0);
     setProgressNotes("");
-    const estimatedTimeDisplay = getEstimatedTimeDisplay(task.estimatedTime);
-    setEstimatedTime(estimatedTimeDisplay.value);
-    setEstimatedTimeUnit(estimatedTimeDisplay.unit);
+    setEstimatedTime(formatEstimatedMinutesAsClock(task.estimatedTime));
     setShowModal(true);
   }
 
@@ -558,10 +530,15 @@ export default function TaskTrackingPage() {
     const effectiveAssigneeId = canManageAssignments ? assigneeId : currentUserId;
     const effectiveDepartmentId = canManageAssignments ? departmentId : currentUserAssignment?.departmentId || "";
     const effectiveRole = canManageAssignments ? role : currentUserAssignment?.role || "";
-    const estimatedTimeMinutes = convertEstimatedTimeToMinutes(estimatedTime, estimatedTimeUnit);
+    const estimatedTimeMinutes = parseEstimatedClockToMinutes(estimatedTime);
 
-    if (!title.trim() || !description.trim() || !estimatedTimeMinutes) {
+    if (!title.trim() || !description.trim()) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (!estimatedTimeMinutes) {
+      toast.error("Enter ETOC as HH:MM, for example 01:30");
       return;
     }
 
@@ -1654,7 +1631,6 @@ export default function TaskTrackingPage() {
           setRole={setRole}
           status={status} setStatus={setStatus}
           estimatedTime={estimatedTime} setEstimatedTime={setEstimatedTime}
-          estimatedTimeUnit={estimatedTimeUnit} setEstimatedTimeUnit={setEstimatedTimeUnit}
           progress={progress}
           progressNotes={progressNotes} setProgressNotes={setProgressNotes}
           departments={departments} users={users} projects={projects}

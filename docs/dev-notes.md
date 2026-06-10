@@ -1,5 +1,32 @@
 # Development Notes
 
+## 2026-06-11 - Task Modal Date And Estimate Inputs
+
+### Completed
+
+- Replaced the task modal ETOC number/unit controls with a single `HH:MM` input.
+- Added `Today` shortcut buttons beside both start date and due date segmented inputs.
+- Added shared estimate helpers and tests for `HH:MM` formatting/parsing while preserving minute-based task payloads.
+
+### Files Changed
+
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/tasks/TaskModal.tsx`
+- `frontend/src/lib/task-estimate.ts`
+- `frontend/tests/task-estimate.test.mjs`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept backend/API task estimates in total minutes and only changed the modal entry format.
+- Kept date values as `YYYY-MM-DD`; `Today` buttons simply populate the existing segmented date state.
+
+### How to Test
+
+- Open `/task-tracking?new=1`, click both `Today` buttons, enter ETOC as `01:30`, and submit.
+- Confirm the task payload stores `estimatedTime: 90` with today's start and due dates.
+
 ## 2026-06-11 - Task Tracking Board And Calendar Scroll
 
 ### Completed
