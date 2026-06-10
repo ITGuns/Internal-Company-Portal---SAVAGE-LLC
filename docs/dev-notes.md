@@ -1,5 +1,24 @@
 # Development Notes
 
+## 2026-06-11 - Neutral Task Detail Backdrop
+
+### Completed
+
+- Replaced the hardcoded light task detail overlay with the shared neutral scrim token and a restrained backdrop blur.
+
+### Files Changed
+
+- `frontend/src/components/tasks/TaskDetailModal.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Used `--scrim` instead of a route-specific gray so the modal backdrop stays aligned with the active theme.
+
+### How to Test
+
+- Open `/task-tracking`, open any task detail popup, and confirm the background dims neutrally without the white washed-out blur.
+
 ## 2026-06-11 - Project Card Task View Toggle
 
 ### Completed
