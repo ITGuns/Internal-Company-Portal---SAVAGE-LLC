@@ -23,6 +23,10 @@ export type OperationsRole = {
   } | null;
 };
 
+export type OperationsDepartmentCreatePayload = {
+  name: string;
+};
+
 export const OPERATIONS_QUERY_KEYS = {
   root: ['operations'] as const,
   departments: ['operations', 'departments'] as const,
@@ -126,6 +130,12 @@ export function deriveOperationsRolesFromDepartments(departments: OperationsDepa
       (left.department?.name || '').localeCompare(right.department?.name || '') ||
       left.name.localeCompare(right.name),
     );
+}
+
+export function buildOperationsDepartmentCreatePayload(name: string): OperationsDepartmentCreatePayload {
+  return {
+    name: name.trim(),
+  };
 }
 
 export async function fetchOperationsDepartments(): Promise<OperationsDepartment[]> {

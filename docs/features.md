@@ -108,6 +108,7 @@ Operations manages departments, role options, and client account administration.
 - Default role options are maintained in the backend org catalog and mirrored in frontend static department helpers for payroll/file-directory forms.
 - Role-option APIs preserve existing configured roles and add missing org-chart defaults for matching departments, so admin onboarding is not blocked by stale seed data.
 - Admin Operations syncs the default org chart into persisted department and role rows so `/operations` displays the planned structure even on databases that still contain older department records.
+- Department creation in Operations only asks for the department name; department cards do not expose Google Drive IDs, Drive link status, or internal department IDs.
 - The Operations `Members` tab lists internal users/employees, shows their active authorization groups, and lets full-access admins add or remove role assignments through the server-controlled user-role APIs.
 - The Operations `Org Chart` tab builds a flexible manager/direct-report hierarchy from member reporting lines, renders it as centered tree tiers, and lets full-access admins update each member's manager.
 - Department and role deletes now require a typed confirmation modal.

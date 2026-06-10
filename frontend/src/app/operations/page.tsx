@@ -17,6 +17,7 @@ import { assignUserRole, removeUserRole } from "@/lib/users";
 import { useUser } from "@/contexts/UserContext";
 import { hasFullAccess } from "@/lib/role-access";
 import {
+  buildOperationsDepartmentCreatePayload,
   deriveOperationsRolesFromDepartments,
   fetchOperationsDepartments,
   fetchOperationsMembers,
@@ -81,7 +82,6 @@ export default function OperationsPage() {
 
   // Form states
   const [name, setName] = useState("");
-  const [driveId, setDriveId] = useState("");
   const [roleName, setRoleName] = useState("");
   const [roleDeptId, setRoleDeptId] = useState("");
 
@@ -221,8 +221,8 @@ export default function OperationsPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !driveId.trim()) {
-      toast.error('Department name and Drive ID are required');
+    if (!name.trim()) {
+      toast.error('Department name is required');
       return;
     }
 
@@ -230,13 +230,12 @@ export default function OperationsPage() {
     try {
       const res = await apiFetch('/departments', {
         method: 'POST',
-        body: JSON.stringify({ name: name.trim(), driveId: driveId.trim() || undefined })
+        body: JSON.stringify(buildOperationsDepartmentCreatePayload(name))
       });
 
       if (res.ok) {
         setShowModal(false);
         setName("");
-        setDriveId("");
         toast.success('Department created successfully');
         await queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEYS.departments });
       }
@@ -521,26 +520,26 @@ export default function OperationsPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {departments.map((dept) => (
-                  <div key={dept.id} className="p-5 rounded-lg border bg-[var(--card-surface)] flex flex-col justify-between h-40">
+                  <div key={dept.id} className="p-5 rounded-lg border bg-[var(--card-surface)] flex flex-col justify-between min-h-32">
                     <div className="flex justify-between items-start">
-                      <div className="flex items-center gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-[var(--card-bg)] flex items-center justify-center text-[var(--muted)]">
                           <Building className="w-5 h-5" />
                         </div>
-                        <div>
-                          <div className="font-bold text-lg">{dept.name}</div>
-                          <div className="text-xs text-[var(--muted)]">ID: {dept.id.slice(0, 8)}...</div>
+                        <div className="min-w-0">
+                          <div className="truncate text-lg font-bold">{dept.name}</div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-4 flex justify-between items-center text-sm text-[var(--muted)]">
-                      <div>
-                        {dept.driveId ? (
-                          <span className="text-emerald-500">GDrive Linked</span>
-                        ) : (
-                          <span>No Drive ID</span>
-                        )}
+                    <div className="mt-4 flex items-center justify-between gap-3 text-sm text-[var(--muted)]">
+                      <div className="flex min-w-0 flex-wrap gap-2">
+                        <span className="rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs">
+                          {dept._count?.roles ?? 0} roles
+                        </span>
+                        <span className="rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs">
+                          {dept._count?.tasks ?? 0} tasks
+                        </span>
                       </div>
                       <button
                         onClick={() => openDepartmentDelete(dept)}
@@ -682,14 +681,6 @@ export default function OperationsPage() {
             onChange={(value) => setName(value)}
             placeholder="e.g., Logistics, Marketing"
             required
-          />
-          <FormField
-            id="dept-drive-id"
-            label="Google Drive ID"
-            value={driveId}
-            onChange={(value) => setDriveId(value)}
-            placeholder="Enter Google Drive folder ID"
-            required={true}
           />
           <div className="flex justify-end gap-3 pt-4">
             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>

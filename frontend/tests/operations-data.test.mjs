@@ -110,3 +110,12 @@ test('reads fresh cached operations departments and drops expired values', () =>
 
   assert.equal(readCachedOperationsDepartments(now + OPERATIONS_CACHE_GC_MS + 1, storage), undefined);
 });
+
+test('builds department create payloads without drive metadata', () => {
+  const { buildOperationsDepartmentCreatePayload } = loadOperationsData();
+
+  assert.deepEqual(plain(buildOperationsDepartmentCreatePayload('  Website Developers  ')), {
+    name: 'Website Developers',
+  });
+  assert.equal(Object.hasOwn(buildOperationsDepartmentCreatePayload('Operations'), 'driveId'), false);
+});

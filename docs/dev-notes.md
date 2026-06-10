@@ -1,5 +1,32 @@
 # Development Notes
 
+## 2026-06-11 - Operations Department Drive Metadata Removal
+
+### Completed
+
+- Removed the Google Drive ID field from the Operations department create form.
+- Changed department creation to submit only the department name.
+- Removed internal department IDs and GDrive/No Drive status text from department cards.
+- Added a focused payload helper test to prevent Drive metadata from returning to the create flow.
+
+### Files Changed
+
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/lib/operations-data.ts`
+- `frontend/tests/operations-data.test.mjs`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Left backend `driveId` compatibility intact because existing records and API serializers may still contain it.
+- Kept department cards useful with role/task counts instead of Drive metadata.
+
+### How to Test
+
+- Open `/operations`, choose `Departments`, and confirm cards show no internal ID, `GDrive Linked`, or `No Drive ID` copy.
+- Click `Add Department`, confirm the form only asks for the department name, and create a department.
+
 ## 2026-06-11 - Chat Sidebar Delete Button Polish
 
 ### Completed
