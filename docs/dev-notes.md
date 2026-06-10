@@ -1,5 +1,32 @@
 # Development Notes
 
+## 2026-06-11 - Operations Org Chart Tree Layout
+
+### Completed
+
+- Changed the Operations Org Chart tab from nested vertical rows to centered hierarchy tiers that widen downward.
+- Added reusable org-chart helper logic for tree building, row flattening, search-aware hierarchy display, and descendant checks.
+- Kept manager assignment controls on each member node while preventing descendant/self manager options.
+
+### Files Changed
+
+- `frontend/src/components/operations/OperationsOrgChartPanel.tsx`
+- `frontend/src/lib/operations-org-chart.ts`
+- `frontend/tests/operations-org-chart.test.mjs`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Treated members with no manager or a missing manager as top-level roots so the chart remains flexible while reporting lines are still being cleaned up.
+- Kept the layout CSS-first with existing tokens and motion primitives, avoiding a charting dependency for this format-only change.
+
+### How to Test
+
+- Open `/operations`, choose `Org Chart`, and confirm members render in centered levels rather than a vertical list.
+- Change a member's `Reports to` field and confirm the card moves into the next tier after refresh.
+- Run `npm --prefix frontend test`, `npm --prefix frontend run lint`, `npm --prefix frontend run build`, and focused visual smoke for `/operations`.
+
 ## 2026-06-11 - Daily Log HH:MM And Task-Derived Status
 
 ### Completed

@@ -109,7 +109,7 @@ Operations manages departments, role options, and client account administration.
 - Role-option APIs preserve existing configured roles and add missing org-chart defaults for matching departments, so admin onboarding is not blocked by stale seed data.
 - Admin Operations syncs the default org chart into persisted department and role rows so `/operations` displays the planned structure even on databases that still contain older department records.
 - The Operations `Members` tab lists internal users/employees, shows their active authorization groups, and lets full-access admins add or remove role assignments through the server-controlled user-role APIs.
-- The Operations `Org Chart` tab builds a flexible manager/direct-report hierarchy from member reporting lines and lets full-access admins update each member's manager.
+- The Operations `Org Chart` tab builds a flexible manager/direct-report hierarchy from member reporting lines, renders it as centered tree tiers, and lets full-access admins update each member's manager.
 - Department and role deletes now require a typed confirmation modal.
 - The delete action stays disabled until the exact target name is typed.
 - Department delete confirmation displays linked task and user-role counts when provided by the API.
