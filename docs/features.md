@@ -146,7 +146,7 @@ Payroll Calendar tracks calendar events, employee time entries, and payroll revi
 
 - `/payroll-calendar?tab=calendar` opens the calendar tab; `/payroll-calendar?tab=employees&view=pending` opens pending employee review for authorized managers/admins.
 - Payroll-management users can use the calendar employee selector or `/payroll-calendar?tab=calendar&userId=:userId` to audit another employee's time entries.
-- Payroll-management audit controls include employee search plus start/end date filters, and the selected audit context is reflected in the URL.
+- Payroll-management audit controls show the current audited employee/date range, keep selected employees visible while searching, include `Today` shortcuts and reset, and reflect `userId`, `start`, and `end` filters in the URL.
 - Employee audit mode hides clock-in/out controls and keeps manual entry/edit actions routed through backend payroll permissions.
 - Manager-created or edited employee time entries prompt for correction notes so payroll review has context.
 - Clicking a calendar date opens a day review panel in the sidebar.

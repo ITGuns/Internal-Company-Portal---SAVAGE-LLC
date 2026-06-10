@@ -1,5 +1,33 @@
 # Development Notes
 
+## 2026-06-11 - Payroll Audit Filter Bar
+
+### Completed
+
+- Replaced the vague inline `Employee Audit` controls with a dedicated `Time Entry Audit` filter bar on Payroll Calendar.
+- Added current audit summary text, employee search preservation for the selected employee, date `Today` shortcuts, date-range warning, and reset action.
+- Kept the existing URL-driven `userId`, `start`, and `end` query behavior so payroll-management users can deep-link audits.
+
+### Files Changed
+
+- `frontend/src/app/payroll-calendar/page.tsx`
+- `frontend/src/components/payroll/PayrollAuditFilterBar.tsx`
+- `frontend/src/lib/payroll-calendar/audit-target.ts`
+- `frontend/tests/payroll-audit-target.test.mjs`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept the audit feature because it is functional: the selected employee and date range feed `usePayrollData`, which requests scoped payroll time entries from the backend.
+- Moved audit UI into a focused payroll component so the page continues to own state and URL updates without carrying all filter markup inline.
+
+### How to Test
+
+- Open `/payroll-calendar?tab=calendar`, confirm payroll-management users see `Time Entry Audit` with employee search, `Auditing`, `From`, and `To` controls.
+- Search/select an employee, use `Today` for either date, and confirm the URL updates with `userId`, `start`, and `end`.
+- Run `npm --prefix frontend test`, `npm --prefix frontend run lint`, `npm --prefix frontend run build`, and focused visual smoke for `/payroll-calendar`.
+
 ## 2026-06-11 - Operations Org Chart Tree Layout
 
 ### Completed
