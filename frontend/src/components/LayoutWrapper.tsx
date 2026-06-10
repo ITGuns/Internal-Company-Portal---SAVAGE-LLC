@@ -29,9 +29,6 @@ function AuthenticatedShell({ children }: LayoutWrapperProps) {
 
   return (
     <>
-      <a href="#main-content" className="skip-link">
-        Skip to main content
-      </a>
       {showWorkspaceShell && <Sidebar />}
       {showWorkspaceShell && <CommandPalette />}
       <div

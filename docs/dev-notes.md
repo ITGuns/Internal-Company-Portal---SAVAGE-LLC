@@ -1,5 +1,28 @@
 # Development Notes
 
+## 2026-06-11 - Dashboard Skip Link Removal
+
+### Completed
+
+- Removed the floating `Skip to main content` link from the app shell.
+- Removed the now-unused global `.skip-link` styling.
+
+### Files Changed
+
+- `frontend/src/components/LayoutWrapper.tsx`
+- `frontend/src/app/globals.css`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- The shell should not show a floating skip control over the branded sidebar/header.
+- The existing `main-content` container remains as the stable content target for layout and focus behavior.
+
+### How to Test
+
+- Open `/dashboard` and confirm no `Skip to main content` button appears over the sidebar.
+- Navigate protected shell pages and confirm the sidebar/header layout is unchanged.
+
 ## 2026-06-11 - Auth Refresh Shell Guard
 
 ### Completed
