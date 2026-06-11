@@ -1,4 +1,4 @@
-import { CalendarDays, RotateCcw, Search, UserRound } from "lucide-react";
+import { RotateCcw, Search, UserRound } from "lucide-react";
 import type { TaskUser } from "@/lib/tasks";
 import {
   getPayrollAuditSummary,
@@ -170,22 +170,16 @@ export default function PayrollAuditFilterBar({
               Today
             </button>
           </div>
-          <div className="relative">
-            <CalendarDays
-              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]"
-              aria-hidden="true"
-            />
-            <input
-              id="payroll-audit-start"
-              name="payrollAuditStartDate"
-              type="date"
-              value={auditStartDate}
-              onChange={(event) => onDateChange("start", event.target.value)}
-              aria-invalid={isRangeInvalid || undefined}
-              autoComplete="off"
-              className="w-full rounded border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 pr-9 text-sm text-[var(--foreground)] [color-scheme:light] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] dark:[color-scheme:dark]"
-            />
-          </div>
+          <input
+            id="payroll-audit-start"
+            name="payrollAuditStartDate"
+            type="date"
+            value={auditStartDate}
+            onChange={(event) => onDateChange("start", event.target.value)}
+            aria-invalid={isRangeInvalid || undefined}
+            autoComplete="off"
+            className="w-full rounded border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] [color-scheme:light] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] dark:[color-scheme:dark]"
+          />
         </div>
 
         <div className="min-w-0">
@@ -204,22 +198,16 @@ export default function PayrollAuditFilterBar({
               Today
             </button>
           </div>
-          <div className="relative">
-            <CalendarDays
-              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]"
-              aria-hidden="true"
-            />
-            <input
-              id="payroll-audit-end"
-              name="payrollAuditEndDate"
-              type="date"
-              value={auditEndDate}
-              onChange={(event) => onDateChange("end", event.target.value)}
-              aria-invalid={isRangeInvalid || undefined}
-              autoComplete="off"
-              className="w-full rounded border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 pr-9 text-sm text-[var(--foreground)] [color-scheme:light] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] dark:[color-scheme:dark]"
-            />
-          </div>
+          <input
+            id="payroll-audit-end"
+            name="payrollAuditEndDate"
+            type="date"
+            value={auditEndDate}
+            onChange={(event) => onDateChange("end", event.target.value)}
+            aria-invalid={isRangeInvalid || undefined}
+            autoComplete="off"
+            className="w-full rounded border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] [color-scheme:light] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] dark:[color-scheme:dark]"
+          />
         </div>
       </div>
     </section>

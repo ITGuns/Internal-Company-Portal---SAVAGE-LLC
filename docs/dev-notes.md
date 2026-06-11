@@ -1,5 +1,27 @@
 # Development Notes
 
+## 2026-06-11 - Payroll Audit Date Icon Cleanup
+
+### Completed
+
+- Removed the extra custom calendar icons from the Time Entry Audit `From` and `To` date inputs.
+- Let the native browser date picker icon be the only calendar affordance in those controls.
+
+### Files Changed
+
+- `frontend/src/components/payroll/PayrollAuditFilterBar.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Date inputs should not layer a decorative icon over the native date picker control.
+- The existing `Today` shortcuts remain beside each date label.
+
+### How to Test
+
+- Open `/payroll-calendar?tab=calendar` as a payroll-management user and confirm each audit date field shows only one calendar icon.
+- Use the `Today` buttons and confirm the date fields still update.
+
 ## 2026-06-11 - Dashboard Skip Link Removal
 
 ### Completed
