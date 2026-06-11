@@ -209,7 +209,7 @@ export default function DailyLogsPage() {
     return (
       <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
         <div className="p-6 pt-3">
-          <Header title="Daily Logs" subtitle="Track daily progress and tasks" />
+          <Header title="Daily Logs" subtitle="Track daily progress and team activities" />
           <DailyLogsSkeleton />
         </div>
       </main>

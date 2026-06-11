@@ -392,9 +392,11 @@ export default function DashboardPage() {
 
   if (userLoading) {
     return (
-      <main className="main-content-height bg-transparent p-6 text-[var(--foreground)]">
+      <main className="main-content-height bg-transparent text-[var(--foreground)]">
         <Header />
-        <DashboardSkeleton />
+        <div className="mx-auto max-w-[1480px] p-4 pt-3 md:p-6">
+          <DashboardSkeleton />
+        </div>
       </main>
     );
   }

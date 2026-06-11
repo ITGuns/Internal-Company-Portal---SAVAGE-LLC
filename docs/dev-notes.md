@@ -1,5 +1,33 @@
 # Development Notes
 
+## 2026-06-11 - Shell-Aligned Loading Skeletons
+
+### Completed
+
+- Kept protected-route loading states inside the authenticated app shell so refresh skeletons line up with the sidebar, header, and route spacing.
+- Reused route-specific skeletons for dashboard, task tracking, daily logs, announcements, and operations during auth loading.
+- Aligned the dashboard `userLoading` branch with the loaded dashboard content wrapper.
+
+### Files Changed
+
+- `frontend/src/components/LayoutWrapper.tsx`
+- `frontend/src/components/AuthLoadingState.tsx`
+- `frontend/src/app/dashboard/page.tsx`
+- `frontend/src/app/daily-logs/page.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Auth loading now renders through the real workspace shell while auth is pending, then hides that shell for anonymous protected sessions after auth resolves.
+- Route loading fallbacks use the same major layout geometry as their final screens instead of a generic placeholder page.
+
+### How to Test
+
+- Run `npm --prefix frontend test`.
+- Run `npm --prefix frontend run lint`.
+- Run `npm --prefix frontend run build`.
+- Refresh `/dashboard`, `/task-tracking`, `/daily-logs`, `/announcements`, and `/operations` with a delayed auth response and confirm skeletons stay aligned with the UI shell.
+
 ## 2026-06-11 - Daily Log Comments
 
 ### Completed

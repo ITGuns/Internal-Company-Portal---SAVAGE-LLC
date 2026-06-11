@@ -6,6 +6,7 @@ import Sidebar from './Sidebar';
 import AuthGuard from './AuthGuard';
 import CommandPalette from './CommandPalette';
 import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext';
+import { useUser } from '@/contexts/UserContext';
 import { cn } from '@/lib/utils';
 
 interface LayoutWrapperProps {
@@ -20,12 +21,13 @@ interface LayoutWrapperProps {
 function AuthenticatedShell({ children }: LayoutWrapperProps) {
   const pathname = usePathname();
   const { desktopCollapsed } = useSidebar();
+  const { user, isLoading } = useUser();
   const isClientPortalRoute = pathname === '/client' || pathname.startsWith('/client/');
 
   // Routes where sidebar should be hidden
   const noSidebarRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'];
   const hideSidebar = noSidebarRoutes.includes(pathname);
-  const showWorkspaceShell = !hideSidebar;
+  const showWorkspaceShell = !hideSidebar && (isLoading || Boolean(user));
 
   return (
     <>
@@ -54,9 +56,9 @@ function AuthenticatedShell({ children }: LayoutWrapperProps) {
 export default function LayoutWrapper({ children }: LayoutWrapperProps) {
   return (
     <SidebarProvider>
-      <AuthGuard>
-        <AuthenticatedShell>{children}</AuthenticatedShell>
-      </AuthGuard>
+      <AuthenticatedShell>
+        <AuthGuard>{children}</AuthGuard>
+      </AuthenticatedShell>
     </SidebarProvider>
   );
 }
