@@ -1,5 +1,30 @@
 # Development Notes
 
+## 2026-06-11 - Task Detail Quick Actions
+
+### Completed
+
+- Added simple quick action buttons to the task detail modal.
+- Open tasks now expose `Start` or `Pause` based on timer state plus `Done`.
+- Completed tasks keep the existing `Reopen Task` action.
+
+### Files Changed
+
+- `frontend/src/components/tasks/TaskDetailModal.tsx`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Reused the existing task action handler and `TASK_QUICK_ACTION_LABELS` so detail actions stay consistent with list and board actions.
+- Kept `Pause` state-driven because pausing is only meaningful while the timer is running.
+
+### How to Test
+
+- Open `/task-tracking`, click an open task, and confirm the detail modal shows `Start` and `Done`.
+- Start the task and confirm the detail modal changes to `Pause` and `Done`.
+- Mark the task done and confirm the completed detail action becomes `Reopen Task`.
+
 ## 2026-06-11 - Payroll Audit Date Icon Cleanup
 
 ### Completed

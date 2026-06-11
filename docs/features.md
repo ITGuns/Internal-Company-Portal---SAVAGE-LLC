@@ -56,6 +56,7 @@ Task tracking supports calendar, board, and list views for task status, assignme
 
 - Clicking a task in board, list, or calendar view opens a read-first detail modal.
 - The detail modal shows assignment, department/role, dates, progress, tracked time, estimated time, remaining or over-estimate time, and session count.
+- The detail modal includes quick actions to start or pause the task timer, mark open tasks done, and reopen completed tasks.
 - Work history lists recorded timer sessions with worker, start/end time, and duration.
 - Editing remains available through the detail modal's `Edit Task` action.
 - `Generate EOD Report` can post the selected period summary directly into Daily Logs, using structured linked task objects and optional shift notes.

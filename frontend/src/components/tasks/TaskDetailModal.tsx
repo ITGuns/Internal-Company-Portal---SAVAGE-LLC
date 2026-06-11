@@ -18,12 +18,18 @@ import {
   Clock3,
   Edit3,
   FolderKanban,
+  Pause,
+  Play,
   RotateCcw,
   Timer,
   UserRound,
   X,
 } from "lucide-react";
-import { getReopenedTaskProgress, type TaskQuickAction } from "@/lib/task-status-actions";
+import {
+  getReopenedTaskProgress,
+  TASK_QUICK_ACTION_LABELS,
+  type TaskQuickAction,
+} from "@/lib/task-status-actions";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "To Do",
@@ -113,6 +119,8 @@ export default function TaskDetailModal({ task, onClose, onEdit, onAction }: Tas
   const remainingLabel = summary.isOverEstimate
     ? `${formatDurationSeconds(summary.trackedSeconds - summary.estimatedSeconds)} over`
     : formatDurationSeconds(summary.remainingSeconds);
+  const isCompleted = activeTask.status === "completed";
+  const isTimerRunning = activeTask.timerStatus === "playing";
 
   return (
     <div
@@ -143,8 +151,36 @@ export default function TaskDetailModal({ task, onClose, onEdit, onAction }: Tas
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            {activeTask.status === "completed" && onAction && (
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {onAction && !isCompleted && (
+              <>
+                <Button
+                  type="button"
+                  variant={isTimerRunning ? "secondary" : "primary"}
+                  size="sm"
+                  icon={
+                    isTimerRunning
+                      ? <Pause className="h-4 w-4" />
+                      : <Play className="h-4 w-4 fill-current" />
+                  }
+                  onClick={(event) =>
+                    onAction(event, activeTask.id, isTimerRunning ? "pause" : "play")
+                  }
+                >
+                  {isTimerRunning ? TASK_QUICK_ACTION_LABELS.pause : TASK_QUICK_ACTION_LABELS.play}
+                </Button>
+                <Button
+                  type="button"
+                  variant="success"
+                  size="sm"
+                  icon={<CheckCircle2 className="h-4 w-4" />}
+                  onClick={(event) => onAction(event, activeTask.id, "complete")}
+                >
+                  {TASK_QUICK_ACTION_LABELS.complete}
+                </Button>
+              </>
+            )}
+            {isCompleted && onAction && (
               <Button
                 type="button"
                 variant="outline"
