@@ -2,6 +2,7 @@
 
 import React from "react";
 import Button from "@/components/Button";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { useTaskDetail } from "@/hooks/useTasksQuery";
 import { useLiveElapsed } from "@/hooks/useLiveElapsed";
 import {
@@ -93,6 +94,9 @@ function getInitials(name?: string | null) {
 }
 
 export default function TaskDetailModal({ task, onClose, onEdit, onAction }: TaskDetailModalProps) {
+  const dialogTitleId = React.useId();
+  const dialogDescriptionId = React.useId();
+  const { dialogRef, handleDialogKeyDown } = useDialogA11y({ onClose });
   const {
     data: taskDetail,
     isLoading,
@@ -132,7 +136,16 @@ export default function TaskDetailModal({ task, onClose, onEdit, onAction }: Tas
         bottom: 0,
       }}
     >
-      <div className="w-full max-w-4xl max-h-[84vh] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-lg chat-scroll">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={dialogTitleId}
+        aria-describedby={dialogDescriptionId}
+        tabIndex={-1}
+        onKeyDown={handleDialogKeyDown}
+        className="w-full max-w-4xl max-h-[84vh] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-lg chat-scroll"
+      >
         <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] pb-5">
           <div className="min-w-0">
             <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -143,10 +156,10 @@ export default function TaskDetailModal({ task, onClose, onEdit, onAction }: Tas
                 {activeTask.priority} Priority
               </span>
             </div>
-            <h2 className="text-xl font-semibold text-[var(--foreground)]">
+            <h2 id={dialogTitleId} className="text-xl font-semibold text-[var(--foreground)]">
               {activeTask.title}
             </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
+            <p id={dialogDescriptionId} className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
               {activeTask.description || "No description provided."}
             </p>
           </div>

@@ -83,6 +83,7 @@ import TaskModal from "@/components/tasks/TaskModal";
 import TaskDetailModal from "@/components/tasks/TaskDetailModal";
 import ProjectOverviewModal from "@/components/tasks/ProjectOverviewModal";
 import TaskCalendarView from "@/components/tasks/TaskCalendarView";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 
 // Map backend status to nice labels
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -191,6 +192,9 @@ export default function TaskTrackingPage() {
     () => getTaskFocusStorageKey(currentUserId),
     [currentUserId],
   );
+  const closeDisplayMenu = useCallback(() => setShowDisplayMenu(false), []);
+
+  useEscapeToClose({ isOpen: showDisplayMenu, onClose: closeDisplayMenu });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -212,14 +216,14 @@ export default function TaskTrackingPage() {
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (displayRef.current && !displayRef.current.contains(event.target as Node)) {
-        setShowDisplayMenu(false);
+        closeDisplayMenu();
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
+  }, [closeDisplayMenu]);
 
 
   // Load initial data

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { hasClientOperationsAccess, hasClientPortalAccess, hasFullAccess, hasPayrollManagementAccess } from "@/lib/role-access";
 import { searchGlobal, type GlobalSearchResult, type GlobalSearchResultType } from "@/lib/global-search";
 import {
@@ -177,6 +178,7 @@ export default function CommandPalette() {
     setGlobalSearchError("");
     setSelectedIndex(0);
   }, []);
+  useEscapeToClose({ isOpen, onClose: close });
 
   const navigate = useCallback(
     (href: string) => {

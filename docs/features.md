@@ -15,6 +15,7 @@ Dashboard is the command-center entry point for the portal.
 
 The header search / command palette searches both navigation commands and authorized system records.
 
+- Escape closes transient app surfaces such as command palette, modals, drawers, popup menus, and active task/project windows before changing underlying page state.
 - Page commands and the main sidebar remain role-aware, so client users do not see internal destinations and non-payroll roles do not get payroll-management shortcuts.
 - Backend global search returns only records the authenticated user can access.
 - Internal users can find visible tasks, daily logs, announcements, chat messages, file-directory folders, and internal people.

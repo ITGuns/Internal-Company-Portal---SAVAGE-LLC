@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import Header from '@/components/Header'
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils'
 import { useAnnouncements } from '@/hooks/useAnnouncementsQuery'
 import { useQueryClient } from '@tanstack/react-query'
 import { useUser } from '@/contexts/UserContext'
+import { useEscapeToClose } from '@/hooks/useEscapeToClose'
 
 const CATEGORY_PRESENTATION: Record<Category, {
   icon: LucideIcon;
@@ -82,6 +83,9 @@ export default function AnnouncementsPage() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [announcementToDelete, setAnnouncementToDelete] = useState<string | null>(null);
+  const closeAnnouncementMenu = useCallback(() => setOpenMenu(null), []);
+
+  useEscapeToClose({ isOpen: Boolean(openMenu), onClose: closeAnnouncementMenu });
 
   // Form state for new announcement
   const [newCategory, setNewCategory] = useState<Category>('company-news');
@@ -264,24 +268,17 @@ export default function AnnouncementsPage() {
     return () => window.removeEventListener('popstate', syncFilterFromUrl);
   }, []);
 
-  // Close menu when clicking outside or pressing Escape
+  // Close menu when clicking outside.
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (openMenu && !(event.target as Element).closest('.menu-container')) {
         setOpenMenu(null);
       }
     };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && openMenu) {
-        setOpenMenu(null);
-      }
-    };
 
     document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [openMenu]);
 

@@ -9,6 +9,7 @@ import { PageSkeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ToastProvider";
 import { apiFetch } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
 import {
     formatCurrency,
     formatPayPeriod,
@@ -105,9 +106,22 @@ function PayslipModal({
     onClose: () => void;
     onDownload: () => void;
 }) {
+    const dialogTitleId = React.useId();
+    const dialogDescriptionId = React.useId();
+    const { dialogRef, handleDialogKeyDown } = useDialogA11y({ onClose });
+
     return (
         <div className="portal-form-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-[var(--card-bg)] rounded-2xl w-full max-w-lg shadow-2xl border border-[var(--border)] overflow-hidden">
+            <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={dialogTitleId}
+                aria-describedby={dialogDescriptionId}
+                tabIndex={-1}
+                onKeyDown={handleDialogKeyDown}
+                className="bg-[var(--card-bg)] rounded-2xl w-full max-w-lg shadow-2xl border border-[var(--border)] overflow-hidden"
+            >
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--border)]">
                     <div className="flex items-center gap-3">
@@ -115,10 +129,10 @@ function PayslipModal({
                             <FileText className="w-5 h-5 text-blue-500" />
                         </div>
                         <div>
-                            <h2 className="font-bold text-[var(--foreground)] text-lg">
+                            <h2 id={dialogTitleId} className="font-bold text-[var(--foreground)] text-lg">
                                 Payslip Details
                             </h2>
-                            <p className="text-xs text-[var(--muted)]">
+                            <p id={dialogDescriptionId} className="text-xs text-[var(--muted)]">
                                 {formatPayPeriod(payslip.payPeriodStart, payslip.payPeriodEnd)}
                             </p>
                         </div>

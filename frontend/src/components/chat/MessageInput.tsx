@@ -1,7 +1,8 @@
 "use client"
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Send, Paperclip, Smile, X } from 'lucide-react'
+import { useEscapeToClose } from '@/hooks/useEscapeToClose'
 
 interface MessageInputProps {
     newMessage: string
@@ -31,6 +32,9 @@ export default function MessageInput({
     const fileInputRef = useRef<HTMLInputElement>(null)
     const emojiPickerRef = useRef<HTMLDivElement>(null)
     const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
+    const closeEmojiPicker = useCallback(() => setEmojiPickerOpen(false), [])
+
+    useEscapeToClose({ isOpen: emojiPickerOpen, onClose: closeEmojiPicker })
 
     useEffect(() => {
         if (!emojiPickerOpen) return
@@ -40,18 +44,12 @@ export default function MessageInput({
             setEmojiPickerOpen(false)
         }
 
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') setEmojiPickerOpen(false)
-        }
-
         document.addEventListener('pointerdown', handlePointerDown)
-        document.addEventListener('keydown', handleKeyDown)
 
         return () => {
             document.removeEventListener('pointerdown', handlePointerDown)
-            document.removeEventListener('keydown', handleKeyDown)
         }
-    }, [emojiPickerOpen])
+    }, [closeEmojiPicker, emojiPickerOpen])
 
     return (
         <div className="p-4 bg-[var(--card-surface)] border-t border-[var(--border)] shadow-lg">

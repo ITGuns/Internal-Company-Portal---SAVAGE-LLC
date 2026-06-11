@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 
 const focusableDialogSelector = [
   "a[href]",
@@ -29,6 +30,7 @@ interface UseDialogA11yOptions {
 export function useDialogA11y({ isOpen = true, onClose }: UseDialogA11yOptions) {
   const dialogRef = React.useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = React.useRef<HTMLElement | null>(null);
+  const { closeFromEscape } = useEscapeToClose({ isOpen, onClose });
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -53,24 +55,10 @@ export function useDialogA11y({ isOpen = true, onClose }: UseDialogA11yOptions) 
     };
   }, [isOpen]);
 
-  React.useEffect(() => {
-    if (!isOpen) return;
-
-    function handleDocumentKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      event.stopPropagation();
-      onClose();
-    }
-
-    document.addEventListener("keydown", handleDocumentKeyDown);
-    return () => document.removeEventListener("keydown", handleDocumentKeyDown);
-  }, [isOpen, onClose]);
-
   const handleDialogKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       if (event.key === "Escape") {
-        event.stopPropagation();
-        onClose();
+        closeFromEscape(event);
         return;
       }
 
@@ -97,7 +85,7 @@ export function useDialogA11y({ isOpen = true, onClose }: UseDialogA11yOptions) 
         firstFocusable.focus();
       }
     },
-    [onClose],
+    [closeFromEscape],
   );
 
   return { dialogRef, handleDialogKeyDown };

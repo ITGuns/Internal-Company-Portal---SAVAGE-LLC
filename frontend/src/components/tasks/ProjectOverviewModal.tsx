@@ -13,6 +13,7 @@ import {
   buildTaskProjectAnalytics,
   summarizeTaskProjectAnalytics,
 } from "@/lib/task-project-analytics";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import type { Task, TaskProject, TaskProjectStatus } from "@/lib/tasks";
 
 interface ProjectOverviewModalProps {
@@ -48,6 +49,7 @@ export default function ProjectOverviewModal({
   const summary = useMemo(() => summarizeTaskProjectAnalytics(analytics), [analytics]);
   const displayedAnalytics = analytics.slice(0, MAX_PROJECTS_IN_OVERVIEW);
   const hiddenProjectCount = Math.max(0, analytics.length - displayedAnalytics.length);
+  const { closeFromEscape } = useEscapeToClose({ isOpen, onClose });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -56,16 +58,8 @@ export default function ProjectOverviewModal({
     document.body.style.overflow = "hidden";
     dialogRef.current?.focus();
 
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      onClose();
-    }
-
-    document.addEventListener("keydown", handleEscape);
     return () => {
       document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", handleEscape);
     };
   }, [isOpen, onClose]);
 
@@ -90,6 +84,9 @@ export default function ProjectOverviewModal({
       <div
         ref={dialogRef}
         tabIndex={-1}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") closeFromEscape(event);
+        }}
         className="relative flex max-h-[calc(100dvh-3rem)] w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card-bg)] shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
       >
         <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--border)] p-5">

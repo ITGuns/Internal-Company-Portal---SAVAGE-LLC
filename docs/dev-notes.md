@@ -1,5 +1,46 @@
 # Development Notes
 
+## 2026-06-11 - Escape Closes Popup Windows
+
+### Completed
+
+- Added a reusable Escape-close layer so the newest open popup, modal, drawer, or menu closes first.
+- Wired Escape dismissal into shared modals, custom task/report/payslip dialogs, profile and notification drawers, mobile sidebar, command palette, task display menu, announcement menu, chat search, chat reactions, and the profile phone-code picker.
+- Added unit coverage for the Escape layer stack order.
+
+### Files Changed
+
+- `frontend/src/hooks/useEscapeToClose.ts`
+- `frontend/src/lib/escape-layer-stack.ts`
+- `frontend/tests/escape-layer-stack.test.mjs`
+- `frontend/src/hooks/useDialogA11y.ts`
+- `frontend/src/components/Modal.tsx`
+- `frontend/src/components/NotificationSidebar.tsx`
+- `frontend/src/components/ProfileSidebar.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/ProfilePhoneInput.tsx`
+- `frontend/src/components/tasks/TaskDetailModal.tsx`
+- `frontend/src/components/tasks/LogReportModal.tsx`
+- `frontend/src/components/tasks/ProjectOverviewModal.tsx`
+- `frontend/src/components/chat/MessageInput.tsx`
+- `frontend/src/components/payroll/EmployeeOverviewTab.tsx`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/app/announcements/page.tsx`
+- `frontend/src/app/chat/page.tsx`
+- `frontend/src/app/my-payslips/page.tsx`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Centralized Escape handling so nested transient surfaces close the topmost layer first instead of each component adding unrelated document listeners.
+- Kept existing button/backdrop close behavior unchanged.
+
+### How to Test
+
+- Open task detail, report, payslip, notification/profile drawers, command palette, chat search/reactions, and announcement/task menus, then press `Esc` to confirm only the active surface closes.
+- Open a project task filter without another popup and press `Esc` to confirm it still exits the project view.
+
 ## 2026-06-11 - Task Detail Quick Actions
 
 ### Completed

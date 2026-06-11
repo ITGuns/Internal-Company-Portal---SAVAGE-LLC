@@ -2,6 +2,7 @@
 
 import React from "react";
 import { ChevronDown, Phone } from "lucide-react";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { COUNTRY_CALLING_CODES } from "@/lib/country-calling-codes";
 import {
   formatPhoneWithCountryCode,
@@ -40,6 +41,9 @@ export default function ProfilePhoneInput({
     option.country.toLowerCase().includes(normalizedQuery) ||
     option.iso2.toLowerCase().includes(normalizedQuery),
   );
+  const closePicker = React.useCallback(() => setIsPickerOpen(false), []);
+
+  useEscapeToClose({ isOpen: isPickerOpen, onClose: closePicker });
 
   React.useEffect(() => {
     function handlePointerDown(event: MouseEvent) {

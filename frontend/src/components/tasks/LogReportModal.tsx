@@ -6,6 +6,7 @@ import React, { useState, useEffect } from "react";
 import { X, ClipboardCheck, History, Clock } from "lucide-react";
 import Button from "@/components/Button";
 import Card from "@/components/Card";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 import { buildDailyLogTasksFromTaskReport } from "@/lib/daily-log-task-import";
@@ -29,6 +30,9 @@ function getLocalDateInput(date = new Date()) {
 }
 
 export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModalProps) {
+    const dialogTitleId = React.useId();
+    const dialogDescriptionId = React.useId();
+    const { dialogRef, handleDialogKeyDown } = useDialogA11y({ isOpen, onClose });
     const toast = useToast();
     const queryClient = useQueryClient();
     const [logType, setLogType] = useState<LogPeriod>("daily");
@@ -126,11 +130,24 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
 
     return (
         <div className="portal-form-backdrop fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <Card className="w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={dialogTitleId}
+                aria-describedby={dialogDescriptionId}
+                tabIndex={-1}
+                onKeyDown={handleDialogKeyDown}
+                className="w-full max-w-2xl"
+            >
+            <Card className="max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
                 <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--card-surface)]">
                     <div className="flex items-center gap-2">
                         <ClipboardCheck className="w-5 h-5 text-blue-500" />
-                        <h3 className="font-bold text-lg">Generate {modalTitle}</h3>
+                        <h3 id={dialogTitleId} className="font-bold text-lg">Generate {modalTitle}</h3>
+                        <p id={dialogDescriptionId} className="sr-only">
+                            Generate a daily, weekly, or monthly work report from recent task activity.
+                        </p>
                     </div>
                     <button onClick={onClose} className="p-1 hover:bg-[var(--background)] rounded-full transition-colors" aria-label="Close modal">
                         <X className="w-6 h-6" />
@@ -242,6 +259,7 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
                     </Button>
                 </div>
             </Card>
+            </div>
         </div>
     );
 }

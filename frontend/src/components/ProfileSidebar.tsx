@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
 import UserAvatar from "@/assets/icons/UserAvatar";
 import Button from "./Button";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
 
 interface UserProfile {
   id?: string | number;
@@ -33,6 +34,7 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
   const { logout } = useUser();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isMounted, setIsMounted] = useState(false);
+  const { dialogRef, handleDialogKeyDown } = useDialogA11y({ isOpen, onClose });
 
   useEffect(() => {
     setIsMounted(true);
@@ -67,10 +69,13 @@ export default function ProfileSidebar({ isOpen, onClose }: ProfileSidebarProps)
       />
 
       <div
+        ref={dialogRef}
         className="fixed right-0 top-0 z-[9998] flex h-[100dvh] w-full max-w-sm flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--surface-raised)] text-[var(--foreground)] shadow-2xl motion-drawer-right-in"
         role="dialog"
         aria-modal="true"
         aria-labelledby="profile-sidebar-title"
+        tabIndex={-1}
+        onKeyDown={handleDialogKeyDown}
         style={{
           isolation: "isolate",
         }}

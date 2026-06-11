@@ -16,6 +16,7 @@ import MessageInput from '@/components/chat/MessageInput'
 import NewChatModal from '@/components/chat/NewChatModal'
 import CreateChannelModal from '@/components/chat/CreateChannelModal'
 import { useToast } from '@/components/ToastProvider'
+import { useEscapeToClose } from '@/hooks/useEscapeToClose'
 import { getChatMessageActionLayout } from '@/lib/chat-message-layout'
 
 const QUICK_REACTIONS = ['\u{1F44D}', '\u2705', '\u{1F602}', '\u{1F525}', '\u2764\uFE0F', '\u{1F440}']
@@ -78,6 +79,15 @@ export default function UnifiedChatPage() {
     const [openReactionPickerId, setOpenReactionPickerId] = useState<string | null>(null)
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const reactionPickerRef = useRef<HTMLDivElement>(null)
+    const closeSearch = useCallback(() => {
+        setSearchOpen(false)
+        setSearchTerm('')
+        setSearchResults([])
+    }, [])
+    const closeReactionPicker = useCallback(() => setOpenReactionPickerId(null), [])
+
+    useEscapeToClose({ isOpen: searchOpen, onClose: closeSearch })
+    useEscapeToClose({ isOpen: Boolean(openReactionPickerId), onClose: closeReactionPicker })
 
     useEffect(() => {
         if (!openReactionPickerId) return
@@ -87,18 +97,12 @@ export default function UnifiedChatPage() {
             setOpenReactionPickerId(null)
         }
 
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') setOpenReactionPickerId(null)
-        }
-
         document.addEventListener('pointerdown', handlePointerDown)
-        document.addEventListener('keydown', handleKeyDown)
 
         return () => {
             document.removeEventListener('pointerdown', handlePointerDown)
-            document.removeEventListener('keydown', handleKeyDown)
         }
-    }, [openReactionPickerId])
+    }, [closeReactionPicker, openReactionPickerId])
 
     // Clear global badge when on this page
     useEffect(() => {
@@ -602,7 +606,7 @@ export default function UnifiedChatPage() {
                         <button onClick={handleSearch} disabled={searching} className="min-h-10 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm text-[var(--accent-foreground)] disabled:opacity-50">
                             {searching ? '...' : 'Search'}
                         </button>
-                        <button type="button" onClick={() => { setSearchOpen(false); setSearchTerm(''); setSearchResults([]) }} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]" aria-label="Close search">
+                        <button type="button" onClick={closeSearch} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]" aria-label="Close search">
                             <X className="w-4 h-4" />
                         </button>
                     </div>
@@ -611,7 +615,7 @@ export default function UnifiedChatPage() {
                             {searchResults.map(r => (
                                 <button
                                     key={r.id}
-                                    onClick={() => { setSelectedId(r.conversation.id); setSearchOpen(false); setSearchTerm(''); setSearchResults([]) }}
+                                    onClick={() => { setSelectedId(r.conversation.id); closeSearch() }}
                                     className="flex min-h-12 w-full items-start gap-2 rounded-lg p-2 text-left transition-colors hover:bg-[var(--background)]"
                                 >
                                     <div className="flex-1 min-w-0">

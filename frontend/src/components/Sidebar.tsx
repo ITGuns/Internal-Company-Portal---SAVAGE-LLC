@@ -27,6 +27,7 @@ import UserAvatar from '../assets/icons/UserAvatar';
 import { useSocket } from '@/context/SocketContext';
 import { useUser } from '@/contexts/UserContext';
 import { useSidebar } from '@/contexts/SidebarContext';
+import { useEscapeToClose } from '@/hooks/useEscapeToClose';
 import { fetchClientOrganizations } from '@/lib/client-portal';
 import { CLIENT_PORTAL_NAV_ITEMS } from '@/lib/client-portal-navigation';
 import { getClientWorkspaceResolutionState } from '@/lib/sidebar-client-workspace';
@@ -175,6 +176,8 @@ export default function Sidebar() {
     closeMobileSidebar();
     if (pathname !== href) router.push(href);
   }, [closeMobileSidebar, pathname, router]);
+
+  useEscapeToClose({ isOpen: mobileOpen, onClose: closeMobileSidebar });
 
   useEffect(() => {
     closeMobileSidebar();
