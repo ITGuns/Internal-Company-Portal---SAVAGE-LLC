@@ -1,5 +1,34 @@
 # Development Notes
 
+## 2026-06-11 - Operations Member and Client Split
+
+### Completed
+
+- Split Operations directory users into internal members and client portal accounts.
+- Kept client portal accounts out of the Operations `Members` and `Org Chart` tabs.
+- Replaced the old Clients jump card with a dedicated client-account list and search surface.
+
+### Files Changed
+
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/components/operations/OperationsClientsPanel.tsx`
+- `frontend/src/lib/member-role-management.ts`
+- `frontend/tests/member-role-management.test.mjs`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- The existing authorized `/users` directory response remains unchanged; the UI now classifies accounts using the existing client portal role rules.
+- Client accounts remain display-only in the Operations tab and route detailed account administration to `/operations/clients/accounts`.
+
+### How to Test
+
+- Run `npm --prefix frontend test`.
+- Run `npm --prefix frontend run lint`.
+- Run `npm --prefix frontend run build`.
+- Open `/operations`, confirm `Members` and `Org Chart` show internal employees only, then open `Clients` and confirm client portal accounts appear there.
+
 ## 2026-06-11 - Shell-Aligned Loading Skeletons
 
 ### Completed

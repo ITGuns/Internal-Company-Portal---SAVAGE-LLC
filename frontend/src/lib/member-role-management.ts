@@ -93,3 +93,15 @@ export function getMemberAuthorizationLabels(member: RoleAccessUser): string[] {
 
   return labels.length > 0 ? labels : ["No active authorization"];
 }
+
+export function isClientPortalMember(member: RoleAccessUser): boolean {
+  return hasClientPortalAccess(member);
+}
+
+export function getInternalOperationsMembers<T extends RoleAccessUser>(members: T[]): T[] {
+  return members.filter((member) => !isClientPortalMember(member));
+}
+
+export function getClientPortalMembers<T extends RoleAccessUser>(members: T[]): T[] {
+  return members.filter(isClientPortalMember);
+}

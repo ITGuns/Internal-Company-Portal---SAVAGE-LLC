@@ -11,7 +11,7 @@ import FormField from "@/components/forms/FormField";
 import EmptyState from "@/components/ui/EmptyState";
 import { MembersPanelSkeleton, OperationsErrorState, OperationsGridSkeleton } from "@/components/operations/OperationsLoadingStates";
 import { useToast } from "@/components/ToastProvider";
-import { ArrowRight, BriefcaseBusiness, Building, Plus, Trash2, UserPlus } from "lucide-react";
+import { ArrowRight, Building, Plus, Trash2, UserPlus } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { assignUserRole, removeUserRole } from "@/lib/users";
 import { useUser } from "@/contexts/UserContext";
@@ -37,12 +37,20 @@ import {
   shouldAutoSyncOperationsOrgCatalog,
   type OperationsTab,
 } from "@/lib/operations-session";
-import type { MemberRoleAssignment, OperationsMember } from "@/lib/member-role-management";
+import {
+  getClientPortalMembers,
+  getInternalOperationsMembers,
+  type MemberRoleAssignment,
+  type OperationsMember,
+} from "@/lib/member-role-management";
 
 const OperationsMembersPanel = dynamic(() => import("@/components/operations/OperationsMembersPanel"), {
   loading: () => <MembersPanelSkeleton />,
 });
 const OperationsOrgChartPanel = dynamic(() => import("@/components/operations/OperationsOrgChartPanel"), {
+  loading: () => <MembersPanelSkeleton />,
+});
+const OperationsClientsPanel = dynamic(() => import("@/components/operations/OperationsClientsPanel"), {
   loading: () => <MembersPanelSkeleton />,
 });
 
@@ -102,7 +110,7 @@ export default function OperationsPage() {
   const membersQuery = useQuery({
     queryKey: OPERATIONS_QUERY_KEYS.members,
     queryFn: fetchOperationsMembers,
-    enabled: activeTab === 'members' || activeTab === 'org-chart',
+    enabled: activeTab === 'members' || activeTab === 'org-chart' || activeTab === 'clients',
     staleTime: OPERATIONS_MEMBERS_STALE_MS,
     gcTime: OPERATIONS_CACHE_GC_MS,
     placeholderData: keepPreviousData,
@@ -111,6 +119,8 @@ export default function OperationsPage() {
   const departments = departmentsQuery.data ?? EMPTY_DEPARTMENTS;
   const roles = useMemo(() => deriveOperationsRolesFromDepartments(departments), [departments]);
   const members = (membersQuery.data ?? EMPTY_MEMBERS) as OperationsMember[];
+  const internalMembers = useMemo(() => getInternalOperationsMembers(members), [members]);
+  const clientMembers = useMemo(() => getClientPortalMembers(members), [members]);
   const departmentsLoading = departmentsQuery.isPending && departments.length === 0;
   const rolesLoading = departmentsLoading && roles.length === 0;
   const membersLoading = membersQuery.isPending && members.length === 0;
@@ -159,7 +169,7 @@ export default function OperationsPage() {
       return;
     }
 
-    if (tab === 'members' || tab === 'org-chart') {
+    if (tab === 'members' || tab === 'org-chart' || tab === 'clients') {
       void queryClient.prefetchQuery({
         queryKey: OPERATIONS_QUERY_KEYS.members,
         queryFn: fetchOperationsMembers,
@@ -206,7 +216,7 @@ export default function OperationsPage() {
   }, [departments.length, departmentsQuery.isFetched, queryClient]);
 
   useEffect(() => {
-    if (!canManageOrgSettings || activeTab === 'members' || activeTab === 'org-chart' || departmentsLoading || departmentsQuery.isError) return;
+    if (!canManageOrgSettings || activeTab === 'members' || activeTab === 'org-chart' || activeTab === 'clients' || departmentsLoading || departmentsQuery.isError) return;
     if (queryClient.getQueryData(OPERATIONS_QUERY_KEYS.members)) return;
 
     return scheduleOperationsMembersPrefetch(() => {
@@ -491,10 +501,10 @@ export default function OperationsPage() {
               </Link>
             ) : activeTab === 'clients' ? (
               <Link
-                href="/operations/clients"
+                href="/operations/clients/accounts"
                 className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] shadow-[0_12px_32px_-22px_var(--accent)] transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-105 active:translate-y-px"
               >
-                Open Client Operations
+                Open Client Accounts
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
             ) : null}
@@ -604,7 +614,7 @@ export default function OperationsPage() {
               />
             ) : (
               <OperationsMembersPanel
-                members={members}
+                members={internalMembers}
                 availableRoles={roles}
                 canManageMembers={canManageOrgSettings && !rolesLoading && !departmentsQuery.isError}
                 onAssignRole={handleAssignMemberRole}
@@ -622,47 +632,24 @@ export default function OperationsPage() {
               />
             ) : (
               <OperationsOrgChartPanel
-                members={members}
+                members={internalMembers}
                 canManageMembers={canManageOrgSettings}
                 onUpdateManager={handleUpdateMemberManager}
               />
             )
-          ) : (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-              <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-[var(--shadow-sm)]">
-                <div className="flex items-start gap-4">
-                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]">
-                    <BriefcaseBusiness className="h-6 w-6" aria-hidden="true" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="inline-flex rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card-surface)] px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--accent)]">
-                      Client Operations
-                    </div>
-                    <h2 className="mt-3 text-xl font-semibold">Manage clients from the admin workspace.</h2>
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-                      Use this section for client accounts, delivery, requests, approvals, reports, assets, billing, roadmap, and calendar work.
-                    </p>
-                    <div className="mt-5 flex flex-wrap gap-3">
-                      <Link
-                        href="/operations/clients"
-                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] shadow-[0_12px_32px_-22px_var(--accent)] transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-105 active:translate-y-px"
-                      >
-                        Open Client Operations
-                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-5">
-                <h3 className="text-sm font-semibold">Current state</h3>
-                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                  Client management stays in Operations so admins do not need to jump between the internal workspace and the client-facing portal.
-                </p>
-              </div>
-            </div>
-          )}
+          ) : activeTab === 'clients' ? (
+            membersLoading ? (
+              <MembersPanelSkeleton />
+            ) : membersQuery.isError ? (
+              <OperationsErrorState
+                title="Clients did not load"
+                description={membersQuery.error instanceof Error ? membersQuery.error.message : "Refresh this section to try again."}
+                onRetry={() => void membersQuery.refetch()}
+              />
+            ) : (
+              <OperationsClientsPanel clients={clientMembers} />
+            )
+          ) : null}
         </div>
       </div>
 

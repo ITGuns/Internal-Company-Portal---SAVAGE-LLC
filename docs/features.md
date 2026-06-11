@@ -112,13 +112,13 @@ Operations manages departments, role options, and client account administration.
 - Role-option APIs preserve existing configured roles and add missing org-chart defaults for matching departments, so admin onboarding is not blocked by stale seed data.
 - Admin Operations syncs the default org chart into persisted department and role rows so `/operations` displays the planned structure even on databases that still contain older department records.
 - Department creation in Operations only asks for the department name; department cards do not expose Google Drive IDs, Drive link status, or internal department IDs.
-- The Operations `Members` tab lists internal users/employees, shows their active authorization groups, and lets full-access admins add or remove role assignments through the server-controlled user-role APIs.
-- The Operations `Org Chart` tab builds a flexible manager/direct-report hierarchy from member reporting lines, renders it as centered tree tiers, and lets full-access admins update each member's manager.
+- The Operations `Members` tab lists internal users/employees only, shows their active authorization groups, and lets full-access admins add or remove role assignments through the server-controlled user-role APIs.
+- The Operations `Org Chart` tab builds a flexible manager/direct-report hierarchy from internal member reporting lines, renders it as centered tree tiers, and lets full-access admins update each member's manager.
 - Department and role deletes now require a typed confirmation modal.
 - The delete action stays disabled until the exact target name is typed.
 - Department delete confirmation displays linked task and user-role counts when provided by the API.
 - `/operations/onboarding` generates copyable setup links for approved internal users without exposing passwords to admins.
-- Operations includes a `Clients` tab that links to the client operations command center.
+- Operations includes a `Clients` tab that lists client portal accounts separately from employees and links to the client account operations workflow.
 - `/operations/clients` is the Client Operations command center for account health, open work, requests, approvals, latest updates, reports, and focused route links.
 - `/operations/clients/accounts` manages client setup, website work intake type, invitations, approved existing-user access, membership status changes, account profile details, service tiers, and archive/restore controls.
 - Client service tiers include the SOP-derived presets: Standard Business Website, Growth Business Website, Conversion and Local Growth System, Managed Growth Website System, and Premium Managed Growth System.
