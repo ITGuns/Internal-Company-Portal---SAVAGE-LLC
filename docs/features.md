@@ -69,6 +69,7 @@ Daily logs track EOD, weekly, and monthly work summaries by date, department, ta
 - Employee logs use the department assigned to the employee account.
 - Full-access admins, project managers, operations managers, and chief operations officers can review or override log departments when their access allows it.
 - Task Tracking report posts create real Daily Log records and refresh Daily Logs after submission.
+- Daily Log cards have a clickable comments control that expands an inline thread, lets authenticated users add comments, and lets authors delete their own comments.
 
 ### Task Import Behavior
 

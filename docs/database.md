@@ -152,6 +152,12 @@ Payroll-sensitive fields also live on `EmployeeProfile`.
 - Completed task imports should be based on `Task.completedAt`; in-progress assigned tasks can still appear as active work suggestions.
 - Review-stage task suggestions are UI review helpers and should remain separate from employee self-report imports unless explicitly added by the user.
 
+`DailyLogComment` stores inline comments for a daily log.
+
+- Each comment belongs to one `DailyLog` and one `User`.
+- Deleting a log or user cascades to its related comments.
+- Comments are indexed by `dailyLogId` and `authorId`.
+
 ## Payroll
 
 `TimeEntry` stores clock-in/clock-out and manual time-entry records.

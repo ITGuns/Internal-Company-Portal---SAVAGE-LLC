@@ -12,12 +12,14 @@ import FormField from '@/components/forms/FormField';
 import { useToast } from '@/components/ToastProvider';
 import { useUser } from '@/contexts/UserContext';
 import { useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, Clock, CheckCircle2, MessageCircle, ThumbsUp, FileText, StickyNote, ClipboardList } from 'lucide-react';
+import { Search, Plus, Clock, CheckCircle2, MessageCircle, ThumbsUp, FileText, StickyNote, ClipboardList, Send, Trash2 } from 'lucide-react';
 import { DEPARTMENTS } from '@/lib/departments';
 import { useDailyLogs } from '@/hooks/useDailyLogsQuery';
 import { useTasks } from '@/hooks/useTasksQuery';
 import {
   createDailyLog,
+  addDailyLogComment,
+  deleteDailyLogComment,
   updateDailyLog,
   toggleLogLike,
   getThisWeekLogs,
@@ -43,6 +45,11 @@ import {
   type DailyLogTaskImportOption,
 } from '@/lib/daily-log-task-import';
 import { shouldOpenCreateFromSearch } from '@/lib/dashboard-deep-links';
+import {
+  canDeleteDailyLogComment,
+  getDailyLogCommentAuthorLabel,
+  getDailyLogCommentCount,
+} from '@/lib/daily-log-comments';
 import { getDailyLogReviewSummary } from '@/lib/daily-log-review';
 import { hasManagementAccess } from '@/lib/role-access';
 
@@ -78,6 +85,9 @@ export default function DailyLogsPage() {
   });
   const [showModal, setShowModal] = useState(false);
   const [editingLog, setEditingLog] = useState<DailyLog | null>(null);
+  const [openCommentsLogId, setOpenCommentsLogId] = useState<string | null>(null);
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [commentSubmittingLogId, setCommentSubmittingLogId] = useState<string | null>(null);
   const handledNewLogDeepLinkRef = useRef(false);
 
   // Filters
@@ -310,6 +320,61 @@ export default function DailyLogsPage() {
   const handleLike = async (logId: string) => {
     await toggleLogLike(logId);
     queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
+  };
+
+  const handleToggleComments = (logId: string) => {
+    setOpenCommentsLogId(previous => previous === logId ? null : logId);
+  };
+
+  const handleCommentDraftChange = (logId: string, value: string) => {
+    setCommentDrafts(previous => ({ ...previous, [logId]: value }));
+  };
+
+  const handleAddComment = async (logId: string) => {
+    const text = (commentDrafts[logId] || '').trim();
+    if (!text) return;
+
+    try {
+      setCommentSubmittingLogId(logId);
+      const comment = await addDailyLogComment(logId, text);
+      if (!comment) {
+        throw new Error('Comment save returned no data');
+      }
+      setCommentDrafts(previous => ({ ...previous, [logId]: '' }));
+      setOpenCommentsLogId(logId);
+      queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
+      toast.success('Comment added');
+    } catch (error) {
+      console.error('Failed to add comment:', error);
+      toast.error('Failed to add comment');
+    } finally {
+      setCommentSubmittingLogId(null);
+    }
+  };
+
+  const handleDeleteComment = async (logId: string, commentId: string) => {
+    try {
+      const deleted = await deleteDailyLogComment(logId, commentId);
+      if (!deleted) {
+        throw new Error('Comment delete failed');
+      }
+      queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
+      toast.success('Comment deleted');
+    } catch (error) {
+      console.error('Failed to delete comment:', error);
+      toast.error('Failed to delete comment');
+    }
+  };
+
+  const formatCommentTimestamp = (timestamp: string) => {
+    const parsed = new Date(timestamp);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
   };
 
   const derivedFormStatus = deriveDailyLogStatusFromTasks(formTasks);
@@ -633,11 +698,95 @@ export default function DailyLogsPage() {
                             <ThumbsUp className={`w-4 h-4 ${currentUser && log.likes.includes(String(currentUser.id)) ? 'fill-current' : ''}`} />
                             <span>{log.likes.length} {log.likes.length === 1 ? 'like' : 'likes'}</span>
                           </button>
-                          <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleComments(log.id)}
+                            aria-expanded={openCommentsLogId === log.id}
+                            aria-controls={`daily-log-comments-${log.id}`}
+                            className="flex min-h-10 items-center gap-1 rounded-[var(--radius-md)] px-2 transition hover:bg-[var(--card-surface)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                          >
                             <MessageCircle className="w-4 h-4" />
-                            <span>{log.comments} {log.comments === 1 ? 'comment' : 'comments'}</span>
-                          </div>
+                            <span>{getDailyLogCommentCount(log)} {getDailyLogCommentCount(log) === 1 ? 'comment' : 'comments'}</span>
+                          </button>
                         </div>
+
+                        {openCommentsLogId === log.id && (
+                          <div
+                            id={`daily-log-comments-${log.id}`}
+                            className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--card-surface)] p-3"
+                          >
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                              <h3 className="text-sm font-semibold text-[var(--foreground)]">Comments</h3>
+                              <span className="text-xs text-[var(--muted)]">
+                                {getDailyLogCommentCount(log)} total
+                              </span>
+                            </div>
+
+                            {log.comments.length === 0 ? (
+                              <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--border)] px-3 py-4 text-sm text-[var(--muted)]">
+                                No comments yet.
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {log.comments.map(comment => (
+                                  <div key={comment.id} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] p-3">
+                                    <div className="mb-1 flex items-start justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <div className="truncate text-sm font-semibold">
+                                          {getDailyLogCommentAuthorLabel(comment, currentUserId || null)}
+                                        </div>
+                                        <div className="text-xs text-[var(--muted)]">
+                                          {formatCommentTimestamp(comment.createdAt)}
+                                        </div>
+                                      </div>
+                                      {canDeleteDailyLogComment(comment, currentUserId || null) && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteComment(log.id, comment.id)}
+                                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] text-[var(--muted)] transition hover:bg-red-500/10 hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/70"
+                                          aria-label="Delete comment"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      )}
+                                    </div>
+                                    <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--foreground)]">
+                                      {comment.text}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                              <label className="sr-only" htmlFor={`daily-log-comment-input-${log.id}`}>
+                                Add a comment
+                              </label>
+                              <input
+                                id={`daily-log-comment-input-${log.id}`}
+                                type="text"
+                                value={commentDrafts[log.id] || ''}
+                                onChange={(event) => handleCommentDraftChange(log.id, event.target.value)}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter' && !event.shiftKey) {
+                                    event.preventDefault();
+                                    handleAddComment(log.id);
+                                  }
+                                }}
+                                placeholder="Add a comment..."
+                                className="min-h-10 flex-1 rounded border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm [color-scheme:light] dark:[color-scheme:dark]"
+                              />
+                              <Button
+                                variant="primary"
+                                onClick={() => handleAddComment(log.id)}
+                                disabled={commentSubmittingLogId === log.id || !(commentDrafts[log.id] || '').trim()}
+                                icon={<Send className="w-4 h-4" />}
+                              >
+                                Send
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

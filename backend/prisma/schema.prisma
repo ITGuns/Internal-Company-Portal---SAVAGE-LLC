@@ -51,6 +51,7 @@ model User {
   announcementComments AnnouncementComment[]
   announcementRSVPs    AnnouncementRSVP[]
   dailyLogLikes        DailyLogLike[]
+  dailyLogComments     DailyLogComment[]
   participants         Participant[]
   messages             Message[]
   messageReactions     MessageReaction[]
@@ -740,8 +741,9 @@ model DailyLog {
   updatedAt DateTime @updatedAt
 
   // Relations
-  author User?          @relation(fields: [authorId], references: [id], onDelete: SetNull)
-  likes  DailyLogLike[]
+  author   User?             @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  likes    DailyLogLike[]
+  comments DailyLogComment[]
 
   @@index([authorId])
   @@index([date])
@@ -763,6 +765,22 @@ model DailyLogLike {
   @@unique([dailyLogId, userId])
   @@index([dailyLogId])
   @@index([userId])
+}
+
+model DailyLogComment {
+  id         String   @id @default(cuid())
+  dailyLogId String
+  authorId   String
+  text       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([dailyLogId])
+  @@index([authorId])
 }
 
 // ============================================

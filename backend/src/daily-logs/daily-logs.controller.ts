@@ -220,6 +220,59 @@ export class DailyLogsController {
             }
         })
 
+        // Add a comment to a daily log
+        router.post('/:id/comments', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+                const user = (req as AuthRequest).user
+                const text = typeof req.body.text === 'string' ? req.body.text.trim() : ''
+
+                if (!user?.userId) {
+                    return res.status(401).json({ error: 'User not authenticated' })
+                }
+
+                if (!text) {
+                    return res.status(400).json({ error: 'Comment text is required' })
+                }
+
+                const comment = await this.service.addComment(id, user.userId, text)
+                notificationService.broadcastDataChange('daily-logs')
+                res.status(201).json(comment)
+            } catch (error) {
+                if (error instanceof Error && error.message === 'Daily log not found') {
+                    return res.status(404).json({ error: error.message })
+                }
+                logger.error('Error adding daily log comment:', error)
+                res.status(500).json({ error: 'Failed to add comment' })
+            }
+        })
+
+        // Delete a comment from a daily log
+        router.delete('/:id/comments/:commentId', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+                const commentId = Array.isArray(req.params.commentId) ? req.params.commentId[0] : req.params.commentId
+                const user = (req as AuthRequest).user
+
+                if (!user?.userId) {
+                    return res.status(401).json({ error: 'User not authenticated' })
+                }
+
+                await this.service.deleteComment(id, commentId, user.userId)
+                notificationService.broadcastDataChange('daily-logs')
+                res.json({ message: 'Comment deleted' })
+            } catch (error) {
+                if (error instanceof Error && error.message === 'Comment not found') {
+                    return res.status(404).json({ error: error.message })
+                }
+                if (error instanceof Error && error.message === 'Unauthorized to delete this comment') {
+                    return res.status(403).json({ error: error.message })
+                }
+                logger.error('Error deleting daily log comment:', error)
+                res.status(500).json({ error: 'Failed to delete comment' })
+            }
+        })
+
         return router
     }
 }

@@ -53,6 +53,15 @@ export interface ApiDailyLogLike {
   user?: { id: string };
 }
 
+export interface ApiDailyLogComment {
+  id: string;
+  text: string;
+  createdAt: string;
+  updatedAt?: string;
+  authorId: string;
+  author?: { id: string; name: string | null; email?: string; avatar?: string | null };
+}
+
 export interface ApiDailyLog {
   id: string;
   content: string;
@@ -67,6 +76,7 @@ export interface ApiDailyLog {
   authorId: string;
   author?: { name: string | null };
   likes?: ApiDailyLogLike[];
+  comments?: ApiDailyLogComment[];
 }
 
 // ── Payroll ──────────────────────────────────────────────────────────────────

@@ -1,5 +1,42 @@
 # Development Notes
 
+## 2026-06-11 - Daily Log Comments
+
+### Completed
+
+- Added persisted Daily Log comments with authenticated create/delete endpoints.
+- Made the Daily Logs comment count clickable and expanded it into an inline comment thread.
+- Added focused helper coverage for comment counts, author labels, and delete ownership.
+
+### Files Changed
+
+- `backend/prisma/schema.prisma`
+- `backend/prisma/migrations/202606110001_daily_log_comments/migration.sql`
+- `backend/src/daily-logs/daily-logs.controller.ts`
+- `backend/src/daily-logs/daily-logs.service.ts`
+- `frontend/src/app/daily-logs/page.tsx`
+- `frontend/src/lib/daily-log-comments.ts`
+- `frontend/src/lib/daily-logs.ts`
+- `frontend/src/lib/types/api.ts`
+- `frontend/tests/daily-log-comments.test.mjs`
+- `docs/api.md`
+- `docs/database.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Daily Log comment counts derive from the returned comment array instead of a separate count field.
+- Comment deletion is limited to the comment author.
+- The thread opens inline inside the log card to keep the log context visible.
+
+### How to Test
+
+- Run `npm --prefix frontend test`.
+- Run `npm --prefix frontend run lint`.
+- Run `npm --prefix backend run build`.
+- Open `/daily-logs`, click a log's comment count, add a comment, then delete your own comment.
+
 ## 2026-06-11 - Escape Closes Popup Windows
 
 ### Completed
