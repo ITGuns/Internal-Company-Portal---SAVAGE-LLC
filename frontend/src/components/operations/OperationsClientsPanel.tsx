@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight, BriefcaseBusiness, Search, ShieldCheck, UsersRound } from "lucide-react";
 import EmptyState from "@/components/ui/EmptyState";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -25,6 +26,7 @@ function formatStatus(status?: string | null, isApproved?: boolean | null) {
 
 export default function OperationsClientsPanel({ clients }: OperationsClientsPanelProps) {
   const [query, setQuery] = useState("");
+  const router = useRouter();
 
   const filteredClients = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -53,7 +55,7 @@ export default function OperationsClientsPanel({ clients }: OperationsClientsPan
         description="Client portal users will appear here after they are invited or assigned to client accounts."
         actionLabel="Open client accounts"
         onAction={() => {
-          window.location.href = "/operations/clients/accounts";
+          router.push("/operations/clients/accounts");
         }}
       />
     );

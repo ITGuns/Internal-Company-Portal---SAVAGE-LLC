@@ -1,5 +1,106 @@
 # Development Notes
 
+## 2026-06-11 - Accessibility Audit Fix
+
+### Completed
+
+- Reworked File Directory grid folder cards so the card container no longer nests delete buttons inside an interactive parent.
+- Added explicit full-card open buttons with accessible names while keeping delete as a separate control.
+- Adjusted folder card heading levels so card titles follow the page heading order.
+
+### Files Changed
+
+- `frontend/src/components/file-directory/FolderCard.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Used a full-card button overlay inside a non-interactive card instead of making the whole card wrapper a button.
+- Kept the list view title as normal text because that layout already exposes a visible `Open` button.
+
+### How to Test
+
+- Run axe on `/file-directory` and confirm no `nested-interactive` or `heading-order` violations remain.
+- Tab through `/file-directory` and confirm folder open and delete actions are separately reachable.
+
+### Next Steps
+
+- Include the focused File Directory accessibility check in the final audit evidence before commit or push.
+
+## 2026-06-11 - Task Project Create Modal
+
+### Completed
+
+- Replaced the inline Task Tracking project creation controls with one `Add Project` button.
+- Added a focused project creation modal with labeled fields for project name, description, department scope, and target date.
+- Preserved the existing project create mutation and active-project filter behavior after create.
+
+### Files Changed
+
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/tasks/CreateProjectModal.tsx`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept task project creation owned by the Task Tracking page because the page already owns project mutation state and follow-up filtering.
+- Used the shared `Modal`, `FormField`, and `Button` components instead of introducing a new dialog system.
+
+### How to Test
+
+- Open `/task-tracking`, click `Add Project`, create a project, confirm the modal closes and the new project becomes the active task filter.
+- Open the modal again and press `Esc` to confirm it closes without clearing an existing project task filter.
+
+### Next Steps
+
+- Consider moving more Task Tracking form state into feature components if the page grows further.
+
+## 2026-06-11 - Audit Findings Cleanup
+
+### Completed
+
+- Removed external Dashboard quick links for Discord and Google Drive.
+- Removed active Google Drive linking from File Directory folder creation, folder cards, and folder navigation.
+- Converted Task Calendar due/overdue summary rows from mouse-only list items to keyboard-focusable buttons.
+- Replaced Operations client empty-state full reload navigation with Next router navigation.
+- Removed the orphaned Drive viewer component and unused Drive helper functions from the frontend.
+
+### Files Changed
+
+- `frontend/src/app/dashboard/page.tsx`
+- `frontend/src/app/file-directory/page.tsx`
+- `frontend/src/components/file-directory/AddFolderModal.tsx`
+- `frontend/src/components/file-directory/FolderCard.tsx`
+- `frontend/src/components/file-directory/DriveFileViewer.tsx`
+- `frontend/src/components/operations/OperationsClientsPanel.tsx`
+- `frontend/src/components/tasks/TaskCalendarView.tsx`
+- `frontend/src/lib/file-directory.ts`
+- `frontend/src/lib/file-directory-types.ts`
+- `frontend/src/lib/types/api.ts`
+- `backend/src/file-directory/file-directory.controller.ts`
+- `backend/src/file-directory/file-directory.service.ts`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Kept legacy nullable Drive fields in the database schema to avoid a migration, but new File Directory creates now store `driveLink: null`.
+- Left department `driveId` compatibility intact because Operations already removed it from the UI and prior notes marked backend compatibility intentional.
+- Treated the calendar summary rows as actionable controls, not decorative list content.
+
+### How to Test
+
+- Run `npm --prefix frontend test`.
+- Run `npm --prefix frontend run lint`.
+- Run `npm --prefix frontend run build`.
+- Run `npm --prefix backend run build`.
+- Run focused visual smoke for `/dashboard`, `/file-directory`, `/task-calendar`, `/task-tracking`, and `/operations`.
+
+### Next Steps
+
+- Re-run the full audit before commit/push if this cleanup is bundled with additional feedback fixes.
+
 ## 2026-06-11 - Operations Member and Client Split
 
 ### Completed

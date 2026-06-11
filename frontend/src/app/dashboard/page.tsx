@@ -15,7 +15,6 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
-  ExternalLink,
   FileText,
   Megaphone,
   Send,
@@ -45,46 +44,6 @@ import { DASHBOARD_DEEP_LINKS } from '@/lib/dashboard-deep-links'
 const dashboardNumberFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 0,
 });
-
-function QuickLink({ title, subtitle, icon: Icon, onClick, href }: { title: string; subtitle?: string; icon: React.ComponentType<{ className?: string }>; onClick?: () => void; href?: string }) {
-  const quickLinkClass = 'motion-interactive flex min-h-14 w-full items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3 text-left hover:border-[var(--accent)] hover:bg-[var(--surface-hover)] hover:shadow-[var(--shadow-sm)] active:scale-[0.995] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]';
-  const content = (
-    <>
-      <Icon className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden="true" />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium text-[var(--foreground)]">{title}</div>
-        {subtitle && <div className="mt-1 truncate text-xs text-[var(--muted)]">{subtitle}</div>}
-      </div>
-      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[var(--muted)]" aria-hidden="true" />
-    </>
-  );
-
-  if (href && !onClick) {
-    return (
-      <a href={href} target="_blank" rel="noreferrer" className={quickLinkClass}>
-        {content}
-      </a>
-    );
-  }
-
-  const handleClick = () => {
-    if (onClick) {
-      onClick();
-    } else if (href) {
-      window.open(href, '_blank');
-    }
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      className={quickLinkClass}
-    >
-      {content}
-    </button>
-  )
-}
 
 function DashboardMetric({
   label,
@@ -408,7 +367,7 @@ export default function DashboardPage() {
         <div className="flex flex-col items-center justify-center h-[60vh] text-center">
           <h2 className="text-2xl font-bold mb-4">Please Log In</h2>
           <p className="text-[var(--muted)] mb-6">You need to be logged in to view the dashboard.</p>
-          <Button onClick={() => window.location.href = '/login'}>Go to Login</Button>
+          <Button onClick={() => router.push('/login')}>Go to Login</Button>
         </div>
       </main>
     );
@@ -521,34 +480,6 @@ export default function DashboardPage() {
 
         <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6">
           <div className="space-y-4">
-            <Card variant="elevated" className="overflow-hidden">
-              <Card.Header>
-                <h3 className="font-semibold text-sm">Quick Links</h3>
-              </Card.Header>
-
-              <Card.Content className="grid gap-3">
-                <QuickLink
-                  title="Discord Server"
-                  subtitle="Join the conversation"
-                  icon={Send}
-                  onClick={() => {
-                    // Try to open Discord app
-                    window.location.href = 'discord://discord.com/channels/1464856711813660694/1464865716200018042';
-                    // Fallback to web after 500ms if app doesn't open
-                    setTimeout(() => {
-                      window.open('https://discord.com/channels/1464856711813660694/1464865716200018042', '_blank');
-                    }, 500);
-                  }}
-                />
-                <QuickLink
-                  title="Google Drive"
-                  subtitle="Access shared files"
-                  icon={ExternalLink}
-                  href="https://drive.google.com"
-                />
-              </Card.Content>
-            </Card>
-
             <Card variant="elevated" className="overflow-hidden flex flex-col h-[400px]">
               <Card.Header>
                 <div className="flex items-center justify-between w-full">

@@ -72,7 +72,7 @@ export class FileDirectoryController {
         router.post('/', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const user = (req as AuthRequest).user
-                const { name, type, department, driveLink, parentId, customColor } = req.body
+                const { name, type, department, parentId, customColor } = req.body
 
                 if (!name || !department) {
                     return res.status(400).json({ error: 'name and department are required' })
@@ -82,7 +82,6 @@ export class FileDirectoryController {
                     name,
                     type,
                     department,
-                    driveLink,
                     parentId,
                     customColor,
                     createdById: user?.userId,

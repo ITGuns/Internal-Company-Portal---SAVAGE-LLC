@@ -82,6 +82,7 @@ import TaskListRow from "@/components/tasks/TaskListRow";
 import TaskModal from "@/components/tasks/TaskModal";
 import TaskDetailModal from "@/components/tasks/TaskDetailModal";
 import ProjectOverviewModal from "@/components/tasks/ProjectOverviewModal";
+import CreateProjectModal from "@/components/tasks/CreateProjectModal";
 import TaskCalendarView from "@/components/tasks/TaskCalendarView";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 
@@ -182,6 +183,7 @@ export default function TaskTrackingPage() {
   const [showDisplayMenu, setShowDisplayMenu] = useState(false);
   const [showEODModal, setShowEODModal] = useState(false);
   const [showProjectOverview, setShowProjectOverview] = useState(false);
+  const [showProjectCreateModal, setShowProjectCreateModal] = useState(false);
   const [pinnedFocusTaskId, setPinnedFocusTaskId] = useState<string | null>(null);
 
   const displayRef = useRef<HTMLDivElement>(null);
@@ -426,6 +428,22 @@ export default function TaskTrackingPage() {
     setShowProjectOverview(false);
   }
 
+  function resetProjectForm() {
+    setProjectName("");
+    setProjectDescription("");
+    setProjectDepartmentId("");
+    setProjectTargetDate("");
+  }
+
+  function openProjectCreateModal() {
+    setShowProjectCreateModal(true);
+  }
+
+  function closeProjectCreateModal() {
+    setShowProjectCreateModal(false);
+    resetProjectForm();
+  }
+
   function handleProjectPanelClick(event: React.MouseEvent<HTMLElement>) {
     const target = event.target;
     if (!(target instanceof Element)) {
@@ -510,7 +528,7 @@ export default function TaskTrackingPage() {
 
     function handleProjectFilterEscape(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
-      if (showModal || selectedTask || showEODModal || showDisplayMenu || showProjectOverview) return;
+      if (showModal || selectedTask || showEODModal || showDisplayMenu || showProjectOverview || showProjectCreateModal) return;
 
       event.preventDefault();
       setFilterProjectId("");
@@ -518,7 +536,7 @@ export default function TaskTrackingPage() {
 
     document.addEventListener("keydown", handleProjectFilterEscape);
     return () => document.removeEventListener("keydown", handleProjectFilterEscape);
-  }, [filterProjectId, selectedTask, showDisplayMenu, showEODModal, showModal, showProjectOverview]);
+  }, [filterProjectId, selectedTask, showDisplayMenu, showEODModal, showModal, showProjectCreateModal, showProjectOverview]);
 
 
 
@@ -646,10 +664,7 @@ export default function TaskTrackingPage() {
         departmentId: projectDepartmentId || null,
         targetDate: projectTargetDate || null,
       });
-      setProjectName("");
-      setProjectDescription("");
-      setProjectDepartmentId("");
-      setProjectTargetDate("");
+      closeProjectCreateModal();
       setFilterProjectId(project.id);
       toast.success("Project created");
     } catch (error) {
@@ -1034,50 +1049,16 @@ export default function TaskTrackingPage() {
               </button>
 
               {canManageAssignments && (
-                <form onSubmit={handleCreateProject} className="grid w-full gap-2 xl:max-w-3xl xl:grid-cols-[minmax(10rem,1fr)_minmax(10rem,1fr)_minmax(8rem,0.8fr)_minmax(8rem,0.8fr)_auto]">
-                  <input
-                    value={projectName}
-                    onChange={(event) => setProjectName(event.target.value)}
-                    placeholder="Project name"
-                    className="min-h-10 rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 text-sm outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
-                    aria-label="Project name"
-                  />
-                  <input
-                    value={projectDescription}
-                    onChange={(event) => setProjectDescription(event.target.value)}
-                    placeholder="Short description"
-                    className="min-h-10 rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 text-sm outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
-                    aria-label="Project description"
-                  />
-                  <select
-                    value={projectDepartmentId}
-                    onChange={(event) => setProjectDepartmentId(event.target.value)}
-                    className="portal-select min-h-10 rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 text-sm outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
-                    aria-label="Project department"
-                  >
-                    <option value="">Any department</option>
-                    {departments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {department.name}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    value={projectTargetDate}
-                    onChange={(event) => setProjectTargetDate(event.target.value)}
-                    type="date"
-                    className="min-h-10 rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 text-sm outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
-                    aria-label="Project target date"
-                  />
-                  <Button
-                    type="submit"
-                    variant="secondary"
-                    icon={<Plus className="w-4 h-4" />}
-                    disabled={createProjectMutation.isPending}
-                  >
-                    Add
-                  </Button>
-                </form>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  icon={<Plus className="w-4 h-4" aria-hidden="true" />}
+                  onClick={openProjectCreateModal}
+                  disabled={createProjectMutation.isPending}
+                  className="self-start xl:self-center"
+                >
+                  Add Project
+                </Button>
               )}
             </div>
 
@@ -1648,6 +1629,22 @@ export default function TaskTrackingPage() {
         onClose={closeProjectOverview}
         onToggleProject={toggleProjectTaskView}
         onProjectStatus={handleProjectStatus}
+      />
+
+      <CreateProjectModal
+        isOpen={showProjectCreateModal}
+        departments={departments}
+        projectName={projectName}
+        projectDescription={projectDescription}
+        projectDepartmentId={projectDepartmentId}
+        projectTargetDate={projectTargetDate}
+        isSubmitting={createProjectMutation.isPending}
+        onProjectNameChange={setProjectName}
+        onProjectDescriptionChange={setProjectDescription}
+        onProjectDepartmentChange={setProjectDepartmentId}
+        onProjectTargetDateChange={setProjectTargetDate}
+        onSubmit={handleCreateProject}
+        onClose={closeProjectCreateModal}
       />
 
       {/* Log Report Modal */}

@@ -49,7 +49,6 @@ export class FileDirectoryService {
         name: string
         type?: string
         department: string
-        driveLink?: string
         parentId?: string | null
         customColor?: string
         createdById?: string
@@ -59,7 +58,7 @@ export class FileDirectoryService {
                 name: data.name,
                 type: data.type ?? 'folder',
                 department: data.department,
-                driveLink: data.driveLink ?? null,
+                driveLink: null,
                 parentId: data.parentId ?? null,
                 customColor: data.customColor ?? null,
                 createdById: data.createdById ?? null,

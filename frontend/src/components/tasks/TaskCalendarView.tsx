@@ -96,15 +96,17 @@ export default function TaskCalendarView({
             ) : (
               <ul className="space-y-2">
                 {todaysTasks.map((t) => (
-                  <li
-                    key={t.id}
-                    onClick={() => onOpenTask(t)}
-                    className="p-2 border border-[var(--border)] rounded text-sm cursor-pointer hover:bg-[var(--card-bg)]"
-                  >
-                    <div className="font-medium">{t.title}</div>
-                    <div className="text-xs text-[var(--muted)]">
-                      {t.department?.name}
-                    </div>
+                  <li key={t.id}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenTask(t)}
+                      className="w-full rounded border border-[var(--border)] p-2 text-left text-sm transition-colors hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                    >
+                      <div className="font-medium">{t.title}</div>
+                      <div className="text-xs text-[var(--muted)]">
+                        {t.department?.name}
+                      </div>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -130,15 +132,17 @@ export default function TaskCalendarView({
             ) : (
               <ul className="space-y-2">
                 {overdueTasks.slice(0, 3).map((t) => (
-                  <li
-                    key={t.id}
-                    onClick={() => onOpenTask(t)}
-                    className="p-2 border border-[var(--status-blocked)] bg-[var(--status-blocked-bg)] rounded text-sm cursor-pointer"
-                  >
-                    <div className="font-medium">{t.title}</div>
-                    <div className="text-xs text-[var(--status-blocked)]">
-                      Due: {t.dueDate}
-                    </div>
+                  <li key={t.id}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenTask(t)}
+                      className="w-full rounded border border-[var(--status-blocked)] bg-[var(--status-blocked-bg)] p-2 text-left text-sm transition-colors hover:bg-[var(--status-blocked-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--status-blocked)]"
+                    >
+                      <div className="font-medium">{t.title}</div>
+                      <div className="text-xs text-[var(--status-blocked)]">
+                        Due: {t.dueDate}
+                      </div>
+                    </button>
                   </li>
                 ))}
               </ul>

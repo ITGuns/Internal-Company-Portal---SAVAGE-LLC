@@ -44,7 +44,7 @@ Task tracking supports calendar, board, and list views for task status, assignme
 - Task role options come from backend department `availableRoles` instead of frontend-only constants.
 - Manager/admin task forms can invite additional employee collaborators while preserving the primary assignee.
 - Collaborator chips appear on task cards/list rows, and task details show the invited collaborator names.
-- Task projects can be created in Task Tracking, assigned to tasks, filtered, grouped, paused/resumed, and marked complete.
+- Task projects can be created from an `Add Project` modal in Task Tracking, assigned to tasks, filtered, grouped, paused/resumed, and marked complete.
 - Clicking a task project card filters the task list to that project; clicking the selected card again, pressing Esc, or using `Back to all tasks` clears the project view.
 - Opening the Project Organization panel expands a project overview dialog with per-project analytics for completion, open work, review load, overdue work, due-today work, estimates, tracked time, and target-date risk.
 - Project assignment appears on task cards, list rows, detail modals, calendar/report data, and exported Deskii task reports.
@@ -91,6 +91,14 @@ Daily logs track EOD, weekly, and monthly work summaries by date, department, ta
 - Managers/admins can review team daily-log totals with summary counts for reviewed logs, completed items, blocked items, linked tasks, hours, and latest log date.
 - Linked Task Tracking items show a source badge and session count in the log task list when the source task is visible.
 - Review-status tasks are intentionally not imported automatically; employees can add them manually from the optional review-stage section when needed.
+
+## File Directory
+
+File Directory organizes internal folder records by department without opening external storage links from the portal.
+
+- Folder cards open internal child-folder navigation only.
+- Add Folder creates one internal folder record with name, department, and folder color.
+- New file-directory records do not store Drive links, and legacy Drive link fields are ignored by the active folder UI.
 
 ## Auth And Employee Approval
 

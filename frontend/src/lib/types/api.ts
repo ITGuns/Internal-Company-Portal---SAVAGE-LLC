@@ -170,19 +170,6 @@ export interface SocketNotificationPayload {
   createdAt?: string;
 }
 
-// ── Google Drive ─────────────────────────────────────────────────────────────
-
-export interface GoogleDriveFile {
-  id: string;
-  name: string;
-  mimeType: string;
-  iconLink?: string;
-  thumbnailLink?: string;
-  size?: string;
-  modifiedTime?: string;
-  webViewLink?: string;
-}
-
 // ── Tasks (raw from API) ─────────────────────────────────────────────────────
 
 export interface ApiTaskWorkSession {

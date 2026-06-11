@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Card from '@/components/Card';
-import { Folder, ExternalLink, Trash2, FolderOpen } from 'lucide-react';
+import { Folder, Trash2, FolderOpen } from 'lucide-react';
 import { DEPARTMENT_COLORS, DEPARTMENT_COLORS_BG, getChildCount } from '@/lib/file-directory';
 import type { FileDirectory } from '@/lib/file-directory-types';
 
@@ -29,13 +29,13 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
   if (viewMode === 'list') {
     return (
       <div
-        className="flex items-center gap-4 p-4 border-b border-[var(--border)] hover:bg-[var(--card-surface)] transition-colors group cursor-pointer relative"
-        onClick={onClick}
+        className="flex items-center gap-4 p-4 border-b border-[var(--border)] hover:bg-[var(--card-surface)] transition-colors group relative"
       >
         <div className="relative">
           <Folder
             className="w-6 h-6 flex-shrink-0"
             style={{ color }}
+            aria-hidden="true"
           />
           {childCount > 0 && (
             <div className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center bg-blue-500 rounded-full text-[10px] font-bold text-white border border-white dark:border-[var(--card-bg)] shadow-sm">
@@ -54,27 +54,14 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
         </div>
 
         <div className="flex items-center gap-2">
-          {folder.driveLink && (
-            <a
-              href={folder.driveLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-lg transition-colors hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-              onClick={(e) => e.stopPropagation()}
-              title="Open in Drive"
-              aria-label={`Open ${folder.name} in Drive`}
-            >
-              <ExternalLink className="w-4 h-4 text-[var(--muted)]" />
-            </a>
-          )}
-
           {hasAction && (
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onClick?.();
               }}
-              className="px-4 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--card-bg)] rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--card-bg)] rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
               Open
             </button>
@@ -82,6 +69,7 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
 
           {onDelete && (
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete();
@@ -90,7 +78,7 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
               title="Delete folder"
               aria-label={`Delete ${folder.name}`}
             >
-              <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+              <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" aria-hidden="true" />
             </button>
           )}
         </div>
@@ -102,11 +90,19 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
   return (
     <div style={{ borderLeft: `4px solid ${color}` }}>
       <Card
-        variant="interactive"
+        variant={hasAction ? "interactive" : "default"}
         padding="md"
         className="folder-card group relative cursor-pointer h-full"
-        onClick={onClick}
       >
+        {hasAction && (
+          <button
+            type="button"
+            onClick={onClick}
+            aria-label={`Open ${folder.name}`}
+            className="absolute inset-0 z-10 rounded-[var(--radius-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
+          />
+        )}
+
         {childCount > 0 && (
           <div className="absolute top-3 left-3 min-w-[28px] h-7 px-2.5 flex items-center justify-center bg-[var(--card-surface)] border border-[var(--border)] rounded-full text-xs font-semibold text-[var(--muted)] shadow-sm z-20">
             {childCount}
@@ -115,6 +111,7 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
 
         {onDelete && (
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               onDelete();
@@ -123,7 +120,7 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
             title="Delete folder"
             aria-label={`Delete ${folder.name}`}
           >
-            <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+            <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" aria-hidden="true" />
           </button>
         )}
 
@@ -133,34 +130,22 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
             style={{ backgroundColor: colorBg }}
           >
             {hasAction ? (
-              <FolderOpen className="w-6 h-6" style={{ color }} />
+              <FolderOpen className="w-6 h-6" style={{ color }} aria-hidden="true" />
             ) : (
-              <Folder className="w-6 h-6" style={{ color }} />
+              <Folder className="w-6 h-6" style={{ color }} aria-hidden="true" />
             )}
           </div>
 
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-base text-[var(--foreground)] truncate mb-1">
+            <h2 className="font-semibold text-base text-[var(--foreground)] truncate mb-1">
               {folder.name}
-            </h3>
+            </h2>
             <p className="text-sm text-[var(--muted)]">
               {folder.department}
             </p>
           </div>
         </div>
 
-        {folder.driveLink && (
-          <a
-            href={folder.driveLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 mt-4 text-sm text-blue-600 dark:text-blue-400 hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <ExternalLink className="w-4 h-4" />
-            Open in Drive
-          </a>
-        )}
       </Card>
     </div>
   );
