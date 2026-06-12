@@ -9,7 +9,7 @@ export const APP_CONFIG = {
   wsUrl: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:4000',
   
   // App Metadata
-  appName: process.env.NEXT_PUBLIC_APP_NAME || 'SAVAGE LLC Internal Portal',
+  appName: process.env.NEXT_PUBLIC_APP_NAME || 'Deskii',
   appVersion: process.env.NEXT_PUBLIC_APP_VERSION || '0.5.0',
   
   // Feature Flags

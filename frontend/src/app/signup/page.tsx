@@ -168,7 +168,7 @@ export default function SignUpPage() {
               type="email"
               value={email}
               onChange={setEmail}
-              placeholder="you@savage.com…"
+              placeholder="you@company.com…"
               required
               disabled={loading}
               icon={Mail}

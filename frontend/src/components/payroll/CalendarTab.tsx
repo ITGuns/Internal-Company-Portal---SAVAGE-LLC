@@ -17,8 +17,8 @@ import {
   Plus,
   LogOut,
   BarChart3,
+  LockKeyhole,
 } from "lucide-react";
-import StatCard from "./StatCard";
 import AddTimeEntryModal from "./AddTimeEntryModal";
 import PayrollDayDetailPanel from "./PayrollDayDetailPanel";
 import TimeEntryDeleteModal from "./TimeEntryDeleteModal";
@@ -106,6 +106,13 @@ export default function CalendarTab({
     [selectedDate, timeEntries, now],
   );
   const todayEntries = todayAudit.entries;
+  const upcomingEvents = useMemo(
+    () => events
+      .filter((event: CalendarEvent) => event.extendedProps.type !== "time" && event.start >= today)
+      .sort((a: CalendarEvent, b: CalendarEvent) => a.start.localeCompare(b.start))
+      .slice(0, 8),
+    [events, today],
+  );
 
   // Calculate today's total — completed entries use durationMin, active entry uses live elapsed
   const todayTotalSeconds = todayEntries.reduce((acc, e) => {
@@ -133,87 +140,91 @@ export default function CalendarTab({
 
   return (
     <>
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-        <StatCard
-          icon={<DollarSign className="w-5 h-5" aria-hidden="true" />}
-          label="Pay Days"
-          value={stats.payday}
-          bgColor="bg-emerald-500"
-        />
-        <StatCard
-          icon={<X className="w-5 h-5" aria-hidden="true" />}
-          label="Holidays"
-          value={stats.holiday}
-          bgColor="bg-red-500"
-        />
-        <StatCard
-          icon={<Clock className="w-5 h-5" aria-hidden="true" />}
-          label="Deadlines"
-          value={stats.deadline}
-          bgColor="bg-amber-500"
-        />
-        <StatCard
-          icon={<CalendarIcon className="w-5 h-5" aria-hidden="true" />}
-          label="Total Events"
-          value={stats.total}
-          bgColor="bg-sky-500"
-        />
-      </div>
-
-      {/* Enhanced Legend Bar */}
-      <div className="mb-6 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-surface)]/50 backdrop-blur-md shadow-sm">
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-xs">
-          <div className="flex items-center gap-2 group cursor-default">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-500/10 group-hover:ring-emerald-500/20 transition-[box-shadow] shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
-            <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Pay Day</span>
-          </div>
-
-          <div className="flex items-center gap-2 group cursor-default">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500 ring-4 ring-red-500/10 group-hover:ring-red-500/20 transition-[box-shadow] shadow-[0_0_10px_rgba(239,68,68,0.3)]" />
-            <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Holiday</span>
-          </div>
-
-          <div className="flex items-center gap-2 group cursor-default">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 ring-4 ring-amber-500/10 group-hover:ring-amber-500/20 transition-[box-shadow] shadow-[0_0_10px_rgba(245,158,11,0.3)]" />
-            <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Deadline</span>
-          </div>
-
-          <div className="flex items-center gap-2 group cursor-default">
-            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 ring-4 ring-indigo-500/10 group-hover:ring-indigo-500/20 transition-[box-shadow] shadow-[0_0_10px_rgba(79,70,229,0.3)]" />
-            <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Meeting</span>
-          </div>
-
-          <div className="h-4 w-px bg-[var(--border)] mx-1 hidden sm:block" />
-
-          <div className="flex items-center gap-2 group cursor-default">
-            <div className="flex items-center justify-center w-5 h-5 rounded bg-emerald-600/10 text-emerald-600 group-hover:bg-emerald-600/20 transition-colors">
-              <Clock className="w-3 h-3" />
+      <section className="mb-6 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card-surface)]">
+        <div className="flex flex-col gap-4 border-b border-[var(--border)] bg-[var(--card-bg)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-600 dark:text-sky-300">
+              <CalendarIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              Payroll Calendar
             </div>
-            <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Clock In</span>
+            <h2 className="mt-3 text-xl font-semibold text-[var(--foreground)]">
+              Schedule, payroll, and time audit
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm text-[var(--muted)]">
+              Track payroll events and inspect daily time records without leaving the calendar.
+            </p>
           </div>
-
-          <div className="flex items-center gap-2 group cursor-default">
-            <div className="flex items-center justify-center w-5 h-5 rounded bg-red-600/10 text-red-600 group-hover:bg-red-600/20 transition-colors">
-              <LogOut className="w-3 h-3" />
+          <div className="grid min-w-[220px] grid-cols-2 gap-2 text-sm sm:text-right">
+            <div className="rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2">
+              <div className="text-[11px] font-medium uppercase text-[var(--muted)]">Today</div>
+              <div className="mt-1 font-mono text-base font-semibold tabular-nums text-[var(--foreground)]">
+                {formatElapsed(todayTotalSeconds)}
+              </div>
             </div>
-            <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Clock Out</span>
-          </div>
-
-          <div className="flex items-center gap-2 group cursor-default">
-            <div className="flex items-center justify-center w-5 h-5 rounded bg-sky-600/10 text-sky-600 group-hover:bg-sky-600/20 transition-colors">
-              <BarChart3 className="w-3 h-3" />
+            <div className="rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2">
+              <div className="text-[11px] font-medium uppercase text-[var(--muted)]">Entries</div>
+              <div className="mt-1 text-base font-semibold text-[var(--foreground)]">
+                {todayEntries.length}
+              </div>
             </div>
-            <span className="text-[var(--text-secondary)] font-medium group-hover:text-[var(--foreground)] transition-colors">Day Total</span>
           </div>
         </div>
-      </div>
+
+        <div className="grid gap-px bg-[var(--border)] sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: "Pay Days", value: stats.payday, icon: DollarSign, tone: "text-emerald-600 bg-emerald-500/10" },
+            { label: "Holidays", value: stats.holiday, icon: X, tone: "text-red-600 bg-red-500/10" },
+            { label: "Deadlines", value: stats.deadline, icon: Clock, tone: "text-amber-600 bg-amber-500/10" },
+            { label: "Total Events", value: stats.total, icon: CalendarIcon, tone: "text-sky-600 bg-sky-500/10" },
+          ].map((metric) => {
+            const Icon = metric.icon;
+            return (
+              <div key={metric.label} className="flex items-center gap-3 bg-[var(--card-surface)] px-4 py-3">
+                <span className={`inline-flex h-10 w-10 items-center justify-center rounded-md ${metric.tone}`}>
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <div className="text-xs font-medium text-[var(--muted)]">{metric.label}</div>
+                  <div className="text-lg font-semibold text-[var(--foreground)]">{metric.value}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3 px-4 py-3 text-xs">
+          {[
+            { label: "Pay Day", dot: "bg-emerald-500" },
+            { label: "Holiday", dot: "bg-red-500" },
+            { label: "Deadline", dot: "bg-amber-500" },
+            { label: "Meeting", dot: "bg-indigo-500" },
+          ].map((item) => (
+            <span key={item.label} className="inline-flex items-center gap-2 font-medium text-[var(--muted)]">
+              <span className={`h-2.5 w-2.5 rounded-full ${item.dot}`} aria-hidden="true" />
+              {item.label}
+            </span>
+          ))}
+          <span className="hidden h-4 w-px bg-[var(--border)] sm:inline-block" aria-hidden="true" />
+          <span className="inline-flex items-center gap-2 font-medium text-[var(--muted)]">
+            <Clock className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+            Clock In
+          </span>
+          <span className="inline-flex items-center gap-2 font-medium text-[var(--muted)]">
+            <LogOut className="h-3.5 w-3.5 text-red-600" aria-hidden="true" />
+            Clock Out
+          </span>
+          <span className="inline-flex items-center gap-2 font-medium text-[var(--muted)]">
+            <BarChart3 className="h-3.5 w-3.5 text-sky-600" aria-hidden="true" />
+            Day Total
+          </span>
+        </div>
+      </section>
 
       {/* Calendar + Sidebar Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* FullCalendar */}
         <div className="lg:col-span-2">
-          <div className="rounded border border-[var(--border)] bg-[var(--card-bg)] p-4">
+          <div className="min-h-[632px] rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-3 sm:p-4">
             <FullCalendar
               ref={calendarRef}
               plugins={[dayGridPlugin, interactionPlugin]}
@@ -237,18 +248,18 @@ export default function CalendarTab({
                         : "bg-sky-800 dark:bg-sky-700";
                   return (
                     <div
-                      className={`px-1.5 py-0.5 rounded text-white text-[10px] w-full truncate overflow-hidden font-medium flex items-center gap-1 ${bg}`}
-                      title={evt.title + " (permanent record)"}
+                      className={`flex w-full items-center gap-1 overflow-hidden truncate rounded px-1.5 py-0.5 text-[10px] font-medium text-white ${bg}`}
+                      title={`${evt.title} (permanent record)`}
                     >
                       <span className="truncate">{evt.title}</span>
-                      <span className="text-white/80 ml-auto text-[9px] flex-shrink-0">🔒</span>
+                      <LockKeyhole className="ml-auto h-3 w-3 flex-shrink-0 text-white/80" aria-hidden="true" />
                     </div>
                   );
                 }
 
                 return (
                   <div
-                    className={`px-2 py-1 rounded text-white text-xs w-full truncate overflow-hidden ${colorForType(t)}`}
+                    className={`w-full overflow-hidden truncate rounded px-2 py-1 text-xs text-white ${colorForType(t)}`}
                   >
                     {evt.title}
                   </div>
@@ -268,10 +279,10 @@ export default function CalendarTab({
         {/* Sidebar */}
         <div>
           {/* ── Time Clock ── */}
-          <div className="rounded border border-[var(--border)] bg-[var(--card-surface)] p-4 mb-4">
+          <div className="mb-4 rounded-lg border border-[var(--border)] bg-[var(--card-surface)] p-4">
             {/* Header */}
             <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold">Time Clock</div>
+              <h3 className="text-sm font-semibold">Time Clock</h3>
               {!isOwnTimeView ? (
                 <div className="inline-flex items-center gap-2 rounded-full bg-sky-600/10 px-2 py-1 text-xs font-medium text-sky-600">
                   Audit View
@@ -289,16 +300,18 @@ export default function CalendarTab({
               {isOwnTimeView ? (
                 !clockedIn ? (
                   <button
+                    type="button"
                     onClick={onClockIn}
-                    className="px-4 py-2 rounded bg-emerald-700 hover:bg-emerald-800 text-white flex items-center gap-2 transition-colors"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-800"
                   >
                     <Clock className="w-4 h-4" aria-hidden="true" />
                     Clock In
                   </button>
                 ) : (
                   <button
+                    type="button"
                     onClick={onClockOut}
-                    className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white flex items-center gap-2 transition-colors"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
                   >
                     <Square className="w-4 h-4" aria-hidden="true" />
                     Clock Out
@@ -310,10 +323,11 @@ export default function CalendarTab({
                 </div>
               )}
               <button
+                type="button"
                 onClick={onAddManualEntry}
-                className="px-3 py-2 rounded border border-[var(--border)] bg-[var(--card-bg)] hover:bg-[var(--card-surface)] transition-colors flex items-center gap-2 text-sm"
+                className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm font-medium transition-colors hover:bg-[var(--card-surface)]"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-4 h-4" aria-hidden="true" />
                 Manual
               </button>
             </div>
@@ -327,7 +341,7 @@ export default function CalendarTab({
             </div>
 
             {/* Today's entry list */}
-            <div className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-2">
+            <div className="mb-2 text-xs font-semibold uppercase text-[var(--muted)]">
               Today&apos;s Entries
             </div>
             <ul className="space-y-2">
@@ -387,20 +401,22 @@ export default function CalendarTab({
                             : "—"}
                       </span>
                       <button
+                        type="button"
                         aria-label="Edit entry"
                         onClick={() => setEditingEntry(e)}
-                        className="p-1 rounded border border-transparent bg-transparent text-[var(--muted)] hover:bg-sky-600 hover:text-white transition-colors"
+                        className="rounded border border-transparent bg-transparent p-1.5 text-[var(--muted)] transition-colors hover:bg-sky-600 hover:text-white"
                         title="Edit entry"
                       >
-                        <Edit2 className="w-3.5 h-3.5" />
+                        <Edit2 className="h-3.5 w-3.5" aria-hidden="true" />
                       </button>
                       <button
+                        type="button"
                         aria-label="Delete entry"
                         onClick={() => setDeleteTarget(e)}
-                        className="p-1 rounded border border-transparent bg-transparent text-[var(--muted)] hover:bg-red-600 hover:text-white transition-colors"
+                        className="rounded border border-transparent bg-transparent p-1.5 text-[var(--muted)] transition-colors hover:bg-red-600 hover:text-white"
                         title="Delete entry"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                       </button>
                     </div>
                   </li>
@@ -420,14 +436,15 @@ export default function CalendarTab({
             onRequestDeleteEntry={setDeleteTarget}
           />
 
-          {/* ── Upcoming Events ── */}
-          <div className="rounded border border-[var(--border)] bg-[var(--card-surface)] p-4">
-            <div className="text-sm font-semibold mb-3">Upcoming Events</div>
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--card-surface)] p-4">
+            <h3 className="mb-3 text-sm font-semibold">Upcoming Events</h3>
             <ul className="space-y-3">
-              {events
-                .filter((e: CalendarEvent) => e.extendedProps.type !== "time")
-                .sort((a: CalendarEvent, b: CalendarEvent) => a.start.localeCompare(b.start))
-                .map((e: CalendarEvent) => (
+              {upcomingEvents.length === 0 ? (
+                <li className="rounded border border-dashed border-[var(--border)] bg-[var(--card-bg)] p-4 text-sm text-[var(--muted)]">
+                  No upcoming payroll events.
+                </li>
+              ) : (
+                upcomingEvents.map((e: CalendarEvent) => (
                   <li key={e.id} className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-3">
                       <span className={`w-3 h-3 rounded-full flex-shrink-0 ${dotForType(e.extendedProps.type)}`} />
@@ -445,7 +462,8 @@ export default function CalendarTab({
                       {new Date(e.start).toLocaleDateString()}
                     </div>
                   </li>
-                ))}
+                ))
+              )}
             </ul>
           </div>
         </div>

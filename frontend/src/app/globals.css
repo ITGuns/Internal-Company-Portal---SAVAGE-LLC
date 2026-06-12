@@ -1297,3 +1297,32 @@ html[data-theme="dark"] .priority-dot.high {
     @apply font-sans;
   }
 }
+
+/* ============================================================
+   DROPDOWN / POPOVER OVERFLOW FIX
+   Prevents menus from being clipped when near the bottom of
+   the viewport. The `dropdown-glass` class is applied to
+   floating panels that need safe overflow behaviour.
+   ============================================================ */
+.dropdown-glass {
+  overflow-y: auto;
+  max-height: min(85vh, 600px);
+  /* Ensure the panel appears above all other content */
+  z-index: 9999 !important;
+}
+
+/* Any relatively-positioned parent that contains a floating
+   dropdown must NOT clip its children with overflow:hidden.
+   Add this class to such wrappers. */
+.dropdown-anchor {
+  position: relative;
+  overflow: visible !important;
+}
+
+/* Ensure dropdowns/selects near bottom of viewport flip upward
+   via JS is preferred, but this forces visibility regardless */
+[data-popover],
+[data-dropdown] {
+  max-height: min(85vh, 480px);
+  overflow-y: auto;
+}

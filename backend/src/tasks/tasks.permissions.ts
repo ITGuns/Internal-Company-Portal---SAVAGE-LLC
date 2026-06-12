@@ -31,6 +31,7 @@ export interface ReadableTask {
     userId?: string | null
     status?: string | null
   }> | null
+  assigneeIds?: unknown
 }
 
 const READABLE_COLLABORATOR_STATUSES = ['invited', 'accepted']
@@ -75,6 +76,12 @@ export function getTaskVisibilityFilter(access: TaskAccessPolicy): { OR?: Array<
           },
         },
       },
+      {
+        assigneeIds: {
+          path: '$',
+          array_contains: access.requesterId,
+        },
+      },
     ],
   }
 }
@@ -87,6 +94,7 @@ export function canReadTask(access: TaskAccessPolicy, task: ReadableTask): boole
       collaborator.userId === access.requesterId
       && READABLE_COLLABORATOR_STATUS_SET.has(collaborator.status || ''),
     ))
+    || (Array.isArray(task.assigneeIds) && task.assigneeIds.includes(access.requesterId))
 }
 
 export function canRequestAssigneeTasks(access: TaskAccessPolicy, assigneeId: string): boolean {

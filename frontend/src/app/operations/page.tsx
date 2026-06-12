@@ -92,8 +92,14 @@ export default function OperationsPage() {
   const [name, setName] = useState("");
   const [roleName, setRoleName] = useState("");
   const [roleDeptId, setRoleDeptId] = useState("");
+  const [wsName, setWsName] = useState("");
+  const [wsLogoUrl, setWsLogoUrl] = useState("");
+  const [wsLogoAlt, setWsLogoAlt] = useState("");
+  const [wsTagline, setWsTagline] = useState("");
+  const [wsSignInMessage, setWsSignInMessage] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [savingBranding, setSavingBranding] = useState(false);
   const [syncingCatalog, setSyncingCatalog] = useState(false);
   const catalogSyncAttemptedRef = useRef(false);
   const toast = useToast();
@@ -128,6 +134,54 @@ export default function OperationsPage() {
   const refreshCoreOperationsData = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEYS.departments });
   }, [queryClient]);
+
+  useEffect(() => {
+    if (activeTab !== 'branding') return;
+
+    apiFetch('/workspace/public')
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json();
+        setWsName(data.name || "");
+        setWsLogoUrl(data.logoUrl || "");
+        setWsLogoAlt(data.logoAlt || "");
+        setWsTagline(data.tagline || "");
+        setWsSignInMessage(data.signInMessage || "");
+      })
+      .catch((error) => {
+        console.error(error);
+        toast.error("Workspace branding did not load");
+      });
+  }, [activeTab, toast]);
+
+  async function handleBrandingSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingBranding(true);
+    try {
+      const res = await apiFetch('/workspace', {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: wsName,
+          logoUrl: wsLogoUrl,
+          logoAlt: wsLogoAlt,
+          tagline: wsTagline,
+          signInMessage: wsSignInMessage,
+        }),
+      });
+      if (!res.ok) {
+        toast.error("Failed to update workspace branding");
+        return;
+      }
+
+      toast.success("Workspace branding updated. Reloading portal...");
+      window.setTimeout(() => window.location.reload(), 1200);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to save branding settings");
+    } finally {
+      setSavingBranding(false);
+    }
+  }
 
   const syncOrgCatalog = useCallback(async (options: { showToast?: boolean } = {}) => {
     if (!canManageOrgSettings || !userId) return false;
@@ -440,6 +494,17 @@ export default function OperationsPage() {
             >
               Clients
             </button>
+            {canManageOrgSettings ? (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'branding'}
+                onClick={() => selectTab('branding')}
+                className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'branding' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
+              >
+                Branding
+              </button>
+            ) : null}
             {isTabPending ? (
               <span className="ml-auto inline-flex items-center gap-2 text-xs text-[var(--muted)]">
                 <span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" aria-hidden="true" />
@@ -507,6 +572,10 @@ export default function OperationsPage() {
                 Open Client Accounts
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
+            ) : activeTab === 'branding' ? (
+              <Button type="submit" form="workspace-branding-form" variant="primary" loading={savingBranding}>
+                Save Branding Settings
+              </Button>
             ) : null}
           </div>
 
@@ -649,6 +718,50 @@ export default function OperationsPage() {
             ) : (
               <OperationsClientsPanel clients={clientMembers} />
             )
+          ) : activeTab === 'branding' ? (
+            <form id="workspace-branding-form" onSubmit={handleBrandingSave} className="space-y-5 rounded-lg border border-[var(--border)] bg-[var(--card-surface)] p-5">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--foreground)]">Workspace Branding</h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">Control the public portal name, sign-in message, and logo shown around the workspace.</p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField
+                  id="workspace-name"
+                  label="Workspace Name"
+                  value={wsName}
+                  onChange={setWsName}
+                  placeholder="Deskii"
+                />
+                <FormField
+                  id="workspace-logo-url"
+                  label="Logo URL"
+                  value={wsLogoUrl}
+                  onChange={setWsLogoUrl}
+                  placeholder="/deskii-logo.svg"
+                />
+                <FormField
+                  id="workspace-logo-alt"
+                  label="Logo Alt Text"
+                  value={wsLogoAlt}
+                  onChange={setWsLogoAlt}
+                  placeholder="Deskii"
+                />
+                <FormField
+                  id="workspace-tagline"
+                  label="Tagline"
+                  value={wsTagline}
+                  onChange={setWsTagline}
+                  placeholder="Secure workspace operations"
+                />
+              </div>
+              <FormField
+                id="workspace-sign-in-message"
+                label="Sign-In Message"
+                value={wsSignInMessage}
+                onChange={setWsSignInMessage}
+                placeholder="Welcome back to your operations hub."
+              />
+            </form>
           ) : null}
         </div>
       </div>

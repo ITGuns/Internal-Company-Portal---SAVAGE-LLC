@@ -19,6 +19,7 @@ import { FileDirectoryController } from './file-directory/file-directory.control
 import { NotificationsController } from './notifications/notifications.controller'
 import { ClientsController } from './clients/clients.controller'
 import { SearchController } from './search/search.controller'
+import { WorkspaceController } from './workspace/workspace.controller'
 import { resolveCorsResponseOrigin } from './config/cors.config'
 import { config, validateConfig } from './config/env.config'
 import { PrismaService } from './database/prisma.service'
@@ -157,6 +158,9 @@ async function bootstrap() {
 
   const searchController = new SearchController()
   app.use('/api/search', searchController.router())
+
+  const workspaceController = new WorkspaceController()
+  app.use('/api/workspace', workspaceController.router())
 
 
   // Expose app for Vercel

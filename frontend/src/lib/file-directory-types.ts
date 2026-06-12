@@ -27,6 +27,17 @@ export interface FileDirectory {
   };
 }
 
+export interface DriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  isFolder: boolean;
+  driveLink: string;
+  size?: string;
+  modifiedTime?: string;
+  thumbnailLink?: string;
+}
+
 export interface DirectoryView {
   currentPath: FileDirectory[];  // Breadcrumb trail
   folders: FileDirectory[];      // Current level folders

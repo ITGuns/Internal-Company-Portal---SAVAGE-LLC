@@ -40,6 +40,19 @@ interface EnvConfig {
     discordClientSecret?: string
     discordCallbackUrl?: string
 
+    // OAuth - Apple
+    appleClientId?: string
+    appleTeamId?: string
+    appleKeyId?: string
+    applePrivateKey?: string
+    appleCallbackUrl?: string
+
+    // Public workspace branding
+    workspaceName: string
+    workspaceLogoUrl?: string
+    workspaceLogoAlt?: string
+    workspaceTagline: string
+
     // JWT
     jwtSecret: string
     jwtExpiresIn: string
@@ -133,6 +146,19 @@ export const config: EnvConfig = {
     discordClientId: getOptionalEnvVar('DISCORD_CLIENT_ID'),
     discordClientSecret: getOptionalEnvVar('DISCORD_CLIENT_SECRET'),
     discordCallbackUrl: getOptionalEnvVar('DISCORD_CALLBACK_URL'),
+
+    // OAuth - Apple
+    appleClientId: getOptionalEnvVar('APPLE_CLIENT_ID') || getOptionalEnvVar('APPLE_SERVICE_ID'),
+    appleTeamId: getOptionalEnvVar('APPLE_TEAM_ID'),
+    appleKeyId: getOptionalEnvVar('APPLE_KEY_ID'),
+    applePrivateKey: getOptionalEnvVar('APPLE_PRIVATE_KEY'),
+    appleCallbackUrl: getOptionalEnvVar('APPLE_CALLBACK_URL'),
+
+    // Public workspace branding
+    workspaceName: getEnvVar('WORKSPACE_NAME', getEnvVar('COMPANY_NAME', 'Deskii')),
+    workspaceLogoUrl: getOptionalEnvVar('WORKSPACE_LOGO_URL') || getOptionalEnvVar('COMPANY_LOGO_URL'),
+    workspaceLogoAlt: getOptionalEnvVar('WORKSPACE_LOGO_ALT') || getOptionalEnvVar('COMPANY_LOGO_ALT'),
+    workspaceTagline: getEnvVar('WORKSPACE_TAGLINE', 'Your workspace'),
 
     // JWT
     jwtSecret: getEnvVar('JWT_SECRET'),

@@ -395,7 +395,10 @@ export class TasksController {
         if (collaboratorIdsInput.ok === false) {
           return res.status(400).json({ error: collaboratorIdsInput.error })
         }
-
+        const assigneeIdsInput = parseOptionalStringList(req.body.assigneeIds, 'assigneeIds')
+        if (assigneeIdsInput.ok === false) {
+          return res.status(400).json({ error: assigneeIdsInput.error })
+        }
         const access = await this.getAccessContext(req)
         if (!access) {
           return res.status(401).json({ error: 'Authentication required' })
@@ -440,6 +443,7 @@ export class TasksController {
           status,
           departmentId: effectiveDepartmentId,
           assigneeId: effectiveAssigneeId,
+          assigneeIds: access.isPrivileged ? assigneeIdsInput.values : undefined,
           createdById: access.requesterId,
           projectId: projectAccess.projectId,
           priority,
@@ -480,6 +484,35 @@ export class TasksController {
 
         this.notifyTaskCollaborators(task, access.requesterId)
 
+        if (assigneeIdsInput.values && assigneeIdsInput.values.length > 0 && task.department) {
+          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+          const taskUrl = `${frontendUrl}/task-tracking?task=${task.id}`
+          const users = await prisma.user.findMany({
+            where: { id: { in: assigneeIdsInput.values } }
+          })
+          for (const u of users) {
+            if (u.id === task.assigneeId) continue;
+            emailService.sendTaskAssignedEmail(
+              u.email,
+              {
+                userName: u.name || 'Team Member',
+                taskTitle: task.title,
+                taskDescription: task.description || 'No description provided',
+                assignedBy: (req as any).user?.name || (req as any).user?.email || 'Admin',
+                taskUrl,
+                departmentName: task.department?.name || 'Department'
+              }
+            ).catch(err => logger.error('Failed to send task assignment email', err))
+
+            notificationService.notifyUser(u.id, {
+              type: 'info',
+              title: 'New Task Assigned (Multi-assignee)',
+              message: `You have been assigned to: ${task.title}`,
+              link: `/task-tracking?task=${task.id}`
+            })
+          }
+        }
+
         notificationService.broadcastDataChange('tasks')
         res.status(201).json(task)
       } catch (error) {
@@ -501,7 +534,10 @@ export class TasksController {
         if (collaboratorIdsInput.ok === false) {
           return res.status(400).json({ error: collaboratorIdsInput.error })
         }
-
+        const assigneeIdsInput = parseOptionalStringList(req.body.assigneeIds, 'assigneeIds')
+        if (assigneeIdsInput.ok === false) {
+          return res.status(400).json({ error: assigneeIdsInput.error })
+        }
         const access = await this.getAccessContext(req)
         if (!access) {
           return res.status(401).json({ error: 'Authentication required' })
@@ -518,7 +554,7 @@ export class TasksController {
             return res.status(403).json({ error: 'You can only update tasks assigned to you' })
           }
 
-          const protectedFields = ['assigneeId', 'departmentId', 'role', 'collaboratorIds']
+          const protectedFields = ['assigneeId', 'assigneeIds', 'departmentId', 'role', 'collaboratorIds']
           const requestedProtectedFields = protectedFields.filter((field) =>
             Object.prototype.hasOwnProperty.call(req.body, field),
           )
@@ -547,6 +583,7 @@ export class TasksController {
           departmentId: access.isPrivileged ? departmentId : undefined,
           assigneeId: access.isPrivileged ? assigneeId : undefined,
           projectId: requestedProjectUpdate ? effectiveProjectId : undefined,
+          assigneeIds: access.isPrivileged ? assigneeIdsInput.values : undefined,
           priority,
           startDate,
           dueDate,
@@ -591,6 +628,39 @@ export class TasksController {
 
         if (access.isPrivileged && collaboratorIdsInput.values !== undefined) {
           this.notifyTaskCollaborators(task, access.requesterId)
+        }
+
+        if (access.isPrivileged && assigneeIdsInput.values && assigneeIdsInput.values.length > 0 && task.department) {
+          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+          const taskUrl = `${frontendUrl}/task-tracking?task=${task.id}`
+          const previousAssigneeIds = Array.isArray((existingTask as any).assigneeIds) ? ((existingTask as any).assigneeIds as string[]) : []
+          const newlyAddedIds = assigneeIdsInput.values.filter((assigneeId) => !previousAssigneeIds.includes(assigneeId))
+          if (newlyAddedIds.length > 0) {
+            const users = await prisma.user.findMany({
+              where: { id: { in: newlyAddedIds } }
+            })
+            for (const u of users) {
+              if (u.id === task.assigneeId) continue
+              emailService.sendTaskAssignedEmail(
+                u.email,
+                {
+                  userName: u.name || 'Team Member',
+                  taskTitle: task.title,
+                  taskDescription: task.description || 'No description provided',
+                  assignedBy: (req as any).user?.name || (req as any).user?.email || 'Admin',
+                  taskUrl,
+                  departmentName: task.department?.name || 'Department'
+                }
+              ).catch(err => logger.error('Failed to send task assignment email', err))
+
+              notificationService.notifyUser(u.id, {
+                type: 'info',
+                title: 'New Task Assigned (Multi-assignee)',
+                message: `You have been assigned to: ${task.title}`,
+                link: `/task-tracking?task=${task.id}`
+              })
+            }
+          }
         }
 
         notificationService.broadcastDataChange('tasks')

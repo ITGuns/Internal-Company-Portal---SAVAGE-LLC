@@ -9,6 +9,8 @@ import { buildApiUrl, buildAuthUrl } from './api-url';
 
 export const BACKEND_CONNECTION_ERROR_MESSAGE = 'Could not reach the Deskii backend. Please refresh and try again.';
 
+export type OAuthProvider = 'google' | 'apple' | 'discord';
+
 export const getAuthToken = () => {
     if (typeof window !== 'undefined') {
         return localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)
@@ -145,6 +147,11 @@ export const loginWithEmail = async (credentials: LoginCredentials): Promise<Aut
     }
 }
 
+export function startOAuthLogin(provider: OAuthProvider): void {
+    if (typeof window === 'undefined') return;
+    window.location.assign(buildAuthUrl(`/${provider}`));
+}
+
 /**
  * Logout user
  * Clears auth tokens and user data from localStorage
@@ -278,6 +285,7 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
  */
 export const updateUserProfile = async (userId: string | number, profileData: Partial<{
     name: string;
+    email?: string;
     phone?: string;
     birthday?: string;
     address?: string;

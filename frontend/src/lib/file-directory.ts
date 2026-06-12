@@ -5,11 +5,67 @@
  * Mock data is based on the Company File Directory spreadsheet.
  */
 
-import type { FileDirectory } from './file-directory-types';
+import type { DriveFile, FileDirectory } from './file-directory-types';
 
 // ========== MOCK DATA (Based on Company File Directory Spreadsheet) ==========
 
 export const MOCK_DIRECTORIES: FileDirectory[] = [];
+
+const GOOGLE_DRIVE_FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder';
+
+interface GoogleDriveFileResponse {
+  id: string;
+  name: string;
+  mimeType: string;
+  webViewLink?: string;
+  size?: string;
+  modifiedTime?: string;
+  thumbnailLink?: string;
+}
+
+function getGoogleDriveApiKey(): string | undefined {
+  return process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+}
+
+export async function fetchDriveFiles(folderId: string): Promise<DriveFile[]> {
+  const apiKey = getGoogleDriveApiKey();
+  if (!apiKey) {
+    throw new Error('API_KEY_MISSING');
+  }
+
+  const query = `'${folderId}' in parents and trashed = false`;
+  const params = new URLSearchParams({
+    key: apiKey,
+    q: query,
+    fields: 'files(id,name,mimeType,webViewLink,size,modifiedTime,thumbnailLink)',
+    orderBy: 'folder,name',
+    pageSize: '1000',
+    supportsAllDrives: 'true',
+    includeItemsFromAllDrives: 'true',
+  });
+
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}`);
+  if (response.status === 403 || response.status === 404) {
+    throw new Error('ACCESS_DENIED');
+  }
+  if (!response.ok) {
+    throw new Error('Failed to load Google Drive files');
+  }
+
+  const data = await response.json() as { files?: GoogleDriveFileResponse[] };
+  return (data.files || []).map((file) => ({
+    id: file.id,
+    name: file.name,
+    mimeType: file.mimeType,
+    isFolder: file.mimeType === GOOGLE_DRIVE_FOLDER_MIME_TYPE,
+    driveLink: file.webViewLink || `https://drive.google.com/open?id=${file.id}`,
+    size: file.size,
+    modifiedTime: file.modifiedTime,
+    thumbnailLink: file.thumbnailLink,
+  }));
+}
+
+export type { DriveFile };
 
 // ========== CUSTOM FOLDERS (User-Added via Frontend) ==========
 

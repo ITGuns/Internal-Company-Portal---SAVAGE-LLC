@@ -8,6 +8,7 @@ import { ErrorBoundary } from "../components/ErrorBoundary";
 import { UserProvider } from "../contexts/UserContext";
 import { ExchangeRateProvider } from "../contexts/ExchangeRateContext";
 import { QueryProvider } from "../context/QueryProvider";
+import { WorkspaceConfigProvider } from "../contexts/WorkspaceConfigContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,12 +21,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Deskii",
-  description: "Secure workspace operations for teams and clients.",
+  title: "Deskii | Internal Portal",
+  description: "Internal management portal for Deskii — manage tasks, payroll, and team communications.",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
-    apple: "/deskii-logo.svg",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    apple: "/favicon.svg",
   },
 };
 
@@ -48,15 +51,17 @@ export default function RootLayout({
 
         <ErrorBoundary>
           <QueryProvider>
-          <UserProvider>
-            <ExchangeRateProvider>
-              <SocketProvider>
-                <ToastProvider>
-                  <LayoutWrapper>{children}</LayoutWrapper>
-                </ToastProvider>
-              </SocketProvider>
-            </ExchangeRateProvider>
-          </UserProvider>
+            <WorkspaceConfigProvider>
+              <UserProvider>
+                <ExchangeRateProvider>
+                  <SocketProvider>
+                    <ToastProvider>
+                      <LayoutWrapper>{children}</LayoutWrapper>
+                    </ToastProvider>
+                  </SocketProvider>
+                </ExchangeRateProvider>
+              </UserProvider>
+            </WorkspaceConfigProvider>
           </QueryProvider>
         </ErrorBoundary>
       </body>

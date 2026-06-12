@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ToastProvider";
 import { useUser } from "@/contexts/UserContext";
@@ -92,6 +92,12 @@ export function useClientOperationsWorkspace(): ClientOperationsWorkspace {
   const [users, setUsers] = useState<User[]>(() => cachedWorkspace?.users ?? []);
   const [loading, setLoading] = useState(() => !cachedWorkspace);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+
+  const setSavingState = useCallback((nextSaving: boolean) => {
+    savingRef.current = nextSaving;
+    setSaving(nextSaving);
+  }, []);
 
   useEffect(() => {
     const handleAuthCleared = () => {
@@ -191,7 +197,9 @@ export function useClientOperationsWorkspace(): ClientOperationsWorkspace {
     reset: () => void,
   ) => {
     if (!selectedId) return;
-    setSaving(true);
+    if (savingRef.current) return;
+
+    setSavingState(true);
     try {
       await action();
       reset();
@@ -200,9 +208,9 @@ export function useClientOperationsWorkspace(): ClientOperationsWorkspace {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : successMessage);
     } finally {
-      setSaving(false);
+      setSavingState(false);
     }
-  }, [refreshClient, selectedId, toast]);
+  }, [refreshClient, selectedId, setSavingState, toast]);
 
   useEffect(() => {
     if (userLoading) return;
@@ -293,7 +301,7 @@ export function useClientOperationsWorkspace(): ClientOperationsWorkspace {
     summary,
     loading,
     saving,
-    setSaving,
+    setSaving: setSavingState,
     selectClient,
     refreshOrganizations,
     refreshClient,

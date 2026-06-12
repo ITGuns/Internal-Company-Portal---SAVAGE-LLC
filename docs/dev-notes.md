@@ -1,6 +1,64 @@
 # Development Notes
 
+## 2026-06-12 - Priority 1 Auth, Profile, Branding, Calendar, And Asset Fixes
+
+### Completed
+
+- Wired Google and Discord OAuth callbacks to browser redirects that set refresh cookies and return approved users to the app.
+- Added Apple OAuth start/callback support with state validation, Apple token exchange, identity-token verification, and pending-account creation.
+- Added public workspace branding config for login/sidebar name, logo, tagline, and sign-in message.
+- Fixed current-user profile and avatar responses so self updates preserve private profile fields such as phone, address, city, and avatar.
+- Improved session refresh behavior so cookie-backed OAuth sessions can hydrate the frontend, expired access tokens retry once, and noisy polling is reduced.
+- Redesigned the payroll calendar header/legend/sidebar treatment and replaced the lock emoji in time events with an SVG icon.
+- Prevented double-click duplicate client asset rows by adding a frontend saving guard and backend asset dedupe/update behavior.
+
+### Files Changed
+
+- `backend/src/auth/auth.controller.ts`
+- `backend/src/auth/oauth.helpers.ts`
+- `backend/src/config/env.config.ts`
+- `backend/src/workspace/workspace.controller.ts`
+- `backend/src/users/users.controller.ts`
+- `backend/src/clients/clients.service.ts`
+- `frontend/src/app/login/page.tsx`
+- `frontend/src/app/auth/callback/page.tsx`
+- `frontend/src/components/payroll/CalendarTab.tsx`
+- `frontend/src/contexts/UserContext.tsx`
+- `frontend/src/contexts/WorkspaceConfigContext.tsx`
+- `frontend/src/lib/api.ts`
+- `frontend/src/lib/workspace-config.ts`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/client-portal/production-records/AssetsPanel.tsx`
+- `frontend/src/hooks/useClientOperationsWorkspace.ts`
+- `backend/tests/clients.asset-dedupe.test.ts`
+- `backend/tests/workspace.config.test.ts`
+- `frontend/tests/workspace-config.test.mjs`
+
+### Decisions Made
+
+- Public workspace config only exposes safe branding fields and sanitizes logo URLs to http(s) or same-site relative paths.
+- OAuth-created users remain pending until approved, matching existing signup access-control rules.
+- Apple Sign in uses `response_mode=form_post` with `code id_token` and keeps the backend callback as the trust boundary.
+- The checklist mentioned a settings calendar, but the repo has no settings calendar route; the redesign was applied to the existing payroll calendar surface that owns time-clock and audit behavior.
+
+### How to Test
+
+- `cd backend && npm run build`
+- `cd backend && node -r ts-node/register -r tsconfig-paths/register tests/clients.asset-dedupe.test.ts`
+- `cd backend && $env:DATABASE_URL='postgresql://test:test@localhost:5432/test?schema=public'; $env:JWT_SECRET='test-runner-jwt-secret'; $env:REFRESH_TOKEN_SECRET='test-runner-refresh-secret'; node -r ts-node/register tests/workspace.config.test.ts`
+- `cd frontend && npm test`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- Browser affected-flow audit: `/login`, `/auth/callback`, `/profile`, `/payroll-calendar`, and a client assets panel route.
+
+### Next Steps
+
+- Configure real Google and Apple provider credentials in the deployment environment before expecting OAuth buttons to complete against production providers.
+- Re-run `cd backend && npm test` when a local test Postgres is available; this environment stopped at `users.onboarding.test.ts` with `ECONNREFUSED`.
+
 ## 2026-06-11 - Accessibility Audit Fix
+
+## 2026-06-06 - Client Portal Navigation And Profile Drawer
 
 ### Completed
 

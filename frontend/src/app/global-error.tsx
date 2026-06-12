@@ -42,7 +42,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
           )}
 
           <p className="mt-12 text-xs text-gray-500 dark:text-gray-400 tracking-widest uppercase">
-            SAVAGE LLC — Internal Portal
+            Deskii — Internal Portal
           </p>
         </div>
       </body>

@@ -11,16 +11,14 @@ import {
   Shield, 
   UserCheck, 
   UserMinus,
-  Sparkles,
-  TrendingUp
 } from "lucide-react";
-import type { Department, Role } from "@/app/operations/page";
+import type { OperationsDepartment, OperationsRole } from "@/lib/operations-data";
 import type { OperationsMember } from "@/lib/member-role-management";
 import { getMemberDisplayName, getMemberAuthorizationLabels } from "@/lib/member-role-management";
 
 interface OrgChartProps {
-  departments: Department[];
-  roles: Role[];
+  departments: OperationsDepartment[];
+  roles: OperationsRole[];
   members: OperationsMember[];
 }
 

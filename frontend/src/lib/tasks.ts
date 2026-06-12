@@ -95,6 +95,7 @@ export interface Task {
   project?: TaskProject | null;
 
   assigneeId?: number | string;
+  assigneeIds?: string[];
   assignee?: TaskUser;
   createdById?: number | string;
   creator?: TaskUser;
@@ -130,6 +131,7 @@ export interface CreateTaskPayload {
   departmentId: string;
   assigneeId?: number | string;
   projectId?: string | null;
+  assigneeIds?: string[];
   dueDate?: string | null;
   startDate?: string | null;
   role?: string;
@@ -146,6 +148,7 @@ export interface UpdateTaskPayload {
   departmentId?: string;
   assigneeId?: number | string;
   projectId?: string | null;
+  assigneeIds?: string[];
   dueDate?: string | null;
   startDate?: string | null;
   role?: string;

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from 'react';
 import {
   getAuthToken,
   getCurrentUser,
@@ -8,7 +8,6 @@ import {
   refreshAccessToken,
   setCurrentUser as saveCurrentUser,
 } from '@/lib/api';
-import { buildAuthUrl } from '@/lib/api-url';
 import { AUTH_SESSION_CLEARED_EVENT } from '@/lib/auth-session';
 
 export interface User {
@@ -41,11 +40,29 @@ interface UserContextType {
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
+const USER_SESSION_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+
+async function fetchCurrentAuthUser(accessToken: string): Promise<{ status: number; user?: User }> {
+  const res = await fetch(`/backend-auth/me`, {
+    credentials: 'include',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`
+    }
+  });
+
+  if (!res.ok) {
+    return { status: res.status };
+  }
+
+  const data = await res.json();
+  return { status: res.status, user: data.user };
+}
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const refreshInFlightRef = useRef<Promise<void> | null>(null);
 
   const logout = useCallback(() => {
     setUser(null);
@@ -66,52 +83,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshUser = useCallback(async () => {
-    async function verifySession(accessToken: string): Promise<Response> {
-      return fetch(buildAuthUrl('/me'), {
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
+    if (refreshInFlightRef.current) {
+      return refreshInFlightRef.current;
     }
 
-    async function applyVerifiedUser(response: Response): Promise<boolean> {
-      if (!response.ok) return false;
-
-      const data = await response.json();
-      if (!data.user) return true;
-
-      setUser(prev => {
-        const hasChanged = prev?.id !== data.user.id ||
-          prev?.email !== data.user.email ||
-          prev?.name !== data.user.name ||
-          prev?.avatar !== data.user.avatar ||
-          prev?.role !== data.user.role ||
-          prev?.isApproved !== data.user.isApproved ||
-          prev?.status !== data.user.status;
-        if (!hasChanged) return prev;
-        return data.user;
-      });
-      saveCurrentUser(data.user);
-      return true;
-    }
-
-    try {
+    const refreshPromise = (async () => {
       setError(null);
-      const storedUser = getCurrentUser();
-
-      if (!storedUser) {
-        setUser(null);
-        return;
-      }
 
       if (typeof window !== 'undefined' && sessionStorage.getItem('auth_error')) {
-        logout();
         sessionStorage.removeItem('auth_error');
+        logout();
         return;
       }
 
-      setUser(storedUser);
+      const storedUser = getCurrentUser();
+
+      if (storedUser) {
+        setUser(storedUser);
+      }
 
       let accessToken = getAuthToken();
       if (!accessToken) {
@@ -119,41 +108,50 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
 
       if (!accessToken) {
-        logout();
+        setUser(null);
         return;
       }
 
-      try {
-        let response = await verifySession(accessToken);
-
-        if (!response.ok && (response.status === 401 || response.status === 403)) {
-          try {
-            const refreshedAccessToken = await refreshAccessToken();
-            if (refreshedAccessToken) {
-              response = await verifySession(refreshedAccessToken);
-            }
-          } catch (refreshErr) {
-            console.error('[UserContext] Token refresh failed:', refreshErr);
+      let currentUserResponse = await fetchCurrentAuthUser(accessToken);
+      if (currentUserResponse.status === 401 || currentUserResponse.status === 403) {
+        try {
+          const newAccessToken = await refreshAccessToken();
+          if (newAccessToken) {
+            currentUserResponse = await fetchCurrentAuthUser(newAccessToken);
           }
+        } catch (refreshErr) {
+          console.error('[UserContext] Token refresh failed:', refreshErr);
         }
-
-        if (await applyVerifiedUser(response)) {
-          return;
-        }
-
-        if (response.status === 401 || response.status === 403) {
-          if (typeof window !== 'undefined') sessionStorage.setItem('auth_error', 'true');
-          logout();
-        }
-      } catch (apiErr) {
-        console.error('[UserContext] Failed to verify user session', apiErr);
       }
-    } catch (err) {
-      console.error('Error refreshing user:', err);
-      setError('Failed to load user data');
-    } finally {
-      setIsLoading(false);
-    }
+
+      if (currentUserResponse.user) {
+        setUser(prev => {
+          const hasChanged = JSON.stringify(prev) !== JSON.stringify(currentUserResponse.user);
+          if (!hasChanged) return prev;
+          return currentUserResponse.user || null;
+        });
+        saveCurrentUser(currentUserResponse.user);
+        return;
+      }
+
+      if (currentUserResponse.status === 401 || currentUserResponse.status === 403) {
+        if (typeof window !== 'undefined') sessionStorage.setItem('auth_error', 'true');
+        logout();
+      } else if (!storedUser) {
+        setUser(null);
+      }
+    })()
+      .catch((err) => {
+        console.error('Error refreshing user:', err);
+        setError('Failed to load user data');
+      })
+      .finally(() => {
+        setIsLoading(false);
+        refreshInFlightRef.current = null;
+      });
+
+    refreshInFlightRef.current = refreshPromise;
+    return refreshPromise;
   }, [logout]);
 
   const updateUser = useCallback((userData: Partial<User>) => {
@@ -174,9 +172,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     const interval = setInterval(() => {
       refreshUser();
-    }, 30000);
+    }, USER_SESSION_REFRESH_INTERVAL_MS);
 
-    return () => clearInterval(interval);
+    const handleFocus = () => {
+      void refreshUser();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshUser();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [user, refreshUser]);
 
   const value: UserContextType = {

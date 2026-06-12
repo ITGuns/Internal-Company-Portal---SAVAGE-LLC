@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { ClientsService } from '../src/clients/clients.service'
+import { ClientRoadmapAssetsService } from '../src/clients/client-roadmap-assets.service'
 import type { CreateClientAssetInput } from '../src/clients/clients.validation'
 
 const assetInput: CreateClientAssetInput = {
@@ -13,10 +13,7 @@ const assetInput: CreateClientAssetInput = {
 }
 
 function createServiceWithPrisma(prisma: unknown) {
-  const service = new ClientsService() as any
-  service.prisma = prisma
-  service.assertProjectBelongsToOrganization = async () => undefined
-  return service as ClientsService
+  return new ClientRoadmapAssetsService(prisma as never)
 }
 
 async function runTests() {

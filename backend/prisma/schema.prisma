@@ -123,6 +123,7 @@ model Task {
 
   departmentId String?
   assigneeId   String?
+  assigneeIds  Json?
   createdById  String?
   projectId    String?
 
