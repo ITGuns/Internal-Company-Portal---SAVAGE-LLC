@@ -1,5 +1,71 @@
 # Development Notes
 
+## 2026-06-13 - Product Completeness Audit Slice
+
+### Completed
+
+- Ran a full product-completeness audit pass across internal admin, employee work, client operations, client portal, and public auth routes.
+- Fixed signup department and role selects so they match the 48px auth form-control standard and no longer fail the visual-smoke touch-target gate.
+- Verified public auth pages and representative protected admin/client pages with axe WCAG 2 AA checks.
+
+### Files Changed
+
+- `frontend/src/app/login/login.module.css`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Treated the `/auth/sandbox` anonymous redirect as expected because the route is not in the public auth exemption list.
+- Kept the first product-completeness fix scoped to the failing auth controls instead of redesigning the auth surface during the audit.
+
+### How to Test
+
+- Run `npm --prefix frontend test`.
+- Run `npm --prefix frontend run lint`.
+- Run `npm --prefix frontend run build`.
+- Run visual smoke across admin, client-operations, client portal, and public auth route groups.
+- Run interaction smoke on the primary work, company/admin, and client portal route groups.
+
+### Next Steps
+
+- Continue product-completeness slices from any future manual findings that require deeper workflow-specific changes.
+
+## 2026-06-12 - Role-Aware Dashboard Quick Actions
+
+### Completed
+
+- Replaced the hardcoded Dashboard quick-action grid with role-aware defaults for employee, manager, payroll, and client-operations users.
+- Added a user-scoped Customize modal so each user can pin and reorder up to four authorized dashboard shortcuts.
+- Kept payroll and client-operations quick actions behind existing role-access helpers so hidden UI does not become an authorization bypass.
+
+### Files Changed
+
+- `frontend/src/app/dashboard/page.tsx`
+- `frontend/src/components/dashboard/DashboardQuickActions.tsx`
+- `frontend/src/lib/dashboard-actions.ts`
+- `frontend/tests/dashboard-actions.test.mjs`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Stored the first user-customization slice in user-scoped local storage to avoid a schema/API migration for a dashboard preference while still making the workflow immediately useful.
+- Built defaults from the existing `role-access` helpers instead of duplicating permission rules in the Dashboard page.
+- Extracted the quick-action UI into a focused dashboard component so the page does not absorb more state and modal logic.
+
+### How to Test
+
+- `node --test frontend/tests/dashboard-actions.test.mjs`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `VISUAL_SMOKE_BASE_URL=http://127.0.0.1:3000 VISUAL_SMOKE_ROUTES=/dashboard VISUAL_SMOKE_THEMES=dark,light npm --prefix frontend run test:visual`
+- Browser-check `/dashboard`: open `Customize`, confirm authorized options, press `Esc`, reopen, replace a shortcut, save, and verify the pinned action list updates.
+
+### Next Steps
+
+- Move quick-action preferences to a backend user preference endpoint if cross-device persistence becomes required.
+
 ## 2026-06-12 - Skeleton Loading Alignment
 
 ### Completed

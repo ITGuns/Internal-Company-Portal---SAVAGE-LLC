@@ -7,7 +7,7 @@ Dashboard is the command-center entry point for the portal.
 - Shows role-aware metrics for today's tracked time, visible/assigned tasks, in-progress work, completed-today tasks, overdue tasks, and either pending approvals or daily-log status.
 - Shows a `Needs Attention` panel with actionable items for employee approvals, payroll review warnings, overdue tasks, missing daily logs, and no tracked time.
 - Employees see personal work and log actions; managers/admins see team operations signals where their role allows access.
-- Quick actions route users directly to task tracking, daily logs, payroll review, and either approvals or announcements.
+- Quick actions are role-aware and user-customizable: users can pin up to four authorized shortcuts, with defaults adapting for employee, manager, payroll, and client-operations roles.
 - Dashboard workflow links use query params to open exact states: new task modal, new daily log modal, payroll calendar tab, and pending employee approvals.
 - Task attention links can open Task Tracking with overdue or in-progress filters applied.
 

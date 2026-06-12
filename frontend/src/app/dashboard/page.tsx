@@ -11,7 +11,6 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowRight,
-  CalendarDays,
   CheckCircle2,
   ClipboardList,
   Clock,
@@ -28,6 +27,7 @@ import { useRouter } from 'next/navigation'
 import { useSocket } from '@/context/SocketContext'
 import { fetchConversations, fetchMessages, sendMessage, type Message, type Conversation } from '@/lib/chat'
 import TimeClock from '@/components/TimeClock'
+import DashboardQuickActions from '@/components/dashboard/DashboardQuickActions'
 import { useTasks } from '@/hooks/useTasksQuery'
 import { useAnnouncementsPaginated } from '@/hooks/useAnnouncementsQuery'
 import { useTimeEntries } from '@/hooks/useTimeEntriesQuery'
@@ -39,7 +39,6 @@ import {
   hasDashboardManagementAccess,
   type DashboardAttentionItem,
 } from '@/lib/dashboard-summary'
-import { DASHBOARD_DEEP_LINKS } from '@/lib/dashboard-deep-links'
 
 const dashboardNumberFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 0,
@@ -116,34 +115,6 @@ function AttentionRow({ item }: { item: DashboardAttentionItem }) {
       </div>
       <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-[var(--muted)]" aria-hidden="true" />
     </Link>
-  );
-}
-
-function ActionButton({
-  label,
-  helper,
-  icon: Icon,
-  onClick,
-}: {
-  label: string;
-  helper: string;
-  icon: React.ComponentType<{ className?: string }>;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="motion-interactive flex min-h-[86px] items-start gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3 text-left hover:border-[var(--accent)] hover:bg-[var(--surface-hover)] hover:shadow-[var(--shadow-sm)] active:scale-[0.995] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
-    >
-      <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-2 text-[var(--accent)]">
-        <Icon className="h-4 w-4" aria-hidden="true" />
-      </div>
-      <div className="min-w-0">
-        <div className="text-sm font-medium">{label}</div>
-        <div className="mt-1 text-xs text-[var(--muted)]">{helper}</div>
-      </div>
-    </button>
   );
 }
 
@@ -622,38 +593,7 @@ export default function DashboardPage() {
                 )}
               </Card>
 
-              <Card variant="elevated" className="overflow-hidden">
-                <Card.Header>
-                  <h4 className="font-semibold">Quick Actions</h4>
-                </Card.Header>
-
-                <Card.Content className="grid gap-3 sm:grid-cols-2">
-                  <ActionButton
-                    label="Create Task"
-                    helper="Open task tracking"
-                    icon={ClipboardList}
-                    onClick={() => router.push(DASHBOARD_DEEP_LINKS.createTask)}
-                  />
-                  <ActionButton
-                    label="Add Daily Log"
-                    helper="Record today's work"
-                    icon={FileText}
-                    onClick={() => router.push(DASHBOARD_DEEP_LINKS.addDailyLog)}
-                  />
-                  <ActionButton
-                    label="Review Payroll"
-                    helper="Check time entries"
-                    icon={CalendarDays}
-                    onClick={() => router.push(DASHBOARD_DEEP_LINKS.reviewPayroll)}
-                  />
-                  <ActionButton
-                    label={isManagementDashboard ? 'Approvals' : 'Announcements'}
-                    helper={isManagementDashboard ? 'Review pending employees' : 'Read company updates'}
-                    icon={isManagementDashboard ? UserCheck : Megaphone}
-                    onClick={() => router.push(isManagementDashboard ? DASHBOARD_DEEP_LINKS.approvals : DASHBOARD_DEEP_LINKS.announcements)}
-                  />
-                </Card.Content>
-              </Card>
+              <DashboardQuickActions user={user} />
             </div>
           </div>
         </div>
