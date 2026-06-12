@@ -67,6 +67,12 @@ assert.deepEqual(getTaskVisibilityFilter(employeeAccess), {
         },
       },
     },
+    {
+      assigneeIds: {
+        path: '$',
+        array_contains: 'user-1',
+      },
+    },
   ],
 })
 assert.deepEqual(getTaskVisibilityFilter(managerAccess), {})
@@ -77,6 +83,7 @@ assert.equal(canReadTask(employeeAccess, {
   assigneeId: 'user-2',
   collaborators: [{ userId: 'user-1', status: 'invited' }],
 }), true)
+assert.equal(canReadTask(employeeAccess, { assigneeId: 'user-2', assigneeIds: ['user-1'] }), true)
 assert.equal(canReadTask(employeeAccess, {
   assigneeId: 'user-2',
   collaborators: [{ userId: 'user-1', status: 'declined' }],
