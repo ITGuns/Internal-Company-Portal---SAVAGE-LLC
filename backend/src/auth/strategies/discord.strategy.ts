@@ -3,6 +3,7 @@ import { Strategy as DiscordStrategy, Profile } from 'passport-discord'
 import { config } from '../../config/env.config'
 import { prisma } from '../../database/prisma.service'
 import { createLogger } from '../../observability/logger'
+import { authUserSelect } from '../auth.security'
 
 const logger = createLogger('auth.discord')
 
@@ -36,7 +37,7 @@ export function setupDiscordStrategy(): void {
                     // Find or create user
                     let user = await prisma.user.findUnique({
                         where: { email },
-                        include: { roles: true },
+                        select: authUserSelect,
                     })
 
                     if (!user) {
@@ -50,7 +51,7 @@ export function setupDiscordStrategy(): void {
                                 isApproved: false,
                                 appliedDate: new Date(),
                             },
-                            include: { roles: true },
+                            select: authUserSelect,
                         })
                         logger.info('New user created via Discord OAuth', { provider: 'discord', email })
                     } else {
@@ -61,7 +62,7 @@ export function setupDiscordStrategy(): void {
                                 name,
                                 avatar,
                             },
-                            include: { roles: true },
+                            select: authUserSelect,
                         })
                     }
 

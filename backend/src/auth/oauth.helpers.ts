@@ -1,9 +1,9 @@
 import crypto from 'crypto'
 import type { Request, Response } from 'express'
 import jwt, { type JwtPayload } from 'jsonwebtoken'
-import type { User } from '@prisma/client'
 import { config } from '../config/env.config'
 import { prisma } from '../database/prisma.service'
+import { authUserSelect, type AuthUserLike } from './auth.security'
 
 export type OAuthProvider = 'google' | 'discord' | 'apple'
 
@@ -248,13 +248,13 @@ export async function verifyAppleIdentityToken(idToken: string): Promise<AppleId
 
 export async function findOrCreateAppleOAuthUser(
   profile: { email: string; name?: string },
-): Promise<User & { roles?: { role: string }[] }> {
+): Promise<AuthUserLike> {
   const email = profile.email.trim().toLowerCase()
   const fallbackName = email.split('@')[0]?.replace(/[._-]+/g, ' ').trim() || email
 
   const existingUser = await prisma.user.findUnique({
     where: { email },
-    include: { roles: true },
+    select: authUserSelect,
   })
 
   if (existingUser) {
@@ -263,7 +263,7 @@ export async function findOrCreateAppleOAuthUser(
       data: {
         ...(profile.name ? { name: profile.name } : {}),
       },
-      include: { roles: true },
+      select: authUserSelect,
     })
   }
 
@@ -275,6 +275,6 @@ export async function findOrCreateAppleOAuthUser(
       isApproved: false,
       appliedDate: new Date(),
     },
-    include: { roles: true },
+    select: authUserSelect,
   })
 }

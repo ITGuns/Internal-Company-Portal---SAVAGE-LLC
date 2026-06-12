@@ -3,6 +3,7 @@ import { Strategy as GoogleStrategy, Profile } from 'passport-google-oauth20'
 import { config } from '../../config/env.config'
 import { prisma } from '../../database/prisma.service'
 import { createLogger } from '../../observability/logger'
+import { authUserSelect } from '../auth.security'
 
 const logger = createLogger('auth.google')
 
@@ -33,7 +34,7 @@ export function setupGoogleStrategy(): void {
                     // Find or create user
                     let user = await prisma.user.findUnique({
                         where: { email },
-                        include: { roles: true },
+                        select: authUserSelect,
                     })
 
                     if (!user) {
@@ -47,7 +48,7 @@ export function setupGoogleStrategy(): void {
                                 isApproved: false,
                                 appliedDate: new Date(),
                             },
-                            include: { roles: true },
+                            select: authUserSelect,
                         })
                         logger.info('New user created via Google OAuth', { provider: 'google', email })
                     } else {
@@ -58,7 +59,7 @@ export function setupGoogleStrategy(): void {
                                 name,
                                 avatar,
                             },
-                            include: { roles: true },
+                            select: authUserSelect,
                         })
                     }
 

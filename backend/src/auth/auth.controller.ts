@@ -2,10 +2,16 @@ import express, { Request, Response, Router } from 'express'
 import passport from 'passport'
 import crypto from 'crypto'
 import { JwtService, JwtPayload } from './jwt.service'
-import { User } from '@prisma/client'
 import { authenticateToken, AuthRequest } from './auth.middleware'
 import { buildPendingSignupProfile, canLoginApprovedUser } from './signup.requests'
-import { canIssueAuthTokens, serializeAuthUser } from './auth.security'
+import {
+    authPasswordResetUserSelect,
+    authTokenUserSelect,
+    authUserSelect,
+    canIssueAuthTokens,
+    serializeAuthUser,
+    type AuthUserLike,
+} from './auth.security'
 import {
     clearRefreshTokenCookie,
     getRefreshTokenFromRequest,
@@ -46,7 +52,7 @@ export class AuthController {
         this.rateLimiters = options.rateLimiters || createAuthRateLimiters()
     }
 
-    private completeOAuthLogin(provider: OAuthProvider, user: User, res: Response): void {
+    private completeOAuthLogin(provider: OAuthProvider, user: AuthUserLike, res: Response): void {
         if (!canIssueAuthTokens(user)) {
             res.redirect(buildOAuthFrontendRedirect(provider, 'pending'))
             return
@@ -87,7 +93,7 @@ export class AuthController {
                 const { prisma } = await import('../database/prisma.service')
                 let user = await prisma.user.findUnique({
                     where: { email: email.trim().toLowerCase() },
-                    include: { roles: true }
+                    select: authUserSelect,
                 })
 
                 if (!user) {
@@ -98,7 +104,7 @@ export class AuthController {
                             status: 'verified',
                             isApproved: true,
                         },
-                        include: { roles: true }
+                        select: authUserSelect,
                     })
                 }
 
@@ -120,7 +126,7 @@ export class AuthController {
         router.get(
             '/google/callback',
             (req: Request, res: Response, next) => {
-                passport.authenticate('google', { session: false }, (error: Error | null, user?: User) => {
+                passport.authenticate('google', { session: false }, (error: Error | null, user?: AuthUserLike) => {
                     if (error || !user) {
                         return res.redirect(buildOAuthFrontendRedirect('google', 'failed'))
                     }
@@ -138,7 +144,7 @@ export class AuthController {
         router.get(
             '/discord/callback',
             (req: Request, res: Response, next) => {
-                passport.authenticate('discord', { session: false }, (error: Error | null, user?: User) => {
+                passport.authenticate('discord', { session: false }, (error: Error | null, user?: AuthUserLike) => {
                     if (error || !user) {
                         return res.redirect(buildOAuthFrontendRedirect('discord', 'failed'))
                     }
@@ -233,7 +239,10 @@ export class AuthController {
                 const bcrypt = await import('bcrypt');
 
                 // Check if user exists
-                const existing = await prisma.user.findUnique({ where: { email } })
+                const existing = await prisma.user.findUnique({
+                    where: { email },
+                    select: { id: true },
+                })
                 if (existing) {
                     return res.status(409).json({ error: 'User already exists' })
                 }
@@ -272,7 +281,12 @@ export class AuthController {
                             password: passwordHash,
                             status: 'pending',
                             isApproved: false // Requires manager approval
-                        }
+                        },
+                        select: {
+                            id: true,
+                            email: true,
+                            name: true,
+                        },
                     })
 
                     // Create employee profile
@@ -317,7 +331,7 @@ export class AuthController {
 
                 const user = await prisma.user.findUnique({
                     where: { email },
-                    include: { roles: true }
+                    select: authUserSelect,
                 })
 
                 if (!user || !user.password) {
@@ -370,6 +384,7 @@ export class AuthController {
                 const { prisma } = await import('../database/prisma.service')
                 const user = await prisma.user.findUnique({
                     where: { id: payload.userId },
+                    select: authTokenUserSelect,
                 })
 
                 if (!user || !canIssueAuthTokens(user)) {
@@ -408,7 +423,7 @@ export class AuthController {
 
                 const user = await prisma.user.findUnique({
                     where: { id: authReq.user.userId },
-                    include: { roles: true }
+                    select: authUserSelect,
                 })
 
                 if (!user) {
@@ -454,7 +469,10 @@ export class AuthController {
             try {
                 const { prisma } = await import('../database/prisma.service')
 
-                const user = await prisma.user.findUnique({ where: { email } })
+                const user = await prisma.user.findUnique({
+                    where: { email },
+                    select: authPasswordResetUserSelect,
+                })
 
                 // Always return success even if user not found (prevents email enumeration)
                 if (!user) {
@@ -530,6 +548,7 @@ export class AuthController {
                         passwordResetToken: hashedToken,
                         passwordResetExpiry: { gt: new Date() },
                     },
+                    select: { id: true },
                 })
 
                 if (!user) {

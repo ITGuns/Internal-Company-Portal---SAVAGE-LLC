@@ -1,10 +1,11 @@
 import { canLoginApprovedUser } from './signup.requests'
+import type { Prisma } from '@prisma/client'
 
 type RoleLike = {
   role?: string | null
 }
 
-type AuthUserLike = {
+export type AuthUserLike = {
   id: string
   email: string
   name?: string | null
@@ -21,6 +22,34 @@ type AuthUserLike = {
   passwordResetToken?: string | null
   passwordResetExpiry?: Date | string | null
 }
+
+export const authUserSelect = {
+  id: true,
+  email: true,
+  name: true,
+  password: true,
+  isApproved: true,
+  status: true,
+  roles: {
+    select: {
+      role: true,
+    },
+  },
+} satisfies Prisma.UserSelect
+
+export const authTokenUserSelect = {
+  id: true,
+  email: true,
+  name: true,
+  isApproved: true,
+  status: true,
+} satisfies Prisma.UserSelect
+
+export const authPasswordResetUserSelect = {
+  id: true,
+  email: true,
+  name: true,
+} satisfies Prisma.UserSelect
 
 function serializeDate(value?: Date | string | null): string | null | undefined {
   if (value === undefined) return undefined

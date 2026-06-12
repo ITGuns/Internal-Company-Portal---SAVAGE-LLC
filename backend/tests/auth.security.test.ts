@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
 import {
+  authPasswordResetUserSelect,
+  authTokenUserSelect,
+  authUserSelect,
   canIssueAuthTokens,
   serializeAuthUser,
 } from '../src/auth/auth.security'
@@ -36,5 +39,23 @@ assert.deepEqual(serialized, {
 assert.equal(canIssueAuthTokens({ isApproved: true, status: 'verified' }), true)
 assert.equal(canIssueAuthTokens({ isApproved: false, status: 'verified' }), false)
 assert.equal(canIssueAuthTokens({ isApproved: true, status: 'pending' }), false)
+
+for (const field of ['avatar', 'phone', 'address', 'city', 'citizenship', 'birthday', 'managerId']) {
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(authUserSelect, field),
+    false,
+    `authUserSelect should not require optional profile column ${field}`,
+  )
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(authTokenUserSelect, field),
+    false,
+    `authTokenUserSelect should not require optional profile column ${field}`,
+  )
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(authPasswordResetUserSelect, field),
+    false,
+    `authPasswordResetUserSelect should not require optional profile column ${field}`,
+  )
+}
 
 console.log('auth.security tests passed')

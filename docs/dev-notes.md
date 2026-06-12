@@ -1,5 +1,40 @@
 # Development Notes
 
+## 2026-06-12 - Production Auth Schema Drift Hotfix
+
+### Completed
+
+- Investigated the live Vercel production alias after `/dashboard` appeared to have backend/database failures.
+- Confirmed `/health`, `/api/workspace/public`, `/api/departments`, and `/api/roles` were live and database-backed.
+- Isolated the production failure to auth routes that queried the full `User` model and returned `500` after valid request validation.
+- Added minimal auth user selectors for login, refresh, `/me`, password reset, sandbox auth, and OAuth user lookups so auth does not require optional profile columns that may be absent from the temporary Vercel database.
+
+### Files Changed
+
+- `backend/src/auth/auth.controller.ts`
+- `backend/src/auth/auth.security.ts`
+- `backend/src/auth/oauth.helpers.ts`
+- `backend/src/auth/strategies/discord.strategy.ts`
+- `backend/src/auth/strategies/google.strategy.ts`
+- `backend/tests/auth.security.test.ts`
+
+### Decisions Made
+
+- Treated this as a production hotfix for the auth path, not a substitute for proper production schema maintenance.
+- Kept optional profile fields out of auth/session selectors; profile and directory surfaces can still use richer user data once the database schema is fully aligned.
+- Left the proper long-term fix as applying the missing production database migration or baseline repair through the deployment system with production DB credentials.
+
+### How to Test
+
+- Run `node -r ts-node/register tests/auth.security.test.ts` from `backend/`.
+- Run `npm --prefix backend test`.
+- Run `npm --prefix backend run build`.
+- After deployment, verify `POST /backend-auth/login` with invalid credentials returns `401` instead of `500`.
+
+### Next Steps
+
+- Apply or baseline the missing production database migration for optional user profile columns so profile/account editing also has the full schema available.
+
 ## 2026-06-12 - ITGuns Main Sync Safeguards
 
 ### Completed
