@@ -96,10 +96,6 @@ export function decodeBase64Payload(payload: unknown): DecodedBase64Payload | nu
     const buffer = Buffer.from(base64Payload, 'base64')
     if (buffer.length === 0) return null
 
-    const canonicalInput = base64Payload.replace(/=+$/, '')
-    const canonicalOutput = buffer.toString('base64').replace(/=+$/, '')
-    if (canonicalInput !== canonicalOutput) return null
-
     return { buffer, mediaType }
 }
 

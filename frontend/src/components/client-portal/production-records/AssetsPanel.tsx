@@ -115,12 +115,28 @@ export default function AssetsPanel({
 }: ProductionRecordPanelProps) {
   const [assetForm, setAssetForm] = useState(emptyAsset);
   const assets = typeof recordLimit === "number" ? (overview.assets || []).slice(0, recordLimit) : (overview.assets || []);
+  const canAddAsset = Boolean(assetForm.label.trim() && assetForm.url.trim()) && !saving;
 
   return (
     <MiniPanel title="Assets" icon={FolderOpen} count={overview.assets?.length || 0}>
       <form
         onSubmit={(event) => {
           event.preventDefault();
+          if (!canAddAsset) return;
+
+          // Guard against duplicates — same label OR same URL already exists
+          const normalizedUrl = assetForm.url.trim().toLowerCase();
+          const normalizedLabel = assetForm.label.trim().toLowerCase();
+          const isDuplicate = (overview.assets || []).some(
+            (a) =>
+              a.url.trim().toLowerCase() === normalizedUrl ||
+              a.label.trim().toLowerCase() === normalizedLabel,
+          );
+          if (isDuplicate) {
+            alert('An asset with the same label or URL already exists for this client.');
+            return;
+          }
+
           submitScoped(
             () => createClientAsset(organizationId, assetForm),
             "Client asset added",
@@ -138,7 +154,7 @@ export default function AssetsPanel({
           </select>
         </div>
         <VisibilityCheckbox checked={assetForm.visibleToClient} onChange={(visibleToClient) => setAssetForm((form) => ({ ...form, visibleToClient }))} />
-        <Button type="submit" loading={saving}>Add Asset</Button>
+        <Button type="submit" loading={saving} disabled={!canAddAsset}>Add Asset</Button>
       </form>
 
       <div className="mt-4 space-y-2">

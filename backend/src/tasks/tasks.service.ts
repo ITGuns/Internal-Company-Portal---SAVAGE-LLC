@@ -10,6 +10,7 @@ export interface CreateTaskDto {
   status?: TaskStatus
   departmentId: string
   assigneeId?: string
+  assigneeIds?: string[]
   createdById?: string
   priority?: string
   startDate?: Date | string
@@ -29,6 +30,7 @@ export interface UpdateTaskDto {
   status?: TaskStatus
   departmentId?: string
   assigneeId?: string
+  assigneeIds?: string[]
   priority?: string
   startDate?: Date | string
   dueDate?: Date | string
@@ -248,6 +250,7 @@ export class TasksService {
         status: data.status || 'todo',
         departmentId: data.departmentId,
         assigneeId: data.assigneeId,
+        assigneeIds: data.assigneeIds ? JSON.parse(JSON.stringify(data.assigneeIds)) : undefined,
         createdById: data.createdById,
         priority: data.priority || 'Med',
         startDate: data.startDate ? new Date(data.startDate) : undefined,
@@ -340,6 +343,7 @@ export class TasksService {
           status: data.status,
           departmentId: data.departmentId,
           assigneeId: data.assigneeId,
+          assigneeIds: data.assigneeIds === undefined ? undefined : (data.assigneeIds ? JSON.parse(JSON.stringify(data.assigneeIds)) : null),
           priority: data.priority,
           startDate: data.startDate ? new Date(data.startDate) : undefined,
           dueDate: data.dueDate ? new Date(data.dueDate) : undefined,

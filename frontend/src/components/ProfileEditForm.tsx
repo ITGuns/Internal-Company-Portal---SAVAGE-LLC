@@ -51,7 +51,7 @@ const profileFieldConfigs: Array<{
   { id: "name", label: "Full Name", icon: User, autoComplete: "name", required: true },
   { id: "email", label: "Email Address", icon: Mail, type: "email", autoComplete: "email", inputMode: "email", required: true },
   { id: "birthday", label: "Birthday", icon: Calendar, type: "date", autoComplete: "bday", required: true },
-  { id: "phone", label: "Phone Number", icon: Phone, type: "tel", placeholder: "+63 XXX XXX XXXX", autoComplete: "tel", inputMode: "tel", required: true },
+  { id: "phone", label: "Phone Number", icon: Phone, type: "tel", placeholder: "+1 (XXX) XXX-XXXX", autoComplete: "tel", inputMode: "tel", required: true },
   { id: "address", label: "Address", icon: MapPin, placeholder: "Street address", autoComplete: "street-address", required: true },
   { id: "city", label: "City", icon: MapPin, placeholder: "City", autoComplete: "address-level2", required: true },
 ];
@@ -66,7 +66,7 @@ function buildProfileFormData(user: EditableUserProfile | null): ProfileFormStat
     name: user?.name || "",
     email: user?.email || "",
     birthday: normalizeDateInput(user?.birthday),
-    phone: user?.phone || "",
+    phone: user?.phone || "+1",
     address: user?.address || "",
     city: user?.city || "",
     avatar: user?.avatar || "",

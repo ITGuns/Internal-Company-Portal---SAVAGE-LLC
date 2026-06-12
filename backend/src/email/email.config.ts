@@ -32,8 +32,8 @@ export const emailConfig: EmailConfig = {
     provider: (process.env.EMAIL_PROVIDER as 'sendgrid' | 'smtp') || 'sendgrid',
     testOverrideEmail: process.env.TEST_EMAIL_OVERRIDE || null,
     from: {
-        email: process.env.EMAIL_FROM_ADDRESS || 'noreply@savage-llc.com',
-        name: process.env.EMAIL_FROM_NAME || 'SAVAGE LLC Internal Portal',
+        email: process.env.EMAIL_FROM_ADDRESS || 'noreply@deskii.com',
+        name: process.env.EMAIL_FROM_NAME || 'Deskii',
     },
     sendgrid: {
         apiKey: process.env.SENDGRID_API_KEY || '',

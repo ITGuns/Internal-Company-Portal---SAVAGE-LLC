@@ -7,6 +7,20 @@ import { Trash2, X } from "lucide-react";
 import type { TaskPriority, TaskStatus, TaskDepartment, TaskUser, Task } from "@/lib/tasks";
 import { getPrimaryTaskAssignmentFromRoles } from "@/lib/task-access";
 
+// Helper: parse total minutes into Days/Hours/Minutes
+function parseTotalMinutes(totalMinutes: string) {
+  const total = parseInt(totalMinutes) || 0;
+  const days = Math.floor(total / (60 * 8)); // 8-hour workday
+  const hours = Math.floor((total % (60 * 8)) / 60);
+  const minutes = total % 60;
+  return { days, hours, minutes };
+}
+
+// Helper: combine Days/Hours/Minutes into total minutes (8h workday)
+function buildTotalMinutes(days: number, hours: number, minutes: number) {
+  return (days * 8 * 60) + (hours * 60) + minutes;
+}
+
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "To Do",
   in_progress: "In Progress",
@@ -27,6 +41,8 @@ interface TaskModalProps {
   setDescription: (v: string) => void;
   assigneeId: number | string;
   setAssigneeId: (v: number | string) => void;
+  assigneeIds: string[];
+  setAssigneeIds: (v: string[]) => void;
   dueDate: string;
   setDueDate: (v: string) => void;
   startDate: string;
@@ -68,6 +84,8 @@ export default function TaskModal({
   setDescription,
   assigneeId,
   setAssigneeId,
+  assigneeIds,
+  setAssigneeIds,
   dueDate,
   setDueDate,
   startDate,
@@ -107,6 +125,7 @@ export default function TaskModal({
 
   function handleAssigneeChange(nextAssigneeId: string) {
     setAssigneeId(nextAssigneeId);
+    setAssigneeIds(assigneeIds.filter(id => String(id) !== String(nextAssigneeId)));
 
     const selectedUser = users.find((user) => String(user.id) === String(nextAssigneeId));
     const selectedAssignment = getPrimaryTaskAssignmentFromRoles(selectedUser?.roles);
@@ -284,55 +303,32 @@ export default function TaskModal({
                 </div>
 
                 <div>
-                  <label htmlFor={`${fieldIdPrefix}-role`} className="block text-sm mb-1 font-medium">
-                    Role <span className="text-red-500">*</span>
+                  <label className="block text-sm mb-1 font-medium">
+                    Additional Assignees
                   </label>
-                  {showManualRoleInput ? (
-                    <div className="flex gap-2">
-                      <input
-                        id={`${fieldIdPrefix}-role`}
-                        type="text"
-                        value={role}
-                        onChange={(event) => {
-                          setIsManualRoleMode(true);
-                          setRole(event.target.value);
-                        }}
-                        placeholder="Type a role..."
-                        className={fieldControlClass}
-                        autoFocus
-                        required
-                        aria-label="Manual role"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={clearManualRole}
-                        className="px-3"
-                        aria-label="Return to role dropdown"
-                        title="Return to role dropdown"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <select
-                      id={`${fieldIdPrefix}-role`}
-                      value={role}
-                      onChange={(event) => handleRoleSelect(event.target.value)}
-                      disabled={!departmentId}
-                      className={selectControlClass}
-                      aria-label="Role"
-                      required
-                    >
-                      <option value="">Select role</option>
-                      {availableRoles.map((roleOption) => (
-                        <option key={roleOption} value={roleOption}>
-                          {roleOption}
-                        </option>
-                      ))}
-                      <option value={OTHER_ROLE_VALUE}>Other / type a role</option>
-                    </select>
-                  )}
+                  <div className="max-h-28 overflow-y-auto border border-[var(--border)] rounded-md p-2 space-y-1 bg-[var(--card-surface)]">
+                    {users.map((user) => {
+                      if (String(user.id) === String(assigneeId)) return null;
+                      const isChecked = assigneeIds.includes(String(user.id));
+                      return (
+                        <label key={user.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-[var(--hover)] p-1 rounded">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setAssigneeIds([...assigneeIds, String(user.id)]);
+                              } else {
+                                setAssigneeIds(assigneeIds.filter(id => id !== String(user.id)));
+                              }
+                            }}
+                            className="rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)]"
+                          />
+                          <span>{user.name || user.email}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </>
@@ -342,11 +338,11 @@ export default function TaskModal({
                 <div className="text-xs font-semibold uppercase text-[var(--muted)]">Assignment</div>
                 <div className="mt-1 text-sm font-medium">{assignmentSummary?.assigneeName || "You"}</div>
                 <div className="mt-1 text-xs text-[var(--muted)]">
-                  {assignmentSummary?.departmentName || "Department not set"} / {assignmentSummary?.role || "Role not set"}
+                  {assignmentSummary?.departmentName || "Department not set"}
                 </div>
                 {!assignmentSummary?.isReady && (
                   <p className="mt-2 text-xs text-red-500">
-                    Ask an admin to assign your department and role before creating tasks.
+                    Ask an admin to assign your department before creating tasks.
                   </p>
                 )}
               </div>
@@ -386,7 +382,7 @@ export default function TaskModal({
 
             <div>
               <label htmlFor={`${fieldIdPrefix}-due-date`} className="block text-sm mb-1 font-medium">
-                Due Date <span className="text-red-500">*</span>
+                Due Date
               </label>
               <input
                 id={`${fieldIdPrefix}-due-date`}
@@ -395,7 +391,6 @@ export default function TaskModal({
                 onChange={(event) => setDueDate(event.target.value)}
                 className={fieldControlClass}
                 aria-label="Due Date"
-                required
               />
             </div>
           </div>
@@ -421,18 +416,64 @@ export default function TaskModal({
               </select>
             </div>
             <div>
-              <label htmlFor={`${fieldIdPrefix}-estimated-time`} className="block text-sm mb-1 font-medium">
-                ETOC (Est. Minutes) <span className="text-red-500">*</span>
+              <label className="block text-sm mb-1 font-medium">
+                ETOC (Time to Complete) <span className="text-red-500">*</span>
               </label>
-              <input
-                id={`${fieldIdPrefix}-estimated-time`}
-                type="number"
-                value={estimatedTime}
-                onChange={(event) => setEstimatedTime(event.target.value)}
-                placeholder="e.g. 60"
-                className={fieldControlClass}
-                required
-              />
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label htmlFor={`${fieldIdPrefix}-etoc-days`} className="block text-[11px] text-[var(--muted)] mb-1">Days</label>
+                  <input
+                    id={`${fieldIdPrefix}-etoc-days`}
+                    type="number"
+                    min={0}
+                    value={parseTotalMinutes(estimatedTime).days}
+                    onChange={(event) => {
+                      const { hours, minutes } = parseTotalMinutes(estimatedTime);
+                      setEstimatedTime(String(buildTotalMinutes(parseInt(event.target.value) || 0, hours, minutes)));
+                    }}
+                    placeholder="0"
+                    className={fieldControlClass}
+                    aria-label="Days"
+                  />
+                </div>
+                <div>
+                  <label htmlFor={`${fieldIdPrefix}-etoc-hours`} className="block text-[11px] text-[var(--muted)] mb-1">Hours</label>
+                  <input
+                    id={`${fieldIdPrefix}-etoc-hours`}
+                    type="number"
+                    min={0}
+                    max={7}
+                    value={parseTotalMinutes(estimatedTime).hours}
+                    onChange={(event) => {
+                      const { days, minutes } = parseTotalMinutes(estimatedTime);
+                      setEstimatedTime(String(buildTotalMinutes(days, parseInt(event.target.value) || 0, minutes)));
+                    }}
+                    placeholder="0"
+                    className={fieldControlClass}
+                    aria-label="Hours"
+                  />
+                </div>
+                <div>
+                  <label htmlFor={`${fieldIdPrefix}-etoc-minutes`} className="block text-[11px] text-[var(--muted)] mb-1">Minutes</label>
+                  <input
+                    id={`${fieldIdPrefix}-etoc-minutes`}
+                    type="number"
+                    min={0}
+                    max={59}
+                    value={parseTotalMinutes(estimatedTime).minutes}
+                    onChange={(event) => {
+                      const { days, hours } = parseTotalMinutes(estimatedTime);
+                      setEstimatedTime(String(buildTotalMinutes(days, hours, parseInt(event.target.value) || 0)));
+                    }}
+                    placeholder="0"
+                    className={fieldControlClass}
+                    aria-label="Minutes"
+                  />
+                </div>
+              </div>
+              {estimatedTime && parseInt(estimatedTime) > 0 && (
+                <p className="text-[10px] text-[var(--muted)] mt-1">Total: {estimatedTime} minutes</p>
+              )}
             </div>
           </div>
 

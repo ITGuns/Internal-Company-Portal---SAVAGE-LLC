@@ -24,11 +24,13 @@ const tests = [
   'socket.authorization.test.ts',
   'clients.access.test.ts',
   'clients.activity.test.ts',
+  'clients.asset-dedupe.test.ts',
   'clients.production-records.test.ts',
   'cors.config.test.ts',
   'security.middleware.test.ts',
   'json-body-limits.test.ts',
   'upload.validation.test.ts',
+  'workspace.config.test.ts',
   'clients.routes.test.ts',
   'uploads.routes.test.ts',
 ]

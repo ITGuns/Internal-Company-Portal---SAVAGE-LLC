@@ -18,6 +18,7 @@ import { EmployeesController } from './employees/employees.controller'
 import { FileDirectoryController } from './file-directory/file-directory.controller'
 import { NotificationsController } from './notifications/notifications.controller'
 import { ClientsController } from './clients/clients.controller'
+import { WorkspaceController } from './workspace/workspace.controller'
 import { resolveCorsResponseOrigin } from './config/cors.config'
 import { config, validateConfig } from './config/env.config'
 import { PrismaService } from './database/prisma.service'
@@ -150,6 +151,9 @@ async function bootstrap() {
 
   const clientsController = new ClientsController()
   app.use('/api/clients', clientsController.router())
+
+  const workspaceController = new WorkspaceController()
+  app.use('/api/workspace', workspaceController.router())
 
 
   // Expose app for Vercel

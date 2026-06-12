@@ -1,6 +1,7 @@
 import express, { Request, Response, Router } from 'express'
 import { UsersService } from './users.service'
 import { authenticateToken, requireRole, AuthRequest } from '../auth/auth.middleware'
+import { serializeAuthUser } from '../auth/auth.security'
 import { emailService } from '../email/email.service'
 import { PayrollService } from '../payroll/payroll.service'
 import { DepartmentsService } from '../departments/departments.service'
@@ -95,9 +96,15 @@ export class UsersController {
                     return res.status(400).json({ error: avatarValidation.error || 'Invalid avatar data' })
                 }
 
-                const user = await this.service.update(id, { avatar: avatarValidation.value })
+                await this.service.update(id, { avatar: avatarValidation.value })
+                const updatedUser = await this.service.findById(id)
 
-                res.json({ success: true, user: sanitizeUserForDirectory(user) })
+                res.json({
+                    success: true,
+                    user: requesterId === id && updatedUser
+                        ? serializeAuthUser(updatedUser)
+                        : sanitizeUserForDirectory(updatedUser),
+                })
             } catch (error) {
                 console.error('Avatar upload error:', error)
                 res.status(500).json({ error: 'Failed to update avatar' })
@@ -259,7 +266,7 @@ export class UsersController {
                 }
 
                 // Update basic user info
-                const user = await this.service.update(id, {
+                await this.service.update(id, {
                     name,
                     email,
                     avatar: avatarValidation?.value,
@@ -302,7 +309,13 @@ export class UsersController {
                     await this.service.assignRole(id, newRole, departmentIdToAssign)
                 }
 
-                res.json({ success: true, user: sanitizeUserForDirectory(user) })
+                const updatedUser = await this.service.findById(id)
+                res.json({
+                    success: true,
+                    user: requesterId === id && updatedUser
+                        ? serializeAuthUser(updatedUser)
+                        : sanitizeUserForDirectory(updatedUser),
+                })
             } catch (error) {
                 console.error('Update user error:', error)
                 res.status(500).json({ error: 'Failed to update user' })

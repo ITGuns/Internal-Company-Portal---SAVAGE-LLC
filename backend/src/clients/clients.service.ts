@@ -1581,17 +1581,41 @@ export class ClientsService {
   async createAsset(organizationId: string, data: CreateClientAssetInput) {
     await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
 
-    return this.prisma.clientAsset.create({
-      data: {
-        organizationId,
-        projectId: data.projectId,
-        label: data.label,
-        url: data.url,
-        type: data.type,
-        status: data.status,
-        notes: data.notes,
-        visibleToClient: data.visibleToClient,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const existingAsset = await tx.clientAsset.findFirst({
+        where: {
+          organizationId,
+          projectId: data.projectId || null,
+          label: data.label,
+          url: data.url,
+          type: data.type,
+        },
+        orderBy: { updatedAt: 'desc' },
+      })
+
+      if (existingAsset) {
+        return tx.clientAsset.update({
+          where: { id: existingAsset.id },
+          data: {
+            status: data.status,
+            notes: data.notes,
+            visibleToClient: data.visibleToClient,
+          },
+        })
+      }
+
+      return tx.clientAsset.create({
+        data: {
+          organizationId,
+          projectId: data.projectId,
+          label: data.label,
+          url: data.url,
+          type: data.type,
+          status: data.status,
+          notes: data.notes,
+          visibleToClient: data.visibleToClient,
+        },
+      })
     })
   }
 

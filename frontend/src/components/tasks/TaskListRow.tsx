@@ -32,6 +32,8 @@ interface TaskListRowProps {
   task: Task;
   onClick: () => void;
   onAction: (e: React.MouseEvent, taskId: string, action: TaskQuickAction) => void;
+  isSelected?: boolean;
+  onSelect?: (taskId: string, selected: boolean) => void;
 }
 
 function calcProgress(elapsedSecs: number, estimatedMinutes: number | undefined): number {
@@ -39,7 +41,7 @@ function calcProgress(elapsedSecs: number, estimatedMinutes: number | undefined)
   return Math.min(100, Math.round((elapsedSecs / (estimatedMinutes * 60)) * 100));
 }
 
-export default function TaskListRow({ task, onClick, onAction }: TaskListRowProps) {
+export default function TaskListRow({ task, onClick, onAction, isSelected = false, onSelect }: TaskListRowProps) {
   const liveElapsed = useLiveElapsed(task.timerStatus, task.timerStart, task.totalElapsed || 0);
   const autoProgress = task.status === 'completed' ? 100 : calcProgress(liveElapsed, task.estimatedTime);
   const actionButtonClass =
@@ -48,9 +50,19 @@ export default function TaskListRow({ task, onClick, onAction }: TaskListRowProp
   return (
     <div
       onClick={onClick}
-      className="motion-interactive motion-list-in p-3 bg-[var(--card-surface)] border border-[var(--border)] rounded flex items-center justify-between cursor-pointer hover:bg-[var(--card-bg)] group"
+      className={`motion-interactive motion-list-in p-3 bg-[var(--card-surface)] border border-[var(--border)] rounded flex items-center justify-between cursor-pointer hover:bg-[var(--card-bg)] group ${isSelected ? 'ring-2 ring-[var(--accent)] border-[var(--accent)]' : ''}`}
     >
       <div className="flex-1 flex items-center gap-4">
+        {onSelect && (
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => onSelect(task.id, e.target.checked)}
+            className="w-3.5 h-3.5 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)] cursor-pointer flex-shrink-0"
+            aria-label={`Select task ${task.title}`}
+          />
+        )}
         <div className="flex items-center gap-2 min-w-[200px]">
           <span
             className="w-2.5 h-2.5 rounded-full shadow-[0_0_5px_rgba(0,0,0,0.1)] flex-shrink-0"

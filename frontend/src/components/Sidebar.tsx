@@ -25,6 +25,7 @@ import {
 import UserAvatar from '../assets/icons/UserAvatar';
 import { useSocket } from '@/context/SocketContext';
 import { useUser } from '@/contexts/UserContext';
+import { useWorkspaceConfig } from '@/contexts/WorkspaceConfigContext';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { fetchClientOrganizations } from '@/lib/client-portal';
 import { CLIENT_PORTAL_NAV_ITEMS } from '@/lib/client-portal-navigation';
@@ -95,7 +96,7 @@ function NavSection({ title, items, collapsed }: { title: string; items: NavItem
   return (
     <section className="space-y-2">
       <h2 className={cn(
-        'px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]',
+        'px-3 text-[11px] font-semibold uppercase text-[var(--muted)]',
         collapsed && 'md:sr-only',
       )}>
         {title}
@@ -112,6 +113,7 @@ function NavSection({ title, items, collapsed }: { title: string; items: NavItem
 export default function Sidebar() {
   const pathname = usePathname() || '/';
   const { user } = useUser();
+  const workspace = useWorkspaceConfig();
   const { unreadChatCount } = useSocket();
   const { desktopCollapsed, mobileOpen, closeMobileSidebar } = useSidebar();
   const [hasClientWorkspace, setHasClientWorkspace] = useState(false);
@@ -223,11 +225,15 @@ export default function Sidebar() {
           <header className="flex h-24 items-center justify-between border-b border-[var(--sidebar-border)] px-5">
             <div className={cn('flex min-w-0 items-center gap-3', desktopCollapsed && 'md:justify-center')}>
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--card-surface)] text-sm font-bold text-[var(--accent)] shadow-[0_0_24px_-14px_var(--accent)]" aria-hidden="true">
-                M
+                {workspace.logoUrl ? (
+                  <img src={workspace.logoUrl} alt="" className="h-8 w-8 rounded-[var(--radius-sm)] object-contain" />
+                ) : (
+                  workspace.name.charAt(0).toUpperCase()
+                )}
               </div>
               <div className={cn('min-w-0', desktopCollapsed && 'md:sr-only')}>
-                <div className="truncate text-base font-semibold tracking-tight">MyDeskii</div>
-                <div className="mt-0.5 text-xs text-[var(--muted)]">SAVAGE LLC workspace</div>
+                <div className="truncate text-base font-semibold">{workspace.name}</div>
+                <div className="mt-0.5 text-xs text-[var(--muted)]">{workspace.tagline}</div>
               </div>
             </div>
             <button

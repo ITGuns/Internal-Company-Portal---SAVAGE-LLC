@@ -118,11 +118,14 @@ export default function TaskTrackingPage() {
 
   const [showDisplayMenu, setShowDisplayMenu] = useState(false);
   const [showEODModal, setShowEODModal] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
 
   const displayRef = useRef<HTMLDivElement>(null);
   const appliedDefaultUserFilterRef = useRef(false);
   const handledCreateDeepLinkRef = useRef(false);
   const openedDeepLinkTaskRef = useRef<string | null>(null);
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -230,6 +233,7 @@ export default function TaskTrackingPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [assigneeId, setAssigneeId] = useState<number | string>("");
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState("");
   const [startDate, setStartDate] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("Med");
@@ -260,6 +264,7 @@ export default function TaskTrackingPage() {
     setTitle("");
     setDescription("");
     setAssigneeId(canManageAssignments ? "" : currentUserId);
+    setAssigneeIds([]);
     setDueDate("");
     setStartDate("");
     setPriority("Med");
@@ -297,6 +302,7 @@ export default function TaskTrackingPage() {
     setTitle(task.title);
     setDescription(task.description || "");
     setAssigneeId(task.assigneeId || "");
+    setAssigneeIds(task.assigneeIds || []);
     setDueDate(task.dueDate || "");
     setStartDate(task.startDate || "");
     setPriority(task.priority);
@@ -390,24 +396,30 @@ export default function TaskTrackingPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
+    // Guard against duplicate submissions from double-clicks
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+
     const effectiveAssigneeId = canManageAssignments ? assigneeId : currentUserId;
     const effectiveDepartmentId = canManageAssignments ? departmentId : currentUserAssignment?.departmentId || "";
-    const effectiveRole = canManageAssignments ? role : currentUserAssignment?.role || "";
 
-    if (!title.trim() || !description.trim() || !dueDate || !estimatedTime) {
+    if (!title.trim() || !description.trim() || !estimatedTime) {
       toast.error("Please fill in all required fields");
+      isSubmittingRef.current = false;
       return;
     }
 
-    if (canManageAssignments && (!effectiveDepartmentId || !effectiveAssigneeId || !effectiveRole)) {
+    if (canManageAssignments && (!effectiveDepartmentId || !effectiveAssigneeId)) {
       toast.error(
-        "Please choose an assignee, department, and role",
+        "Please choose an assignee and department",
       );
+      isSubmittingRef.current = false;
       return;
     }
 
-    if (!canManageAssignments && !editTaskData && (!effectiveDepartmentId || !effectiveAssigneeId || !effectiveRole)) {
-      toast.error("Your account needs an assigned department and role before creating tasks");
+    if (!canManageAssignments && !editTaskData && !effectiveDepartmentId) {
+      toast.error("Your account needs an assigned department before creating tasks");
+      isSubmittingRef.current = false;
       return;
     }
 
@@ -428,7 +440,7 @@ export default function TaskTrackingPage() {
         if (canManageAssignments) {
           updates.departmentId = effectiveDepartmentId;
           updates.assigneeId = effectiveAssigneeId;
-          updates.role = effectiveRole;
+          updates.assigneeIds = assigneeIds;
         }
 
         if (progressNotes.trim()) {
@@ -450,9 +462,9 @@ export default function TaskTrackingPage() {
           priority,
           departmentId: effectiveDepartmentId,
           assigneeId: effectiveAssigneeId,
-          dueDate,
+          assigneeIds,
+          dueDate: dueDate || undefined,
           startDate: startDate || undefined,
-          role: effectiveRole,
           notes: [],
           estimatedTime: parseInt(estimatedTime),
         });
@@ -463,6 +475,8 @@ export default function TaskTrackingPage() {
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : "Failed to save task");
+    } finally {
+      isSubmittingRef.current = false;
     }
   }
 
@@ -481,55 +495,100 @@ export default function TaskTrackingPage() {
     }
   }
 
+  const generatePDFReport = async (tasksToExport: Task[], filename: string, label = "Task Report") => {
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+
+    const doc = new jsPDF('landscape');
+    const pageW = doc.internal.pageSize.getWidth();
+
+    // ── Header Banner ──────────────────────────────────────────────
+    doc.setFillColor(15, 23, 42); // slate-900
+    doc.rect(0, 0, pageW, 30, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Deskii", 14, 12);
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(label, 14, 20);
+
+    // Right-side metadata
+    doc.setFontSize(8);
+    const creator = currentUser?.name || currentUser?.email || "Unknown";
+    const now = new Date().toLocaleString();
+    doc.text(`Generated by: ${creator}`, pageW - 14, 12, { align: 'right' });
+    doc.text(`Date: ${now}`, pageW - 14, 20, { align: 'right' });
+
+    doc.setTextColor(0, 0, 0);
+
+    // ── Summary bar ─────────────────────────────────────────────────
+    const completedN = tasksToExport.filter(t => t.status === 'completed').length;
+    const inProgressN = tasksToExport.filter(t => t.status === 'in_progress').length;
+    const totalHrs = (tasksToExport.reduce((s, t) => s + (t.totalElapsed || 0), 0) / 3600).toFixed(1);
+    doc.setFontSize(8);
+    doc.setTextColor(80, 80, 80);
+    doc.text(
+      `Tasks: ${tasksToExport.length}  |  Completed: ${completedN}  |  In Progress: ${inProgressN}  |  Total Time: ${totalHrs} hrs`,
+      14, 38
+    );
+
+    // ── Table ────────────────────────────────────────────────────────
+    const tableColumn = ["#", "Task Title", "Status", "Priority", "Department", "Assignee", "Start Date", "Due Date", "Progress", "Time Logged", "Est. Time"];
+    const tableRows: (string | number)[][] = [];
+
+    tasksToExport.forEach((task, idx) => {
+      const elapsed = task.totalElapsed ? `${(task.totalElapsed / 3600).toFixed(1)}h` : "-";
+      tableRows.push([
+        idx + 1,
+        task.title.length > 45 ? task.title.slice(0, 42) + "…" : task.title,
+        STATUS_LABELS[task.status] || task.status,
+        task.priority,
+        task.department?.name || "—",
+        task.assignee?.name || task.assignee?.email || "Unassigned",
+        task.startDate || "—",
+        task.dueDate || "—",
+        `${task.progress || 0}%`,
+        elapsed,
+        task.estimatedTime ? formatMinutes(task.estimatedTime) : "—",
+      ]);
+    });
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 44,
+      theme: 'grid',
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontSize: 7, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 249, 251] },
+      styles: { fontSize: 7, cellPadding: 3 },
+      columnStyles: {
+        0: { cellWidth: 8 },
+        1: { cellWidth: 50 },
+        8: { halign: 'center' },
+      },
+      margin: { left: 14, right: 14 },
+    });
+
+    // ── Footer ───────────────────────────────────────────────────────
+    const totalPages = (doc as any).internal.pages.length - 1;
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setTextColor(150, 150, 150);
+      doc.text(`Deskii — Confidential Report  |  Page ${i} of ${totalPages}`, pageW / 2, doc.internal.pageSize.getHeight() - 6, { align: 'center' });
+    }
+
+    doc.save(filename);
+  };
+
   const handleDownloadPDF = async () => {
     try {
-      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
-        import("jspdf"),
-        import("jspdf-autotable"),
-      ]);
-
-      const doc = new jsPDF('landscape');
-
-      // Add Title
-      doc.setFontSize(20);
-      doc.text("Task Report", 14, 15);
-
-      doc.setFontSize(10);
-      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 22);
-
-      // Table Header
-      const tableColumn = ["Task Name", "Status", "Priority", "Department", "Assignee", "Start Date", "Due Date", "Progress", "ETOC (m)"];
-      const tableRows: string[][] = [];
-
-      sortedTasks.forEach(task => {
-        const taskData = [
-          task.title,
-          STATUS_LABELS[task.status] || task.status,
-          task.priority,
-          task.department?.name || "N/A",
-          task.assignee?.name || task.assignee?.email || "Unassigned",
-          task.startDate || "—",
-          task.dueDate || "No Date",
-          `${task.progress || 0}%`,
-          task.estimatedTime ? formatMinutes(task.estimatedTime) : "-"
-        ];
-        tableRows.push(taskData);
-      });
-
-      // Generate Table
-      autoTable(doc, {
-        head: [tableColumn],
-        body: tableRows,
-        startY: 30,
-        theme: 'grid',
-        headStyles: { fillColor: [59, 130, 246] }, // Blue-500
-        styles: { fontSize: 8 },
-        margin: { top: 30 },
-      });
-
-      const filename = `Task_Report_${new Date().toISOString().split('T')[0]}.pdf`;
-      doc.save(filename);
-
+      await generatePDFReport(sortedTasks, `Deskii_Task_Report_${new Date().toISOString().split('T')[0]}.pdf`, "Full Task Report");
       toast.success("PDF Report generated successfully");
     } catch (err) {
       console.error("PDF generation error:", err);
@@ -537,16 +596,32 @@ export default function TaskTrackingPage() {
     }
   };
 
+  const handleExportSelectedPDF = async () => {
+    const selected = sortedTasks.filter(t => selectedTaskIds.has(t.id));
+    if (!selected.length) { toast.error("No tasks selected"); return; }
+    try {
+      await generatePDFReport(selected, `Deskii_Selected_Tasks_${new Date().toISOString().split('T')[0]}.pdf`, `Selected Tasks (${selected.length})`);
+      toast.success(`Exported ${selected.length} tasks to PDF`);
+      setSelectedTaskIds(new Set());
+    } catch (err) {
+      console.error("PDF export error:", err);
+      toast.error("Failed to export selected tasks");
+    }
+  };
+
+
   const todayStr = new Date().toISOString().split('T')[0];
 
   // Filtering Logic
   const filteredTasks = tasks.filter(t => {
     if (!taskMatchesDeepLinkFilter(t, deepLinkFilter, todayStr)) return false;
+    // Completed tab toggle: by default hide completed tasks unless showCompleted is true
+    if (!showCompleted && t.status === 'completed' && filterStatus.length === 0) return false;
     if (filterStatus.length > 0 && !filterStatus.includes(t.status)) return false;
     if (filterPriority.length > 0 && !filterPriority.includes(t.priority)) return false;
     if (filterUserId && t.assigneeId?.toString() !== filterUserId.toString()) return false;
     if (filterDeptId && t.departmentId?.toString() !== filterDeptId.toString()) return false;
-    if (searchQuery.trim() && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (searchQuery.trim() && !t.title.toLowerCase().includes(searchQuery.toLowerCase()) && !t.description?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
 
@@ -765,6 +840,25 @@ export default function TaskTrackingPage() {
               icon={<Download className="w-4 h-4" />}
             >
               Download PDF
+            </Button>
+
+            {selectedTaskIds.size > 0 && (
+              <Button
+                onClick={handleExportSelectedPDF}
+                variant="secondary"
+                icon={<Download className="w-4 h-4" />}
+                className="border-emerald-600 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+              >
+                Export Selected ({selectedTaskIds.size})
+              </Button>
+            )}
+
+            <Button
+              onClick={() => setShowCompleted(v => !v)}
+              variant={showCompleted ? "primary" : "secondary"}
+              icon={<Check className="w-4 h-4" />}
+            >
+              {showCompleted ? "Hide Completed" : "Show Completed"}
             </Button>
 
             <Button
@@ -1095,6 +1189,15 @@ export default function TaskTrackingPage() {
                       task={t}
                       onClick={() => openTaskDetails(t)}
                       onAction={handleTaskAction}
+                      isSelected={selectedTaskIds.has(t.id)}
+                      onSelect={(taskId, selected) => {
+                        setSelectedTaskIds(prev => {
+                          const next = new Set(prev);
+                          if (selected) next.add(taskId);
+                          else next.delete(taskId);
+                          return next;
+                        });
+                      }}
                     />
                   ))}
                 </div>
@@ -1125,6 +1228,7 @@ export default function TaskTrackingPage() {
           title={title} setTitle={setTitle}
           description={description} setDescription={setDescription}
           assigneeId={assigneeId} setAssigneeId={setAssigneeId}
+          assigneeIds={assigneeIds} setAssigneeIds={setAssigneeIds}
           dueDate={dueDate} setDueDate={setDueDate}
           startDate={startDate} setStartDate={setStartDate}
           priority={priority} setPriority={setPriority}

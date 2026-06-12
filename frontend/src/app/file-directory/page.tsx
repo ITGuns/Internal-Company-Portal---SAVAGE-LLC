@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Header from '@/components/Header';
 import Button from '@/components/Button';
@@ -91,6 +91,7 @@ export default function FileDirectoryPage() {
   // UI state
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(getViewPreference());
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState<string>('All Departments');
   const [sortBy, setSortBy] = useState<'name' | 'department' | 'date'>('name');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -109,6 +110,12 @@ export default function FileDirectoryPage() {
     }
   }, [userHasFullAccess, userDepartment]);
 
+  // Debounce the search so API only re-runs after 300ms idle
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // Load folders from backend
   const loadFolders = useCallback(async () => {
     setLoading(true);
@@ -124,7 +131,7 @@ export default function FileDirectoryPage() {
         return Array.from(map.values());
       });
 
-      const filtered = filterFolders(data, searchQuery, departmentFilter);
+      const filtered = filterFolders(data, debouncedSearchQuery, departmentFilter);
       const sorted = sortFolders(filtered, sortBy);
       setFolders(sorted);
     } catch (err) {
@@ -133,7 +140,7 @@ export default function FileDirectoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentFolderId, searchQuery, departmentFilter, sortBy, toast]);
+  }, [currentFolderId, debouncedSearchQuery, departmentFilter, sortBy, toast]);
 
   useEffect(() => {
     loadFolders();

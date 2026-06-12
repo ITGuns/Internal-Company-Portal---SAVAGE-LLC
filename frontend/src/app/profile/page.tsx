@@ -1,13 +1,14 @@
 "use client";
 
 import Header from "@/components/Header";
-import Image from 'next/image';
-import { User, Mail, Shield } from "lucide-react";
+import { User, Mail, Shield, X } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import ProfileEditForm from "@/components/ProfileEditForm";
+import { useRouter } from "next/navigation";
 
 export default function ProfilePage() {
   const { user, isLoading } = useUser();
+  const router = useRouter();
   const displayRoles = user?.roles?.length ? user.roles : user?.role ? [user.role] : [];
 
   if (isLoading) {
@@ -47,7 +48,8 @@ export default function ProfilePage() {
             <div className="flex flex-col items-center gap-6 md:flex-row md:items-start">
               <div className="h-32 w-32 shrink-0 overflow-hidden rounded-full border-2 border-[var(--border)] bg-[var(--card-bg)]">
                 {user.avatar ? (
-                  <Image src={user.avatar} alt={user.name || "Profile avatar"} width={128} height={128} className="h-full w-full object-cover" />
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={user.avatar} alt={user.name || "Profile avatar"} className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-[var(--muted)]">
                     {user.name?.charAt(0) || '?'}
@@ -97,12 +99,19 @@ export default function ProfilePage() {
             </div>
           </section>
 
-          <section id="edit-profile" className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-6 scroll-mt-28">
-            <div className="mb-5">
+          <section id="edit-profile" className="relative rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-6 scroll-mt-28">
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="absolute top-4 right-4 p-2 rounded-lg text-[var(--muted)] hover:bg-[var(--card-bg)] hover:text-[var(--foreground)]"
+              aria-label="Close edit profile"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="mb-5 pr-8">
               <h2 className="text-lg font-semibold text-[var(--foreground)]">Edit Profile</h2>
               <p className="mt-1 text-sm text-[var(--muted)]">Update your account details without opening another overlay.</p>
             </div>
-            <ProfileEditForm user={user} />
+            <ProfileEditForm user={user} onCancel={() => router.push("/dashboard")} />
           </section>
         </div>
       </div>

@@ -1,342 +1,555 @@
 /**
- * Login Page Styles
- * MyDeskii command-center auth surface with 8px grid spacing
+ * Deskii Login Page — Premium Animated Auth Surface
+ * Two-panel layout: animated hero (left) + auth card (right)
  */
 
 /* ============================================
-   COMMAND-CENTER COLOR PALETTE - LIGHT MODE
+   KEYFRAME ANIMATIONS
    ============================================ */
-.loginContainer {
-  /* Background & Surfaces */
-  --login-bg: var(--background);
-  --login-card-bg: var(--card-bg);
-  --login-border: var(--border);
-  
-  /* Text Colors */
-  --login-text-primary: var(--foreground);
-  --login-text-secondary: var(--muted);
-  --login-text-disabled: color-mix(in srgb, var(--muted) 70%, transparent);
-  
-  /* Input Colors */
-  --login-input-bg: var(--card-bg);
-  --login-input-border: var(--border);
-  --login-input-focus: var(--accent);
-  --login-input-text: var(--foreground);
-  --login-input-placeholder: var(--muted);
-  
-  /* Button Colors */
-  --login-btn-bg: var(--accent);
-  --login-btn-text: var(--accent-foreground);
-  --login-btn-hover: color-mix(in srgb, var(--accent) 92%, black);
-  --login-btn-active: color-mix(in srgb, var(--accent) 84%, black);
-  
-  /* Secondary Button */
-  --login-btn-secondary-bg: transparent;
-  --login-btn-secondary-text: var(--foreground);
-  --login-btn-secondary-border: var(--border);
-  --login-btn-secondary-hover: var(--card-surface);
-  
-  /* Shadows & Effects */
-  --login-shadow: rgba(23, 217, 245, 0.16);
-  --login-shadow-hover: rgba(242, 59, 191, 0.18);
-  
-  /* Error States */
-  --login-error: var(--status-blocked);
-  --login-error-bg: var(--status-blocked-bg);
-  --login-error-border: color-mix(in srgb, var(--status-blocked) 28%, var(--border));
+
+@keyframes orbFloat1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(60px, -80px) scale(1.08); }
+  66%       { transform: translate(-40px, 40px) scale(0.94); }
+}
+
+@keyframes orbFloat2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(-70px, 60px) scale(1.05); }
+  66%       { transform: translate(50px, -50px) scale(0.96); }
+}
+
+@keyframes orbFloat3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%       { transform: translate(30px, 70px) scale(1.1); }
+}
+
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50%       { opacity: 1; }
 }
 
 /* ============================================
-   COMMAND-CENTER COLOR PALETTE - DARK MODE
-   ============================================ */
-:global(.dark) .loginContainer {
-  /* Background & Surfaces */
-  --login-bg: var(--background);
-  --login-card-bg: var(--card-bg);
-  --login-border: var(--border);
-  
-  /* Text Colors */
-  --login-text-primary: var(--foreground);
-  --login-text-secondary: var(--muted);
-  --login-text-disabled: color-mix(in srgb, var(--muted) 70%, transparent);
-  
-  /* Input Colors */
-  --login-input-bg: var(--card-bg);
-  --login-input-border: var(--border);
-  --login-input-focus: var(--accent);
-  --login-input-text: var(--foreground);
-  --login-input-placeholder: var(--muted);
-  
-  /* Button Colors */
-  --login-btn-bg: var(--accent);
-  --login-btn-text: var(--accent-foreground);
-  --login-btn-hover: color-mix(in srgb, var(--accent) 88%, white);
-  --login-btn-active: color-mix(in srgb, var(--accent) 78%, white);
-  
-  /* Secondary Button */
-  --login-btn-secondary-bg: transparent;
-  --login-btn-secondary-text: var(--foreground);
-  --login-btn-secondary-border: var(--border);
-  --login-btn-secondary-hover: var(--card-surface);
-  
-  /* Shadows & Effects */
-  --login-shadow: rgba(23, 217, 245, 0.2);
-  --login-shadow-hover: rgba(242, 59, 191, 0.2);
-  
-  /* Error States */
-  --login-error: var(--status-blocked);
-  --login-error-bg: var(--status-blocked-bg);
-  --login-error-border: color-mix(in srgb, var(--status-blocked) 38%, var(--border));
-}
-
-/* ============================================
-   LAYOUT
+   ROOT CONTAINER — Full-screen split layout
    ============================================ */
 .loginContainer {
   min-height: 100dvh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--login-bg);
-  background-image:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 34%),
-    linear-gradient(225deg, color-mix(in srgb, var(--accent-secondary) 10%, transparent), transparent 36%),
-    linear-gradient(180deg, var(--background), color-mix(in srgb, var(--card-surface) 46%, var(--background)));
-  padding: clamp(16px, 4vw, 40px);
-  color: var(--login-text-primary);
-  transition: background-color 200ms var(--ease-out);
-  overflow: hidden;
-  position: relative;
-}
-
-.loginContainer::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(102, 220, 255, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(102, 220, 255, 0.07) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: linear-gradient(180deg, transparent, black 20%, black 76%, transparent);
-  opacity: 0.34;
-}
-
-.card {
+  display: grid;
+  grid-template-columns: 1fr;
   position: relative;
   overflow: hidden;
-  width: 100%;
-  max-width: 420px; /* 52.5 grid units */
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--login-card-bg) 94%, white), var(--login-card-bg));
-  border: 1px solid var(--login-border);
-  border-radius: 8px; /* 1 grid unit */
-  padding: 32px;
-  box-shadow: 0 24px 70px -42px var(--login-shadow), 0 18px 54px -46px var(--login-shadow-hover);
-  transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
-  backdrop-filter: blur(16px);
+
+  /* Animated dark gradient background */
+  background: linear-gradient(
+    135deg,
+    hsl(228, 24%, 6%) 0%,
+    hsl(232, 28%, 9%) 40%,
+    hsl(248, 22%, 8%) 70%,
+    hsl(228, 24%, 6%) 100%
+  );
+  background-size: 300% 300%;
+  animation: gradientShift 18s ease infinite;
+  color: #e2e8f0;
 }
 
-.card::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto;
-  height: 3px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
-  opacity: 0.92;
+@media (min-width: 960px) {
+  .loginContainer {
+    grid-template-columns: 1fr 480px;
+  }
 }
 
 /* ============================================
-   TYPOGRAPHY (Modular Scale 1.25)
+   ANIMATED BACKGROUND ORBS
    ============================================ */
+.orb1, .orb2, .orb3 {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(80px);
+  z-index: 0;
+}
+
+.orb1 {
+  width: 520px;
+  height: 520px;
+  top: -120px;
+  left: -160px;
+  background: radial-gradient(circle, rgba(23, 217, 245, 0.18) 0%, transparent 70%);
+  animation: orbFloat1 20s ease-in-out infinite;
+}
+
+.orb2 {
+  width: 400px;
+  height: 400px;
+  bottom: -80px;
+  right: -80px;
+  background: radial-gradient(circle, rgba(242, 59, 191, 0.15) 0%, transparent 70%);
+  animation: orbFloat2 24s ease-in-out infinite;
+}
+
+.orb3 {
+  width: 280px;
+  height: 280px;
+  top: 40%;
+  left: 50%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, transparent 70%);
+  animation: orbFloat3 16s ease-in-out infinite;
+}
+
+/* ============================================
+   DOT GRID OVERLAY
+   ============================================ */
+.dotGrid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(circle, rgba(23, 217, 245, 0.12) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: linear-gradient(180deg, transparent 0%, black 15%, black 80%, transparent 100%);
+}
+
+/* ============================================
+   HERO SECTION (Left panel, desktop only)
+   ============================================ */
+.heroSection {
+  display: none;
+  position: relative;
+  z-index: 1;
+  padding: 60px 56px;
+  flex-direction: column;
+  justify-content: center;
+  animation: fadeSlideUp 0.7s ease both;
+}
+
+@media (min-width: 960px) {
+  .heroSection {
+    display: flex;
+  }
+}
+
+.logoMark {
+  margin-bottom: 24px;
+  animation: fadeSlideUp 0.6s ease 0.1s both;
+}
+
+.logoImage {
+  height: 48px;
+  width: 48px;
+  border-radius: 10px;
+  object-fit: contain;
+}
+
+.heroTitle {
+  font-size: 3.25rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.1;
+  margin: 0 0 16px;
+  background: linear-gradient(135deg, #ffffff 0%, #17d9f5 50%, #f23bbf 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: fadeSlideUp 0.6s ease 0.2s both;
+}
+
+.heroTagline {
+  font-size: 1.15rem;
+  line-height: 1.6;
+  color: rgba(226, 232, 240, 0.65);
+  margin: 0 0 40px;
+  animation: fadeSlideUp 0.6s ease 0.3s both;
+}
+
+.featureList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: fadeSlideUp 0.6s ease 0.4s both;
+}
+
+.featureList li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: rgba(226, 232, 240, 0.55);
+  letter-spacing: 0;
+  transition: color 200ms ease;
+}
+
+.featureList li::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #17d9f5;
+  box-shadow: 0 0 12px rgba(23, 217, 245, 0.45);
+}
+
+.featureList li:hover {
+  color: rgba(23, 217, 245, 0.9);
+}
+
+/* ============================================
+   AUTH CARD (right panel)
+   ============================================ */
+.card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(32px, 6vw, 56px) clamp(24px, 5vw, 48px);
+  min-height: 100dvh;
+  animation: fadeSlideUp 0.6s ease 0.15s both;
+
+  /* Subtle glass panel on desktop */
+  background: rgba(15, 17, 23, 0.7);
+  backdrop-filter: blur(24px);
+  border-left: 1px solid rgba(23, 217, 245, 0.08);
+}
+
+@media (max-width: 959px) {
+  .card {
+    background: transparent;
+    border-left: none;
+    backdrop-filter: none;
+    align-items: center;
+  }
+
+  .card > * {
+    width: 100%;
+    max-width: 420px;
+  }
+}
+
+/* ============================================
+   MOBILE LOGO ROW
+   ============================================ */
+.mobileLogoRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.mobileLogoName {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  background: linear-gradient(135deg, #fff 0%, #17d9f5 60%, #f23bbf 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.mobileLogoImage {
+  height: 32px;
+  width: 32px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+@media (min-width: 960px) {
+  .mobileLogoRow {
+    display: none;
+  }
+}
+
+/* ============================================
+   HEADER TYPOGRAPHY
+   ============================================ */
+.header {
+  margin-bottom: 28px;
+}
+
 .title {
-  font-size: 1.953rem; /* 31.25px - xl */
+  font-size: 1.75rem;
   font-weight: 700;
   line-height: 1.2;
-  color: var(--login-text-primary);
-  margin: 0;
-  text-align: center;
   letter-spacing: 0;
+  color: #f1f5f9;
+  margin: 0 0 8px;
 }
 
 .subtitle {
-  font-size: 1rem; /* 16px - sm */
+  font-size: 0.9rem;
   font-weight: 400;
   line-height: 1.5;
-  color: var(--login-text-secondary);
-  margin: 8px 0 0 0; /* 1 grid unit top */
-  text-align: center;
+  color: rgba(148, 163, 184, 0.8);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.header {
-  margin-bottom: 32px; /* 4 grid units */
+/* ============================================
+   SOCIAL SIGN-IN BUTTONS
+   ============================================ */
+.socialRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.socialBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: rgba(226, 232, 240, 0.85);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    transform 100ms ease;
+}
+
+.socialBtn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(23, 217, 245, 0.25);
+  transform: translateY(-1px);
+}
+
+.socialBtn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.socialBtn:focus-visible {
+  outline: 2px solid #17d9f5;
+  outline-offset: 2px;
+}
+
+/* ============================================
+   DIVIDER
+   ============================================ */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.dividerLine {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dividerText {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: rgba(148, 163, 184, 0.5);
+  white-space: nowrap;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 /* ============================================
    FORM
    ============================================ */
 .form {
-  margin-top: 24px; /* 3 grid units */
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .formGroup {
-  margin-bottom: 16px; /* 2 grid units */
-}
-
-.formGroup:last-of-type {
-  margin-bottom: 0;
+  margin-bottom: 14px;
 }
 
 .label {
   display: flex;
   align-items: center;
-  gap: 8px; /* 1 grid unit */
-  font-size: 1rem; /* 16px - sm */
-  font-weight: 500;
-  line-height: 1.5;
-  color: var(--login-text-primary);
-  margin-bottom: 8px; /* 1 grid unit */
+  gap: 6px;
+  margin-bottom: 7px;
+  min-height: 22px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.82);
 }
 
 .labelIcon {
-  color: var(--accent);
+  color: rgba(23, 217, 245, 0.72);
+  flex-shrink: 0;
 }
 
 .inputWrapper {
   position: relative;
   display: flex;
   align-items: center;
+  min-height: 48px;
 }
 
 .inputIcon {
   position: absolute;
-  left: 16px; /* 2 grid units */
-  color: var(--login-text-secondary);
-  width: 16px;
-  height: 16px;
+  left: 14px;
+  z-index: 1;
+  color: rgba(148, 163, 184, 0.68);
   pointer-events: none;
 }
 
 .input {
   width: 100%;
-  height: 44px;
-  padding: 8px 16px 8px 44px; /* Icon offset */
-  font-size: 1rem;
-  font-weight: 400;
-  line-height: 1.6;
-  color: var(--login-input-text);
-  background-color: var(--login-input-bg);
-  border: 1px solid var(--login-input-border);
-  border-radius: 8px; /* 1 grid unit */
-  transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out), background-color 150ms var(--ease-out);
+  min-height: 48px;
+  padding: 0 16px 0 42px;
+  font-size: 0.95rem;
+  color: #f8fafc;
+  background: rgba(15, 23, 42, 0.62);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
   outline: none;
-}
-
-.helperText {
-  margin-top: 6px;
-  font-size: 0.78rem;
-  line-height: 1.4;
-  color: var(--login-text-secondary);
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
 }
 
 .input::placeholder {
-  color: var(--login-input-placeholder);
-}
-
-.input:focus {
-  border-color: var(--login-input-focus);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--login-input-focus) 16%, transparent);
+  color: rgba(148, 163, 184, 0.58);
 }
 
 .input:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--login-input-focus) 45%, var(--login-input-border));
+  border-color: rgba(23, 217, 245, 0.28);
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.input:focus-visible {
+  border-color: rgba(23, 217, 245, 0.78);
+  box-shadow: 0 0 0 3px rgba(23, 217, 245, 0.16);
 }
 
 .input:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
 .passwordInput {
-  padding-right: 56px;
+  padding-right: 48px;
 }
 
 .passwordToggle {
   position: absolute;
-  right: 8px;
+  right: 5px;
   top: 50%;
-  width: 40px;
-  height: 40px;
-  background: none;
-  border: none;
-  color: var(--login-text-secondary);
-  cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  color: rgba(148, 163, 184, 0.76);
+  background: transparent;
+  border: 0;
   border-radius: 8px;
+  cursor: pointer;
   transform: translateY(-50%);
-  transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 150ms var(--ease-out);
-  z-index: 1;
+  transition:
+    background 150ms ease,
+    color 150ms ease;
 }
 
-.passwordToggle:hover {
-  color: var(--login-text-primary);
-  background-color: var(--login-btn-secondary-hover);
-}
-
+.passwordToggle:hover,
 .passwordToggle:focus-visible {
-  outline: 2px solid var(--login-input-focus);
-  outline-offset: 2px;
-}
-
-.passwordToggle:active {
-  transform: translateY(-50%) scale(0.98);
+  color: #17d9f5;
+  background: rgba(23, 217, 245, 0.1);
 }
 
 .eyeIcon {
   width: 20px;
   height: 20px;
+  flex-shrink: 0;
 }
 
 /* ============================================
-   BUTTONS
+   FORGOT PASSWORD / LINKS
+   ============================================ */
+.forgotPassword {
+  display: block;
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: rgba(148, 163, 184, 0.6);
+  text-align: right;
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+
+.forgotPassword:hover {
+  color: #17d9f5;
+}
+
+/* ============================================
+   SUBMIT BUTTON
    ============================================ */
 .submitButton {
   width: 100%;
-  height: 44px;
-  margin-top: 24px; /* 3 grid units */
-  padding: 8px 32px; /* Vertical: 1 unit, Horizontal: 4 units */
-  font-size: 1rem; /* 16px - sm */
+  height: 46px;
+  margin-top: 20px;
+  padding: 0 24px;
+  font-size: 0.95rem;
   font-weight: 600;
-  line-height: 1.5;
-  color: var(--login-btn-text);
-  background:
-    linear-gradient(135deg, var(--login-btn-bg), color-mix(in srgb, var(--accent-secondary) 72%, var(--login-btn-bg)));
+  color: #0f1117;
+  background: linear-gradient(135deg, #17d9f5 0%, #0bb5cc 50%, #f23bbf 100%);
+  background-size: 200% 200%;
   border: none;
-  border-radius: 8px; /* 1 grid unit */
+  border-radius: 10px;
   cursor: pointer;
-  box-shadow: 0 12px 32px -22px var(--accent);
-  transition: box-shadow 160ms var(--ease-out), transform 160ms var(--ease-out), filter 160ms var(--ease-out);
+  box-shadow: 0 4px 24px rgba(23, 217, 245, 0.25), 0 1px 4px rgba(0,0,0,0.3);
+  transition:
+    box-shadow 200ms ease,
+    transform 150ms ease,
+    filter 150ms ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px; /* 1 grid unit */
+  gap: 8px;
+  animation: gradientShift 4s ease infinite;
 }
 
 .submitButton:hover:not(:disabled) {
   filter: brightness(1.08);
-  box-shadow: 0 16px 38px -20px var(--accent);
+  box-shadow: 0 8px 32px rgba(23, 217, 245, 0.35), 0 2px 8px rgba(0,0,0,0.3);
+  transform: translateY(-1px);
 }
 
 .submitButton:active:not(:disabled) {
-  filter: brightness(0.96);
-  transform: translateY(1px) scale(0.99);
+  transform: translateY(0) scale(0.99);
+  filter: brightness(0.97);
 }
 
 .submitButton:focus-visible {
-  outline: 2px solid var(--login-input-focus);
+  outline: 2px solid #17d9f5;
   outline-offset: 3px;
 }
 
@@ -345,134 +558,56 @@
   cursor: not-allowed;
 }
 
+.btnArrow {
+  transition: transform 200ms ease;
+}
+
+.submitButton:hover:not(:disabled) .btnArrow {
+  transform: translateX(3px);
+}
+
 /* ============================================
-   ERROR MESSAGE
+   ERROR STATE
    ============================================ */
 .error {
-  margin-top: 16px; /* 2 grid units */
-  padding: 12px 16px; /* 1.5 × 2 grid units */
-  font-size: 1rem; /* 16px - sm */
+  margin-top: 14px;
+  padding: 11px 14px;
+  font-size: 0.85rem;
   font-weight: 400;
   line-height: 1.5;
-  color: var(--login-error);
-  background-color: var(--login-error-bg);
-  border: 1px solid var(--login-error-border);
-  border-radius: 8px; /* 1 grid unit */
-}
-
-.success {
-  margin-top: 8px;
-  padding: 24px;
-  text-align: center;
-  color: var(--login-text-primary);
-}
-
-.successIcon {
-  display: inline-flex;
-  width: 40px;
-  height: 40px;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 12px;
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
   border-radius: 8px;
-  color: var(--status-completed);
-  background: var(--status-completed-bg);
-}
-
-.successTitle {
-  font-size: 1.25rem;
-  font-weight: 700;
-  line-height: 1.2;
-  margin-bottom: 8px;
-}
-
-.successText {
-  font-size: 0.95rem;
-  color: var(--login-text-secondary);
-  margin: 0 0 12px 0;
-}
-
-.successMeta {
-  font-size: 0.8rem;
-  color: var(--login-text-secondary);
-  margin: 0;
-}
-
-.select {
-  width: 100%;
-  height: 44px;
-  padding: 8px 40px 8px 16px;
-  border-radius: 8px;
-  background-color: var(--login-input-bg);
-  color: var(--login-input-text);
-  border: 1px solid var(--login-input-border);
-  outline: none;
-  color-scheme: inherit;
-  transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out), background-color 150ms var(--ease-out);
-}
-
-.select:focus {
-  border-color: var(--login-input-focus);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--login-input-focus) 16%, transparent);
-}
-
-.select:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--login-input-focus) 45%, var(--login-input-border));
-}
-
-.select:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 /* ============================================
-   HELPER LINKS (Forgot Password, Sign Up)
+   SIGN UP SECTION
    ============================================ */
-.forgotPassword {
-  display: block;
-  margin-top: 8px; /* 1 grid unit */
-  font-size: 0.8rem; /* 12.8px - xs */
-  font-weight: 400;
-  line-height: 1.5;
-  color: var(--login-text-secondary);
-  text-align: right;
-  text-decoration: none;
-  transition: color 150ms var(--ease-out);
-  cursor: pointer;
-}
-
-.forgotPassword:hover {
-  color: var(--login-text-primary);
-  text-decoration: underline;
-}
-
 .signUpSection {
-  margin-top: 24px; /* 3 grid units */
-  padding-top: 24px; /* 3 grid units */
-  border-top: 1px solid var(--login-border);
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
   text-align: center;
 }
 
 .signUpText {
-  font-size: 0.8rem; /* 12.8px - xs */
-  font-weight: 400;
-  line-height: 1.5;
-  color: var(--login-text-secondary);
+  font-size: 0.8rem;
+  color: rgba(148, 163, 184, 0.55);
   margin: 0;
 }
 
 .signUpLink {
-  font-size: 0.8rem; /* 12.8px - xs */
+  font-size: 0.8rem;
   font-weight: 500;
-  color: var(--login-text-primary);
+  color: #17d9f5;
   text-decoration: none;
-  transition: color 150ms var(--ease-out), opacity 150ms var(--ease-out);
-  margin-left: 4px; /* 0.5 grid unit */
+  margin-left: 5px;
+  transition: opacity 150ms ease;
 }
 
 .signUpLink:hover {
-  color: var(--accent);
-  opacity: 1;
+  opacity: 0.8;
   text-decoration: underline;
 }
 
@@ -480,33 +615,52 @@
    LOADING SPINNER
    ============================================ */
 .spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(15, 17, 23, 0.35);
+  border-top-color: #0f1117;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  flex-shrink: 0;
 }
 
 /* ============================================
-   RESPONSIVE ADJUSTMENTS
+   RESPONSIVE — small mobile
    ============================================ */
-@media (max-width: 640px) {
+@media (max-width: 480px) {
   .card {
-    padding: 24px;
+    padding: 28px 20px;
+  }
+
+  .socialRow {
+    grid-template-columns: 1fr;
   }
 
   .title {
-    font-size: 1.5625rem; /* 25px - lg - slightly smaller on mobile */
+    font-size: 1.5rem;
   }
-  
-  .input {
-    font-size: 1rem; /* 16px prevents zoom on iOS */
+}
+
+@media (max-width: 1180px) and (min-width: 960px) {
+  .heroTitle {
+    font-size: 2.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loginContainer,
+  .orb1,
+  .orb2,
+  .orb3,
+  .heroSection,
+  .logoMark,
+  .heroTitle,
+  .heroTagline,
+  .featureList,
+  .card,
+  .submitButton,
+  .spinner {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

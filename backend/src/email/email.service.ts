@@ -233,7 +233,7 @@ export class EmailService {
     ): Promise<EmailResult> {
         return await this.sendTemplateEmail(
             to,
-            'Welcome to SAVAGE LLC Internal Portal',
+            'Welcome to Deskii',
             'welcome',
             {
                 userName,
@@ -403,7 +403,7 @@ export class EmailService {
                     </div>
                     
                     <p style="color: #9ca3af; font-size: 12px; text-align: center;">
-                        This email was sent from the SAVAGE LLC Internal Portal.<br/>
+                        This email was sent from Deskii.<br/>
                         If you did not authorize this, please contact support immediately.
                     </p>
                 </div>
@@ -438,10 +438,10 @@ export class EmailService {
     async sendTestEmail(to: string): Promise<EmailResult> {
         return await this.sendEmail({
             to,
-            subject: 'Test Email from SAVAGE LLC Portal',
+            subject: 'Test Email from Deskii',
             html: `
         <h1>Test Email</h1>
-        <p>This is a test email from the SAVAGE LLC Internal Portal.</p>
+        <p>This is a test email from Deskii.</p>
         <p>If you received this, your email configuration is working correctly!</p>
         <p>Time sent: ${new Date().toISOString()}</p>
       `,

@@ -59,6 +59,7 @@ export interface Task {
   department?: TaskDepartment;
 
   assigneeId?: number | string;
+  assigneeIds?: string[];
   assignee?: TaskUser;
   createdById?: number | string;
   creator?: TaskUser;
@@ -92,6 +93,7 @@ export interface CreateTaskPayload {
   priority?: TaskPriority;
   departmentId: string;
   assigneeId?: number | string;
+  assigneeIds?: string[];
   dueDate?: string;
   startDate?: string;
   role?: string;
@@ -106,6 +108,7 @@ export interface UpdateTaskPayload {
   priority?: TaskPriority;
   departmentId?: string;
   assigneeId?: number | string;
+  assigneeIds?: string[];
   dueDate?: string;
   startDate?: string;
   role?: string;

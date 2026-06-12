@@ -9,6 +9,8 @@ import {
 const API_URL = '/api';
 const AUTH_URL = '/backend-auth';
 
+export type OAuthProvider = 'google' | 'apple' | 'discord';
+
 
 export const getAuthToken = () => {
     if (typeof window !== 'undefined') {
@@ -48,7 +50,7 @@ export const getCurrentUser = () => {
     return null;
 }
 
-export const setCurrentUser = (user: Record<string, unknown>) => {
+export const setCurrentUser = (user: unknown) => {
     if (typeof window !== 'undefined') {
         localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
     }
@@ -118,6 +120,11 @@ export const loginWithEmail = async (credentials: LoginCredentials): Promise<Aut
         console.error('Email login error:', err);
         throw err instanceof Error ? err : new Error('Login failed. Please try again.');
     }
+}
+
+export function startOAuthLogin(provider: OAuthProvider): void {
+    if (typeof window === 'undefined') return;
+    window.location.assign(`${AUTH_URL}/${provider}`);
 }
 
 /**
@@ -289,13 +296,8 @@ export const uploadAvatar = async (userId: string | number, file: File | string)
             });
         }
 
-        const token = getAuthToken();
-        const response = await fetch(`${API_URL}/users/${userId}/avatar`, {
+        const response = await apiFetch(`/users/${userId}/avatar`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-            },
             body: JSON.stringify({ avatar: avatarData }),
         });
 

@@ -249,7 +249,7 @@ export default function MyPayslipsPage() {
             id: user.id,
             name: user.name || "Employee",
             role: (user as any).role || "Staff",
-            department: (user as any).department || "SAVAGE LLC",
+            department: (user as any).department || "Deskii",
             avatar: user.avatar || "",
             hoursThisWeek: 0,
             salary: payslip.grossPay,
@@ -264,7 +264,7 @@ export default function MyPayslipsPage() {
         <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
             <Header
                 title="My Payslips"
-                subtitle="Your complete payroll history from SAVAGE LLC"
+                subtitle="Your complete payroll history"
             />
 
             <div className="p-4 pt-3 sm:p-6 lg:p-8">

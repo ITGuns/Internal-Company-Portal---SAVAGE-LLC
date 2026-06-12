@@ -27,6 +27,7 @@ export interface TaskAccessPolicy {
 export interface ReadableTask {
   assigneeId?: string | null
   createdById?: string | null
+  assigneeIds?: any
 }
 
 export function normalizeRoleName(role: string): string {
@@ -40,13 +41,13 @@ export function hasTaskAssignmentPrivilege(roles: TaskRoleAssignment[]): boolean
 export function getPrimaryTaskAssignment(roles: TaskRoleAssignment[]): PrimaryTaskAssignment | null {
   const rolesWithDepartment = roles.filter((assignment) => assignment.role && assignment.departmentId)
   if (rolesWithDepartment.length === 0) return null
-
+ 
   const primary =
     rolesWithDepartment.find((assignment) => !isManagementRoleName(assignment.role)) ||
     rolesWithDepartment[0]
-
+ 
   if (!primary.departmentId) return null
-
+ 
   return {
     role: primary.role,
     departmentId: primary.departmentId,
@@ -54,18 +55,27 @@ export function getPrimaryTaskAssignment(roles: TaskRoleAssignment[]): PrimaryTa
   }
 }
 
-export function getTaskVisibilityFilter(access: TaskAccessPolicy): { OR?: Array<{ assigneeId?: string; createdById?: string }> } {
+export function getTaskVisibilityFilter(access: TaskAccessPolicy): any {
   if (access.isPrivileged) return {}
   return {
     OR: [
       { assigneeId: access.requesterId },
       { createdById: access.requesterId },
+      {
+        assigneeIds: {
+          path: '$',
+          array_contains: access.requesterId
+        }
+      }
     ],
   }
 }
 
 export function canReadTask(access: TaskAccessPolicy, task: ReadableTask): boolean {
-  return access.isPrivileged || task.assigneeId === access.requesterId || task.createdById === access.requesterId
+  if (access.isPrivileged) return true
+  if (task.assigneeId === access.requesterId || task.createdById === access.requesterId) return true
+  if (task.assigneeIds && Array.isArray(task.assigneeIds) && task.assigneeIds.includes(access.requesterId)) return true
+  return false
 }
 
 export function canRequestAssigneeTasks(access: TaskAccessPolicy, assigneeId: string): boolean {

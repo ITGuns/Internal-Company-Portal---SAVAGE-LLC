@@ -17,6 +17,22 @@ import {
     normalizeSignupOption,
 } from './signup-role-options'
 import { createAuthRateLimiters, type AuthRateLimiters } from '../security/rate-limits'
+import {
+    buildAppleAuthorizationUrl,
+    buildOAuthFrontendRedirect,
+    clearAppleOAuthStateCookie,
+    createOAuthState,
+    exchangeAppleAuthorizationCode,
+    findOrCreateAppleOAuthUser,
+    getAppleOAuthStateFromRequest,
+    getFrontendUrl,
+    isAppleOAuthConfigured,
+    parseAppleUserName,
+    setAppleOAuthStateCookie,
+    verifyAppleIdentityToken,
+    type OAuthProvider,
+} from './oauth.helpers'
+import { config } from '../config/env.config'
 
 interface AuthControllerOptions {
     rateLimiters?: AuthRateLimiters
@@ -29,36 +45,86 @@ export class AuthController {
         this.rateLimiters = options.rateLimiters || createAuthRateLimiters()
     }
 
+    private completeOAuthLogin(provider: OAuthProvider, user: User, res: Response): void {
+        if (!canIssueAuthTokens(user)) {
+            res.redirect(buildOAuthFrontendRedirect(provider, 'pending'))
+            return
+        }
+
+        const tokens = JwtService.generateTokenPair({
+            userId: user.id,
+            email: user.email,
+            name: user.name || undefined,
+        })
+        setRefreshTokenCookie(res, tokens.refreshToken)
+        res.redirect(buildOAuthFrontendRedirect(provider))
+    }
+
     router(): Router {
         const router = express.Router()
 
+        // Sandbox bypass endpoint for development
+        router.get('/sandbox', async (req: Request, res: Response) => {
+            const provider = req.query.provider as string || 'google'
+            const email = req.query.email as string
+            const name = req.query.name as string || 'Sandbox User'
+
+            if (!email) {
+                return res.redirect(buildOAuthFrontendRedirect(provider as any, 'failed'))
+            }
+
+            // In production, guard against sandbox usage if actual keys are defined
+            const isConfigured = provider === 'google'
+                ? (config.googleClientId && config.googleClientSecret)
+                : (config.appleClientId && config.applePrivateKey)
+            
+            if (isConfigured && config.nodeEnv === 'production') {
+                return res.redirect(buildOAuthFrontendRedirect(provider as any, 'failed'))
+            }
+
+            try {
+                const { prisma } = await import('../database/prisma.service')
+                let user = await prisma.user.findUnique({
+                    where: { email: email.trim().toLowerCase() },
+                    include: { roles: true }
+                })
+
+                if (!user) {
+                    user = await prisma.user.create({
+                        data: {
+                            email: email.trim().toLowerCase(),
+                            name,
+                            status: 'verified',
+                            isApproved: true,
+                        },
+                        include: { roles: true }
+                    })
+                }
+
+                this.completeOAuthLogin(provider as any, user, res)
+            } catch (error) {
+                console.error('Sandbox login failed:', error)
+                res.redirect(buildOAuthFrontendRedirect(provider as any, 'failed'))
+            }
+        })
+
         // Google OAuth routes
-        router.get(
-            '/google',
-            passport.authenticate('google', { scope: ['profile', 'email'], session: false })
-        )
+        router.get('/google', (req: Request, res: Response, next) => {
+            if (!config.googleClientId || !config.googleClientSecret) {
+                return res.redirect(`${getFrontendUrl()}/auth/sandbox?provider=google`)
+            }
+            passport.authenticate('google', { scope: ['profile', 'email'], session: false })(req, res, next)
+        })
 
         router.get(
             '/google/callback',
-            passport.authenticate('google', { session: false, failureRedirect: '/auth/failure' }),
-            (req: Request, res: Response) => {
-                const user = req.user as User
-                if (!canIssueAuthTokens(user)) {
-                    return res.status(403).json({ error: 'Account pending approval' })
-                }
-
-                const tokens = JwtService.generateTokenPair({
-                    userId: user.id,
-                    email: user.email,
-                    name: user.name || undefined,
-                })
-                setRefreshTokenCookie(res, tokens.refreshToken)
-
-                res.json({
-                    success: true,
-                    user: serializeAuthUser(user),
-                    tokens: { accessToken: tokens.accessToken },
-                })
+            (req: Request, res: Response, next) => {
+                passport.authenticate('google', { session: false }, (error: Error | null, user?: User) => {
+                    if (error || !user) {
+                        return res.redirect(buildOAuthFrontendRedirect('google', 'failed'))
+                    }
+                    this.completeOAuthLogin('google', user, res)
+                })(req, res, next)
             }
         )
 
@@ -70,27 +136,67 @@ export class AuthController {
 
         router.get(
             '/discord/callback',
-            passport.authenticate('discord', { session: false, failureRedirect: '/auth/failure' }),
-            (req: Request, res: Response) => {
-                const user = req.user as User
-                if (!canIssueAuthTokens(user)) {
-                    return res.status(403).json({ error: 'Account pending approval' })
-                }
-
-                const tokens = JwtService.generateTokenPair({
-                    userId: user.id,
-                    email: user.email,
-                    name: user.name || undefined,
-                })
-                setRefreshTokenCookie(res, tokens.refreshToken)
-
-                res.json({
-                    success: true,
-                    user: serializeAuthUser(user),
-                    tokens: { accessToken: tokens.accessToken },
-                })
+            (req: Request, res: Response, next) => {
+                passport.authenticate('discord', { session: false }, (error: Error | null, user?: User) => {
+                    if (error || !user) {
+                        return res.redirect(buildOAuthFrontendRedirect('discord', 'failed'))
+                    }
+                    this.completeOAuthLogin('discord', user, res)
+                })(req, res, next)
             }
         )
+
+        // Apple OAuth routes
+        router.get('/apple', (req: Request, res: Response) => {
+            if (!isAppleOAuthConfigured()) {
+                return res.redirect(`${getFrontendUrl()}/auth/sandbox?provider=apple`)
+            }
+
+            const state = createOAuthState()
+            setAppleOAuthStateCookie(res, state)
+            res.redirect(buildAppleAuthorizationUrl(state))
+        })
+
+        const handleAppleCallback = async (req: Request, res: Response) => {
+            try {
+                const callbackState = typeof req.body?.state === 'string'
+                    ? req.body.state
+                    : typeof req.query.state === 'string'
+                        ? req.query.state
+                        : ''
+                const storedState = getAppleOAuthStateFromRequest(req)
+                clearAppleOAuthStateCookie(res)
+
+                if (!callbackState || !storedState || callbackState !== storedState) {
+                    return res.redirect(buildOAuthFrontendRedirect('apple', 'state_mismatch'))
+                }
+
+                const code = typeof req.body?.code === 'string'
+                    ? req.body.code
+                    : typeof req.query.code === 'string'
+                        ? req.query.code
+                        : ''
+                if (!code) {
+                    return res.redirect(buildOAuthFrontendRedirect('apple', 'failed'))
+                }
+
+                const tokenResponse = await exchangeAppleAuthorizationCode(code)
+                const identity = await verifyAppleIdentityToken(tokenResponse.id_token || '')
+                const appleName = parseAppleUserName(req.body?.user)
+                const user = await findOrCreateAppleOAuthUser({
+                    email: identity.email || '',
+                    name: appleName,
+                })
+
+                this.completeOAuthLogin('apple', user, res)
+            } catch (error) {
+                console.error('Apple OAuth callback error:', error)
+                res.redirect(buildOAuthFrontendRedirect('apple', 'failed'))
+            }
+        }
+
+        router.post('/apple/callback', express.urlencoded({ extended: false }), handleAppleCallback)
+        router.get('/apple/callback', handleAppleCallback)
 
         // Standard Email/Password Signup
         router.post('/signup', this.rateLimiters.signup, async (req: Request, res: Response) => {

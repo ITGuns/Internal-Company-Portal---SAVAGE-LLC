@@ -8,6 +8,7 @@ import Button from "@/components/Button";
 import FormField from "@/components/forms/FormField";
 import EmptyState from "@/components/ui/EmptyState";
 import OperationsMembersPanel from "@/components/operations/OperationsMembersPanel";
+import OrgChart from "@/components/operations/OrgChart";
 import { useToast } from "@/components/ToastProvider";
 import { ArrowRight, BriefcaseBusiness, Building, Plus, Trash2, UserPlus } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -16,7 +17,7 @@ import { useUser } from "@/contexts/UserContext";
 import { hasFullAccess } from "@/lib/role-access";
 import type { MemberRoleAssignment, OperationsMember } from "@/lib/member-role-management";
 
-type Department = {
+export type Department = {
   id: string;
   name: string;
   driveId?: string;
@@ -27,7 +28,7 @@ type Department = {
   };
 };
 
-type Role = {
+export type Role = {
   id: string;
   name: string;
   departmentId?: string | null;
@@ -48,7 +49,7 @@ export default function OperationsPage() {
   const [members, setMembers] = useState<OperationsMember[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'departments' | 'roles' | 'members' | 'clients'>('departments');
+  const [activeTab, setActiveTab] = useState<'departments' | 'roles' | 'members' | 'clients' | 'branding' | 'org_chart'>('org_chart');
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
@@ -58,11 +59,66 @@ export default function OperationsPage() {
   const [roleName, setRoleName] = useState("");
   const [roleDeptId, setRoleDeptId] = useState("");
 
+  // Workspace branding settings states
+  const [wsName, setWsName] = useState("");
+  const [wsLogoUrl, setWsLogoUrl] = useState("");
+  const [wsLogoAlt, setWsLogoAlt] = useState("");
+  const [wsTagline, setWsTagline] = useState("");
+  const [wsSignInMessage, setWsSignInMessage] = useState("");
+  const [savingBranding, setSavingBranding] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [syncingCatalog, setSyncingCatalog] = useState(false);
   const catalogSyncAttemptedRef = useRef(false);
   const toast = useToast();
   const canManageOrgSettings = hasFullAccess(user);
+
+  useEffect(() => {
+    if (activeTab === 'branding') {
+      apiFetch('/workspace/public')
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await res.json();
+            setWsName(data.name || "");
+            setWsLogoUrl(data.logoUrl || "");
+            setWsLogoAlt(data.logoAlt || "");
+            setWsTagline(data.tagline || "");
+            setWsSignInMessage(data.signInMessage || "");
+          }
+        })
+        .catch(console.error);
+    }
+  }, [activeTab]);
+
+  async function handleBrandingSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingBranding(true);
+    try {
+      const res = await apiFetch('/workspace', {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: wsName,
+          logoUrl: wsLogoUrl,
+          logoAlt: wsLogoAlt,
+          tagline: wsTagline,
+          signInMessage: wsSignInMessage,
+        })
+      });
+      if (res.ok) {
+        toast.success("Workspace branding updated successfully! Reloading portal to apply...");
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        toast.error("Failed to update workspace branding");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save branding settings");
+    } finally {
+      setSavingBranding(false);
+    }
+  }
 
   const syncOrgCatalog = useCallback(async (options: { showToast?: boolean } = {}) => {
     if (!canManageOrgSettings) return false;
@@ -249,6 +305,15 @@ export default function OperationsPage() {
             <button
               type="button"
               role="tab"
+              aria-selected={activeTab === 'org_chart'}
+              onClick={() => setActiveTab('org_chart')}
+              className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'org_chart' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
+            >
+              Org Chart
+            </button>
+            <button
+              type="button"
+              role="tab"
               aria-selected={activeTab === 'departments'}
               onClick={() => setActiveTab('departments')}
               className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'departments' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
@@ -282,6 +347,17 @@ export default function OperationsPage() {
             >
               Clients
             </button>
+            {canManageOrgSettings && (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'branding'}
+                onClick={() => setActiveTab('branding')}
+                className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'branding' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
+              >
+                Branding & Settings
+              </button>
+            )}
           </div>
 
           <div className="flex gap-3 mb-6">
@@ -343,10 +419,28 @@ export default function OperationsPage() {
                 Open Client Operations
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
+            ) : activeTab === 'org_chart' ? (
+              canManageOrgSettings ? (
+                <Button
+                  variant="secondary"
+                  loading={syncingCatalog}
+                  onClick={() => {
+                    void syncOrgCatalog({ showToast: true }).then(() => loadData());
+                  }}
+                >
+                  Sync Org Chart
+                </Button>
+              ) : null
             ) : null}
           </div>
 
-          {activeTab === 'departments' ? (
+          {activeTab === 'org_chart' ? (
+            <OrgChart
+              departments={departments}
+              roles={roles}
+              members={members}
+            />
+          ) : activeTab === 'departments' ? (
             departments.length === 0 ? (
               <EmptyState
                 icon={Building}
@@ -431,7 +525,7 @@ export default function OperationsPage() {
               onAssignRole={handleAssignMemberRole}
               onRemoveRole={handleRemoveMemberRole}
             />
-          ) : (
+          ) : activeTab === 'clients' ? (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
               <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-[var(--shadow-sm)]">
                 <div className="flex items-start gap-4">
@@ -465,6 +559,53 @@ export default function OperationsPage() {
                   Client management stays in Operations so admins do not need to jump between the internal workspace and the client-facing portal.
                 </p>
               </div>
+            </div>
+          ) : (
+            <div className="max-w-xl rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-6 shadow-[var(--shadow-sm)]">
+              <h2 className="text-lg font-semibold mb-4 text-[var(--foreground)]">Workspace Branding & Settings</h2>
+              <form onSubmit={handleBrandingSave} className="space-y-4">
+                <FormField
+                  id="ws-name"
+                  label="Workspace / Company Name"
+                  value={wsName}
+                  onChange={setWsName}
+                  placeholder="e.g. Deskii"
+                  required
+                />
+                <FormField
+                  id="ws-logo-url"
+                  label="Company Logo URL (HTTP/HTTPS URL)"
+                  value={wsLogoUrl}
+                  onChange={setWsLogoUrl}
+                  placeholder="e.g. https://example.com/logo.png"
+                />
+                <FormField
+                  id="ws-logo-alt"
+                  label="Logo Alt Text"
+                  value={wsLogoAlt}
+                  onChange={setWsLogoAlt}
+                  placeholder="e.g. Deskii Workspace Logo"
+                />
+                <FormField
+                  id="ws-tagline"
+                  label="Workspace Tagline"
+                  value={wsTagline}
+                  onChange={setWsTagline}
+                  placeholder="e.g. Your workspace"
+                />
+                <FormField
+                  id="ws-signin-msg"
+                  label="Login Sign-In Message"
+                  value={wsSignInMessage}
+                  onChange={setWsSignInMessage}
+                  placeholder="e.g. Sign in to your Deskii workspace"
+                />
+                <div className="flex justify-end pt-4">
+                  <Button type="submit" variant="primary" loading={savingBranding}>
+                    Save Branding Settings
+                  </Button>
+                </div>
+              </form>
             </div>
           )}
         </div>
