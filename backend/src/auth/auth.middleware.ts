@@ -2,6 +2,9 @@ import { Request, Response, NextFunction } from 'express'
 import { JwtService, JwtPayload } from './jwt.service'
 import { isAdminEmail } from '../config/env.config'
 import { hasFullAccess, normalizeOrgRoleName } from '../org/org-access-policy'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('auth.middleware')
 
 // Extend Express Request to include authenticated user
 export interface AuthRequest extends Request {
@@ -99,7 +102,7 @@ export function requireRole(allowedRoles: string | string[]) {
             res.status(403).json({ error: 'Insufficient permissions' })
             return
         } catch (error) {
-            console.error('Role verification error:', error)
+            logger.error('Role verification error', error)
             res.status(500).json({ error: 'Internal server error during role verification' })
             return
         }
@@ -154,7 +157,7 @@ export function requireDepartment(allowedDepartments: string | string[]) {
             res.status(403).json({ error: `Access restricted to ${departments.join(', ')} department` })
             return
         } catch (error) {
-            console.error('Department verification error:', error)
+            logger.error('Department verification error', error)
             res.status(500).json({ error: 'Internal server error during permission check' })
             return
         }

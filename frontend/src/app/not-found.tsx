@@ -38,8 +38,9 @@ export default function NotFound() {
                 Back to Dashboard
             </Button>
 
+            {/* Branding */}
             <p className="mt-12 text-xs text-[var(--muted)] tracking-widest uppercase">
-                Deskii — Internal Portal
+                SAVAGE LLC — Internal Portal
             </p>
         </div>
     );

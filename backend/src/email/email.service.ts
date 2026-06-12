@@ -13,6 +13,9 @@ import {
     EmailTemplateData,
 } from './email.types';
 import { getEmailTemplate, htmlToPlainText } from './email.templates';
+import { createLogger } from '../observability/logger';
+
+const logger = createLogger('email.service');
 
 export class EmailService {
     private static instance: EmailService;
@@ -32,20 +35,20 @@ export class EmailService {
 
     private initialize(): void {
         if (!emailConfig.enabled) {
-            console.log('📧 Email service is disabled');
+            logger.info('Email service is disabled');
             return;
         }
 
         this.isConfigured = validateEmailConfig();
 
         if (!this.isConfigured) {
-            console.warn('⚠️ Email service configuration is incomplete');
+            logger.warn('Email service configuration is incomplete');
             return;
         }
 
         if (emailConfig.provider === 'sendgrid') {
             sgMail.setApiKey(emailConfig.sendgrid!.apiKey);
-            console.log('✅ SendGrid email service initialized');
+            logger.info('SendGrid email service initialized');
         } else if (emailConfig.provider === 'smtp') {
             this.transporter = nodemailer.createTransport({
                 host: emailConfig.smtp!.host,
@@ -56,7 +59,7 @@ export class EmailService {
                     pass: emailConfig.smtp!.auth.pass,
                 },
             });
-            console.log('✅ SMTP email service initialized');
+            logger.info('SMTP email service initialized');
         }
     }
 
@@ -65,7 +68,7 @@ export class EmailService {
      */
     async sendEmail(options: EmailOptions): Promise<EmailResult> {
         if (!this.isConfigured) {
-            console.warn('⚠️ Email not sent - service is not configured');
+            logger.warn('Email not sent; service is not configured');
             return {
                 success: false,
                 error: 'Email service is not configured',
@@ -78,7 +81,7 @@ export class EmailService {
             // Redirect all emails to the test override address when configured
             if (emailConfig.testOverrideEmail) {
                 const originalTo = Array.isArray(to) ? to.join(', ') : to;
-                console.log(`📧 [TEST MODE] Redirecting email from "${originalTo}" → "${emailConfig.testOverrideEmail}"`);
+                logger.info('Test email override applied', { originalTo, overrideEmail: emailConfig.testOverrideEmail });
                 to = emailConfig.testOverrideEmail;
                 subject = `[TEST → ${originalTo}] ${subject}`;
             }
@@ -93,7 +96,7 @@ export class EmailService {
                 return await this.sendViaSMTP(to, subject, emailHtml, emailText, attachments);
             }
         } catch (error) {
-            console.error('❌ Error sending email:', error);
+            logger.error('Error sending email', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error',
@@ -133,14 +136,14 @@ export class EmailService {
             }
 
             const response = await sgMail.send(msg);
-            console.log(`✅ Email sent via SendGrid to ${to}`);
+            logger.info('Email sent via SendGrid', { to });
 
             return {
                 success: true,
                 messageId: response[0].headers['x-message-id'],
             };
         } catch (error) {
-            console.error('❌ SendGrid error:', error);
+            logger.error('SendGrid error', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'SendGrid send failed',
@@ -179,14 +182,14 @@ export class EmailService {
             }
 
             const info = await this.transporter.sendMail(mailOptions);
-            console.log(`✅ Email sent via SMTP to ${to}`);
+            logger.info('Email sent via SMTP', { to });
 
             return {
                 success: true,
                 messageId: info.messageId,
             };
         } catch (error) {
-            console.error('❌ SMTP error:', error);
+            logger.error('SMTP error', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'SMTP send failed',
@@ -214,7 +217,7 @@ export class EmailService {
                 text,
             });
         } catch (error) {
-            console.error('❌ Error sending template email:', error);
+            logger.error('Error sending template email', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error',
@@ -233,7 +236,7 @@ export class EmailService {
     ): Promise<EmailResult> {
         return await this.sendTemplateEmail(
             to,
-            'Welcome to Deskii',
+            'Welcome to SAVAGE LLC Internal Portal',
             'welcome',
             {
                 userName,
@@ -403,7 +406,7 @@ export class EmailService {
                     </div>
                     
                     <p style="color: #9ca3af; font-size: 12px; text-align: center;">
-                        This email was sent from Deskii.<br/>
+                        This email was sent from the SAVAGE LLC Internal Portal.<br/>
                         If you did not authorize this, please contact support immediately.
                     </p>
                 </div>
@@ -420,14 +423,14 @@ export class EmailService {
         try {
             if (emailConfig.provider === 'smtp' && this.transporter) {
                 await this.transporter.verify();
-                console.log('✅ SMTP connection verified');
+                logger.info('SMTP connection verified');
                 return true;
             }
             // SendGrid doesn't have a verify method, assume configured correctly
-            console.log('✅ SendGrid assumed configured');
+            logger.info('SendGrid assumed configured');
             return true;
         } catch (error) {
-            console.error('❌ Email service verification failed:', error);
+            logger.error('Email service verification failed', error);
             return false;
         }
     }
@@ -438,10 +441,10 @@ export class EmailService {
     async sendTestEmail(to: string): Promise<EmailResult> {
         return await this.sendEmail({
             to,
-            subject: 'Test Email from Deskii',
+            subject: 'Test Email from SAVAGE LLC Portal',
             html: `
         <h1>Test Email</h1>
-        <p>This is a test email from Deskii.</p>
+        <p>This is a test email from the SAVAGE LLC Internal Portal.</p>
         <p>If you received this, your email configuration is working correctly!</p>
         <p>Time sent: ${new Date().toISOString()}</p>
       `,

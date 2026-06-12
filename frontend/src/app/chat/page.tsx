@@ -4,9 +4,9 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import Header from '@/components/Header'
 import Button from '@/components/Button'
-import { MessageSquare, Paperclip, Trash2, Pencil, Check, X, Search } from 'lucide-react'
+import { MessageSquare, Paperclip, Trash2, Pencil, Check, X, Search, SmilePlus } from 'lucide-react'
 import Image from 'next/image'
-import { fetchConversations, fetchMessages, sendMessage, createConversation, deleteMessage, deleteConversation, editMessage, searchMessages, fetchOnlineUsers, markAsRead, type Message, type Conversation, type SearchResult } from '@/lib/chat'
+import { fetchConversations, fetchMessages, sendMessage, createConversation, deleteMessage, deleteConversation, editMessage, searchMessages, fetchOnlineUsers, markAsRead, toggleMessageReaction, type Message, type Conversation, type SearchResult, type MessageReaction, type MessageReactionToggleResult } from '@/lib/chat'
 import { fetchUsers, type User as SystemUser } from '@/lib/users'
 import { useSocket } from '@/context/SocketContext'
 import { useUser } from '@/contexts/UserContext'
@@ -16,6 +16,28 @@ import MessageInput from '@/components/chat/MessageInput'
 import NewChatModal from '@/components/chat/NewChatModal'
 import CreateChannelModal from '@/components/chat/CreateChannelModal'
 import { useToast } from '@/components/ToastProvider'
+import { useEscapeToClose } from '@/hooks/useEscapeToClose'
+import { getChatMessageActionLayout } from '@/lib/chat-message-layout'
+
+const QUICK_REACTIONS = ['\u{1F44D}', '\u2705', '\u{1F602}', '\u{1F525}', '\u2764\uFE0F', '\u{1F440}']
+
+function groupMessageReactions(reactions: MessageReaction[] = []) {
+    return reactions.reduce<Array<{ emoji: string; count: number; userIds: Set<string> }>>((groups, reaction) => {
+        const existing = groups.find(group => group.emoji === reaction.emoji)
+        if (existing) {
+            existing.count += 1
+            existing.userIds.add(String(reaction.userId))
+            return groups
+        }
+
+        groups.push({
+            emoji: reaction.emoji,
+            count: 1,
+            userIds: new Set([String(reaction.userId)]),
+        })
+        return groups
+    }, [])
+}
 
 export default function UnifiedChatPage() {
     const { socket, isConnected, clearChatBadge } = useSocket()
@@ -54,7 +76,33 @@ export default function UnifiedChatPage() {
     const [searchTerm, setSearchTerm] = useState('')
     const [searchResults, setSearchResults] = useState<SearchResult[]>([])
     const [searching, setSearching] = useState(false)
+    const [openReactionPickerId, setOpenReactionPickerId] = useState<string | null>(null)
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const reactionPickerRef = useRef<HTMLDivElement>(null)
+    const closeSearch = useCallback(() => {
+        setSearchOpen(false)
+        setSearchTerm('')
+        setSearchResults([])
+    }, [])
+    const closeReactionPicker = useCallback(() => setOpenReactionPickerId(null), [])
+
+    useEscapeToClose({ isOpen: searchOpen, onClose: closeSearch })
+    useEscapeToClose({ isOpen: Boolean(openReactionPickerId), onClose: closeReactionPicker })
+
+    useEffect(() => {
+        if (!openReactionPickerId) return
+
+        const handlePointerDown = (event: PointerEvent) => {
+            if (reactionPickerRef.current?.contains(event.target as Node)) return
+            setOpenReactionPickerId(null)
+        }
+
+        document.addEventListener('pointerdown', handlePointerDown)
+
+        return () => {
+            document.removeEventListener('pointerdown', handlePointerDown)
+        }
+    }, [closeReactionPicker, openReactionPickerId])
 
     // Clear global badge when on this page
     useEffect(() => {
@@ -304,6 +352,10 @@ export default function UnifiedChatPage() {
             setMessages(prev => prev.map(m => m.id === messageId ? { ...m, content, editedAt } : m))
         }
 
+        const handleReactionUpdated = ({ messageId, reactions }: MessageReactionToggleResult) => {
+            setMessages(prev => prev.map(m => m.id === messageId ? { ...m, reactions } : m))
+        }
+
         const handleChatRead = ({ conversationId, userId }: { conversationId: string; userId: string }) => {
             // If *we* marked it read (from another tab), zero out our local count
             if (String(userId) === String(currentUser?.id)) {
@@ -316,6 +368,7 @@ export default function UnifiedChatPage() {
         socket.on('chat:conversation_created', handleNewConversation)
         socket.on('chat:user_left', handleUserLeft)
         socket.on('chat:message_edited', handleMessageEdited)
+        socket.on('chat:reaction_updated', handleReactionUpdated)
         socket.on('chat:read', handleChatRead)
 
         return () => {
@@ -324,6 +377,7 @@ export default function UnifiedChatPage() {
             socket.off('chat:conversation_created', handleNewConversation)
             socket.off('chat:user_left', handleUserLeft)
             socket.off('chat:message_edited', handleMessageEdited)
+            socket.off('chat:reaction_updated', handleReactionUpdated)
             socket.off('chat:read', handleChatRead)
         }
     }, [socket, isConnected, selectedId, currentUser, clearChatBadge])
@@ -465,6 +519,18 @@ export default function UnifiedChatPage() {
         }
     }
 
+    const handleToggleReaction = async (messageId: string, emoji: string) => {
+        if (messageId.startsWith('temp-')) return
+
+        try {
+            const result = await toggleMessageReaction(messageId, emoji)
+            setMessages(prev => prev.map(m => m.id === messageId ? { ...m, reactions: result.reactions } : m))
+        } catch (err) {
+            console.error(err)
+            toast.error("Failed to update reaction")
+        }
+    }
+
     // Message search
     const handleSearch = useCallback(async () => {
         if (!searchTerm.trim()) { setSearchResults([]); return }
@@ -540,7 +606,7 @@ export default function UnifiedChatPage() {
                         <button onClick={handleSearch} disabled={searching} className="min-h-10 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm text-[var(--accent-foreground)] disabled:opacity-50">
                             {searching ? '...' : 'Search'}
                         </button>
-                        <button type="button" onClick={() => { setSearchOpen(false); setSearchTerm(''); setSearchResults([]) }} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]" aria-label="Close search">
+                        <button type="button" onClick={closeSearch} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]" aria-label="Close search">
                             <X className="w-4 h-4" />
                         </button>
                     </div>
@@ -549,7 +615,7 @@ export default function UnifiedChatPage() {
                             {searchResults.map(r => (
                                 <button
                                     key={r.id}
-                                    onClick={() => { setSelectedId(r.conversation.id); setSearchOpen(false); setSearchTerm(''); setSearchResults([]) }}
+                                    onClick={() => { setSelectedId(r.conversation.id); closeSearch() }}
                                     className="flex min-h-12 w-full items-start gap-2 rounded-lg p-2 text-left transition-colors hover:bg-[var(--background)]"
                                 >
                                     <div className="flex-1 min-w-0">
@@ -611,6 +677,75 @@ export default function UnifiedChatPage() {
                                     const myId = currentUser?.id ? String(currentUser.id) : undefined
                                     const isMe = msg.senderId === myId
                                     const showHeader = i === 0 || messages[i - 1].senderId !== msg.senderId
+                                    const reactionGroups = groupMessageReactions(msg.reactions)
+                                    const isReactionPickerOpen = openReactionPickerId === msg.id
+                                    const actionLayout = getChatMessageActionLayout(isMe)
+                                    const messageActionRail = (
+                                        <div className={actionLayout.actionRail}>
+                                            {isMe && !editingMessageId && (
+                                                <div className={actionLayout.ownerActions}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleStartEdit(msg)}
+                                                        className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[var(--muted)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                                        aria-label="Edit message"
+                                                    >
+                                                        <Pencil className="w-3 h-3" aria-hidden="true" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteMessage(msg.id)}
+                                                        className="inline-flex h-10 w-10 items-center justify-center rounded-full text-red-500 transition-colors hover:bg-red-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
+                                                        aria-label="Delete message"
+                                                    >
+                                                        <Trash2 className="w-3 h-3" aria-hidden="true" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                            <div
+                                                ref={isReactionPickerOpen ? reactionPickerRef : undefined}
+                                                className="relative"
+                                            >
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOpenReactionPickerId(prev => prev === msg.id ? null : msg.id)}
+                                                    className={`inline-flex h-10 w-10 items-center justify-center rounded-full border text-sm shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isReactionPickerOpen
+                                                        ? 'border-[var(--accent)] bg-[var(--accent)]/15 text-[var(--foreground)]'
+                                                        : 'border-[var(--border)] bg-[var(--background)] text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]'
+                                                        }`}
+                                                    aria-label={isReactionPickerOpen ? 'Close quick reactions' : 'Open quick reactions'}
+                                                    aria-expanded={isReactionPickerOpen}
+                                                    aria-controls={`reaction-picker-${msg.id}`}
+                                                    title={isReactionPickerOpen ? 'Close quick reactions' : 'Open quick reactions'}
+                                                >
+                                                    <SmilePlus className="h-4 w-4" aria-hidden="true" />
+                                                </button>
+                                                {isReactionPickerOpen && (
+                                                    <div
+                                                        id={`reaction-picker-${msg.id}`}
+                                                        role="group"
+                                                        aria-label="Quick reactions"
+                                                        className={actionLayout.pickerPanel}
+                                                    >
+                                                        {QUICK_REACTIONS.map((emoji) => (
+                                                            <button
+                                                                key={emoji}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setOpenReactionPickerId(null)
+                                                                    void handleToggleReaction(msg.id, emoji)
+                                                                }}
+                                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-sm transition-colors hover:bg-[var(--background)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                                                aria-label={`React with ${emoji}`}
+                                                            >
+                                                                <span aria-hidden="true">{emoji}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )
 
                                     return (
                                         <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group`}>
@@ -623,18 +758,20 @@ export default function UnifiedChatPage() {
                                                 </div>
                                             )}
 
-                                            <div className="flex items-center max-w-[85%] md:max-w-[70%]">
-                                                {!isMe && showHeader && (
-                                                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 mr-2 border border-[var(--border)] self-end mb-1">
-                                                        <Image src={msg.sender.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.sender.name)}`} alt={msg.sender.name} width={32} height={32} className="w-full h-full object-cover" />
-                                                    </div>
-                                                )}
-                                                {!isMe && !showHeader && <div className="w-10 flex-shrink-0" />}
+                                            <div className={actionLayout.row}>
+                                                <div className={actionLayout.cluster}>
+                                                    {!isMe && showHeader && (
+                                                        <div className="mb-1 h-8 w-8 flex-shrink-0 self-end overflow-hidden rounded-full border border-[var(--border)]">
+                                                            <Image src={msg.sender.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.sender.name)}`} alt={msg.sender.name} width={32} height={32} className="h-full w-full object-cover" />
+                                                        </div>
+                                                    )}
+                                                    {!isMe && !showHeader && <div className="w-8 flex-shrink-0" />}
+                                                    {isMe && messageActionRail}
 
-                                                <div className={`relative px-4 py-2.5 rounded-2xl text-sm shadow-sm transition-all ${isMe
-                                                    ? 'bg-[var(--accent)] text-[var(--accent-foreground)] rounded-tr-none'
-                                                    : 'bg-[var(--card-surface)] text-[var(--foreground)] border border-[var(--border)] rounded-tl-none'
-                                                    }`}>
+                                                    <div className={`relative min-w-0 break-words px-4 py-2.5 rounded-2xl text-sm shadow-sm transition-all ${isMe
+                                                        ? 'bg-[var(--accent)] text-[var(--accent-foreground)] rounded-tr-none'
+                                                        : 'bg-[var(--card-surface)] text-[var(--foreground)] border border-[var(--border)] rounded-tl-none'
+                                                        }`}>
                                                     {editingMessageId === msg.id ? (
                                                         <div className="flex items-center gap-2">
                                                             <input
@@ -679,29 +816,34 @@ export default function UnifiedChatPage() {
                                                         </div>
                                                     )}
 
-                                                    {/* Message Actions (Edit + Delete) */}
-                                                    {isMe && !editingMessageId && (
-                                                        <div className="absolute -left-24 top-1/2 flex -translate-y-1/2 items-center gap-1 opacity-0 transition-all group-hover:opacity-100 group-focus-within:opacity-100">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleStartEdit(msg)}
-                                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[var(--muted)] transition-all hover:bg-[var(--background)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                                                                aria-label="Edit message"
-                                                            >
-                                                                <Pencil className="w-3 h-3" />
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleDeleteMessage(msg.id)}
-                                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-red-500 transition-all hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
-                                                                aria-label="Delete message"
-                                                            >
-                                                                <Trash2 className="w-3 h-3" />
-                                                            </button>
-                                                        </div>
-                                                    )}
+                                                    </div>
+                                                    {!isMe && messageActionRail}
                                                 </div>
                                             </div>
+
+                                            {reactionGroups.length > 0 && (
+                                                <div className={actionLayout.reactionChips}>
+                                                    {reactionGroups.map((reaction) => {
+                                                        const selected = myId ? reaction.userIds.has(myId) : false
+
+                                                        return (
+                                                            <button
+                                                                key={reaction.emoji}
+                                                                type="button"
+                                                                onClick={() => handleToggleReaction(msg.id, reaction.emoji)}
+                                                                className={`inline-flex min-h-10 items-center gap-1 rounded-full border px-3 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${selected
+                                                                    ? 'border-[var(--accent)] bg-[var(--accent)]/15 text-[var(--foreground)]'
+                                                                    : 'border-[var(--border)] bg-[var(--card-surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
+                                                                    }`}
+                                                                aria-label={`${selected ? 'Remove' : 'Add'} ${reaction.emoji} reaction`}
+                                                            >
+                                                                <span aria-hidden="true">{reaction.emoji}</span>
+                                                                <span>{reaction.count}</span>
+                                                            </button>
+                                                        )
+                                                    })}
+                                                </div>
+                                            )}
 
                                             {/* Timestamp for my messages or if it's the last in a group */}
                                             {isMe && (

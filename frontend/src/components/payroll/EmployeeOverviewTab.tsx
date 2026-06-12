@@ -9,6 +9,7 @@ import { Users, User, Clock, Award, CheckCircle, XCircle, UserCheck, UserPlus, E
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 import Button from "@/components/Button";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
 import EmployeeCard from "./EmployeeCard";
 import StatCard from "./StatCard";
 import type { Employee } from "@/lib/payroll-calendar/types";
@@ -37,6 +38,12 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
     const [showEditModal, setShowEditModal] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
+    const deleteDialogTitleId = React.useId();
+    const deleteDialogDescriptionId = React.useId();
+    const { dialogRef: deleteDialogRef, handleDialogKeyDown: handleDeleteDialogKeyDown } = useDialogA11y({
+        isOpen: Boolean(employeeToDelete),
+        onClose: () => setEmployeeToDelete(null),
+    });
 
     // Fetch data from backend
     const fetchData = useCallback(async () => {
@@ -59,6 +66,8 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                 salary: emp.salary || (emp.employeeProfile?.baseSalary) || 0,
                 department: emp.department || (emp.employeeProfile?.department?.name) || "Operations",
                 role: emp.role || (emp.employeeProfile?.jobTitle) || "Member",
+                payrollScheme: emp.payrollScheme || emp.employeeProfile?.payrollScheme || "weekdays",
+                maxBillableHoursPerDay: emp.maxBillableHoursPerDay || emp.employeeProfile?.maxBillableHoursPerDay || 8,
                 avatar: emp.avatar || (emp.name?.[0] || "U"),
                 status: (emp.status || "active") as Employee['status'],
                 email: emp.email || "no-email@company.com"
@@ -450,12 +459,21 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
             />
 
             {employeeToDelete && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-[var(--card-bg)] rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-                        <h3 className="text-lg font-bold text-[var(--foreground)] mb-2">
+                <div className="portal-form-backdrop fixed inset-0 z-50 flex items-center justify-center">
+                    <div
+                        ref={deleteDialogRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby={deleteDialogTitleId}
+                        aria-describedby={deleteDialogDescriptionId}
+                        tabIndex={-1}
+                        onKeyDown={handleDeleteDialogKeyDown}
+                        className="bg-[var(--card-bg)] rounded-lg p-6 max-w-md w-full mx-4 shadow-xl"
+                    >
+                        <h3 id={deleteDialogTitleId} className="text-lg font-bold text-[var(--foreground)] mb-2">
                             Remove Employee?
                         </h3>
-                        <p className="text-sm text-[var(--muted)] mb-6">
+                        <p id={deleteDialogDescriptionId} className="text-sm text-[var(--muted)] mb-6">
                             Are you sure you want to remove <strong>{employeeToDelete.name}</strong> from the system? This action cannot be undone.
                         </p>
                         <div className="flex gap-3 justify-end">

@@ -59,12 +59,28 @@ assert.deepEqual(getTaskVisibilityFilter(employeeAccess), {
   OR: [
     { assigneeId: 'user-1' },
     { createdById: 'user-1' },
+    {
+      collaborators: {
+        some: {
+          userId: 'user-1',
+          status: { in: ['invited', 'accepted'] },
+        },
+      },
+    },
   ],
 })
 assert.deepEqual(getTaskVisibilityFilter(managerAccess), {})
 
 assert.equal(canReadTask(employeeAccess, { assigneeId: 'user-1' }), true)
 assert.equal(canReadTask(employeeAccess, { assigneeId: 'user-2', createdById: 'user-1' }), true)
+assert.equal(canReadTask(employeeAccess, {
+  assigneeId: 'user-2',
+  collaborators: [{ userId: 'user-1', status: 'invited' }],
+}), true)
+assert.equal(canReadTask(employeeAccess, {
+  assigneeId: 'user-2',
+  collaborators: [{ userId: 'user-1', status: 'declined' }],
+}), false)
 assert.equal(canReadTask(employeeAccess, { assigneeId: 'user-2' }), false)
 assert.equal(canReadTask(managerAccess, { assigneeId: 'user-2' }), true)
 

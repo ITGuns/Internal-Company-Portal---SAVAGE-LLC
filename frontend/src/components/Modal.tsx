@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, ReactNode } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 
 export interface ModalProps {
   /** Whether the modal is open */
@@ -48,20 +49,7 @@ export default function Modal({
 }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
-
-  // Handle ESC key
-  useEffect(() => {
-    if (!isOpen || !closeOnEsc) return;
-
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
-  }, [isOpen, closeOnEsc, onClose]);
+  useEscapeToClose({ isOpen, enabled: closeOnEsc, onClose });
 
   // Focus trap and restoration
   useEffect(() => {
@@ -142,7 +130,7 @@ export default function Modal({
     >
       {/* Backdrop - covers the active content area and preserves the desktop sidebar. */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm motion-fade-in"
+        className="portal-form-backdrop absolute inset-0 motion-fade-in"
         onClick={closeOnBackdrop ? onClose : undefined}
         aria-hidden="true"
       />

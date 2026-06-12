@@ -12,13 +12,20 @@ import {
   createTask,
   updateTask,
   deleteTask,
+  fetchTaskProjects,
+  createTaskProject,
+  updateTaskProject,
+  deleteTaskProject,
   fetchUsers,
   fetchDepartments,
   type CreateTaskPayload,
   type UpdateTaskPayload,
+  type CreateTaskProjectPayload,
+  type UpdateTaskProjectPayload,
 } from '@/lib/tasks';
 
 const TASKS_KEY = ['tasks'] as const;
+const TASK_PROJECTS_KEY = ['task-projects'] as const;
 const USERS_KEY = ['users'] as const;
 const DEPARTMENTS_KEY = ['departments'] as const;
 
@@ -50,6 +57,14 @@ export function useTaskDetail(taskId?: string) {
   });
 }
 
+export function useTaskProjects() {
+  return useQuery({
+    queryKey: TASK_PROJECTS_KEY,
+    queryFn: fetchTaskProjects,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
 export function useUsers() {
   return useQuery({
     queryKey: USERS_KEY,
@@ -70,7 +85,10 @@ export function useCreateTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateTaskPayload) => createTask(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: TASKS_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TASKS_KEY });
+      qc.invalidateQueries({ queryKey: TASK_PROJECTS_KEY });
+    },
   });
 }
 
@@ -78,7 +96,10 @@ export function useUpdateTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateTaskPayload }) => updateTask(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: TASKS_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TASKS_KEY });
+      qc.invalidateQueries({ queryKey: TASK_PROJECTS_KEY });
+    },
   });
 }
 
@@ -86,6 +107,42 @@ export function useDeleteTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteTask(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: TASKS_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TASKS_KEY });
+      qc.invalidateQueries({ queryKey: TASK_PROJECTS_KEY });
+    },
+  });
+}
+
+export function useCreateTaskProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateTaskProjectPayload) => createTaskProject(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TASK_PROJECTS_KEY });
+      qc.invalidateQueries({ queryKey: TASKS_KEY });
+    },
+  });
+}
+
+export function useUpdateTaskProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateTaskProjectPayload }) => updateTaskProject(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TASK_PROJECTS_KEY });
+      qc.invalidateQueries({ queryKey: TASKS_KEY });
+    },
+  });
+}
+
+export function useDeleteTaskProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteTaskProject(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TASK_PROJECTS_KEY });
+      qc.invalidateQueries({ queryKey: TASKS_KEY });
+    },
   });
 }

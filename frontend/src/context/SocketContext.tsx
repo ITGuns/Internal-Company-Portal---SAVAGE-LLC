@@ -6,30 +6,8 @@ import { APP_CONFIG } from '@/lib/config'
 import { apiFetch, getAuthToken } from '@/lib/api'
 import { useUser } from '@/contexts/UserContext'
 import { getQueryClient } from '@/lib/queryClient'
+import { resolveSocketUrl } from '@/lib/socket-url'
 import type { SocketNotificationPayload } from '@/lib/types/api'
-
-const DEFAULT_SOCKET_URL = APP_CONFIG.wsUrl
-    .replace('ws://', 'http://')
-    .replace('wss://', 'https://');
-
-function resolveSocketUrl(): string {
-    if (typeof window === 'undefined') return DEFAULT_SOCKET_URL;
-
-    const configuredUrl = new URL(DEFAULT_SOCKET_URL, window.location.origin);
-    const configuredHost = configuredUrl.hostname;
-    const isConfiguredLoopback = configuredHost === 'localhost'
-        || configuredHost === '127.0.0.1'
-        || configuredHost === '::1'
-        || configuredHost === '[::1]';
-    const isCurrentLoopback = window.location.hostname === 'localhost'
-        || window.location.hostname === '127.0.0.1'
-        || window.location.hostname === '::1'
-        || window.location.hostname === '[::1]';
-
-    return !isCurrentLoopback && isConfiguredLoopback
-        ? window.location.origin
-        : DEFAULT_SOCKET_URL;
-}
 
 export interface Notification {
     id: string
@@ -69,6 +47,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const unreadCount = notifications.filter(n => !n.read).length + unreadChatCount
 
     const connect = useCallback((userId: string, token = getAuthToken() || "") => {
+        if (!APP_CONFIG.enableRealtime) return
         if (!token) return
         if (socketRef.current?.connected) return
 
@@ -229,7 +208,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         const checkUserAndConnect = () => {
             const accessToken = getAuthToken()
 
-            if (userLoading || !user || !accessToken) {
+            if (!APP_CONFIG.enableRealtime || userLoading || !user || !accessToken) {
                 if (socketRef.current) disconnect()
                 return
             }

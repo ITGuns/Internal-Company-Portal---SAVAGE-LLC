@@ -9,6 +9,47 @@ import {
 
 const ONBOARDING_SETUP_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000
 
+const directoryUserSelect = {
+    id: true,
+    email: true,
+    name: true,
+    avatar: true,
+    managerId: true,
+    status: true,
+    isApproved: true,
+    createdAt: true,
+    updatedAt: true,
+    roles: {
+        select: {
+            id: true,
+            role: true,
+            departmentId: true,
+            department: {
+                select: {
+                    id: true,
+                    name: true,
+                },
+            },
+        },
+    },
+    employeeProfile: {
+      select: {
+        jobTitle: true,
+        employmentType: true,
+      },
+    },
+    manager: {
+        select: {
+            id: true,
+            email: true,
+            name: true,
+            avatar: true,
+        },
+    },
+} satisfies Prisma.UserSelect
+
+type DirectoryUser = Prisma.UserGetPayload<{ select: typeof directoryUserSelect }>
+
 export interface CreateUserDto {
     email: string
     name?: string
@@ -35,6 +76,7 @@ export interface UpdateUserDto {
     status?: string      // active, pending, vacation, leave
     appliedDate?: string // ISO date string
     isApproved?: boolean
+    managerId?: string | null
 }
 
 export class UsersService {
@@ -63,20 +105,17 @@ export class UsersService {
     /**
      * Get all users (with optional pagination)
      */
-    async findAll(page?: number, limit?: number) {
+    async findAll(page?: number, limit?: number): Promise<DirectoryUser[] | {
+        data: DirectoryUser[]
+        total: number
+        page: number
+        limit: number
+        totalPages: number
+    }> {
         const where = {
             status: {
                 in: ['active', 'vacation', 'leave', 'verified'] as string[],
             },
-        }
-
-        const include = {
-            roles: {
-                include: {
-                    department: true,
-                },
-            },
-            employeeProfile: true,
         }
 
         const orderBy = { createdAt: 'desc' as const }
@@ -85,7 +124,7 @@ export class UsersService {
             const [data, total] = await Promise.all([
                 this.prisma.user.findMany({
                     where,
-                    include,
+                    select: directoryUserSelect,
                     orderBy,
                     skip: (page - 1) * limit,
                     take: limit,
@@ -97,7 +136,7 @@ export class UsersService {
 
         return this.prisma.user.findMany({
             where,
-            include,
+            select: directoryUserSelect,
             orderBy,
         })
     }
@@ -270,6 +309,9 @@ export class UsersService {
         if (data.citizenship !== undefined) updateData.citizenship = data.citizenship
         if (data.status !== undefined) updateData.status = data.status
         if (data.isApproved !== undefined) updateData.isApproved = data.isApproved
+        if (data.managerId !== undefined) {
+            updateData.manager = data.managerId ? { connect: { id: data.managerId } } : { disconnect: true }
+        }
 
         // Handle date conversions
         if (data.birthday !== undefined) {
@@ -283,6 +325,26 @@ export class UsersService {
             where: { id },
             data: updateData,
         })
+    }
+
+    async wouldCreateManagerCycle(userId: string, managerId: string): Promise<boolean> {
+        if (userId === managerId) return true
+
+        const visited = new Set<string>([userId])
+        let currentManagerId: string | null | undefined = managerId
+
+        while (currentManagerId) {
+            if (visited.has(currentManagerId)) return true
+            visited.add(currentManagerId)
+
+            const manager = await this.prisma.user.findUnique({
+                where: { id: currentManagerId },
+                select: { managerId: true },
+            })
+            currentManagerId = manager?.managerId
+        }
+
+        return false
     }
 
     /**
@@ -324,7 +386,7 @@ export class UsersService {
     /**
      * Search users by name or email
      */
-    async search(query: string): Promise<User[]> {
+    async search(query: string): Promise<DirectoryUser[]> {
         return this.prisma.user.findMany({
             where: {
                 status: {
@@ -335,14 +397,7 @@ export class UsersService {
                     { name: { contains: query, mode: 'insensitive' } },
                 ],
             },
-            include: {
-                roles: {
-                    include: {
-                        department: true,
-                    },
-                },
-                employeeProfile: true,
-            },
+            select: directoryUserSelect,
         })
     }
 

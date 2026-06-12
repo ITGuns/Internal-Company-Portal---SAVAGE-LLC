@@ -142,7 +142,7 @@ function ClientCalendarFormModal({
       isOpen={isOpen}
       onClose={onClose}
       title={title}
-      subtitle="Client-added items are visible in this workspace and to the Deskii team."
+      subtitle="Client-added items are visible in this workspace and to the SAVAGE team."
       size="lg"
     >
       <form

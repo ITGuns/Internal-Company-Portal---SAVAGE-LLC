@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import {
   hasEmployeeManagementAccess,
+  isClientOnlyAccount,
+  isInternalEmployeeAccount,
   serializeDeployedEmployee,
   serializeEmployeeApplication,
 } from '../src/employees/employees.security'
@@ -11,6 +13,14 @@ assert.equal(hasEmployeeManagementAccess([{ role: 'Owner / Founder' }]), true)
 assert.equal(hasEmployeeManagementAccess([{ role: 'Bookkeeping' }]), false)
 assert.equal(hasEmployeeManagementAccess([{ role: 'employee' }]), false)
 assert.equal(hasEmployeeManagementAccess([], true), true)
+assert.equal(isClientOnlyAccount({ roles: [{ role: 'client' }] }), true)
+assert.equal(isClientOnlyAccount({ roles: [{ role: 'client_admin' }] }), true)
+assert.equal(isClientOnlyAccount({ roles: [{ role: 'client_member' }], clientMemberships: [{ status: 'active' }] }), true)
+assert.equal(isInternalEmployeeAccount({ roles: [{ role: 'client_owner' }] }), false)
+assert.equal(isInternalEmployeeAccount({ roles: [{ role: 'client_member' }, { role: 'Operations Manager' }] }), true)
+assert.equal(isInternalEmployeeAccount({ roles: [], clientMemberships: [{ status: 'active' }] }), false)
+assert.equal(isInternalEmployeeAccount({ roles: [], clientMemberships: [{ status: 'inactive' }] }), false)
+assert.equal(isInternalEmployeeAccount({ roles: [], clientMemberships: [] }), true)
 
 const application = serializeEmployeeApplication({
   id: 'user-1',
@@ -49,6 +59,8 @@ const deployed = serializeDeployedEmployee({
     jobTitle: 'Designer',
     employmentType: 'Full Time',
     baseSalary: 75000,
+    payrollScheme: 'flat_160_hours',
+    maxBillableHoursPerDay: 7.5,
     bankAccount: '456',
     taxId: 'TIN',
   },
@@ -73,6 +85,8 @@ assert.deepEqual(deployed, {
   role: 'Designer',
   department: 'Operations',
   salary: 75000,
+  payrollScheme: 'flat_160_hours',
+  maxBillableHoursPerDay: 7.5,
   hoursThisWeek: 8,
   performance: 0,
 })

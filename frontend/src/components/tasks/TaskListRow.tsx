@@ -32,8 +32,6 @@ interface TaskListRowProps {
   task: Task;
   onClick: () => void;
   onAction: (e: React.MouseEvent, taskId: string, action: TaskQuickAction) => void;
-  isSelected?: boolean;
-  onSelect?: (taskId: string, selected: boolean) => void;
 }
 
 function calcProgress(elapsedSecs: number, estimatedMinutes: number | undefined): number {
@@ -41,28 +39,19 @@ function calcProgress(elapsedSecs: number, estimatedMinutes: number | undefined)
   return Math.min(100, Math.round((elapsedSecs / (estimatedMinutes * 60)) * 100));
 }
 
-export default function TaskListRow({ task, onClick, onAction, isSelected = false, onSelect }: TaskListRowProps) {
+export default function TaskListRow({ task, onClick, onAction }: TaskListRowProps) {
   const liveElapsed = useLiveElapsed(task.timerStatus, task.timerStart, task.totalElapsed || 0);
   const autoProgress = task.status === 'completed' ? 100 : calcProgress(liveElapsed, task.estimatedTime);
+  const collaboratorCount = task.collaborators?.length || 0;
   const actionButtonClass =
     "inline-flex min-h-10 items-center gap-1.5 rounded-md border border-transparent px-2.5 py-1.5 text-xs font-medium transition hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
 
   return (
     <div
       onClick={onClick}
-      className={`motion-interactive motion-list-in p-3 bg-[var(--card-surface)] border border-[var(--border)] rounded flex items-center justify-between cursor-pointer hover:bg-[var(--card-bg)] group ${isSelected ? 'ring-2 ring-[var(--accent)] border-[var(--accent)]' : ''}`}
+      className="motion-interactive motion-list-in p-3 bg-[var(--card-surface)] border border-[var(--border)] rounded flex items-center justify-between cursor-pointer hover:bg-[var(--card-bg)] group"
     >
       <div className="flex-1 flex items-center gap-4">
-        {onSelect && (
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => onSelect(task.id, e.target.checked)}
-            className="w-3.5 h-3.5 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)] cursor-pointer flex-shrink-0"
-            aria-label={`Select task ${task.title}`}
-          />
-        )}
         <div className="flex items-center gap-2 min-w-[200px]">
           <span
             className="w-2.5 h-2.5 rounded-full shadow-[0_0_5px_rgba(0,0,0,0.1)] flex-shrink-0"
@@ -87,9 +76,21 @@ export default function TaskListRow({ task, onClick, onAction, isSelected = fals
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[10px] bg-[var(--card-bg)] px-1 rounded border border-[var(--border)] text-[var(--muted)]">
-            {task.department?.name}
-          </span>
+          {task.project?.name && (
+            <span className="max-w-32 truncate text-[10px] bg-[var(--accent)]/10 px-1 rounded border border-[var(--accent)]/30 text-[var(--accent)]">
+              {task.project.name}
+            </span>
+          )}
+          {task.department?.name && (
+            <span className="text-[10px] bg-[var(--card-bg)] px-1 rounded border border-[var(--border)] text-[var(--muted)]">
+              {task.department.name}
+            </span>
+          )}
+          {collaboratorCount > 0 && (
+            <span className="text-[10px] bg-[var(--card-bg)] px-1 rounded border border-[var(--border)] text-[var(--muted)]">
+              +{collaboratorCount} collaborator{collaboratorCount === 1 ? "" : "s"}
+            </span>
+          )}
         </div>
       </div>
 

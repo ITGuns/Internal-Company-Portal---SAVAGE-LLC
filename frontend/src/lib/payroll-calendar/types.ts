@@ -15,6 +15,8 @@ export interface Employee {
   salary: number; // Monthly salary in PHP
   performance: number | null;
   status: "active" | "vacation" | "leave" | "pending" | "verified";
+  payrollScheme?: string;
+  maxBillableHoursPerDay?: number;
   // Extended fields for profile panel
   phone?: string;
   email?: string;

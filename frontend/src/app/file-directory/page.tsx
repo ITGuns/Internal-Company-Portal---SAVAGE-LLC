@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import Header from '@/components/Header';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import FolderCard from '@/components/file-directory/FolderCard';
-import DriveFileViewer from '@/components/file-directory/DriveFileViewer';
 
 // Lazy-loaded modal (only rendered when opened)
 const AddFolderModal = dynamic(() => import('@/components/file-directory/AddFolderModal'), { ssr: false });
@@ -28,17 +27,10 @@ import {
   sortFolders,
   getViewPreference,
   saveViewPreference,
-  extractDriveFolderId,
   DEPARTMENTS,
 } from '@/lib/file-directory';
 import type { FileDirectory } from '@/lib/file-directory-types';
 import { hasFullAccess } from '@/lib/role-access';
-
-// Drive live mode state
-interface DriveMode {
-  folderId: string;
-  folderName: string;
-}
 
 // ── API helpers ──────────────────────────────────────────────────────────────
 
@@ -85,13 +77,9 @@ export default function FileDirectoryPage() {
   const [breadcrumbs, setBreadcrumbs] = useState<FileDirectory[]>([]);
   const [allLoadedFolders, setAllLoadedFolders] = useState<FileDirectory[]>([]);
 
-  // Drive Live Mode — when browsing a real Drive folder inline
-  const [driveMode, setDriveMode] = useState<DriveMode | null>(null);
-
   // UI state
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(getViewPreference());
   const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState<string>('All Departments');
   const [sortBy, setSortBy] = useState<'name' | 'department' | 'date'>('name');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -110,12 +98,6 @@ export default function FileDirectoryPage() {
     }
   }, [userHasFullAccess, userDepartment]);
 
-  // Debounce the search so API only re-runs after 300ms idle
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
   // Load folders from backend
   const loadFolders = useCallback(async () => {
     setLoading(true);
@@ -131,7 +113,7 @@ export default function FileDirectoryPage() {
         return Array.from(map.values());
       });
 
-      const filtered = filterFolders(data, debouncedSearchQuery, departmentFilter);
+      const filtered = filterFolders(data, searchQuery, departmentFilter);
       const sorted = sortFolders(filtered, sortBy);
       setFolders(sorted);
     } catch (err) {
@@ -140,7 +122,7 @@ export default function FileDirectoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentFolderId, debouncedSearchQuery, departmentFilter, sortBy, toast]);
+  }, [currentFolderId, searchQuery, departmentFilter, sortBy, toast]);
 
   useEffect(() => {
     loadFolders();
@@ -158,21 +140,12 @@ export default function FileDirectoryPage() {
 
   // Navigate into folder
   const handleFolderClick = (folder: FileDirectory) => {
-    const driveFolderId = folder.driveLink ? extractDriveFolderId(folder.driveLink) : null;
-
-    if (driveFolderId) {
-      setDriveMode({ folderId: driveFolderId, folderName: folder.name });
-      return;
-    }
-
-    // Navigate as sub-folder tree
     setCurrentFolderId(folder.id);
   };
 
   // Navigate via breadcrumbs
   const handleBreadcrumbClick = (folderId: string | null) => {
     setCurrentFolderId(folderId);
-    setDriveMode(null);
   };
 
   // Handle folder deletion
@@ -216,7 +189,7 @@ export default function FileDirectoryPage() {
               <ChevronRight className="w-4 h-4 text-[var(--muted)]" />
               <button
                 onClick={() => handleBreadcrumbClick(folder.id)}
-                className={`min-h-10 rounded-[var(--radius-md)] px-2 transition-colors hover:bg-[var(--card-surface)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${index === breadcrumbs.length - 1 && !driveMode
+                className={`min-h-10 rounded-[var(--radius-md)] px-2 transition-colors hover:bg-[var(--card-surface)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${index === breadcrumbs.length - 1
                   ? 'text-[var(--foreground)] font-medium'
                   : 'text-[var(--muted)]'
                   }`}
@@ -226,21 +199,10 @@ export default function FileDirectoryPage() {
             </React.Fragment>
           ))}
 
-          {driveMode && (
-            <>
-              <ChevronRight className="w-4 h-4 text-[var(--muted)]" />
-              <span className="text-[var(--foreground)] font-medium flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />
-                {driveMode.folderName}
-                <span className="ml-1 text-xs text-green-600 dark:text-green-400 font-normal">(Live Drive)</span>
-              </span>
-            </>
-          )}
         </div>
 
         {/* Toolbar — hide when in Drive mode */}
-        {!driveMode && (
-          <div className="flex flex-wrap items-center gap-3 mb-6 pb-4 border-b border-[var(--border)]">
+        <div className="flex flex-wrap items-center gap-3 mb-6 pb-4 border-b border-[var(--border)]">
             {/* Search */}
             <div className="relative flex-1 min-w-[200px] max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
@@ -308,17 +270,9 @@ export default function FileDirectoryPage() {
             >
               Add Folder
             </Button>
-          </div>
-        )}
+        </div>
 
-        {/* ── Drive Live Mode ── */}
-        {driveMode ? (
-          <DriveFileViewer
-            rootFolderId={driveMode.folderId}
-            rootFolderName={driveMode.folderName}
-            onExit={() => setDriveMode(null)}
-          />
-        ) : loading ? (
+        {loading ? (
           /* Loading state */
           <div className="flex items-center justify-center py-20 gap-3 text-[var(--muted)]">
             <Loader2 className="w-6 h-6 animate-spin" />
@@ -334,7 +288,7 @@ export default function FileDirectoryPage() {
             <p className="text-sm text-[var(--muted)] mb-6">
               {searchQuery || (departmentFilter && departmentFilter !== 'All Departments')
                 ? 'Try adjusting your filters or search query'
-                : 'Get started by adding your first Drive folder'}
+                : 'Get started by adding your first folder'}
             </p>
             {!searchQuery && (!departmentFilter || departmentFilter === 'All Departments') && (
               <Button

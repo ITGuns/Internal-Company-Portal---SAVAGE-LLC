@@ -33,6 +33,13 @@ export interface OperationsMember extends RoleAccessUser {
   name?: string | null;
   status?: string | null;
   isApproved?: boolean | null;
+  managerId?: string | null;
+  manager?: {
+    id: string;
+    email: string;
+    name?: string | null;
+    avatar?: string | null;
+  } | null;
   roles?: MemberRoleAssignment[];
   employeeProfile?: {
     jobTitle?: string | null;
@@ -85,4 +92,16 @@ export function getMemberAuthorizationLabels(member: RoleAccessUser): string[] {
   if (hasClientPortalAccess(member)) labels.push("Client portal");
 
   return labels.length > 0 ? labels : ["No active authorization"];
+}
+
+export function isClientPortalMember(member: RoleAccessUser): boolean {
+  return hasClientPortalAccess(member);
+}
+
+export function getInternalOperationsMembers<T extends RoleAccessUser>(members: T[]): T[] {
+  return members.filter((member) => !isClientPortalMember(member));
+}
+
+export function getClientPortalMembers<T extends RoleAccessUser>(members: T[]): T[] {
+  return members.filter(isClientPortalMember);
 }

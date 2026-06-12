@@ -11,6 +11,10 @@ import {
     validateAvatarContent,
     validateUploadContent,
 } from './upload.validation'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('uploads.uploads.controller')
+
 
 export class UploadsController {
     router(): Router {
@@ -26,7 +30,7 @@ export class UploadsController {
             try {
                 fs.mkdirSync(uploadDir, { recursive: true })
             } catch (err) {
-                console.warn('Failed to create uploads directory:', err)
+                logger.warn('Failed to create uploads directory:', err)
             }
         }
 
@@ -50,7 +54,7 @@ export class UploadsController {
                 res.type(fileValidation.contentType)
                 res.sendFile(resolvedFilepath)
             } catch (error) {
-                console.error('File fetch error:', error)
+                logger.error('File fetch error:', error)
                 res.status(500).json({ error: 'Failed to fetch file' })
             }
         })
@@ -106,7 +110,7 @@ export class UploadsController {
                     size: sizeInBytes,
                 })
             } catch (error) {
-                console.error('Upload error:', error)
+                logger.error('Upload error:', error)
                 res.status(500).json({ error: 'Failed to upload file' })
             }
         })
@@ -177,7 +181,7 @@ export class UploadsController {
                 })
 
             } catch (error) {
-                console.error('Avatar upload error:', error)
+                logger.error('Avatar upload error:', error)
                 res.status(500).json({
                     error: 'Failed to upload avatar',
                     code: 'SERVER_ERROR'

@@ -1,6 +1,9 @@
 import passport from 'passport'
 import { setupGoogleStrategy } from './strategies/google.strategy'
 import { setupDiscordStrategy } from './strategies/discord.strategy'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('auth.passport')
 
 /**
  * Initialize Passport and configure OAuth strategies
@@ -20,5 +23,5 @@ export function initializePassport(): void {
         done(null, { id })
     })
 
-    console.log('✅ Passport initialized')
+    logger.info('Passport initialized')
 }

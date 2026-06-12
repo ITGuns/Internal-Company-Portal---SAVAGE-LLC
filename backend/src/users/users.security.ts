@@ -16,6 +16,7 @@ const PUBLIC_DIRECTORY_USER_FIELDS = new Set([
   'email',
   'name',
   'avatar',
+  'managerId',
   'status',
   'isApproved',
   'createdAt',
@@ -47,6 +48,16 @@ export function sanitizeUserForDirectory<T extends AnyRecord>(user: T): AnyRecor
             }
           : null,
       }))
+      return
+    }
+
+    if (key === 'manager' && value && typeof value === 'object') {
+      sanitized.manager = {
+        id: value.id,
+        email: value.email,
+        name: value.name,
+        avatar: value.avatar,
+      }
       return
     }
 

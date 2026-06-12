@@ -6,6 +6,7 @@ import { Notification } from '@/context/SocketContext'
 import { Bell, X, Check, CheckCheck, MessageSquare, Megaphone, ClipboardList, Info, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
 import Button from './Button'
 import Link from 'next/link'
+import { useDialogA11y } from '@/hooks/useDialogA11y'
 
 interface NotificationSidebarProps {
     isOpen: boolean
@@ -60,6 +61,7 @@ export default function NotificationSidebar({
     onClear
 }: NotificationSidebarProps) {
     const [isMounted, setIsMounted] = useState(false)
+    const { dialogRef, handleDialogKeyDown } = useDialogA11y({ isOpen, onClose })
 
     useEffect(() => {
         setIsMounted(true)
@@ -73,16 +75,19 @@ export default function NotificationSidebar({
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 z-[9997] bg-black/30 backdrop-blur-sm motion-fade-in"
+                className="portal-form-backdrop fixed inset-0 z-[9997] motion-fade-in"
                 onClick={onClose}
             />
 
             {/* Sidebar */}
             <div
+                ref={dialogRef}
                 className="fixed top-0 right-0 z-[9998] flex h-[100dvh] w-full max-w-[420px] flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--card-bg)] shadow-2xl motion-drawer-right-in"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="notification-sidebar-title"
+                tabIndex={-1}
+                onKeyDown={handleDialogKeyDown}
                 style={{ isolation: 'isolate' }}
             >
                 {/* Header */}

@@ -1,15 +1,18 @@
 import { QueryClient } from '@tanstack/react-query';
 
+export const DEFAULT_QUERY_STALE_MS = 2 * 60 * 1000;
+export const DEFAULT_QUERY_GC_MS = 30 * 60 * 1000;
+
 function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        // Data is fresh for 30 seconds — no background refetch within this window
-        staleTime: 30 * 1000,
-        // Keep unused cache entries for 5 minutes
-        gcTime: 5 * 60 * 1000,
-        // Refetch when user returns to the tab
-        refetchOnWindowFocus: true,
+        // Keep route data fresh long enough that app-shell navigation does not feel like a full reload.
+        staleTime: DEFAULT_QUERY_STALE_MS,
+        // Keep unused route data around while users move between workspace sections.
+        gcTime: DEFAULT_QUERY_GC_MS,
+        // Mutations and socket invalidations keep important data current without focus-triggered churn.
+        refetchOnWindowFocus: false,
         // Don't auto-retry on error (the apiFetch wrapper already handles 401 retries)
         retry: 1,
       },

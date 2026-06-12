@@ -5,15 +5,20 @@
 
 export const APP_CONFIG = {
   // API Configuration
-  apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000',
+  apiUrl: process.env.NEXT_PUBLIC_API_URL || '/api',
   wsUrl: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:4000',
   
   // App Metadata
-  appName: process.env.NEXT_PUBLIC_APP_NAME || 'Deskii',
+  appName: process.env.NEXT_PUBLIC_APP_NAME || 'SAVAGE LLC Internal Portal',
   appVersion: process.env.NEXT_PUBLIC_APP_VERSION || '0.5.0',
   
   // Feature Flags
   enableDebug: process.env.NEXT_PUBLIC_ENABLE_DEBUG === 'true',
+  enableRealtime: process.env.NEXT_PUBLIC_ENABLE_REALTIME === 'true'
+    || (
+      process.env.NEXT_PUBLIC_ENABLE_REALTIME !== 'false'
+      && (process.env.NODE_ENV !== 'production' || Boolean(process.env.NEXT_PUBLIC_WS_URL))
+    ),
   
   // Polling Intervals (milliseconds)
   userPollInterval: 30000, // 30 seconds

@@ -14,6 +14,7 @@ import { useCalendarEvents } from "@/lib/payroll-calendar/useCalendarEvents";
 import EmployeeOverviewTab from "../../components/payroll/EmployeeOverviewTab";
 import PayslipsTab from "@/components/payroll/PayslipsTab";
 import ReportsTab from "@/components/payroll/ReportsTab";
+import PayrollAuditFilterBar from "@/components/payroll/PayrollAuditFilterBar";
 import { useUser } from "@/contexts/UserContext";
 import { fetchUsers, type TaskUser } from "@/lib/tasks";
 import {
@@ -22,7 +23,6 @@ import {
   type EmployeeOverviewView,
 } from "@/lib/dashboard-deep-links";
 import {
-  filterPayrollAuditUsers,
   getPayrollAuditDateRange,
   getPayrollAuditTarget,
   getPayrollTimeEntryRange,
@@ -61,10 +61,6 @@ export default function PayrollCalendarPage() {
   const currentUserId = user?.id != null ? String(user.id) : undefined;
   const targetUserId = hasManagementAccess && selectedAuditUserId ? selectedAuditUserId : undefined;
   const selectedPayrollUser = payrollUsers.find((payrollUser) => String(payrollUser.id) === targetUserId);
-  const filteredPayrollUsers = useMemo(
-    () => filterPayrollAuditUsers(payrollUsers, auditUserSearch),
-    [auditUserSearch, payrollUsers],
-  );
   const auditEmployeeLabel = selectedPayrollUser?.name || selectedPayrollUser?.email || "selected employee";
   const isOwnTimeView = !targetUserId || targetUserId === currentUserId;
   const timeEntryRange = useMemo(
@@ -187,6 +183,14 @@ export default function PayrollCalendarPage() {
       setAuditEndDate(value);
       updateCalendarQuery({ endDate: value });
     }
+  };
+
+  const handleResetAuditFilters = () => {
+    setSelectedAuditUserId("");
+    setAuditUserSearch("");
+    setAuditStartDate("");
+    setAuditEndDate("");
+    updateCalendarQuery({ userId: "", startDate: "", endDate: "" });
   };
 
   // Event handlers
@@ -386,83 +390,32 @@ export default function PayrollCalendarPage() {
                 </Button>
               </>
             )}
-            {hasManagementAccess && activeTab === "calendar" && (
-              <div className="grid w-full grid-cols-1 gap-2 rounded border border-[var(--border)] bg-[var(--card-surface)] p-3 sm:ml-auto sm:w-auto sm:min-w-[520px] sm:grid-cols-[1fr_130px_130px]">
-                <div>
-                  <label
-                    htmlFor="payroll-audit-user-search"
-                    className="mb-1 block text-xs font-medium uppercase tracking-wide text-[var(--muted)]"
-                  >
-                    Employee audit
-                  </label>
-                  <input
-                    id="payroll-audit-user-search"
-                    type="search"
-                    value={auditUserSearch}
-                    onChange={(event) => setAuditUserSearch(event.target.value)}
-                    placeholder="Search employee..."
-                    className="mb-2 w-full rounded border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                  />
-                  <select
-                    id="payroll-audit-user"
-                    value={selectedAuditUserId}
-                    onChange={(event) => handleAuditUserChange(event.target.value)}
-                    disabled={isLoadingPayrollUsers}
-                    className="w-full rounded border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                    aria-label="Employee"
-                  >
-                    <option value="">My time entries</option>
-                    {filteredPayrollUsers.map((payrollUser) => (
-                      <option key={payrollUser.id} value={payrollUser.id}>
-                        {payrollUser.name || payrollUser.email}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label
-                    htmlFor="payroll-audit-start"
-                    className="mb-1 block text-xs font-medium uppercase tracking-wide text-[var(--muted)]"
-                  >
-                    Start
-                  </label>
-                  <input
-                    id="payroll-audit-start"
-                    type="date"
-                    value={auditStartDate}
-                    onChange={(event) => handleAuditDateChange("start", event.target.value)}
-                    className="w-full rounded border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] [color-scheme:light] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] dark:[color-scheme:dark]"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="payroll-audit-end"
-                    className="mb-1 block text-xs font-medium uppercase tracking-wide text-[var(--muted)]"
-                  >
-                    End
-                  </label>
-                  <input
-                    id="payroll-audit-end"
-                    type="date"
-                    value={auditEndDate}
-                    onChange={(event) => handleAuditDateChange("end", event.target.value)}
-                    className="w-full rounded border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] [color-scheme:light] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] dark:[color-scheme:dark]"
-                  />
-                </div>
-              </div>
-            )}
             {activeTab === "calendar" && (
               <Button
                 variant="primary"
                 size="md"
                 icon={<Plus className="w-4 h-4" />}
                 onClick={() => setShowEventModal(true)}
-                className={hasManagementAccess ? "" : "ml-auto"}
+                className="ml-auto"
               >
                 Add Event
               </Button>
             )}
           </div>
+          {hasManagementAccess && activeTab === "calendar" && (
+            <PayrollAuditFilterBar
+              payrollUsers={payrollUsers}
+              selectedAuditUserId={selectedAuditUserId}
+              auditUserSearch={auditUserSearch}
+              auditStartDate={auditStartDate}
+              auditEndDate={auditEndDate}
+              isLoadingPayrollUsers={isLoadingPayrollUsers}
+              onSearchChange={setAuditUserSearch}
+              onUserChange={handleAuditUserChange}
+              onDateChange={handleAuditDateChange}
+              onReset={handleResetAuditFilters}
+            />
+          )}
 
           {/* Tab Content */}
           {activeTab === "calendar" && (

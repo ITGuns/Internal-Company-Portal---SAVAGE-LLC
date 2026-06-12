@@ -54,8 +54,12 @@ test('resolves payroll audit target from query params and current user', () => {
 test('filters payroll audit employees and builds inclusive date ranges', () => {
   const {
     filterPayrollAuditUsers,
+    formatPayrollAuditDateLabel,
     getPayrollAuditDateRange,
+    getPayrollAuditSummary,
+    getPayrollAuditTodayDateInput,
     getPayrollTimeEntryRange,
+    getVisiblePayrollAuditUsers,
   } = loadPayrollAuditTargetHelper();
 
   const users = [
@@ -72,6 +76,10 @@ test('filters payroll audit employees and builds inclusive date ranges', () => {
     filterPayrollAuditUsers(users, 'savage.com').map((user) => user.id),
     ['1', '2', '3'],
   );
+  assert.deepEqual(
+    getVisiblePayrollAuditUsers(users, 'genrou', '2').map((user) => user.id),
+    ['2', '3'],
+  );
 
   assert.deepEqual(
     JSON.parse(JSON.stringify(getPayrollAuditDateRange(new URLSearchParams('start=2026-05-01&end=2026-05-21')))),
@@ -84,5 +92,26 @@ test('filters payroll audit employees and builds inclusive date ranges', () => {
       startIso: '2026-05-01T00:00:00.000Z',
       endIso: '2026-05-21T23:59:59.999Z',
     },
+  );
+
+  assert.equal(getPayrollAuditTodayDateInput(new Date('2026-06-11T16:30:00.000Z')), '2026-06-11');
+  assert.equal(formatPayrollAuditDateLabel('2026-06-11'), 'Jun 11, 2026');
+  assert.equal(formatPayrollAuditDateLabel('bad-date'), '');
+
+  assert.equal(
+    getPayrollAuditSummary({
+      selectedUser: users[1],
+      startDate: '2026-05-01',
+      endDate: '2026-05-21',
+    }),
+    'Auditing Pol Danyael H. Villorente from May 1, 2026 to May 21, 2026',
+  );
+  assert.equal(
+    getPayrollAuditSummary({
+      selectedUser: null,
+      startDate: '',
+      endDate: '',
+    }),
+    'Auditing my time entries across all dates',
   );
 });

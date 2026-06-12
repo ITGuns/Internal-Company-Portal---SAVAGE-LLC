@@ -46,9 +46,12 @@ All user endpoints require authentication unless noted otherwise.
 User directory endpoints sanitize sensitive fields before returning data to the frontend.
 
 - `GET /api/users`, `GET /api/users/search`, and `GET /api/users/:id` omit password and password-reset fields.
+- `GET /api/users` and `GET /api/users/search` are restricted to internal accounts; client-only accounts must use client-scoped portal endpoints.
+- `GET /api/users/:id` and `GET /api/users/:id/roles` allow the requester to read their own safe record and otherwise require internal directory access.
+- `GET /api/users` accepts `page` and `limit`; omitted pagination returns a legacy array shape but is still capped to the first 100 records server-side.
 - Directory responses only return allowlisted public user fields plus sanitized role assignments.
 - Embedded `employeeProfile` data is limited to public directory fields such as `jobTitle` and `employmentType`.
-- Payroll-sensitive fields such as salary, currency, payment frequency, bank account, and tax ID are not returned through user directory endpoints.
+- Payroll-sensitive fields such as salary, currency, payment frequency, payroll scheme, max billable hours, bank account, and tax ID are not returned through user directory endpoints.
 - Private profile fields such as phone, address, city, and citizenship are not returned through broad directory responses.
 
 ### User Tasks
@@ -63,12 +66,24 @@ User directory endpoints sanitize sensitive fields before returning data to the 
 
 - `POST /api/users` is full-access admin-only.
 - `POST /api/users/onboarding-invitations` is full-access admin-only and creates or completes an approved user setup record from `email` and `roleId`. `roleId` may be a persisted `AvailableRole.id` or a default org-catalog role ID returned by the roles API. It returns a reset-password setup link; users with an existing password return `409` and should use password reset instead.
-- `PATCH /api/users/:id` allows self updates for permitted profile fields.
+- `PATCH /api/users/:id` allows self updates for permitted profile fields. Self-service email changes are blocked; only full-access administrators can change a user's account email address.
+- Full-access administrators may update `managerId` through `PATCH /api/users/:id` to maintain Operations org-chart reporting lines. The backend rejects self-manager assignments and manager cycles.
 - User avatar writes through `POST /api/users`, `PATCH /api/users/:id`, and `POST /api/users/:id/avatar` accept only http(s) URLs, relative paths, empty removal values where profile updates allow them, or supported image data URIs that pass signature validation and the 5 MB avatar limit.
-- Non-privileged users cannot update protected fields such as `status`, `appliedDate`, `salary`, `role`, `department`, `departmentId`, or `isApproved`.
+- Non-privileged users cannot update protected fields such as `status`, `appliedDate`, `salary`, `role`, `department`, `departmentId`, `managerId`, `payrollScheme`, `maxBillableHoursPerDay`, or `isApproved`.
 - `DELETE /api/users/:id` requires admin or operations-manager access.
 - `POST /api/users/:id/roles` and `DELETE /api/users/:id/roles/:role` are full-access admin-only role assignment routes.
 - The Operations member editor uses sanitized `GET /api/users` responses plus these user-role routes; authorization changes are enforced by backend role checks, not by frontend-only visibility.
+
+## Global Search
+
+`GET /api/search?q=:query` returns cross-system search results for the authenticated user.
+
+- Results are server-authorized before any record is returned; the frontend command palette is not the source of access control.
+- Internal users can search permitted tasks, daily logs, announcements, chat messages, file-directory folders, and internal directory people.
+- Client users can search only active assigned client organizations and records marked client-visible.
+- Client operations roles can search client operations records across organizations.
+- Payroll events, time entries, payslips, and payroll profiles are returned only for payroll-management roles or configured admin emails.
+- Queries shorter than two characters return an empty list; result sets are capped per record group.
 
 ## Employees
 
@@ -81,7 +96,7 @@ User directory endpoints sanitize sensitive fields before returning data to the 
 ### Employee Review
 
 - `GET /api/employees/pending` requires employee-management access.
-- `GET /api/employees/deployed` requires employee-management access.
+- `GET /api/employees/deployed` requires employee-management access and excludes client-only accounts from internal employee/payroll workflows.
 - `POST /api/employees/approve/:id` approves a pending employee application when the requester has employee-management access.
 - `POST /api/employees/reject/:id` rejects a pending employee application when the requester has employee-management access.
 
@@ -103,9 +118,9 @@ All task endpoints require authentication.
 Employee task reads are server-scoped.
 
 - Privileged users may read all tasks through list, search, status, department, assignee, and detail endpoints.
-- Non-privileged users receive tasks assigned to their authenticated user ID or created by their authenticated user ID.
+- Non-privileged users receive tasks assigned to their authenticated user ID, created by their authenticated user ID, or shared with them as invited/accepted collaborators.
 - `GET /api/tasks/assignee/:assigneeId` returns `403` when a non-privileged user requests another user's tasks.
-- `GET /api/tasks/:id` returns `403` when a non-privileged user requests a task they neither created nor are assigned to.
+- `GET /api/tasks/:id` returns `403` when a non-privileged user requests a task they neither created, are assigned to, nor collaborate on.
 
 ### Task Detail
 
@@ -113,6 +128,7 @@ Employee task reads are server-scoped.
 
 - Includes `department` and `assignee`.
 - Includes `creator` when `createdById` is set.
+- Includes `collaborators` with invited user and inviter identity summaries.
 - Includes `workSessions` sorted newest first.
 - Each work session includes `startedAt`, `endedAt`, `durationSeconds`, and the session `user` identity fields.
 
@@ -127,6 +143,9 @@ Employee task reads are server-scoped.
 - Non-privileged task creation fails when the account has no role with a department.
 - The server sets `createdById` from the authenticated requester; clients should not send requester ownership.
 - Task notifications use detail links such as `/task-tracking?task=:taskId`.
+- Optional `projectId` assigns the task to an internal task project visible to the requester.
+- Privileged users may provide `collaboratorIds` to invite additional employee collaborators while keeping one primary assignee.
+- Non-privileged users cannot set `collaboratorIds`.
 
 ### Task Updates
 
@@ -135,6 +154,9 @@ Employee task reads are server-scoped.
 - Privileged users may update assignment, department, and role fields.
 - Non-privileged users may only update tasks assigned to them.
 - Non-privileged users cannot update `assigneeId`, `departmentId`, or `role`.
+- Non-privileged users cannot update `collaboratorIds`.
+- Privileged users may replace the collaborator list with `collaboratorIds`; an empty array clears collaborators.
+- `projectId` may be set or cleared. Non-privileged users may only use projects visible to their assigned department or cross-functional projects.
 - Moving a task into `completed` sets `completedAt` server-side.
 - Moving a task away from `completed` clears `completedAt`.
 - Closing a running task timer records a `TaskWorkSession` when duration is available.
@@ -142,6 +164,16 @@ Employee task reads are server-scoped.
 ### Task Deletion
 
 `DELETE /api/tasks/:id` requires management access.
+
+### Task Projects
+
+Task project routes support project-based task organization inside Task Tracking.
+
+- `GET /api/tasks/projects` returns projects visible to the requester. Privileged users can see all projects; non-privileged users see cross-functional projects, projects in their assigned department, or projects already containing tasks visible to them.
+- `POST /api/tasks/projects` creates a project and requires privileged task assignment access.
+- `PATCH /api/tasks/projects/:projectId` updates project metadata/status and requires privileged task assignment access.
+- `DELETE /api/tasks/projects/:projectId` clears linked task `projectId` values, deletes the project, and requires privileged task assignment access.
+- Project statuses are `active`, `paused`, `completed`, and `archived`.
 
 ### Privileged Task Assignment Roles
 
@@ -193,6 +225,7 @@ Client portal management access recognizes normalized full-access, management, a
 ### Client Routes
 
 - `GET /api/clients/organizations` lists client organizations visible to the requester.
+- `GET /api/clients/portal/bootstrap` returns the initial client portal workspace payload for the requester: visible organizations, selected organization ID, scoped overview data, recent activity, and action queue items. Optional `organizationId` selects a specific readable organization.
 - `POST /api/clients/organizations` creates a client organization and is restricted to client-management access. Optional `websiteWorkType` values are `existing_site_improvement` and `new_build`.
 - `GET /api/clients/service-tiers`, `POST /api/clients/service-tiers`, `PATCH /api/clients/service-tiers/:id`, `DELETE /api/clients/service-tiers/:id`, and `PATCH /api/clients/organizations/:id/service-tier` manage service tiers for internal client-management users. Deleting a service tier clears it from assigned client organizations through the existing database relation.
 - `PATCH /api/clients/organizations/:id/status` updates a client organization status (`active`, `paused`, or `archived`) for internal management. Archiving removes client-facing access without deleting history.
@@ -219,11 +252,16 @@ Protected fields:
 All daily-log endpoints require authentication.
 
 - `GET /api/daily-logs` supports `department`, `status`, `logType`, `page`, and `limit` query parameters.
+- Omitted daily-log pagination returns the legacy array shape but is capped to the first 100 records server-side.
 - `GET /api/daily-logs/my-logs` returns the authenticated user's logs.
 - `POST /api/daily-logs` creates a daily, weekly, monthly, or related log record.
 - `PATCH /api/daily-logs/:id` updates a log when the requester owns it or has management access.
 - `DELETE /api/daily-logs/:id` deletes a log when the requester owns it or has management access.
 - `POST /api/daily-logs/:id/like` toggles the authenticated user's like.
+- `POST /api/daily-logs/:id/comments` adds an authenticated user's comment to a log.
+- `DELETE /api/daily-logs/:id/comments/:commentId` deletes the authenticated user's own comment.
+- Frontend create/update flows derive the submitted `status` from task JSON instead of exposing a manual status field in the Daily Log form.
+- Daily-log task JSON may include optional `sourceTaskId`, `status`, `progress`, `sessionCount`, and `trackedMinutes` fields for Task Tracking imports.
 
 Daily-log department handling is server-managed:
 
@@ -254,9 +292,9 @@ Configured admin bypass emails also receive payroll management access.
 ### Payroll Events
 
 - `GET /api/payroll/events` lists calendar events.
-- `POST /api/payroll/events` creates an event.
-- `PATCH /api/payroll/events/:id` updates an event.
-- `DELETE /api/payroll/events/:id` deletes an event.
+- `POST /api/payroll/events` creates an event and requires payroll-management access.
+- `PATCH /api/payroll/events/:id` updates an event and requires payroll-management access.
+- `DELETE /api/payroll/events/:id` deletes an event and requires payroll-management access.
 
 ### Time Entry Access
 
@@ -276,7 +314,7 @@ Configured admin bypass emails also receive payroll management access.
 
 - `GET /api/payroll/config/:userId` allows self access or privileged access to another employee.
 - `POST /api/payroll/config/:userId` allows self access only for permitted non-sensitive fields.
-- Protected payroll profile fields are manager-only: `jobTitle`, `employmentType`, `baseSalary`, `currency`, `paymentFrequency`, `bankAccount`, and `taxId`.
+- Protected payroll profile fields are manager-only: `jobTitle`, `employmentType`, `baseSalary`, `currency`, `paymentFrequency`, `payrollScheme`, `maxBillableHoursPerDay`, `bankAccount`, and `taxId`.
 - Non-privileged updates containing protected fields return `403` with the rejected field names.
 - Empty or unknown payroll profile updates return `400`.
 
@@ -286,7 +324,9 @@ Configured admin bypass emails also receive payroll management access.
 - `POST /api/payroll/periods/ensure` ensures a period exists for a supplied date range.
 - `POST /api/payroll/periods` requires payroll-management access.
 - `POST /api/payroll/periods/:periodId/generate/:userId` requires payroll-management access.
-- `POST /api/payroll/periods/:periodId/generate-all` requires payroll-management access.
+- `POST /api/payroll/periods/:periodId/generate-all` requires payroll-management access and generates only for internal employee accounts.
+- Payslip preview/generation separates tracked hours from billable hours. Hours beyond the employee's `maxBillableHoursPerDay` are returned as pending overtime and are not included in automatic gross pay until approved or manually overridden by a privileged reviewer.
+- Payroll schemes currently supported are `weekdays`, `flat_30`, `flat_20`, and `flat_160_hours`.
 - `GET /api/payroll/my-payslips` returns self payslips by default and allows privileged `userId` review.
 - `GET /api/payroll/reports` requires payroll-management access.
 - `GET /api/payroll/payslips/all` requires payroll-management access.
@@ -296,7 +336,13 @@ Configured admin bypass emails also receive payroll management access.
 ### Announcements
 
 - Announcement list, detail, like, comment, RSVP, update, and delete routes require authentication.
+- Omitted announcement pagination returns the legacy array shape but is capped to the first 100 records server-side.
 - Announcement create, update, and delete routes require management access.
+
+### Email Operations
+
+- `POST /api/email/test`, `POST /api/email/send`, and `GET /api/email/status` require full-access administrator privileges.
+- Email routes are intended for provider configuration checks and controlled operational sends, not general employee or client messaging.
 
 ### Chat
 
@@ -309,6 +355,8 @@ Configured admin bypass emails also receive payroll management access.
 - Message list limits are capped server-side and message/search content is normalized before database queries.
 - Live chat sends full message events to authorized conversation rooms and lightweight badge events to recipient user rooms.
 - Message edit/delete routes are authenticated and handled through chat service rules.
+- `POST /api/chat/messages/:id/reactions` toggles one allowed emoji reaction for the authenticated participant and broadcasts `chat:reaction_updated` to the conversation room.
+- Allowed reaction payloads are limited to the built-in quick reaction set for this deploy.
 
 ### Uploads And File Directory
 

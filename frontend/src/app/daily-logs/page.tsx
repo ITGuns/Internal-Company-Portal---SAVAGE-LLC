@@ -12,12 +12,14 @@ import FormField from '@/components/forms/FormField';
 import { useToast } from '@/components/ToastProvider';
 import { useUser } from '@/contexts/UserContext';
 import { useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, Clock, CheckCircle2, MessageCircle, ThumbsUp, FileText, StickyNote, ClipboardList } from 'lucide-react';
+import { Search, Plus, Clock, CheckCircle2, MessageCircle, ThumbsUp, FileText, StickyNote, ClipboardList, Send, Trash2 } from 'lucide-react';
 import { DEPARTMENTS } from '@/lib/departments';
 import { useDailyLogs } from '@/hooks/useDailyLogsQuery';
 import { useTasks } from '@/hooks/useTasksQuery';
 import {
   createDailyLog,
+  addDailyLogComment,
+  deleteDailyLogComment,
   updateDailyLog,
   toggleLogLike,
   getThisWeekLogs,
@@ -29,23 +31,49 @@ import {
   type LogTask,
 } from '@/lib/daily-logs';
 import {
+  deriveDailyLogStatusFromTasks,
+  formatDecimalHoursAsClock,
+  getLocalTodayDateInput,
+  normalizeHoursClockInput,
+  normalizeLogTaskStatus,
+  parseHoursClockToDecimal,
+} from '@/lib/daily-log-format';
+import {
   getDailyLogTaskImportOptions,
   getDailyLogTaskReviewOptions,
   mergeDailyLogTasksWithImports,
   type DailyLogTaskImportOption,
 } from '@/lib/daily-log-task-import';
 import { shouldOpenCreateFromSearch } from '@/lib/dashboard-deep-links';
+import {
+  canDeleteDailyLogComment,
+  getDailyLogCommentAuthorLabel,
+  getDailyLogCommentCount,
+} from '@/lib/daily-log-comments';
 import { getDailyLogReviewSummary } from '@/lib/daily-log-review';
 import { hasManagementAccess } from '@/lib/role-access';
 
 type DateFilter = 'today' | 'week' | 'month' | 'all';
+
+const INITIAL_STATUS_FILTERS: Record<LogStatus, boolean> = {
+  completed: true,
+  review: true,
+  'in-progress': true,
+  blocked: true,
+};
+
+const STATUS_FILTER_OPTIONS: Array<{ value: LogStatus; label: string }> = [
+  { value: 'completed', label: 'Completed' },
+  { value: 'review', label: 'Review' },
+  { value: 'in-progress', label: 'In Progress' },
+  { value: 'blocked', label: 'Blocked' },
+];
 
 export default function DailyLogsPage() {
   const toast = useToast();
   const { user: currentUser } = useUser();
   const currentUserDepartment = currentUser?.department;
   const canReviewTeamLogs = hasManagementAccess(currentUser);
-  const canEditLogDepartment = canReviewTeamLogs;
   const queryClient = useQueryClient();
   const { data: logs = [], isLoading: loading } = useDailyLogs();
   const currentUserId = currentUser?.id ? String(currentUser.id) : '';
@@ -57,41 +85,29 @@ export default function DailyLogsPage() {
   });
   const [showModal, setShowModal] = useState(false);
   const [editingLog, setEditingLog] = useState<DailyLog | null>(null);
+  const [openCommentsLogId, setOpenCommentsLogId] = useState<string | null>(null);
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [commentSubmittingLogId, setCommentSubmittingLogId] = useState<string | null>(null);
   const handledNewLogDeepLinkRef = useRef(false);
 
   // Filters
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
   const [departmentFilter, setDepartmentFilter] = useState<string>(DEPARTMENTS[0]);
   const [userFilter, setUserFilter] = useState<string>('all');
-  const [statusFilters, setStatusFilters] = useState({
-    completed: true,
-    'in-progress': true,
-    blocked: true,
-  });
+  const [statusFilters, setStatusFilters] = useState<Record<LogStatus, boolean>>(INITIAL_STATUS_FILTERS);
   const [logTypeFilter, setLogTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 15;
 
   // Form state
-  const [formDate, setFormDate] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  });
-  const [formDepartment, setFormDepartment] = useState('');
-  const [formHours, setFormHours] = useState<number>(8);
-  const [formStatus, setFormStatus] = useState<LogStatus>('in-progress');
+  const [formDate, setFormDate] = useState(getLocalTodayDateInput);
+  const [formHours, setFormHours] = useState(() => formatDecimalHoursAsClock(8));
+  const [formHoursError, setFormHoursError] = useState('');
   const [formTasks, setFormTasks] = useState<LogTask[]>([]);
   const [formTaskInput, setFormTaskInput] = useState('');
   const [formShiftNotes, setFormShiftNotes] = useState('');
   const [formLogType, setFormLogType] = useState<string>('daily');
-  const logDepartmentOptions = useMemo(
-    () => Array.from(new Set([
-      ...DEPARTMENTS.filter((department) => department !== 'All Departments'),
-      ...(currentUserDepartment ? [currentUserDepartment] : []),
-    ])),
-    [currentUserDepartment],
-  );
   const taskImportOptions = useMemo(
     () => getDailyLogTaskImportOptions(trackedTasks, {
       currentUserId,
@@ -115,10 +131,6 @@ export default function DailyLogsPage() {
 
   // Set default department when user loads
   useEffect(() => {
-    if (currentUserDepartment) {
-      setFormDepartment(previous => previous || currentUserDepartment);
-    }
-
     if (currentUserDepartment && !canReviewTeamLogs) {
       setDepartmentFilter(previous => {
         if (previous === DEPARTMENTS[0]) {
@@ -145,8 +157,7 @@ export default function DailyLogsPage() {
   const reviewSummary = getDailyLogReviewSummary(logs, {
     selectedUserId: userFilter === 'all' ? undefined : userFilter,
   });
-  const now = new Date();
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const todayStr = getLocalTodayDateInput();
 
   // Filter logs
   const filteredLogs = logs.filter(log => {
@@ -198,7 +209,7 @@ export default function DailyLogsPage() {
     return (
       <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
         <div className="p-6 pt-3">
-          <Header title="Daily Logs" subtitle="Track daily progress and tasks" />
+          <Header title="Daily Logs" subtitle="Track daily progress and team activities" />
           <DailyLogsSkeleton />
         </div>
       </main>
@@ -210,7 +221,7 @@ export default function DailyLogsPage() {
   const weekLogs = getThisWeekLogs(logs).length;
   const yourLogs = currentUser ? logs.filter(l => l.authorId === String(currentUser.id)).length : 0;
   const todayLogs = logs.filter((log) => log.date === todayStr).length;
-  const blockedLogs = filteredLogs.filter((log) => log.status === 'blocked').length;
+  const reviewLogs = filteredLogs.filter((log) => log.status === 'review').length;
 
   const handleAddTask = () => {
     if (!formTaskInput.trim()) return;
@@ -218,15 +229,18 @@ export default function DailyLogsPage() {
       id: `task-${Date.now()}`,
       text: formTaskInput.trim(),
       completed: false,
+      status: 'in_progress',
     };
     setFormTasks([...formTasks, newTask]);
     setFormTaskInput('');
   };
 
   const handleToggleTask = (taskId: string) => {
-    setFormTasks(formTasks.map(task =>
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    ));
+    setFormTasks(formTasks.map(task => {
+      if (task.id !== taskId) return task;
+      const completed = !task.completed;
+      return { ...task, completed, status: completed ? 'completed' : 'in_progress' };
+    }));
   };
 
   const handleRemoveTask = (taskId: string) => {
@@ -245,26 +259,44 @@ export default function DailyLogsPage() {
   };
 
   const handleSubmit = async () => {
-    const effectiveDepartment = canEditLogDepartment ? formDepartment : currentUserDepartment || formDepartment;
-    if (!effectiveDepartment || formTasks.length === 0) return;
+    if (formTasks.length === 0) return;
 
     try {
+      const parsedHours = parseHoursClockToDecimal(formHours);
+      if (parsedHours === null) {
+        setFormHoursError('Use HH:MM, for example 08:00.');
+        toast.error('Hours logged must use HH:MM format');
+        return;
+      }
+
+      const derivedStatus = deriveDailyLogStatusFromTasks(formTasks);
+      let savedLog: DailyLog | null = null;
+
       if (editingLog) {
-        await updateDailyLog(editingLog.id, {
-          department: effectiveDepartment,
+        savedLog = await updateDailyLog(editingLog.id, {
           date: formDate,
-          hoursLogged: formHours,
+          hoursLogged: parsedHours,
           tasks: formTasks,
-          status: formStatus,
+          status: derivedStatus,
           shiftNotes: formShiftNotes,
           logType: formLogType,
         });
-        toast.success('Daily log updated successfully');
       } else {
-        await createDailyLog(effectiveDepartment, formDate, formHours, formTasks, formStatus, formShiftNotes, formLogType);
-        toast.success('Daily log added successfully');
+        savedLog = await createDailyLog({
+          date: formDate,
+          hoursLogged: parsedHours,
+          tasks: formTasks,
+          status: derivedStatus,
+          shiftNotes: formShiftNotes,
+          logType: formLogType,
+        });
       }
 
+      if (!savedLog) {
+        throw new Error('Daily log save returned no data');
+      }
+
+      toast.success(editingLog ? 'Daily log updated successfully' : 'Daily log added successfully');
       queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
       resetForm();
       setShowModal(false);
@@ -275,12 +307,9 @@ export default function DailyLogsPage() {
   };
 
   const resetForm = () => {
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    setFormDate(today);
-    setFormDepartment(currentUser?.department || '');
-    setFormHours(8);
-    setFormStatus('in-progress');
+    setFormDate(getLocalTodayDateInput());
+    setFormHours(formatDecimalHoursAsClock(8));
+    setFormHoursError('');
     setFormTasks([]);
     setFormTaskInput('');
     setFormShiftNotes('');
@@ -293,7 +322,62 @@ export default function DailyLogsPage() {
     queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
   };
 
-  const effectiveFormDepartment = canEditLogDepartment ? formDepartment : currentUserDepartment || formDepartment;
+  const handleToggleComments = (logId: string) => {
+    setOpenCommentsLogId(previous => previous === logId ? null : logId);
+  };
+
+  const handleCommentDraftChange = (logId: string, value: string) => {
+    setCommentDrafts(previous => ({ ...previous, [logId]: value }));
+  };
+
+  const handleAddComment = async (logId: string) => {
+    const text = (commentDrafts[logId] || '').trim();
+    if (!text) return;
+
+    try {
+      setCommentSubmittingLogId(logId);
+      const comment = await addDailyLogComment(logId, text);
+      if (!comment) {
+        throw new Error('Comment save returned no data');
+      }
+      setCommentDrafts(previous => ({ ...previous, [logId]: '' }));
+      setOpenCommentsLogId(logId);
+      queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
+      toast.success('Comment added');
+    } catch (error) {
+      console.error('Failed to add comment:', error);
+      toast.error('Failed to add comment');
+    } finally {
+      setCommentSubmittingLogId(null);
+    }
+  };
+
+  const handleDeleteComment = async (logId: string, commentId: string) => {
+    try {
+      const deleted = await deleteDailyLogComment(logId, commentId);
+      if (!deleted) {
+        throw new Error('Comment delete failed');
+      }
+      queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
+      toast.success('Comment deleted');
+    } catch (error) {
+      console.error('Failed to delete comment:', error);
+      toast.error('Failed to delete comment');
+    }
+  };
+
+  const formatCommentTimestamp = (timestamp: string) => {
+    const parsed = new Date(timestamp);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
+  const derivedFormStatus = deriveDailyLogStatusFromTasks(formTasks);
 
   return (
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
@@ -325,7 +409,7 @@ export default function DailyLogsPage() {
             {[
               { label: "Today", value: todayLogs, caption: "Logs submitted" },
               { label: "Your logs", value: yourLogs, caption: "Personal history" },
-              { label: "Blocked", value: blockedLogs, caption: "Needs follow-up" },
+              { label: "Review", value: reviewLogs, caption: "Awaiting check" },
             ].map((item) => (
               <div key={item.label} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2">
                 <div className="text-xs text-[var(--muted)]">{item.label}</div>
@@ -351,7 +435,7 @@ export default function DailyLogsPage() {
                     setDateFilter('today');
                     setDepartmentFilter(DEPARTMENTS[0]);
                     setUserFilter('all');
-                    setStatusFilters({ completed: true, 'in-progress': true, blocked: true });
+                    setStatusFilters({ ...INITIAL_STATUS_FILTERS });
                     setSearchQuery('');
                   }}
                 >
@@ -421,33 +505,17 @@ export default function DailyLogsPage() {
               <div>
                 <label className="block text-sm font-medium mb-2">Status</label>
                 <div className="space-y-2">
-                  <label className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] px-2">
-                    <input
-                      type="checkbox"
-                      checked={statusFilters.completed}
-                      onChange={(e) => setStatusFilters({ ...statusFilters, completed: e.target.checked })}
-                      className="w-4 h-4 rounded [color-scheme:light] dark:[color-scheme:dark]"
-                    />
-                    <span className="text-sm">Completed</span>
-                  </label>
-                  <label className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] px-2">
-                    <input
-                      type="checkbox"
-                      checked={statusFilters['in-progress']}
-                      onChange={(e) => setStatusFilters({ ...statusFilters, 'in-progress': e.target.checked })}
-                      className="w-4 h-4 rounded [color-scheme:light] dark:[color-scheme:dark]"
-                    />
-                    <span className="text-sm">In Progress</span>
-                  </label>
-                  <label className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] px-2">
-                    <input
-                      type="checkbox"
-                      checked={statusFilters.blocked}
-                      onChange={(e) => setStatusFilters({ ...statusFilters, blocked: e.target.checked })}
-                      className="w-4 h-4 rounded [color-scheme:light] dark:[color-scheme:dark]"
-                    />
-                    <span className="text-sm">Blocked</span>
-                  </label>
+                  {STATUS_FILTER_OPTIONS.map((option) => (
+                    <label key={option.value} className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] px-2">
+                      <input
+                        type="checkbox"
+                        checked={statusFilters[option.value]}
+                        onChange={(e) => setStatusFilters({ ...statusFilters, [option.value]: e.target.checked })}
+                        className="w-4 h-4 rounded [color-scheme:light] dark:[color-scheme:dark]"
+                      />
+                      <span className="text-sm">{option.label}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
 
@@ -559,32 +627,43 @@ export default function DailyLogsPage() {
                         <div className="mb-4">
                           <div className="text-sm font-medium mb-2">What I Did Today:</div>
                           <div className="space-y-1">
-                            {log.tasks.map(task => (
-                              <div key={task.id} className="flex items-start gap-2 text-sm">
-                                {task.completed ? (
-                                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
-                                ) : (
-                                  <div className="w-4 h-4 rounded-full border-2 border-[var(--border)] flex-shrink-0 mt-0.5" />
-                                )}
-                                <div className="min-w-0">
-                                  <span className={task.completed ? 'line-through text-[var(--muted)]' : ''}>
-                                    {task.text}
-                                  </span>
-                                  {task.id.startsWith('task:') && (
-                                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-[var(--muted)]">
-                                      <span className="rounded bg-sky-500/10 px-1.5 py-0.5 text-sky-600 dark:text-sky-300">
-                                        Task Tracking
-                                      </span>
-                                      {taskLookup.get(task.id.slice('task:'.length))?.workSessions?.length ? (
-                                        <span>
-                                          {taskLookup.get(task.id.slice('task:'.length))?.workSessions?.length} session{taskLookup.get(task.id.slice('task:'.length))?.workSessions?.length === 1 ? '' : 's'}
-                                        </span>
-                                      ) : null}
-                                    </div>
+                            {log.tasks.map(task => {
+                              const taskStatus = normalizeLogTaskStatus(task);
+                              const linkedTaskId = task.sourceTaskId || (task.id.startsWith('task:') ? task.id.slice('task:'.length) : '');
+                              const linkedTask = linkedTaskId ? taskLookup.get(linkedTaskId) : undefined;
+
+                              return (
+                                <div key={task.id} className="flex items-start gap-2 text-sm">
+                                  {taskStatus === 'completed' ? (
+                                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                                  ) : (
+                                    <div className="w-4 h-4 rounded-full border-2 border-[var(--border)] flex-shrink-0 mt-0.5" />
                                   )}
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className={taskStatus === 'completed' ? 'line-through text-[var(--muted)]' : ''}>
+                                        {task.text}
+                                      </span>
+                                      <StatusBadge status={taskStatus} size="sm" />
+                                    </div>
+                                    {linkedTaskId && (
+                                      <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-[var(--muted)]">
+                                        <span className="rounded bg-sky-500/10 px-1.5 py-0.5 text-sky-600 dark:text-sky-300">
+                                          Task Tracking
+                                        </span>
+                                        {linkedTask?.workSessions?.length ? (
+                                          <span>
+                                            {linkedTask.workSessions.length} session{linkedTask.workSessions.length === 1 ? '' : 's'}
+                                          </span>
+                                        ) : task.sessionCount ? (
+                                          <span>{task.sessionCount} session{task.sessionCount === 1 ? '' : 's'}</span>
+                                        ) : null}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
 
@@ -619,11 +698,95 @@ export default function DailyLogsPage() {
                             <ThumbsUp className={`w-4 h-4 ${currentUser && log.likes.includes(String(currentUser.id)) ? 'fill-current' : ''}`} />
                             <span>{log.likes.length} {log.likes.length === 1 ? 'like' : 'likes'}</span>
                           </button>
-                          <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleComments(log.id)}
+                            aria-expanded={openCommentsLogId === log.id}
+                            aria-controls={`daily-log-comments-${log.id}`}
+                            className="flex min-h-10 items-center gap-1 rounded-[var(--radius-md)] px-2 transition hover:bg-[var(--card-surface)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                          >
                             <MessageCircle className="w-4 h-4" />
-                            <span>{log.comments} {log.comments === 1 ? 'comment' : 'comments'}</span>
-                          </div>
+                            <span>{getDailyLogCommentCount(log)} {getDailyLogCommentCount(log) === 1 ? 'comment' : 'comments'}</span>
+                          </button>
                         </div>
+
+                        {openCommentsLogId === log.id && (
+                          <div
+                            id={`daily-log-comments-${log.id}`}
+                            className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--card-surface)] p-3"
+                          >
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                              <h3 className="text-sm font-semibold text-[var(--foreground)]">Comments</h3>
+                              <span className="text-xs text-[var(--muted)]">
+                                {getDailyLogCommentCount(log)} total
+                              </span>
+                            </div>
+
+                            {log.comments.length === 0 ? (
+                              <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--border)] px-3 py-4 text-sm text-[var(--muted)]">
+                                No comments yet.
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {log.comments.map(comment => (
+                                  <div key={comment.id} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] p-3">
+                                    <div className="mb-1 flex items-start justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <div className="truncate text-sm font-semibold">
+                                          {getDailyLogCommentAuthorLabel(comment, currentUserId || null)}
+                                        </div>
+                                        <div className="text-xs text-[var(--muted)]">
+                                          {formatCommentTimestamp(comment.createdAt)}
+                                        </div>
+                                      </div>
+                                      {canDeleteDailyLogComment(comment, currentUserId || null) && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteComment(log.id, comment.id)}
+                                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] text-[var(--muted)] transition hover:bg-red-500/10 hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/70"
+                                          aria-label="Delete comment"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      )}
+                                    </div>
+                                    <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--foreground)]">
+                                      {comment.text}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                              <label className="sr-only" htmlFor={`daily-log-comment-input-${log.id}`}>
+                                Add a comment
+                              </label>
+                              <input
+                                id={`daily-log-comment-input-${log.id}`}
+                                type="text"
+                                value={commentDrafts[log.id] || ''}
+                                onChange={(event) => handleCommentDraftChange(log.id, event.target.value)}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter' && !event.shiftKey) {
+                                    event.preventDefault();
+                                    handleAddComment(log.id);
+                                  }
+                                }}
+                                placeholder="Add a comment..."
+                                className="min-h-10 flex-1 rounded border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm [color-scheme:light] dark:[color-scheme:dark]"
+                              />
+                              <Button
+                                variant="primary"
+                                onClick={() => handleAddComment(log.id)}
+                                disabled={commentSubmittingLogId === log.id || !(commentDrafts[log.id] || '').trim()}
+                                icon={<Send className="w-4 h-4" />}
+                              >
+                                Send
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -660,38 +823,39 @@ export default function DailyLogsPage() {
                 value={formDate}
                 onChange={setFormDate}
                 icon={Clock}
+                labelAction={
+                  <button
+                    type="button"
+                    onClick={() => setFormDate(getLocalTodayDateInput())}
+                    className="text-xs font-semibold text-[var(--accent)] transition-colors hover:text-[var(--accent-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card-bg)]"
+                  >
+                    Today
+                  </button>
+                }
               />
               <FormField
                 id="log-hours"
                 label="Hours Logged"
-                type="number"
+                type="text"
                 value={formHours}
-                onChange={(val) => setFormHours(Number(val))}
-                min={0}
-                max={24}
-                step={0.5}
+                onChange={(val) => {
+                  setFormHours(val);
+                  if (formHoursError) setFormHoursError('');
+                }}
+                onBlur={() => {
+                  const normalized = normalizeHoursClockInput(formHours);
+                  if (normalized === null) {
+                    setFormHoursError('Use HH:MM, for example 08:00.');
+                    return;
+                  }
+                  setFormHours(normalized || '00:00');
+                  setFormHoursError('');
+                }}
+                error={formHoursError}
+                placeholder="08:00"
+                inputMode="decimal"
+                helperText="Use HH:MM."
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Department</label>
-              <select
-                value={formDepartment}
-                onChange={(e) => setFormDepartment(e.target.value)}
-                disabled={!canEditLogDepartment}
-                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] disabled:cursor-not-allowed disabled:opacity-70 dark:[color-scheme:dark]"
-                aria-label="Department"
-              >
-                <option value="">Select department</option>
-                {logDepartmentOptions.map(dept => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
-              {!canEditLogDepartment && (
-                <p className="mt-1 text-xs text-[var(--muted)]">
-                  Daily Logs use the department assigned to your account.
-                </p>
-              )}
             </div>
 
             <div>
@@ -709,21 +873,10 @@ export default function DailyLogsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Status</label>
-              <select
-                value={formStatus}
-                onChange={(e) => setFormStatus(e.target.value as LogStatus)}
-                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] dark:[color-scheme:dark]"
-                aria-label="Status"
-              >
-                <option value="in-progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="blocked">Blocked</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Tasks Completed Today</label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-medium">Tasks Logged Today</label>
+                <StatusBadge status={derivedFormStatus} size="sm" />
+              </div>
               <div className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--card-surface)] p-3">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div className="flex items-start gap-2">
@@ -731,7 +884,7 @@ export default function DailyLogsPage() {
                     <div>
                       <div className="text-sm font-medium">Import from Task Tracking</div>
                       <p className="mt-0.5 text-xs text-[var(--muted)]">
-                        Completed and in-progress tasks assigned to you for {formDate}.
+                        Completed and in-progress tasks assigned to you for {formDate}. Review-stage tasks appear below.
                       </p>
                     </div>
                   </div>
@@ -761,9 +914,7 @@ export default function DailyLogsPage() {
                         <div className="min-w-0">
                           <div className="truncate text-sm font-medium">{option.text}</div>
                           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-                            <span className={option.completed ? 'text-emerald-500' : 'text-blue-500'}>
-                              {option.completed ? 'Completed' : 'In Progress'}
-                            </span>
+                            <StatusBadge status={option.status === 'in_progress' ? 'in-progress' : option.status} size="sm" />
                             {typeof option.progress === 'number' && (
                               <span>{option.progress}% progress</span>
                             )}
@@ -835,26 +986,36 @@ export default function DailyLogsPage() {
               </div>
 
               <div className="space-y-2 max-h-64 overflow-y-auto chat-scroll">
-                {formTasks.map(task => (
-                  <div key={task.id} className="flex items-center gap-2 p-2 bg-[var(--card-surface)] rounded">
-                    <input
-                      type="checkbox"
-                      checked={task.completed}
-                      onChange={() => handleToggleTask(task.id)}
-                      className="w-4 h-4 rounded [color-scheme:light] dark:[color-scheme:dark]"
-                      aria-label="Mark task as completed"
-                    />
-                    <span className={`flex-1 text-sm ${task.completed ? 'line-through text-[var(--muted)]' : ''}`}>
-                      {task.text}
-                    </span>
-                    <button
-                      onClick={() => handleRemoveTask(task.id)}
-                      className="text-red-500 hover:text-red-600 text-sm"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
+                {formTasks.map(task => {
+                  const taskStatus = normalizeLogTaskStatus(task);
+
+                  return (
+                    <div key={task.id} className="flex items-center gap-2 rounded bg-[var(--card-surface)] p-2">
+                      <input
+                        type="checkbox"
+                        checked={taskStatus === 'completed'}
+                        onChange={() => handleToggleTask(task.id)}
+                        className="w-4 h-4 rounded [color-scheme:light] dark:[color-scheme:dark]"
+                        aria-label="Mark task as completed"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`text-sm ${taskStatus === 'completed' ? 'line-through text-[var(--muted)]' : ''}`}>
+                            {task.text}
+                          </span>
+                          <StatusBadge status={taskStatus} size="sm" />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTask(task.id)}
+                        className="min-h-10 rounded-[var(--radius-md)] px-2 text-sm text-red-500 hover:bg-red-500/10 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/70"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -890,7 +1051,7 @@ export default function DailyLogsPage() {
               <Button
                 variant="success"
                 onClick={handleSubmit}
-                disabled={!effectiveFormDepartment || formTasks.length === 0}
+                disabled={formTasks.length === 0}
                 icon={<Plus className="w-4 h-4" />}
               >
                 {editingLog ? 'Update Log' : 'Add Log'}

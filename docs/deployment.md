@@ -76,10 +76,51 @@ Recommended backend environment:
 
 Frontend public build/runtime environment:
 
-- `NEXT_PUBLIC_API_URL`
+- `NEXT_PUBLIC_API_URL`, such as `https://api.mydeskii.com/api`. If omitted, the frontend uses same-origin `/api` for local/Vercel proxy deployments.
 - `NEXT_PUBLIC_WS_URL`
+- `NEXT_PUBLIC_ENABLE_REALTIME=true` when the websocket URL points at a persistent Node backend
+
+For the monorepo Vercel deployment in `vercel.json`, prefer omitting `NEXT_PUBLIC_API_URL` or setting it to `/api` so browser auth and REST calls use same-origin `/backend-auth/*` and `/api/*` routes. Do not point `NEXT_PUBLIC_API_URL` at a separate Render backend unless that backend's `CORS_ORIGIN` includes the exact Vercel production domain; otherwise browser login fails before the API response is readable.
 
 For Docker deployments, `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` are passed as frontend image build args and runtime environment variables. Rebuild the frontend image when those public URLs change.
+
+## Render Backend Blueprint
+
+The repository includes `render.yaml` for a persistent Render backend service plus an internal Key Value service used as Redis-compatible auth rate-limit storage. It is intended for the production backend while the frontend can remain on Vercel.
+
+Before creating the Blueprint in Render:
+
+- Set `DATABASE_URL` to the Supabase transaction pooler runtime URL.
+- Set `DIRECT_DATABASE_URL` to the Supabase session pooler or direct migration URL.
+- Set `ADMIN_EMAILS` if configured admin-email bypass is still needed.
+- Set `FRONTEND_URL` and `CORS_ORIGIN` to the final frontend domain, such as `https://mydeskii.com`.
+- Leave generated JWT secrets in Render unless rotating existing sessions intentionally.
+
+Render CLI preflight:
+
+```powershell
+render --version
+$env:RENDER_API_KEY = "<render-api-key>"
+render workspaces -o json
+render workspace set <workspace-id-or-name>
+render blueprints validate ./render.yaml
+```
+
+The Blueprint validation command is account/workspace-aware. It fails without a Render login or `RENDER_API_KEY`, even when the local YAML parses successfully.
+
+The Render backend runs `npm run prisma:deploy:render` as its pre-deploy command. That command uses Render-injected environment variables directly, so it does not require `backend/.env.production`. For the first deployment to a verified empty database, run `npm run prisma:bootstrap:render` with `ALLOW_EMPTY_DATABASE_BOOTSTRAP=true` before enabling the normal pre-deploy migration path.
+
+The Blueprint uses `autoDeployTrigger: checksPass`, so Render deploys `main` only after the linked Git provider reports passing checks.
+
+The Blueprint points at the GitHub repository with `repo: https://github.com/ITGuns/Internal-Company-Portal---SAVAGE-LLC`. Render still requires workspace payment information before it can validate or create the paid `starter` backend and Key Value resources.
+
+After Render creates the backend service, set Vercel production variables:
+
+- `NEXT_PUBLIC_API_URL=https://<render-backend-host>/api`
+- `NEXT_PUBLIC_WS_URL=wss://<render-backend-host>`
+- `NEXT_PUBLIC_ENABLE_REALTIME=true`
+
+Then redeploy Vercel so frontend REST/auth traffic and Socket.io use the persistent backend.
 
 ## Temporary Vercel + Supabase Deployment
 
@@ -99,10 +140,10 @@ Required Vercel environment variables:
 - `CORS_ORIGIN`
 - `FRONTEND_URL`
 - `AUTH_RATE_LIMIT_STORE=memory`
-- `NEXT_PUBLIC_WS_URL`
 
 Recommended Vercel environment variables:
 
+- `NEXT_PUBLIC_ENABLE_REALTIME=false`
 - `DIRECT_DATABASE_URL`
 - `JWT_EXPIRES_IN=7d`
 - `REFRESH_TOKEN_EXPIRES_IN=30d`
@@ -112,7 +153,7 @@ Recommended Vercel environment variables:
 
 For Supabase, use the transaction pooler for `DATABASE_URL` and the session pooler or direct connection for `DIRECT_DATABASE_URL`.
 
-Vercel is suitable for a temporary preview of the portal UI and normal REST/auth routes. It is not a complete production runtime for this app because Vercel Functions do not provide a durable Socket.io WebSocket server, and file uploads written to local function storage are not persistent. For full chat realtime behavior, durable uploads, Redis-backed distributed rate limits, and long-running operational reliability, use the Docker/SSH deployment path or a server host that supports persistent Node processes.
+Vercel is suitable for a temporary preview of the portal UI and normal REST/auth routes. It is not a complete production runtime for this app because Vercel Functions do not provide a durable Socket.io WebSocket server, and file uploads written to local function storage are not persistent. Production builds only attempt Socket.io when realtime is explicitly enabled or `NEXT_PUBLIC_WS_URL` is configured; leave `NEXT_PUBLIC_ENABLE_REALTIME=false` on Vercel unless that websocket URL points to a persistent backend. For full chat realtime behavior, durable uploads, Redis-backed distributed rate limits, and long-running operational reliability, use the Docker/SSH deployment path or a server host that supports persistent Node processes.
 
 ### Supabase/Postgres Connection Mode
 
@@ -153,6 +194,12 @@ Production migration command using `.env.production`:
 
 ```powershell
 npm --prefix backend run prisma:deploy:production
+```
+
+Managed-platform migration command using existing environment variables:
+
+```powershell
+npm --prefix backend run prisma:deploy:render
 ```
 
 First empty-database bootstrap command:

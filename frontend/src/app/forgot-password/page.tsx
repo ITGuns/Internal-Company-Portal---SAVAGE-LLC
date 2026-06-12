@@ -134,7 +134,7 @@ export default function ForgotPasswordPage() {
               type="email"
               value={email}
               onChange={setEmail}
-              placeholder="you@company.com"
+              placeholder="you@savage.com"
               required
               disabled={loading}
               icon={Mail}

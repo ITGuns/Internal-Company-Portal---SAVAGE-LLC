@@ -4,6 +4,10 @@ import { AuthRequest, authenticateToken } from '../auth/auth.middleware'
 import { prisma } from '../database/prisma.service'
 import { isAdminEmail } from '../config/env.config'
 import { hasFullAccess } from '../org/org-access-policy'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('file-directory.file-directory.controller')
+
 
 export class FileDirectoryController {
     private service = new FileDirectoryService()
@@ -40,7 +44,7 @@ export class FileDirectoryController {
                 const folders = await this.service.findAll(details.departments, details.role)
                 res.json(folders)
             } catch (error) {
-                console.error('Error fetching file folders:', error)
+                logger.error('Error fetching file folders:', error)
                 res.status(500).json({ error: 'Failed to fetch folders' })
             }
         })
@@ -59,7 +63,7 @@ export class FileDirectoryController {
                 const folders = await this.service.findChildren(id, details.departments, details.role)
                 res.json(folders)
             } catch (error) {
-                console.error('Error fetching child folders:', error)
+                logger.error('Error fetching child folders:', error)
                 res.status(500).json({ error: 'Failed to fetch child folders' })
             }
         })
@@ -68,7 +72,7 @@ export class FileDirectoryController {
         router.post('/', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const user = (req as AuthRequest).user
-                const { name, type, department, driveLink, parentId, customColor } = req.body
+                const { name, type, department, parentId, customColor } = req.body
 
                 if (!name || !department) {
                     return res.status(400).json({ error: 'name and department are required' })
@@ -78,7 +82,6 @@ export class FileDirectoryController {
                     name,
                     type,
                     department,
-                    driveLink,
                     parentId,
                     customColor,
                     createdById: user?.userId,
@@ -86,7 +89,7 @@ export class FileDirectoryController {
 
                 res.status(201).json(folder)
             } catch (error) {
-                console.error('Error creating folder:', error)
+                logger.error('Error creating folder:', error)
                 res.status(500).json({ error: 'Failed to create folder' })
             }
         })
@@ -115,7 +118,7 @@ export class FileDirectoryController {
                 await this.service.delete(id)
                 res.json({ message: 'Folder deleted' })
             } catch (error) {
-                console.error('Error deleting folder:', error)
+                logger.error('Error deleting folder:', error)
                 res.status(500).json({ error: 'Failed to delete folder' })
             }
         })

@@ -1,0 +1,75 @@
+services:
+  - type: keyvalue
+    name: mydeskii-redis
+    region: singapore
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
+  - type: web
+    name: mydeskii-backend
+    runtime: docker
+    plan: starter
+    region: singapore
+    repo: https://github.com/ITGuns/Internal-Company-Portal---SAVAGE-LLC
+    branch: main
+    autoDeployTrigger: checksPass
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /health
+    preDeployCommand: npm run prisma:deploy:render
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: AUTH_RATE_LIMIT_STORE
+        value: redis
+      - key: AUTH_RATE_LIMIT_REDIS_PREFIX
+        value: portal:auth-rate-limit
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: mydeskii-redis
+          property: connectionString
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: LOG_LEVEL
+        value: info
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: REFRESH_TOKEN_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: REFRESH_TOKEN_EXPIRES_IN
+        value: 30d
+      - key: OPS_MANAGER_EMAIL
+        value: admin@savage.com
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: EMAIL_ENABLED
+        value: "false"
+      - key: EMAIL_PROVIDER
+        value: sendgrid
+      - key: EMAIL_FROM_ADDRESS
+        value: noreply@savage-llc.com
+      - key: EMAIL_FROM_NAME
+        value: SAVAGE LLC Internal Portal
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false

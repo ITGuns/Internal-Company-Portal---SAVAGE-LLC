@@ -4,15 +4,21 @@
  */
 
 import { apiFetch } from './api';
-import type { ApiDailyLog, ApiDailyLogLike } from './types/api';
+import type { DailyLogTaskStatus, DerivedDailyLogStatus } from './daily-log-format';
+import type { ApiDailyLog, ApiDailyLogComment, ApiDailyLogLike } from './types/api';
 import type { PaginatedResponse } from './types/pagination';
 
-export type LogStatus = 'completed' | 'in-progress' | 'blocked';
+export type LogStatus = DerivedDailyLogStatus;
 
 export interface LogTask {
   id: string;
+  sourceTaskId?: string;
   text: string;
   completed: boolean;
+  status?: DailyLogTaskStatus | string;
+  progress?: number | null;
+  sessionCount?: number;
+  trackedMinutes?: number;
 }
 
 export interface DailyLog {
@@ -27,9 +33,37 @@ export interface DailyLog {
   tasks: LogTask[];
   shiftNotes: string; // EOD shift notes
   likes: string[]; // Array of user IDs who liked
-  comments: number; // Comment count
+  comments: DailyLogComment[];
   logType?: string; // daily, weekly, monthly
 }
+
+export interface DailyLogComment {
+  id: string;
+  authorId: string;
+  author: string;
+  avatar?: string | null;
+  text: string;
+  createdAt: string;
+}
+
+export interface CreateDailyLogInput {
+  date: string;
+  hoursLogged: number;
+  tasks: LogTask[];
+  status?: LogStatus;
+  shiftNotes?: string;
+  logType?: string;
+  department?: string;
+}
+
+const mapApiComment = (comment: ApiDailyLogComment): DailyLogComment => ({
+  id: comment.id,
+  authorId: comment.authorId,
+  author: comment.author?.name || comment.author?.email || 'Team',
+  avatar: comment.author?.avatar || null,
+  text: comment.text,
+  createdAt: comment.createdAt,
+});
 
 // Helper to map API data to Frontend interface
 const mapApiLog = (data: ApiDailyLog): DailyLog => {
@@ -45,7 +79,7 @@ const mapApiLog = (data: ApiDailyLog): DailyLog => {
     tasks: (data.tasks as LogTask[]) || [],
     shiftNotes: data.shiftNotes || '',
     likes: data.likes?.map((l: ApiDailyLogLike) => l.userId || l.user?.id || '') || [],
-    comments: 0,
+    comments: data.comments?.map(mapApiComment) || [],
     logType: data.logType || 'daily'
   };
 };
@@ -79,6 +113,32 @@ export async function fetchDailyLogs(department?: string, status?: string, logTy
     }
   } catch (error: unknown) {
     console.error('Failed to fetch daily logs:', error);
+  }
+  return [];
+}
+
+/**
+ * Fetch daily logs owned by the current authenticated user.
+ */
+export async function fetchMyDailyLogs(): Promise<DailyLog[]> {
+  try {
+    const res = await apiFetch('/daily-logs/my-logs');
+    if (res.status === 200) {
+      const data = await res.json();
+      if (!Array.isArray(data)) {
+        throw new Error(`Expected array but got ${typeof data}: ${JSON.stringify(data).slice(0, 100)}`);
+      }
+      return data.map((item: ApiDailyLog) => {
+        const mapped = mapApiLog(item);
+        if (mapped.date) {
+          const d = new Date(mapped.date);
+          mapped.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+        return mapped;
+      });
+    }
+  } catch (error: unknown) {
+    console.error('Failed to fetch your daily logs:', error);
   }
   return [];
 }
@@ -125,26 +185,18 @@ export async function fetchDailyLogsPaginated(
 /**
  * Add a new daily log
  */
-export async function createDailyLog(
-  department: string,
-  date: string,
-  hoursLogged: number,
-  tasks: LogTask[],
-  status: LogStatus = 'in-progress',
-  shiftNotes: string = '',
-  logType: string = 'daily'
-): Promise<DailyLog | null> {
+export async function createDailyLog(input: CreateDailyLogInput): Promise<DailyLog | null> {
   try {
-    const payload = {
-      content: `Daily Log - ${date}`, // Generated content
-      department,
-      date, // Send as plain YYYY-MM-DD — backend stores as noon UTC to avoid day-shift
-      hoursLogged,
-      tasks, // Send JSON
-      status,
-      shiftNotes,
-      logType
+    const payload: Record<string, unknown> = {
+      content: `Daily Log - ${input.date}`, // Generated content
+      date: input.date, // Send as plain YYYY-MM-DD, backend stores as noon UTC to avoid day-shift
+      hoursLogged: input.hoursLogged,
+      tasks: input.tasks, // Send JSON
+      status: input.status || 'in-progress',
+      shiftNotes: input.shiftNotes || '',
+      logType: input.logType || 'daily'
     };
+    if (input.department) payload.department = input.department;
 
     const res = await apiFetch('/daily-logs', {
       method: 'POST',
@@ -225,6 +277,41 @@ export async function toggleLogLike(logId: string): Promise<boolean> {
     console.error('Failed to toggle like:', error);
   }
   return false;
+}
+
+/**
+ * Add a comment to a daily log.
+ */
+export async function addDailyLogComment(logId: string, text: string): Promise<DailyLogComment | null> {
+  try {
+    const res = await apiFetch(`/daily-logs/${logId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+
+    if (res.status === 201) {
+      const data = await res.json();
+      return mapApiComment(data);
+    }
+  } catch (error) {
+    console.error('Failed to add daily log comment:', error);
+  }
+  return null;
+}
+
+/**
+ * Delete a comment from a daily log.
+ */
+export async function deleteDailyLogComment(logId: string, commentId: string): Promise<boolean> {
+  try {
+    const res = await apiFetch(`/daily-logs/${logId}/comments/${commentId}`, {
+      method: 'DELETE',
+    });
+    return res.status === 200;
+  } catch (error) {
+    console.error('Failed to delete daily log comment:', error);
+    return false;
+  }
 }
 
 // Helpers requiring data input now

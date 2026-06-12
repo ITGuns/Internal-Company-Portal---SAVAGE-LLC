@@ -15,8 +15,23 @@ export interface PayrollAuditDateRange {
   endDate: string;
 }
 
+interface PayrollAuditSummaryParams extends PayrollAuditDateRange {
+  selectedUser?: PayrollAuditUser | null;
+}
+
+const auditDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
 function isDateInput(value?: string | null): value is string {
   return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+}
+
+function getPayrollAuditUserLabel(user?: PayrollAuditUser | null): string {
+  return user?.name || user?.email || "my time entries";
 }
 
 export function getPayrollAuditTarget({
@@ -46,6 +61,20 @@ export function filterPayrollAuditUsers(
   });
 }
 
+export function getVisiblePayrollAuditUsers(
+  users: PayrollAuditUser[],
+  query: string,
+  selectedUserId?: string,
+): PayrollAuditUser[] {
+  const filteredUsers = filterPayrollAuditUsers(users, query);
+  if (!selectedUserId || filteredUsers.some((user) => String(user.id) === selectedUserId)) {
+    return filteredUsers;
+  }
+
+  const selectedUser = users.find((user) => String(user.id) === selectedUserId);
+  return selectedUser ? filteredUsers.slice(0, 0).concat(selectedUser, filteredUsers) : filteredUsers;
+}
+
 export function getPayrollAuditDateRange(searchParams: URLSearchParams): PayrollAuditDateRange {
   const startDate = searchParams.get("start");
   const endDate = searchParams.get("end");
@@ -64,4 +93,34 @@ export function getPayrollTimeEntryRange(range: PayrollAuditDateRange): {
     startIso: range.startDate ? new Date(`${range.startDate}T00:00:00.000Z`).toISOString() : undefined,
     endIso: range.endDate ? new Date(`${range.endDate}T23:59:59.999Z`).toISOString() : undefined,
   };
+}
+
+export function getPayrollAuditTodayDateInput(now = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
+
+export function formatPayrollAuditDateLabel(dateInput: string): string {
+  if (!isDateInput(dateInput)) return "";
+  return auditDateFormatter.format(new Date(`${dateInput}T00:00:00.000Z`));
+}
+
+export function getPayrollAuditSummary({
+  selectedUser,
+  startDate,
+  endDate,
+}: PayrollAuditSummaryParams): string {
+  const targetLabel = getPayrollAuditUserLabel(selectedUser);
+  const startLabel = formatPayrollAuditDateLabel(startDate);
+  const endLabel = formatPayrollAuditDateLabel(endDate);
+
+  if (startLabel && endLabel) {
+    return `Auditing ${targetLabel} from ${startLabel} to ${endLabel}`;
+  }
+  if (startLabel) {
+    return `Auditing ${targetLabel} from ${startLabel}`;
+  }
+  if (endLabel) {
+    return `Auditing ${targetLabel} through ${endLabel}`;
+  }
+  return `Auditing ${targetLabel} across all dates`;
 }

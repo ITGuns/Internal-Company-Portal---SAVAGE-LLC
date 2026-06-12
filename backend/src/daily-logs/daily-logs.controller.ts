@@ -9,6 +9,11 @@ import {
     resolveDailyLogDepartment,
     type DailyLogDepartmentRole,
 } from './daily-logs.department'
+import { resolvePaginationQuery } from '../http/pagination'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('daily-logs.daily-logs.controller')
+
 
 interface AuthRequest extends Request {
     user?: {
@@ -66,13 +71,15 @@ export class DailyLogsController {
                 const department = req.query.department as string | undefined
                 const status = req.query.status as string | undefined
                 const logType = req.query.logType as string | undefined
-                const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined
-                const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined
+                const pagination = resolvePaginationQuery(req.query)
 
-                const items = await this.service.findAll(department, status, logType, page, limit)
-                res.json(items)
+                const items = await this.service.findAll(department, status, logType, pagination.page, pagination.limit)
+                if (Array.isArray(items)) {
+                    return res.json(items)
+                }
+                res.json(pagination.hasExplicitPagination ? items : items.data)
             } catch (error) {
-                console.error('Error fetching logs:', error)
+                logger.error('Error fetching logs:', error)
                 res.status(500).json({ error: 'Failed to fetch logs' })
             }
         })
@@ -86,7 +93,7 @@ export class DailyLogsController {
                 const items = await this.service.findByAuthor(user.userId)
                 res.json(items)
             } catch (error) {
-                console.error('Error fetching your logs:', error)
+                logger.error('Error fetching your logs:', error)
                 res.status(500).json({ error: 'Failed to fetch your logs' })
             }
         })
@@ -131,7 +138,7 @@ export class DailyLogsController {
                 res.status(201).json(item)
                 notificationService.broadcastDataChange('daily-logs')
             } catch (error) {
-                console.error('Error creating log:', error)
+                logger.error('Error creating log:', error)
                 res.status(500).json({ error: 'Failed to create log' })
             }
         })
@@ -176,7 +183,7 @@ export class DailyLogsController {
                 res.json(item)
                 notificationService.broadcastDataChange('daily-logs')
             } catch (error) {
-                console.error('Error updating log:', error)
+                logger.error('Error updating log:', error)
                 res.status(500).json({ error: 'Failed to update log' })
             }
         })
@@ -189,7 +196,7 @@ export class DailyLogsController {
                 notificationService.broadcastDataChange('daily-logs')
                 res.json({ message: 'Log deleted' })
             } catch (error) {
-                console.error('Error deleting log:', error)
+                logger.error('Error deleting log:', error)
                 res.status(500).json({ error: 'Failed to delete log' })
             }
         })
@@ -208,8 +215,61 @@ export class DailyLogsController {
                 notificationService.broadcastDataChange('daily-logs')
                 res.json(result)
             } catch (error) {
-                console.error('Error toggling like:', error)
+                logger.error('Error toggling like:', error)
                 res.status(500).json({ error: 'Failed to toggle like' })
+            }
+        })
+
+        // Add a comment to a daily log
+        router.post('/:id/comments', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+                const user = (req as AuthRequest).user
+                const text = typeof req.body.text === 'string' ? req.body.text.trim() : ''
+
+                if (!user?.userId) {
+                    return res.status(401).json({ error: 'User not authenticated' })
+                }
+
+                if (!text) {
+                    return res.status(400).json({ error: 'Comment text is required' })
+                }
+
+                const comment = await this.service.addComment(id, user.userId, text)
+                notificationService.broadcastDataChange('daily-logs')
+                res.status(201).json(comment)
+            } catch (error) {
+                if (error instanceof Error && error.message === 'Daily log not found') {
+                    return res.status(404).json({ error: error.message })
+                }
+                logger.error('Error adding daily log comment:', error)
+                res.status(500).json({ error: 'Failed to add comment' })
+            }
+        })
+
+        // Delete a comment from a daily log
+        router.delete('/:id/comments/:commentId', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+                const commentId = Array.isArray(req.params.commentId) ? req.params.commentId[0] : req.params.commentId
+                const user = (req as AuthRequest).user
+
+                if (!user?.userId) {
+                    return res.status(401).json({ error: 'User not authenticated' })
+                }
+
+                await this.service.deleteComment(id, commentId, user.userId)
+                notificationService.broadcastDataChange('daily-logs')
+                res.json({ message: 'Comment deleted' })
+            } catch (error) {
+                if (error instanceof Error && error.message === 'Comment not found') {
+                    return res.status(404).json({ error: error.message })
+                }
+                if (error instanceof Error && error.message === 'Unauthorized to delete this comment') {
+                    return res.status(403).json({ error: error.message })
+                }
+                logger.error('Error deleting daily log comment:', error)
+                res.status(500).json({ error: 'Failed to delete comment' })
             }
         })
 

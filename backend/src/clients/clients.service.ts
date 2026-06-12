@@ -2,6 +2,15 @@ import { Prisma, PrismaClient } from '@prisma/client'
 import crypto from 'crypto'
 import { prisma } from '../database/prisma.service'
 import { emailService } from '../email/email.service'
+import { ClientBillingService } from './client-billing.service'
+import {
+  ClientCalendarService,
+  type ClientCalendarItemDeleteContext,
+} from './client-calendar.service'
+import { ClientContentService } from './client-content.service'
+import { ClientOrganizationsService } from './client-organizations.service'
+import { ClientRoadmapAssetsService } from './client-roadmap-assets.service'
+import { ClientServiceTiersService } from './client-service-tiers.service'
 import {
   CLIENT_ACTIVITY_TYPES,
   buildApprovalQueueItems,
@@ -72,42 +81,37 @@ function addDays(date: Date, days: number): Date {
 
 export class ClientsService {
   private prisma: PrismaClient
+  private serviceTiers: ClientServiceTiersService
+  private organizations: ClientOrganizationsService
+  private billing: ClientBillingService
+  private calendar: ClientCalendarService
+  private content: ClientContentService
+  private roadmapAssets: ClientRoadmapAssetsService
 
   constructor() {
     this.prisma = prisma
+    this.serviceTiers = new ClientServiceTiersService(this.prisma)
+    this.organizations = new ClientOrganizationsService(this.prisma)
+    this.billing = new ClientBillingService(this.prisma)
+    this.calendar = new ClientCalendarService(this.prisma)
+    this.content = new ClientContentService(this.prisma)
+    this.roadmapAssets = new ClientRoadmapAssetsService(this.prisma)
   }
 
   async findServiceTiers() {
-    return this.prisma.clientServiceTier.findMany({
-      orderBy: [{ priorityRank: 'desc' }, { name: 'asc' }],
-      take: 100,
-    })
+    return this.serviceTiers.findServiceTiers()
   }
 
   async createServiceTier(data: CreateClientServiceTierInput) {
-    return this.prisma.clientServiceTier.create({
-      data: {
-        name: data.name,
-        description: data.description,
-        monthlyPrice: data.monthlyPrice,
-        priorityRank: data.priorityRank,
-      },
-    })
+    return this.serviceTiers.createServiceTier(data)
   }
 
   async updateServiceTier(id: string, data: UpdateClientServiceTierInput) {
-    return this.prisma.clientServiceTier.update({
-      where: { id },
-      data,
-    })
+    return this.serviceTiers.updateServiceTier(id, data)
   }
 
   async deleteServiceTier(id: string) {
-    await this.prisma.clientServiceTier.delete({
-      where: { id },
-    })
-
-    return { id, deleted: true }
+    return this.serviceTiers.deleteServiceTier(id)
   }
 
   async findOrganizations(where: Prisma.ClientOrganizationWhereInput = {}) {
@@ -130,138 +134,15 @@ export class ClientsService {
   }
 
   async createOrganization(data: CreateClientOrganizationInput) {
-    return this.prisma.clientOrganization.create({
-      data: {
-        name: data.name,
-        slug: data.slug,
-        websiteUrl: data.websiteUrl,
-        websiteWorkType: data.websiteWorkType,
-        tierId: data.tierId,
-        notes: data.notes,
-      },
-      include: {
-        tier: true,
-        _count: {
-          select: {
-            memberships: true,
-            projects: true,
-            tickets: true,
-            updates: true,
-          },
-        },
-      },
-    })
+    return this.organizations.createOrganization(data)
   }
 
   async updateOrganizationServiceTier(id: string, data: UpdateClientOrganizationServiceTierInput, actorId?: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const previous = await tx.clientOrganization.findUnique({
-        where: { id },
-        select: {
-          tierId: true,
-          tier: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      })
-
-      const organization = await tx.clientOrganization.update({
-        where: { id },
-        data: {
-          tierId: data.tierId,
-        },
-        include: {
-          tier: true,
-          _count: {
-            select: {
-              memberships: true,
-              projects: true,
-              tickets: true,
-              updates: true,
-            },
-          },
-        },
-      })
-
-      if (previous?.tierId !== organization.tierId) {
-        await createClientActivity(tx, {
-          organizationId: organization.id,
-          actorId,
-          type: CLIENT_ACTIVITY_TYPES.organizationServiceTierUpdated,
-          subjectType: 'organization',
-          subjectId: organization.id,
-          visibility: 'internal',
-          title: organization.tier
-            ? `Service tier assigned: ${organization.tier.name}`
-            : 'Service tier cleared',
-          body: previous?.tier?.name
-            ? `Previous tier: ${previous.tier.name}`
-            : null,
-          metadata: {
-            previousTierId: previous?.tierId || null,
-            previousTierName: previous?.tier?.name || null,
-            tierId: organization.tierId || null,
-            tierName: organization.tier?.name || null,
-          },
-        })
-      }
-
-      return organization
-    })
+    return this.organizations.updateOrganizationServiceTier(id, data, actorId)
   }
 
   async updateOrganizationStatus(id: string, data: UpdateClientOrganizationStatusInput, actorId?: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const previous = await tx.clientOrganization.findUnique({
-        where: { id },
-        select: { status: true },
-      })
-
-      const organization = await tx.clientOrganization.update({
-        where: { id },
-        data: {
-          status: data.status,
-        },
-        include: {
-          tier: true,
-          _count: {
-            select: {
-              memberships: true,
-              projects: true,
-              tickets: true,
-              updates: true,
-            },
-          },
-        },
-      })
-
-      if (previous?.status !== data.status && (data.status === 'archived' || previous?.status === 'archived')) {
-        await createClientActivity(tx, {
-          organizationId: organization.id,
-          actorId,
-          type: data.status === 'archived'
-            ? CLIENT_ACTIVITY_TYPES.organizationArchived
-            : CLIENT_ACTIVITY_TYPES.organizationRestored,
-          subjectType: 'organization',
-          subjectId: organization.id,
-          visibility: 'internal',
-          title: data.status === 'archived'
-            ? `Client archived: ${organization.name}`
-            : `Client restored: ${organization.name}`,
-          body: data.status === 'archived'
-            ? 'Client access was archived and hidden from client users.'
-            : 'Client access was restored for active client users.',
-          metadata: {
-            previousStatus: previous?.status || null,
-            status: data.status,
-          },
-        })
-      }
-
-      return organization
-    })
+    return this.organizations.updateOrganizationStatus(id, data, actorId)
   }
 
   async findOrganizationOverview(id: string, clientVisibleOnly: boolean) {
@@ -721,102 +602,39 @@ export class ClientsService {
   }
 
   async createProject(organizationId: string, data: CreateClientProjectInput) {
-    return this.prisma.clientProject.create({
-      data: {
-        organizationId,
-        name: data.name,
-        status: data.status,
-        summary: data.summary,
-        progress: data.progress,
-        startedAt: data.startedAt,
-        targetLaunchAt: data.targetLaunchAt,
-        liveUrl: data.liveUrl,
-        previewUrl: data.previewUrl,
-        internalNotes: data.internalNotes,
-      },
-    })
+    return this.content.createProject(organizationId, data)
   }
 
   async findProjectById(id: string) {
-    return this.prisma.clientProject.findUnique({
-      where: { id },
-    })
+    return this.content.findProjectById(id)
   }
 
   async updateProject(id: string, data: UpdateClientProjectInput) {
-    return this.prisma.clientProject.update({
-      where: { id },
-      data,
-    })
+    return this.content.updateProject(id, data)
   }
 
   async createUpdate(organizationId: string, createdById: string, data: CreateClientUpdateInput) {
-    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
-
-    return this.prisma.clientUpdate.create({
-      data: {
-        organizationId,
-        projectId: data.projectId,
-        title: data.title,
-        body: data.body,
-        status: data.status,
-        visibleToClient: data.visibleToClient,
-        createdById,
-      },
-    })
+    return this.content.createUpdate(organizationId, createdById, data)
   }
 
   async createMetricSnapshot(organizationId: string, data: CreateClientMetricSnapshotInput) {
-    return this.prisma.clientMetricSnapshot.create({
-      data: {
-        organizationId,
-        label: data.label,
-        value: data.value,
-        unit: data.unit,
-        periodStart: data.periodStart,
-        periodEnd: data.periodEnd,
-        source: data.source,
-        notes: data.notes,
-        visibleToClient: data.visibleToClient,
-      },
-    })
+    return this.content.createMetricSnapshot(organizationId, data)
   }
 
   async createResourceLink(organizationId: string, data: CreateClientResourceLinkInput) {
-    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
-
-    return this.prisma.clientResourceLink.create({
-      data: {
-        organizationId,
-        projectId: data.projectId,
-        label: data.label,
-        url: data.url,
-        type: data.type,
-        visibleToClient: data.visibleToClient,
-        createdById: data.createdById,
-      },
-    })
+    return this.content.createResourceLink(organizationId, data)
   }
 
   async findResourceLinkById(id: string) {
-    return this.prisma.clientResourceLink.findUnique({
-      where: { id },
-    })
+    return this.content.findResourceLinkById(id)
   }
 
   async updateResourceLink(resourceId: string, organizationId: string, data: UpdateClientResourceLinkInput) {
-    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
-
-    return this.prisma.clientResourceLink.update({
-      where: { id: resourceId },
-      data,
-    })
+    return this.content.updateResourceLink(resourceId, organizationId, data)
   }
 
   async deleteResourceLink(resourceId: string) {
-    return this.prisma.clientResourceLink.delete({
-      where: { id: resourceId },
-    })
+    return this.content.deleteResourceLink(resourceId)
   }
 
   async findTickets(where: Prisma.ClientTicketWhereInput = {}) {
@@ -1552,264 +1370,47 @@ export class ClientsService {
   }
 
   async createRoadmapRecommendation(organizationId: string, data: CreateClientRoadmapRecommendationInput) {
-    return this.prisma.clientRoadmapRecommendation.create({
-      data: {
-        organizationId,
-        title: data.title,
-        body: data.body,
-        priority: data.priority,
-        status: data.status,
-        impact: data.impact,
-        effort: data.effort,
-        visibleToClient: data.visibleToClient,
-        sortOrder: data.sortOrder,
-      },
-    })
+    return this.roadmapAssets.createRoadmapRecommendation(organizationId, data)
   }
 
   async findRoadmapRecommendationById(id: string) {
-    return this.prisma.clientRoadmapRecommendation.findUnique({ where: { id } })
+    return this.roadmapAssets.findRoadmapRecommendationById(id)
   }
 
   async updateRoadmapRecommendation(id: string, data: UpdateClientRoadmapRecommendationInput) {
-    return this.prisma.clientRoadmapRecommendation.update({
-      where: { id },
-      data,
-    })
+    return this.roadmapAssets.updateRoadmapRecommendation(id, data)
   }
 
   async createAsset(organizationId: string, data: CreateClientAssetInput) {
-    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
-
-    return this.prisma.$transaction(async (tx) => {
-      const existingAsset = await tx.clientAsset.findFirst({
-        where: {
-          organizationId,
-          projectId: data.projectId || null,
-          label: data.label,
-          url: data.url,
-          type: data.type,
-        },
-        orderBy: { updatedAt: 'desc' },
-      })
-
-      if (existingAsset) {
-        return tx.clientAsset.update({
-          where: { id: existingAsset.id },
-          data: {
-            status: data.status,
-            notes: data.notes,
-            visibleToClient: data.visibleToClient,
-          },
-        })
-      }
-
-      return tx.clientAsset.create({
-        data: {
-          organizationId,
-          projectId: data.projectId,
-          label: data.label,
-          url: data.url,
-          type: data.type,
-          status: data.status,
-          notes: data.notes,
-          visibleToClient: data.visibleToClient,
-        },
-      })
-    })
+    return this.roadmapAssets.createAsset(organizationId, data)
   }
 
   async findAssetById(id: string) {
-    return this.prisma.clientAsset.findUnique({ where: { id } })
+    return this.roadmapAssets.findAssetById(id)
   }
 
   async updateAsset(id: string, organizationId: string, data: UpdateClientAssetInput) {
-    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
-
-    return this.prisma.clientAsset.update({
-      where: { id },
-      data,
-    })
+    return this.roadmapAssets.updateAsset(id, organizationId, data)
   }
 
   async upsertBillingStatus(organizationId: string, data: UpsertClientBillingStatusInput, actorId?: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const billing = await tx.clientBillingStatus.upsert({
-        where: { organizationId },
-        update: data,
-        create: {
-          organizationId,
-          ...data,
-        },
-      })
-
-      await createClientActivity(tx, {
-        organizationId,
-        actorId,
-        type: CLIENT_ACTIVITY_TYPES.billingUpdated,
-        subjectType: 'billing_status',
-        subjectId: billing.id,
-        visibility: billing.visibleToClient ? 'client' : 'internal',
-        title: `Billing status updated: ${billing.status}`,
-        body: billing.notes || null,
-        metadata: {
-          planName: billing.planName || null,
-          status: billing.status,
-          monthlyAmount: billing.monthlyAmount,
-          currency: billing.currency,
-          renewalAt: billing.renewalAt ? billing.renewalAt.toISOString() : null,
-        },
-      })
-
-      return billing
-    })
+    return this.billing.upsertBillingStatus(organizationId, data, actorId)
   }
 
   async createCalendarItem(organizationId: string, createdById: string, data: CreateClientCalendarItemInput) {
-    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
-
-    return this.prisma.$transaction(async (tx) => {
-      const calendarItem = await tx.clientCalendarItem.create({
-        data: {
-          organizationId,
-          createdById,
-          projectId: data.projectId,
-          title: data.title,
-          description: data.description,
-          channel: data.channel,
-          status: data.status,
-          startAt: data.startAt,
-          endAt: data.endAt,
-          visibleToClient: data.visibleToClient,
-        },
-      })
-
-      await createClientActivity(tx, {
-        organizationId,
-        actorId: createdById,
-        type: CLIENT_ACTIVITY_TYPES.calendarScheduled,
-        subjectType: 'calendar_item',
-        subjectId: calendarItem.id,
-        visibility: calendarItem.visibleToClient ? 'client' : 'internal',
-        title: `Calendar item scheduled: ${calendarItem.title}`,
-        body: calendarItem.description || null,
-        metadata: {
-          status: calendarItem.status,
-          channel: calendarItem.channel || null,
-          startAt: calendarItem.startAt.toISOString(),
-          endAt: calendarItem.endAt ? calendarItem.endAt.toISOString() : null,
-          projectId: calendarItem.projectId || null,
-        },
-      })
-
-      return calendarItem
-    })
+    return this.calendar.createCalendarItem(organizationId, createdById, data)
   }
 
   async findCalendarItemById(id: string) {
-    return this.prisma.clientCalendarItem.findUnique({ where: { id } })
+    return this.calendar.findCalendarItemById(id)
   }
 
   async updateCalendarItem(id: string, organizationId: string, data: UpdateClientCalendarItemInput, actorId?: string) {
-    await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
-
-    return this.prisma.$transaction(async (tx) => {
-      const existingCalendarItem = await tx.clientCalendarItem.findUnique({
-        where: { id },
-        select: {
-          startAt: true,
-          endAt: true,
-        },
-      })
-      if (!existingCalendarItem) throw new ClientValidationError('Calendar item not found')
-
-      const nextStartAt = data.startAt || existingCalendarItem.startAt
-      const nextEndAt = data.endAt === undefined ? existingCalendarItem.endAt : data.endAt
-      if (nextEndAt && nextEndAt < nextStartAt) {
-        throw new ClientValidationError('Calendar endAt must be after startAt')
-      }
-
-      const calendarItem = await tx.clientCalendarItem.update({
-        where: { id },
-        data,
-      })
-
-      await createClientActivity(tx, {
-        organizationId,
-        actorId,
-        type: CLIENT_ACTIVITY_TYPES.calendarUpdated,
-        subjectType: 'calendar_item',
-        subjectId: calendarItem.id,
-        visibility: calendarItem.visibleToClient ? 'client' : 'internal',
-        title: `Calendar item updated: ${calendarItem.title}`,
-        body: calendarItem.description || null,
-        metadata: {
-          status: calendarItem.status,
-          channel: calendarItem.channel || null,
-          startAt: calendarItem.startAt.toISOString(),
-          endAt: calendarItem.endAt ? calendarItem.endAt.toISOString() : null,
-          projectId: calendarItem.projectId || null,
-        },
-      })
-
-      return calendarItem
-    })
+    return this.calendar.updateCalendarItem(id, organizationId, data, actorId)
   }
 
-  async deleteCalendarItem(id: string, actorId?: string, existingItem?: {
-    organizationId: string
-    title: string
-    description?: string | null
-    channel?: string | null
-    status: string
-    startAt: Date
-    endAt?: Date | null
-    visibleToClient: boolean
-    projectId?: string | null
-  }) {
-    return this.prisma.$transaction(async (tx) => {
-      const calendarItem = existingItem || await tx.clientCalendarItem.findUnique({
-        where: { id },
-        select: {
-          organizationId: true,
-          title: true,
-          description: true,
-          channel: true,
-          status: true,
-          startAt: true,
-          endAt: true,
-          visibleToClient: true,
-          projectId: true,
-        },
-      })
-
-      const deleted = await tx.clientCalendarItem.delete({
-        where: { id },
-        select: { id: true },
-      })
-
-      if (calendarItem) {
-        await createClientActivity(tx, {
-          organizationId: calendarItem.organizationId,
-          actorId,
-          type: CLIENT_ACTIVITY_TYPES.calendarDeleted,
-          subjectType: 'calendar_item',
-          subjectId: id,
-          visibility: calendarItem.visibleToClient ? 'client' : 'internal',
-          title: `Calendar item deleted: ${calendarItem.title}`,
-          body: calendarItem.description || null,
-          metadata: {
-            status: calendarItem.status,
-            channel: calendarItem.channel || null,
-            startAt: calendarItem.startAt.toISOString(),
-            endAt: calendarItem.endAt ? calendarItem.endAt.toISOString() : null,
-            projectId: calendarItem.projectId || null,
-          },
-        })
-      }
-
-      return deleted
-    })
+  async deleteCalendarItem(id: string, actorId?: string, existingItem?: ClientCalendarItemDeleteContext) {
+    return this.calendar.deleteCalendarItem(id, actorId, existingItem)
   }
 
   private async assertProjectBelongsToOrganization(organizationId: string, projectId?: string | null) {

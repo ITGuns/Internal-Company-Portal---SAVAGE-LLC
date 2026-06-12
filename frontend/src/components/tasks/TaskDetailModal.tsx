@@ -2,6 +2,7 @@
 
 import React from "react";
 import Button from "@/components/Button";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { useTaskDetail } from "@/hooks/useTasksQuery";
 import { useLiveElapsed } from "@/hooks/useLiveElapsed";
 import {
@@ -17,12 +18,19 @@ import {
   CheckCircle2,
   Clock3,
   Edit3,
+  FolderKanban,
+  Pause,
+  Play,
   RotateCcw,
   Timer,
   UserRound,
   X,
 } from "lucide-react";
-import { getReopenedTaskProgress, type TaskQuickAction } from "@/lib/task-status-actions";
+import {
+  getReopenedTaskProgress,
+  TASK_QUICK_ACTION_LABELS,
+  type TaskQuickAction,
+} from "@/lib/task-status-actions";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "To Do",
@@ -86,6 +94,9 @@ function getInitials(name?: string | null) {
 }
 
 export default function TaskDetailModal({ task, onClose, onEdit, onAction }: TaskDetailModalProps) {
+  const dialogTitleId = React.useId();
+  const dialogDescriptionId = React.useId();
+  const { dialogRef, handleDialogKeyDown } = useDialogA11y({ onClose });
   const {
     data: taskDetail,
     isLoading,
@@ -108,13 +119,16 @@ export default function TaskDetailModal({ task, onClose, onEdit, onAction }: Tas
     ? 100
     : getReopenedTaskProgress({ ...activeTask, totalElapsed: liveElapsed });
   const assigneeName = activeTask.assignee?.name || activeTask.assignee?.email || "Unassigned";
+  const collaborators = activeTask.collaborators || [];
   const remainingLabel = summary.isOverEstimate
     ? `${formatDurationSeconds(summary.trackedSeconds - summary.estimatedSeconds)} over`
     : formatDurationSeconds(summary.remainingSeconds);
+  const isCompleted = activeTask.status === "completed";
+  const isTimerRunning = activeTask.timerStatus === "playing";
 
   return (
     <div
-      className="fixed z-50 flex items-start justify-center bg-gray-100/80 px-4 pt-16"
+      className="portal-form-backdrop fixed z-50 flex items-start justify-center px-4 pt-16"
       style={{
         top: 0,
         left: "var(--sidebar-width, 16rem)",
@@ -122,7 +136,16 @@ export default function TaskDetailModal({ task, onClose, onEdit, onAction }: Tas
         bottom: 0,
       }}
     >
-      <div className="w-full max-w-4xl max-h-[84vh] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-lg chat-scroll">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={dialogTitleId}
+        aria-describedby={dialogDescriptionId}
+        tabIndex={-1}
+        onKeyDown={handleDialogKeyDown}
+        className="w-full max-w-4xl max-h-[84vh] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-lg chat-scroll"
+      >
         <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] pb-5">
           <div className="min-w-0">
             <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -133,16 +156,44 @@ export default function TaskDetailModal({ task, onClose, onEdit, onAction }: Tas
                 {activeTask.priority} Priority
               </span>
             </div>
-            <h2 className="text-xl font-semibold text-[var(--foreground)]">
+            <h2 id={dialogTitleId} className="text-xl font-semibold text-[var(--foreground)]">
               {activeTask.title}
             </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
+            <p id={dialogDescriptionId} className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
               {activeTask.description || "No description provided."}
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            {activeTask.status === "completed" && onAction && (
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {onAction && !isCompleted && (
+              <>
+                <Button
+                  type="button"
+                  variant={isTimerRunning ? "secondary" : "primary"}
+                  size="sm"
+                  icon={
+                    isTimerRunning
+                      ? <Pause className="h-4 w-4" />
+                      : <Play className="h-4 w-4 fill-current" />
+                  }
+                  onClick={(event) =>
+                    onAction(event, activeTask.id, isTimerRunning ? "pause" : "play")
+                  }
+                >
+                  {isTimerRunning ? TASK_QUICK_ACTION_LABELS.pause : TASK_QUICK_ACTION_LABELS.play}
+                </Button>
+                <Button
+                  type="button"
+                  variant="success"
+                  size="sm"
+                  icon={<CheckCircle2 className="h-4 w-4" />}
+                  onClick={(event) => onAction(event, activeTask.id, "complete")}
+                >
+                  {TASK_QUICK_ACTION_LABELS.complete}
+                </Button>
+              </>
+            )}
+            {isCompleted && onAction && (
               <Button
                 type="button"
                 variant="outline"
@@ -241,6 +292,26 @@ export default function TaskDetailModal({ task, onClose, onEdit, onAction }: Tas
                 <div className="font-medium">
                   {activeTask.department?.name || "No department"}
                   {activeTask.role ? ` / ${activeTask.role}` : ""}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 text-sm">
+              <FolderKanban className="mt-0.5 h-4 w-4 text-[var(--muted)]" />
+              <div>
+                <div className="text-xs text-[var(--muted)]">Project</div>
+                <div className="font-medium">{activeTask.project?.name || "No project"}</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 text-sm">
+              <UserRound className="mt-0.5 h-4 w-4 text-[var(--muted)]" />
+              <div className="min-w-0">
+                <div className="text-xs text-[var(--muted)]">Collaborators</div>
+                <div className="font-medium">
+                  {collaborators.length > 0
+                    ? collaborators
+                        .map((collaborator) => collaborator.user?.name || collaborator.user?.email || "Invited member")
+                        .join(", ")
+                    : "None"}
                 </div>
               </div>
             </div>

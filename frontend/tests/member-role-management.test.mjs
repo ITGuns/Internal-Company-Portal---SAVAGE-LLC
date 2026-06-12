@@ -114,3 +114,31 @@ test('summarizes member authorization from assigned roles', () => {
     ['No active authorization'],
   );
 });
+
+test('separates internal operations members from client portal accounts', () => {
+  const {
+    getClientPortalMembers,
+    getInternalOperationsMembers,
+    isClientPortalMember,
+  } = loadHelper();
+
+  const accounts = [
+    { id: 'client-member', roles: [{ role: 'client' }] },
+    { id: 'client-owner', role: 'Client Owner', roles: [] },
+    { id: 'developer', roles: [{ role: 'Website Developer' }] },
+    { id: 'admin', roles: [{ role: 'Owner / Founder' }] },
+    { id: 'mixed-internal', roles: [{ role: 'client' }, { role: 'Project Manager' }] },
+  ];
+
+  assert.equal(isClientPortalMember(accounts[0]), true);
+  assert.equal(isClientPortalMember(accounts[2]), false);
+  assert.deepEqual(getClientPortalMembers(accounts).map((account) => account.id), [
+    'client-member',
+    'client-owner',
+  ]);
+  assert.deepEqual(getInternalOperationsMembers(accounts).map((account) => account.id), [
+    'developer',
+    'admin',
+    'mixed-internal',
+  ]);
+});

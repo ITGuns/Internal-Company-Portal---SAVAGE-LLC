@@ -13,7 +13,7 @@ export interface FileDirectory {
   name: string;                  // Folder name
   type: 'folder' | 'file';       // Currently only 'folder' is used
   department: string;            // Operations, Creatives, Finance, Engineering
-  driveLink?: string;            // Google Drive URL (optional)
+  driveLink?: string;            // Legacy external URL field; new folders do not set it
   parentId: string | null;       // Hierarchical parent (null = root level)
   itemCount?: number;            // Number of items inside (optional)
   customColor?: string;          // Custom folder color (overrides department color)

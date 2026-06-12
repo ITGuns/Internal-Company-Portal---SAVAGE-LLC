@@ -1,18 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <!-- Background rounded square -->
-  <rect width="32" height="32" rx="7" fill="#0f1117"/>
-  <!-- Desk surface -->
-  <rect x="4" y="18" width="24" height="3" rx="1.5" fill="#17d9f5"/>
-  <!-- Desk legs -->
-  <rect x="6" y="21" width="2.5" height="7" rx="1" fill="#17d9f5" opacity="0.6"/>
-  <rect x="23.5" y="21" width="2.5" height="7" rx="1" fill="#17d9f5" opacity="0.6"/>
-  <!-- Monitor stand -->
-  <rect x="14.5" y="14" width="3" height="4" rx="1" fill="#f23bbf" opacity="0.8"/>
-  <!-- Monitor -->
-  <rect x="8" y="5" width="16" height="10" rx="2" fill="#1a1f2e" stroke="#17d9f5" stroke-width="1.2"/>
-  <!-- Screen glow -->
-  <rect x="9.5" y="6.5" width="13" height="7" rx="1" fill="#17d9f5" opacity="0.15"/>
-  <!-- Screen text lines -->
-  <rect x="11" y="8" width="7" height="1.2" rx="0.6" fill="#17d9f5" opacity="0.7"/>
-  <rect x="11" y="10.5" width="5" height="1.2" rx="0.6" fill="#f23bbf" opacity="0.7"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Deskii</title>
+  <rect width="64" height="64" rx="14" fill="#050816"/>
+  <rect x="7" y="7" width="50" height="50" rx="12" fill="#09111f" stroke="#17d9f5" stroke-width="2"/>
+  <path d="M22 17h11c10.8 0 18 5.8 18 15s-7.2 15-18 15H22V17Z" fill="none" stroke="#f5fbff" stroke-width="5" stroke-linejoin="round"/>
+  <circle cx="46" cy="18" r="4" fill="#f23bbf"/>
 </svg>

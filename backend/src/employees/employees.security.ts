@@ -1,5 +1,6 @@
 import {
   hasManagementAccess,
+  isClientDirectoryOnlyRoleName,
   normalizeOrgRoleName,
 } from '../org/org-access-policy'
 
@@ -14,10 +15,16 @@ type EmployeeProfileLike = {
   jobTitle?: string | null
   employmentType?: string | null
   baseSalary?: number | null
+  payrollScheme?: string | null
+  maxBillableHoursPerDay?: number | null
   bankAccount?: string | null
   taxId?: string | null
   currency?: string | null
   paymentFrequency?: string | null
+}
+
+type ClientMembershipLike = {
+  status?: string | null
 }
 
 type EmployeeLike = {
@@ -39,6 +46,7 @@ type EmployeeLike = {
   performance?: number | null
   employeeProfile?: EmployeeProfileLike | null
   roles?: RoleLike[]
+  clientMemberships?: ClientMembershipLike[]
   password?: string | null
   passwordResetToken?: string | null
   passwordResetExpiry?: Date | string | null
@@ -55,6 +63,25 @@ export function hasEmployeeManagementAccess(
   if (isConfiguredAdminEmail) return true
 
   return hasManagementAccess(roles)
+}
+
+function hasClientMembership(clientMemberships: ClientMembershipLike[] = []): boolean {
+  return clientMemberships.length > 0
+}
+
+export function isClientOnlyAccount(employee: Pick<EmployeeLike, 'roles' | 'clientMemberships'>): boolean {
+  const normalizedRoles = (employee.roles || [])
+    .map((assignment) => normalizeEmployeeRoleName(assignment.role))
+    .filter(Boolean)
+  const hasInternalRole = normalizedRoles.some((role) => !isClientDirectoryOnlyRoleName(role))
+  if (hasInternalRole) return false
+
+  return normalizedRoles.some(isClientDirectoryOnlyRoleName) ||
+    hasClientMembership(employee.clientMemberships)
+}
+
+export function isInternalEmployeeAccount(employee: Pick<EmployeeLike, 'roles' | 'clientMemberships'>): boolean {
+  return !isClientOnlyAccount(employee)
 }
 
 function serializeDate(value?: Date | string | null): string | null | undefined {
@@ -90,6 +117,8 @@ export function serializeDeployedEmployee(employee: EmployeeLike) {
     role: employee.role || employee.employeeProfile?.jobTitle || primaryRole?.role || 'Member',
     department: employee.department || primaryRole?.department?.name || 'Operations',
     salary: employee.salary ?? employee.employeeProfile?.baseSalary ?? 0,
+    payrollScheme: employee.employeeProfile?.payrollScheme ?? 'weekdays',
+    maxBillableHoursPerDay: employee.employeeProfile?.maxBillableHoursPerDay ?? 8,
     hoursThisWeek: employee.hoursThisWeek ?? 0,
     performance: employee.performance ?? null,
   }

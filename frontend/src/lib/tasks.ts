@@ -4,7 +4,7 @@
 
 import { apiFetch } from './api';
 import type { PaginatedResponse } from './types/pagination';
-import type { ApiTask } from './types/api';
+import type { ApiTask, ApiTaskProject } from './types/api';
 
 export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'completed';
 export type TaskPriority = 'Low' | 'Med' | 'High';
@@ -37,6 +37,28 @@ export interface TaskDepartment {
   }>;
 }
 
+export type TaskProjectStatus = 'active' | 'paused' | 'completed' | 'archived';
+
+export interface TaskProject {
+  id: string;
+  name: string;
+  description?: string | null;
+  status: TaskProjectStatus;
+  color?: string | null;
+  departmentId?: string | null;
+  ownerId?: string | null;
+  createdById?: string | null;
+  startDate?: string | null;
+  targetDate?: string | null;
+  completedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  department?: Pick<TaskDepartment, 'id' | 'name'> | null;
+  owner?: Pick<TaskUser, 'id' | 'name' | 'email' | 'avatar'> | null;
+  creator?: Pick<TaskUser, 'id' | 'name' | 'email' | 'avatar'> | null;
+  taskCount?: number;
+}
+
 export interface TaskWorkSession {
   id: string;
   taskId: string;
@@ -48,6 +70,18 @@ export interface TaskWorkSession {
   user?: Pick<TaskUser, 'id' | 'name' | 'email' | 'avatar'>;
 }
 
+export interface TaskCollaborator {
+  id: string;
+  taskId: string;
+  userId: string;
+  invitedById?: string | null;
+  status: 'invited' | 'accepted' | 'declined' | string;
+  createdAt?: string;
+  updatedAt?: string;
+  user?: Pick<TaskUser, 'id' | 'name' | 'email' | 'avatar'>;
+  invitedBy?: Pick<TaskUser, 'id' | 'name' | 'email' | 'avatar'> | null;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -57,12 +91,14 @@ export interface Task {
 
   departmentId?: string;
   department?: TaskDepartment;
+  projectId?: string | null;
+  project?: TaskProject | null;
 
   assigneeId?: number | string;
-  assigneeIds?: string[];
   assignee?: TaskUser;
   createdById?: number | string;
   creator?: TaskUser;
+  collaborators?: TaskCollaborator[];
 
   dueDate?: string; // ISO Date string (was 'when')
   startDate?: string; // ISO Date string — when the task begins
@@ -93,12 +129,13 @@ export interface CreateTaskPayload {
   priority?: TaskPriority;
   departmentId: string;
   assigneeId?: number | string;
-  assigneeIds?: string[];
-  dueDate?: string;
-  startDate?: string;
+  projectId?: string | null;
+  dueDate?: string | null;
+  startDate?: string | null;
   role?: string;
   notes?: TaskNote[];
   estimatedTime?: number;
+  collaboratorIds?: string[];
 }
 
 export interface UpdateTaskPayload {
@@ -108,9 +145,9 @@ export interface UpdateTaskPayload {
   priority?: TaskPriority;
   departmentId?: string;
   assigneeId?: number | string;
-  assigneeIds?: string[];
-  dueDate?: string;
-  startDate?: string;
+  projectId?: string | null;
+  dueDate?: string | null;
+  startDate?: string | null;
   role?: string;
   notes?: TaskNote[];
 
@@ -119,7 +156,23 @@ export interface UpdateTaskPayload {
   timerStart?: string;
   totalElapsed?: number;
   estimatedTime?: number;
+  collaboratorIds?: string[];
 }
+
+export interface CreateTaskProjectPayload {
+  name: string;
+  description?: string | null;
+  status?: TaskProjectStatus;
+  color?: string | null;
+  departmentId?: string | null;
+  ownerId?: string | null;
+  startDate?: string | null;
+  targetDate?: string | null;
+}
+
+export type UpdateTaskProjectPayload = Partial<CreateTaskProjectPayload> & {
+  completedAt?: string | null;
+};
 
 /**
  * Fetch all tasks
@@ -177,10 +230,25 @@ function processTaskFromApi(task: ApiTask): Task {
     description: task.description,
     departmentId: task.departmentId,
     department: task.department,
+    projectId: task.projectId ?? null,
+    project: task.project ? processTaskProjectFromApi(task.project) : null,
     assigneeId: task.assigneeId,
     assignee: task.assignee,
     createdById: task.createdById as number | string | undefined,
     creator: task.creator as TaskUser | undefined,
+    collaborators: Array.isArray(task.collaborators)
+      ? task.collaborators.map((collaborator) => ({
+          id: collaborator.id,
+          taskId: collaborator.taskId,
+          userId: collaborator.userId,
+          invitedById: collaborator.invitedById ?? null,
+          status: collaborator.status,
+          createdAt: collaborator.createdAt,
+          updatedAt: collaborator.updatedAt,
+          user: collaborator.user,
+          invitedBy: collaborator.invitedBy ?? null,
+        }))
+      : [],
     role: task.role,
     progress: task.progress,
     timerStatus: task.timerStatus as Task['timerStatus'],
@@ -211,6 +279,85 @@ function processTaskFromApi(task: ApiTask): Task {
     notes: Array.isArray(task.notes) ? task.notes : [],
     priority: (task.priority || 'Med') as TaskPriority,
   };
+}
+
+function normalizeProjectStatus(status: string): TaskProjectStatus {
+  return (['active', 'paused', 'completed', 'archived'].includes(status)
+    ? status
+    : 'active') as TaskProjectStatus;
+}
+
+function normalizeOptionalDate(value?: string | null): string | null | undefined {
+  if (value === null) return null;
+  if (!value) return undefined;
+  return new Date(value).toISOString().split('T')[0];
+}
+
+export function processTaskProjectFromApi(project: ApiTaskProject): TaskProject {
+  return {
+    id: project.id,
+    name: project.name,
+    description: project.description ?? null,
+    status: normalizeProjectStatus(project.status),
+    color: project.color ?? null,
+    departmentId: project.departmentId ?? null,
+    ownerId: project.ownerId ?? null,
+    createdById: project.createdById ?? null,
+    startDate: normalizeOptionalDate(project.startDate),
+    targetDate: normalizeOptionalDate(project.targetDate),
+    completedAt: project.completedAt ?? null,
+    createdAt: project.createdAt,
+    updatedAt: project.updatedAt,
+    department: project.department ?? null,
+    owner: project.owner ?? null,
+    creator: project.creator ?? null,
+    taskCount: project._count?.tasks ?? 0,
+  };
+}
+
+export async function fetchTaskProjects(): Promise<TaskProject[]> {
+  const res = await apiFetch('/tasks/projects');
+  if (!res.ok) {
+    throw new Error('Failed to fetch task projects');
+  }
+  const projects = await res.json();
+  return projects.map(processTaskProjectFromApi);
+}
+
+export async function createTaskProject(payload: CreateTaskProjectPayload): Promise<TaskProject> {
+  const res = await apiFetch('/tasks/projects', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to create task project');
+  }
+  return processTaskProjectFromApi(await res.json());
+}
+
+export async function updateTaskProject(projectId: string, payload: UpdateTaskProjectPayload): Promise<TaskProject> {
+  const res = await apiFetch(`/tasks/projects/${projectId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to update task project');
+  }
+  return processTaskProjectFromApi(await res.json());
+}
+
+export async function deleteTaskProject(projectId: string): Promise<void> {
+  const res = await apiFetch(`/tasks/projects/${projectId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to delete task project');
+  }
 }
 
 /**

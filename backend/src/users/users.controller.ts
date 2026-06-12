@@ -1,7 +1,6 @@
 import express, { Request, Response, Router } from 'express'
 import { UsersService } from './users.service'
 import { authenticateToken, requireRole, AuthRequest } from '../auth/auth.middleware'
-import { serializeAuthUser } from '../auth/auth.security'
 import { emailService } from '../email/email.service'
 import { PayrollService } from '../payroll/payroll.service'
 import { DepartmentsService } from '../departments/departments.service'
@@ -11,12 +10,43 @@ import { validateAvatarValue } from '../uploads/upload.validation'
 import { sanitizeUserForDirectory, sanitizeUsersForDirectory } from './users.security'
 import { UserOnboardingConflictError, UserOnboardingValidationError } from './users.service'
 import { hasEmployeeManagementAccess } from '../employees/employees.security'
-import { hasFullAccess } from '../org/org-access-policy'
+import { hasFullAccess, hasInternalDirectoryAccess } from '../org/org-access-policy'
+import { resolvePaginationQuery } from '../http/pagination'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('users.users.controller')
+
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export class UsersController {
     private service = new UsersService()
     private payrollService = new PayrollService()
     private departmentsService = new DepartmentsService()
+
+    private async resolveDirectoryAccess(req: Request): Promise<{
+        requesterId: string
+        canReadInternalDirectory: boolean
+    } | null> {
+        const authReq = req as AuthRequest
+        const requesterId = authReq.user?.userId
+
+        if (!requesterId) return null
+
+        const requesterRoles = await this.service.getUserRoles(requesterId)
+
+        return {
+            requesterId,
+            canReadInternalDirectory: hasInternalDirectoryAccess(
+                requesterRoles,
+                isAdminEmail(authReq.user?.email),
+            ),
+        }
+    }
+
+    private denyInternalDirectoryAccess(res: Response) {
+        return res.status(403).json({ error: 'User directory access is restricted to internal accounts' })
+    }
 
     router(): Router {
         const router = express.Router()
@@ -24,12 +54,25 @@ export class UsersController {
         // Get all users (with optional pagination)
         router.get('/', authenticateToken, async (req: Request, res: Response) => {
             try {
-                const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined
-                const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined
-                const users = await this.service.findAll(page, limit)
+                const access = await this.resolveDirectoryAccess(req)
+                if (!access) {
+                    return res.status(401).json({ error: 'Authentication required' })
+                }
+                if (!access.canReadInternalDirectory) {
+                    return this.denyInternalDirectoryAccess(res)
+                }
+
+                const pagination = resolvePaginationQuery(req.query)
+                const users = await this.service.findAll(pagination.page, pagination.limit)
+
                 if (Array.isArray(users)) {
                     return res.json(sanitizeUsersForDirectory(users))
                 }
+
+                if (!pagination.hasExplicitPagination) {
+                    return res.json(sanitizeUsersForDirectory(users.data))
+                }
+
                 res.json({
                     ...users,
                     data: sanitizeUsersForDirectory(users.data),
@@ -42,6 +85,14 @@ export class UsersController {
         // Search users
         router.get('/search', authenticateToken, async (req: Request, res: Response) => {
             try {
+                const access = await this.resolveDirectoryAccess(req)
+                if (!access) {
+                    return res.status(401).json({ error: 'Authentication required' })
+                }
+                if (!access.canReadInternalDirectory) {
+                    return this.denyInternalDirectoryAccess(res)
+                }
+
                 const query = req.query.q as string
                 if (!query) {
                     return res.status(400).json({ error: 'Search query required' })
@@ -57,6 +108,15 @@ export class UsersController {
         router.get('/:id', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+                const access = await this.resolveDirectoryAccess(req)
+
+                if (!access) {
+                    return res.status(401).json({ error: 'Authentication required' })
+                }
+                if (access.requesterId !== id && !access.canReadInternalDirectory) {
+                    return this.denyInternalDirectoryAccess(res)
+                }
+
                 const user = await this.service.findById(id)
 
                 if (!user) {
@@ -96,17 +156,11 @@ export class UsersController {
                     return res.status(400).json({ error: avatarValidation.error || 'Invalid avatar data' })
                 }
 
-                await this.service.update(id, { avatar: avatarValidation.value })
-                const updatedUser = await this.service.findById(id)
+                const user = await this.service.update(id, { avatar: avatarValidation.value })
 
-                res.json({
-                    success: true,
-                    user: requesterId === id && updatedUser
-                        ? serializeAuthUser(updatedUser)
-                        : sanitizeUserForDirectory(updatedUser),
-                })
+                res.json({ success: true, user: sanitizeUserForDirectory(user) })
             } catch (error) {
-                console.error('Avatar upload error:', error)
+                logger.error('Avatar upload error:', error)
                 res.status(500).json({ error: 'Failed to update avatar' })
             }
         })
@@ -115,6 +169,15 @@ export class UsersController {
         router.get('/:id/roles', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+                const access = await this.resolveDirectoryAccess(req)
+
+                if (!access) {
+                    return res.status(401).json({ error: 'Authentication required' })
+                }
+                if (access.requesterId !== id && !access.canReadInternalDirectory) {
+                    return this.denyInternalDirectoryAccess(res)
+                }
+
                 const roles = await this.service.getUserRoles(id)
                 res.json(roles)
             } catch (error) {
@@ -178,7 +241,7 @@ export class UsersController {
                     return res.status(409).json({ error: error.message })
                 }
 
-                console.error('User onboarding invitation error:', error)
+                logger.error('User onboarding invitation error:', error)
                 res.status(500).json({ error: 'Failed to create onboarding link' })
             }
         })
@@ -212,7 +275,7 @@ export class UsersController {
                     user.name || 'New User',
                     `${loginUrl}/login`
                 ).catch(err => {
-                    console.error('Failed to send welcome email:', err)
+                    logger.error('Failed to send welcome email:', err)
                     // Don't fail user creation if email fails
                 })
 
@@ -226,7 +289,24 @@ export class UsersController {
         router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
-                const { name, email, avatar, birthday, phone, address, city, citizenship, status, appliedDate, salary, role, department } = req.body
+                const {
+                    name,
+                    email,
+                    avatar,
+                    birthday,
+                    phone,
+                    address,
+                    city,
+                    citizenship,
+                    status,
+                    appliedDate,
+                    salary,
+                    role,
+                    department,
+                    managerId,
+                    payrollScheme,
+                    maxBillableHoursPerDay,
+                } = req.body
                 const authReq = req as AuthRequest
                 const requesterId = authReq.user?.userId
                 if (!requesterId) {
@@ -238,12 +318,27 @@ export class UsersController {
                     requesterRoles,
                     isAdminEmail(authReq.user?.email),
                 )
+                const canManageIdentity = hasFullAccess(
+                    requesterRoles,
+                    isAdminEmail(authReq.user?.email),
+                )
 
                 if (requesterId !== id && !isPrivileged) {
                     return res.status(403).json({ error: 'Unauthorized to update another user' })
                 }
 
-                const protectedFields = ['status', 'appliedDate', 'salary', 'role', 'department', 'departmentId', 'isApproved']
+                const protectedFields = [
+                    'status',
+                    'appliedDate',
+                    'salary',
+                    'role',
+                    'department',
+                    'departmentId',
+                    'isApproved',
+                    'managerId',
+                    'payrollScheme',
+                    'maxBillableHoursPerDay',
+                ]
                 const requestedProtectedFields = protectedFields.filter(field =>
                     Object.prototype.hasOwnProperty.call(req.body, field)
                 )
@@ -252,6 +347,34 @@ export class UsersController {
                     return res.status(403).json({
                         error: 'Only authorized managers can update employee status, payroll, role, or department fields',
                     })
+                }
+
+                let normalizedManagerId: string | null | undefined
+                if (managerId !== undefined) {
+                    if (!isPrivileged) {
+                        return res.status(403).json({ error: 'Only authorized managers can update reporting lines' })
+                    }
+                    if (managerId !== null && typeof managerId !== 'string') {
+                        return res.status(400).json({ error: 'Manager ID must be a string or null' })
+                    }
+
+                    normalizedManagerId = typeof managerId === 'string' && managerId.trim()
+                        ? managerId.trim()
+                        : null
+
+                    if (normalizedManagerId === id) {
+                        return res.status(400).json({ error: 'A member cannot report to themselves' })
+                    }
+
+                    if (normalizedManagerId) {
+                        const manager = await this.service.findById(normalizedManagerId)
+                        if (!manager) {
+                            return res.status(400).json({ error: 'Manager not found' })
+                        }
+                        if (await this.service.wouldCreateManagerCycle(id, normalizedManagerId)) {
+                            return res.status(400).json({ error: 'Reporting line would create a cycle' })
+                        }
+                    }
                 }
 
                 const avatarValidation = avatar === undefined ? undefined : validateAvatarValue(avatar)
@@ -265,10 +388,29 @@ export class UsersController {
                     return res.status(404).json({ error: 'User not found' })
                 }
 
+                let normalizedEmail: string | undefined
+                if (email !== undefined) {
+                    if (typeof email !== 'string') {
+                        return res.status(400).json({ error: 'Email must be a string' })
+                    }
+
+                    normalizedEmail = email.trim().toLowerCase()
+                    if (!EMAIL_REGEX.test(normalizedEmail)) {
+                        return res.status(400).json({ error: 'Invalid email format' })
+                    }
+
+                    const isEmailChange = normalizedEmail !== existingUser.email.toLowerCase()
+                    if (isEmailChange && !canManageIdentity) {
+                        return res.status(403).json({
+                            error: 'Only full-access administrators can change account email addresses',
+                        })
+                    }
+                }
+
                 // Update basic user info
-                await this.service.update(id, {
+                const user = await this.service.update(id, {
                     name,
-                    email,
+                    email: normalizedEmail,
                     avatar: avatarValidation?.value,
                     birthday,
                     phone,
@@ -278,14 +420,16 @@ export class UsersController {
                     status,
                     appliedDate,
                     isApproved: status !== undefined ? status !== 'pending' : undefined,
+                    managerId: normalizedManagerId,
                 })
 
                 // Handle Salary / Payroll Update
-                if (salary !== undefined) {
+                if (salary !== undefined || payrollScheme !== undefined || maxBillableHoursPerDay !== undefined) {
                     await this.payrollService.getEmployeeProfile(id) // Ensure profile exists
                     await this.payrollService.updateEmployeeProfile(id, {
-                        baseSalary: salary,
-                        currency: 'PHP' // Default to PHP as requested
+                        ...(salary !== undefined ? { baseSalary: salary, currency: 'PHP' } : {}),
+                        ...(payrollScheme !== undefined ? { payrollScheme } : {}),
+                        ...(maxBillableHoursPerDay !== undefined ? { maxBillableHoursPerDay } : {}),
                     })
                 }
 
@@ -309,15 +453,9 @@ export class UsersController {
                     await this.service.assignRole(id, newRole, departmentIdToAssign)
                 }
 
-                const updatedUser = await this.service.findById(id)
-                res.json({
-                    success: true,
-                    user: requesterId === id && updatedUser
-                        ? serializeAuthUser(updatedUser)
-                        : sanitizeUserForDirectory(updatedUser),
-                })
+                res.json({ success: true, user: sanitizeUserForDirectory(user) })
             } catch (error) {
-                console.error('Update user error:', error)
+                logger.error('Update user error:', error)
                 res.status(500).json({ error: 'Failed to update user' })
             }
         })

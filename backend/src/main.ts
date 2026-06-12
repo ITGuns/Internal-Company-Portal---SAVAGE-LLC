@@ -18,7 +18,7 @@ import { EmployeesController } from './employees/employees.controller'
 import { FileDirectoryController } from './file-directory/file-directory.controller'
 import { NotificationsController } from './notifications/notifications.controller'
 import { ClientsController } from './clients/clients.controller'
-import { WorkspaceController } from './workspace/workspace.controller'
+import { SearchController } from './search/search.controller'
 import { resolveCorsResponseOrigin } from './config/cors.config'
 import { config, validateConfig } from './config/env.config'
 import { PrismaService } from './database/prisma.service'
@@ -28,6 +28,9 @@ import { createAuthRateLimiters } from './security/rate-limits'
 import { connectAuthRateLimitStoreFactory } from './security/redis-rate-limit.store'
 import { configureJsonBodyParsers } from './security/json-body-limits'
 import { createSecurityHeadersMiddleware } from './security/security-headers'
+import { createLogger } from './observability/logger'
+
+const logger = createLogger('backend.main')
 
 async function bootstrap() {
   // Validate environment configuration
@@ -66,7 +69,7 @@ async function bootstrap() {
   // Request logging is useful locally, but too noisy for normal production traffic.
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (shouldLogRequests) {
-      console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+      logger.info('HTTP request received', { method: req.method, path: req.path });
     }
     next();
   });
@@ -152,8 +155,8 @@ async function bootstrap() {
   const clientsController = new ClientsController()
   app.use('/api/clients', clientsController.router())
 
-  const workspaceController = new WorkspaceController()
-  app.use('/api/workspace', workspaceController.router())
+  const searchController = new SearchController()
+  app.use('/api/search', searchController.router())
 
 
   // Expose app for Vercel
@@ -163,10 +166,9 @@ async function bootstrap() {
 
   // Listen on HTTP Server instead of App
   httpServer.listen(config.port, () => {
-    // eslint-disable-next-line no-console
-    console.log(`Backend listening on http://localhost:${config.port}`)
-    console.log('Socket.io server initialized')
-    console.log(`Environment: ${config.nodeEnv}`)
+    logger.info('Backend listening', { port: config.port })
+    logger.info('Socket.io server initialized')
+    logger.info('Backend environment configured', { nodeEnv: config.nodeEnv })
   })
 }
 
@@ -178,7 +180,7 @@ export default async (req: Request, res: Response) => {
     try {
       cachedApp = await bootstrap();
     } catch (err) {
-      console.error('Failed to bootstrap application:', err);
+      logger.error('Failed to bootstrap application', err);
       return res.status(500).send('Server Boot Error');
     }
   }
@@ -188,7 +190,7 @@ export default async (req: Request, res: Response) => {
 // Start the server for local development
 if (!process.env.VERCEL) {
   bootstrap().catch(err => {
-    console.error('Failed to start server:', err);
+    logger.error('Failed to start server', err);
     process.exit(1);
   });
 }

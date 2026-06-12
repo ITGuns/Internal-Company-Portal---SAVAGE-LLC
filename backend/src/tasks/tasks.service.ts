@@ -10,11 +10,11 @@ export interface CreateTaskDto {
   status?: TaskStatus
   departmentId: string
   assigneeId?: string
-  assigneeIds?: string[]
   createdById?: string
+  projectId?: string | null
   priority?: string
-  startDate?: Date | string
-  dueDate?: Date | string
+  startDate?: Date | string | null
+  dueDate?: Date | string | null
   role?: string
   notes?: Prisma.JsonValue
   progress?: number
@@ -22,6 +22,7 @@ export interface CreateTaskDto {
   timerStart?: Date | string
   totalElapsed?: number
   estimatedTime?: number
+  collaboratorIds?: string[]
 }
 
 export interface UpdateTaskDto {
@@ -30,10 +31,10 @@ export interface UpdateTaskDto {
   status?: TaskStatus
   departmentId?: string
   assigneeId?: string
-  assigneeIds?: string[]
+  projectId?: string | null
   priority?: string
-  startDate?: Date | string
-  dueDate?: Date | string
+  startDate?: Date | string | null
+  dueDate?: Date | string | null
   role?: string
   notes?: Prisma.JsonValue
   progress?: number
@@ -41,10 +42,35 @@ export interface UpdateTaskDto {
   timerStart?: Date | string
   totalElapsed?: number
   estimatedTime?: number
+  collaboratorIds?: string[]
 }
 
 interface UpdateTaskOptions {
   actorId?: string
+}
+
+export interface CreateTaskProjectDto {
+  name: string
+  description?: string | null
+  status?: string
+  color?: string | null
+  departmentId?: string | null
+  ownerId?: string | null
+  createdById?: string | null
+  startDate?: Date | string | null
+  targetDate?: Date | string | null
+}
+
+export interface UpdateTaskProjectDto {
+  name?: string
+  description?: string | null
+  status?: string
+  color?: string | null
+  departmentId?: string | null
+  ownerId?: string | null
+  startDate?: Date | string | null
+  targetDate?: Date | string | null
+  completedAt?: Date | string | null
 }
 
 // Task with relations type
@@ -52,6 +78,32 @@ export type TaskWithRelations = Task & {
   department: { id: string; name: string; driveId: string | null; createdAt: Date; updatedAt: Date } | null
   assignee: { id: string; email: string; name: string | null; avatar: string | null } | null
   creator: { id: string; email: string; name: string | null; avatar: string | null } | null
+  collaborators: Array<{
+    id: string
+    taskId: string
+    userId: string
+    invitedById: string | null
+    status: string
+    createdAt: Date
+    updatedAt: Date
+    user: { id: string; email: string; name: string | null; avatar: string | null }
+    invitedBy: { id: string; email: string; name: string | null; avatar: string | null } | null
+  }>
+  project: {
+    id: string
+    name: string
+    description: string | null
+    status: string
+    color: string | null
+    departmentId: string | null
+    ownerId: string | null
+    createdById: string | null
+    startDate: Date | null
+    targetDate: Date | null
+    completedAt: Date | null
+    createdAt: Date
+    updatedAt: Date
+  } | null
 }
 
 export type TaskDetailWithRelations = TaskWithRelations & {
@@ -65,6 +117,17 @@ export type TaskDetailWithRelations = TaskWithRelations & {
     createdAt: Date
     user: { id: string; email: string; name: string | null; avatar: string | null }
   }>
+}
+
+function normalizeCollaboratorIds(ids?: string[], excludedIds: Array<string | null | undefined> = []): string[] {
+  if (!ids) return []
+
+  const excluded = new Set(excludedIds.filter(Boolean).map(String))
+  const normalized = ids
+    .map((id) => String(id || '').trim())
+    .filter((id) => id && !excluded.has(id))
+
+  return Array.from(new Set(normalized))
 }
 
 export class TasksService {
@@ -92,6 +155,14 @@ export class TasksService {
       },
       creator: {
         select: userSummarySelect,
+      },
+      project: true,
+      collaborators: {
+        orderBy: { createdAt: 'asc' as const },
+        include: {
+          user: { select: userSummarySelect },
+          invitedBy: { select: userSummarySelect },
+        },
       },
     }
 
@@ -139,6 +210,18 @@ export class TasksService {
         creator: {
           select: userSummarySelect,
         },
+        project: true,
+        collaborators: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            user: {
+              select: userSummarySelect,
+            },
+            invitedBy: {
+              select: userSummarySelect,
+            },
+          },
+        },
         workSessions: {
           orderBy: { startedAt: 'desc' },
           include: {
@@ -176,6 +259,14 @@ export class TasksService {
         creator: {
           select: userSummarySelect,
         },
+        project: true,
+        collaborators: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            user: { select: userSummarySelect },
+            invitedBy: { select: userSummarySelect },
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -191,6 +282,28 @@ export class TasksService {
       where: { assigneeId },
       include: {
         department: true,
+        project: true,
+        collaborators: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+                avatar: true,
+              },
+            },
+            invitedBy: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+                avatar: true,
+              },
+            },
+          },
+        },
         creator: {
           select: {
             id: true,
@@ -232,6 +345,14 @@ export class TasksService {
         creator: {
           select: userSummarySelect,
         },
+        project: true,
+        collaborators: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            user: { select: userSummarySelect },
+            invitedBy: { select: userSummarySelect },
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -243,6 +364,14 @@ export class TasksService {
    * Create new task
    */
   async create(data: CreateTaskDto): Promise<TaskWithRelations> {
+    const userSummarySelect = {
+      id: true,
+      email: true,
+      name: true,
+      avatar: true,
+    }
+    const collaboratorIds = normalizeCollaboratorIds(data.collaboratorIds, [data.assigneeId])
+
     return this.prisma.task.create({
       data: {
         title: data.title,
@@ -250,8 +379,8 @@ export class TasksService {
         status: data.status || 'todo',
         departmentId: data.departmentId,
         assigneeId: data.assigneeId,
-        assigneeIds: data.assigneeIds ? JSON.parse(JSON.stringify(data.assigneeIds)) : undefined,
         createdById: data.createdById,
+        projectId: data.projectId || undefined,
         priority: data.priority || 'Med',
         startDate: data.startDate ? new Date(data.startDate) : undefined,
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
@@ -262,23 +391,30 @@ export class TasksService {
         totalElapsed: 0,
         estimatedTime: (data as any).estimatedTime ?? undefined,
         completedAt: data.status === 'completed' ? new Date() : undefined,
+        collaborators: collaboratorIds.length > 0
+          ? {
+              create: collaboratorIds.map((userId) => ({
+                userId,
+                invitedById: data.createdById,
+                status: 'invited',
+              })),
+            }
+          : undefined,
       },
       include: {
         department: true,
         assignee: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            avatar: true,
-          },
+          select: userSummarySelect,
         },
         creator: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            avatar: true,
+          select: userSummarySelect,
+        },
+        project: true,
+        collaborators: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            user: { select: userSummarySelect },
+            invitedBy: { select: userSummarySelect },
           },
         },
       },
@@ -289,6 +425,12 @@ export class TasksService {
    * Update task
    */
   async update(id: string, data: UpdateTaskDto, options: UpdateTaskOptions = {}): Promise<TaskWithRelations> {
+    const userSummarySelect = {
+      id: true,
+      email: true,
+      name: true,
+      avatar: true,
+    }
     const existingTask = await this.prisma.task.findUnique({
       where: { id },
       select: {
@@ -313,6 +455,11 @@ export class TasksService {
       (data.timerStatus === 'paused' || data.timerStatus === 'stopped' || data.status === 'completed')
 
     return this.prisma.$transaction(async (tx) => {
+      const nextAssigneeId = data.assigneeId === undefined ? existingTask?.assigneeId : data.assigneeId
+      const collaboratorIds = data.collaboratorIds === undefined
+        ? undefined
+        : normalizeCollaboratorIds(data.collaboratorIds, [nextAssigneeId])
+
       if (shouldCloseWorkSession && existingTask?.timerStart) {
         const endedAt = new Date()
         const userId = existingTask.assigneeId || options.actorId
@@ -335,6 +482,35 @@ export class TasksService {
         }
       }
 
+      if (collaboratorIds !== undefined) {
+        await tx.taskCollaborator.deleteMany({
+          where: collaboratorIds.length > 0
+            ? { taskId: id, userId: { notIn: collaboratorIds } }
+            : { taskId: id },
+        })
+
+        for (const userId of collaboratorIds) {
+          await tx.taskCollaborator.upsert({
+            where: {
+              taskId_userId: {
+                taskId: id,
+                userId,
+              },
+            },
+            update: {
+              status: 'invited',
+              ...(options.actorId ? { invitedById: options.actorId } : {}),
+            },
+            create: {
+              taskId: id,
+              userId,
+              invitedById: options.actorId,
+              status: 'invited',
+            },
+          })
+        }
+      }
+
       return tx.task.update({
         where: { id },
         data: {
@@ -343,10 +519,10 @@ export class TasksService {
           status: data.status,
           departmentId: data.departmentId,
           assigneeId: data.assigneeId,
-          assigneeIds: data.assigneeIds === undefined ? undefined : (data.assigneeIds ? JSON.parse(JSON.stringify(data.assigneeIds)) : null),
+          projectId: data.projectId === undefined ? undefined : data.projectId || null,
           priority: data.priority,
-          startDate: data.startDate ? new Date(data.startDate) : undefined,
-          dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+          startDate: data.startDate === undefined ? undefined : data.startDate ? new Date(data.startDate) : null,
+          dueDate: data.dueDate === undefined ? undefined : data.dueDate ? new Date(data.dueDate) : null,
           role: data.role,
           notes: data.notes === undefined ? undefined : data.notes,
           progress: data.progress ?? undefined,
@@ -359,19 +535,17 @@ export class TasksService {
         include: {
           department: true,
           assignee: {
-            select: {
-              id: true,
-              email: true,
-              name: true,
-              avatar: true,
-            },
+            select: userSummarySelect,
           },
           creator: {
-            select: {
-              id: true,
-              email: true,
-              name: true,
-              avatar: true,
+            select: userSummarySelect,
+          },
+          project: true,
+          collaborators: {
+            orderBy: { createdAt: 'asc' },
+            include: {
+              user: { select: userSummarySelect },
+              invitedBy: { select: userSummarySelect },
             },
           },
         },
@@ -392,6 +566,13 @@ export class TasksService {
    * Search tasks by title or description
    */
   async search(query: string, visibilityWhere: Prisma.TaskWhereInput = {}): Promise<Task[]> {
+    const userSummarySelect = {
+      id: true,
+      email: true,
+      name: true,
+      avatar: true,
+    }
+
     return this.prisma.task.findMany({
       where: {
         AND: [
@@ -399,6 +580,22 @@ export class TasksService {
             OR: [
               { title: { contains: query, mode: 'insensitive' } },
               { description: { contains: query, mode: 'insensitive' } },
+              { department: { name: { contains: query, mode: 'insensitive' } } },
+              { project: { name: { contains: query, mode: 'insensitive' } } },
+              { assignee: { name: { contains: query, mode: 'insensitive' } } },
+              { assignee: { email: { contains: query, mode: 'insensitive' } } },
+              { creator: { name: { contains: query, mode: 'insensitive' } } },
+              { creator: { email: { contains: query, mode: 'insensitive' } } },
+              {
+                collaborators: {
+                  some: {
+                    OR: [
+                      { user: { name: { contains: query, mode: 'insensitive' } } },
+                      { user: { email: { contains: query, mode: 'insensitive' } } },
+                    ],
+                  },
+                },
+              },
             ],
           },
           visibilityWhere,
@@ -407,25 +604,135 @@ export class TasksService {
       include: {
         department: true,
         assignee: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            avatar: true,
-          },
+          select: userSummarySelect,
         },
         creator: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            avatar: true,
+          select: userSummarySelect,
+        },
+        project: true,
+        collaborators: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            user: { select: userSummarySelect },
+            invitedBy: { select: userSummarySelect },
           },
         },
       },
       orderBy: {
         createdAt: 'desc',
       },
+    })
+  }
+
+  async findProjects(where: Prisma.TaskProjectWhereInput = {}) {
+    const userSummarySelect = {
+      id: true,
+      email: true,
+      name: true,
+      avatar: true,
+    }
+
+    return this.prisma.taskProject.findMany({
+      where,
+      include: {
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        owner: {
+          select: userSummarySelect,
+        },
+        creator: {
+          select: userSummarySelect,
+        },
+        _count: {
+          select: {
+            tasks: true,
+          },
+        },
+      },
+      orderBy: [
+        { status: 'asc' },
+        { updatedAt: 'desc' },
+      ],
+    })
+  }
+
+  async findProjectById(id: string) {
+    return this.prisma.taskProject.findUnique({
+      where: { id },
+      include: {
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: {
+            tasks: true,
+          },
+        },
+      },
+    })
+  }
+
+  async createProject(data: CreateTaskProjectDto) {
+    return this.prisma.taskProject.create({
+      data: {
+        name: data.name,
+        description: data.description,
+        status: data.status || 'active',
+        color: data.color,
+        departmentId: data.departmentId || undefined,
+        ownerId: data.ownerId || undefined,
+        createdById: data.createdById || undefined,
+        startDate: data.startDate ? new Date(data.startDate) : undefined,
+        targetDate: data.targetDate ? new Date(data.targetDate) : undefined,
+      },
+    })
+  }
+
+  async updateProject(id: string, data: UpdateTaskProjectDto) {
+    const statusCompletedAt =
+      data.status === 'completed'
+        ? (data.completedAt === undefined ? new Date() : data.completedAt ? new Date(data.completedAt) : null)
+        : data.status && data.status !== 'completed'
+          ? null
+          : data.completedAt === undefined
+            ? undefined
+            : data.completedAt
+              ? new Date(data.completedAt)
+              : null
+
+    return this.prisma.taskProject.update({
+      where: { id },
+      data: {
+        name: data.name,
+        description: data.description === undefined ? undefined : data.description,
+        status: data.status,
+        color: data.color === undefined ? undefined : data.color,
+        departmentId: data.departmentId === undefined ? undefined : data.departmentId || null,
+        ownerId: data.ownerId === undefined ? undefined : data.ownerId || null,
+        startDate: data.startDate === undefined ? undefined : data.startDate ? new Date(data.startDate) : null,
+        targetDate: data.targetDate === undefined ? undefined : data.targetDate ? new Date(data.targetDate) : null,
+        completedAt: statusCompletedAt,
+      },
+    })
+  }
+
+  async deleteProject(id: string) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.task.updateMany({
+        where: { projectId: id },
+        data: { projectId: null },
+      })
+
+      await tx.taskProject.delete({
+        where: { id },
+      })
     })
   }
 }

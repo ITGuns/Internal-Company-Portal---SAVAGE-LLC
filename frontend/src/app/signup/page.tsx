@@ -6,7 +6,9 @@ import { useRouter } from 'next/navigation';
 import { CheckCircle2, Mail, Lock, User as UserIcon } from 'lucide-react';
 import LoginInput from '@/components/LoginInput';
 import { useUser } from '@/contexts/UserContext';
+import { apiFetch, BACKEND_CONNECTION_ERROR_MESSAGE, readJsonResponse } from '@/lib/api';
 import { getAuthenticatedLandingPath } from '@/lib/role-access';
+import { buildAuthUrl } from '@/lib/api-url';
 import { getSignupRoleOptions, type SignupDepartmentOption } from '@/lib/signup-options';
 import styles from '../login/login.module.css';
 
@@ -22,6 +24,7 @@ export default function SignUpPage() {
   const [role, setRole] = useState('');
 
   const [departments, setDepartments] = useState<SignupDepartmentOption[]>([]);
+  const [optionsError, setOptionsError] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -34,11 +37,20 @@ export default function SignUpPage() {
 
   useEffect(() => {
     async function loadOptions() {
+      setOptionsError('');
+
       try {
-        const deptRes = await fetch('/api/departments').then((r) => r.json());
+        const response = await apiFetch('/departments');
+        const deptRes = await readJsonResponse<SignupDepartmentOption[]>(
+          response,
+          'Could not load departments right now. Please refresh and try again.',
+        );
         setDepartments(Array.isArray(deptRes) ? deptRes : []);
       } catch (e) {
-        console.error('Failed to load signup options', e);
+        const message = e instanceof Error ? e.message : BACKEND_CONNECTION_ERROR_MESSAGE;
+        setOptionsError(message);
+        setDepartments([]);
+        console.warn('Failed to load signup options:', message);
       }
     }
 
@@ -85,7 +97,7 @@ export default function SignUpPage() {
         return;
       }
 
-      const res = await fetch('/backend-auth/signup', {
+      const res = await fetch(buildAuthUrl('/signup'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password, departmentId, role }),
@@ -100,12 +112,14 @@ export default function SignUpPage() {
         return;
       }
 
-      const data = await res.json();
+      const data = await readJsonResponse<{ error?: string }>(res, 'Sign up failed. Please try again.');
       setError(data.error || 'Sign up failed. Please try again.');
       setLoading(false);
     } catch (err: unknown) {
       console.error('Sign up error:', err);
-      setError('Connection failed. Please try again.');
+      setError(err instanceof Error && err.message !== 'Failed to fetch'
+        ? err.message
+        : BACKEND_CONNECTION_ERROR_MESSAGE);
       setLoading(false);
     }
   };
@@ -154,7 +168,7 @@ export default function SignUpPage() {
               type="email"
               value={email}
               onChange={setEmail}
-              placeholder="you@company.com…"
+              placeholder="you@savage.com…"
               required
               disabled={loading}
               icon={Mail}
@@ -211,7 +225,7 @@ export default function SignUpPage() {
                 ))}
               </select>
               <p className={styles.helperText}>
-                Your selected department controls the available signup roles.
+                {optionsError || 'Your selected department controls the available signup roles.'}
               </p>
             </div>
 

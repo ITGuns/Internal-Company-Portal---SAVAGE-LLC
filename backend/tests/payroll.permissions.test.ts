@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { PayrollController } from '../src/payroll/payroll.controller'
 import {
   canAccessPayrollTarget,
   filterPayrollProfileUpdate,
@@ -21,6 +22,20 @@ assert.equal(hasPayrollManagementAccess([{ role: 'Project Manager' }]), false)
 assert.equal(hasPayrollManagementAccess([{ role: 'Website Developer' }]), false)
 assert.equal(hasPayrollManagementAccess([], true), true)
 
+const payrollRouter = new PayrollController().router() as any
+for (const method of ['post', 'patch', 'delete']) {
+  const routePath = method === 'post' ? '/events' : '/events/:id'
+  const eventMutationRoute = payrollRouter.stack.find((layer: any) =>
+    layer.route?.path === routePath &&
+    layer.route?.methods?.[method],
+  )
+  assert.ok(eventMutationRoute, `${method.toUpperCase()} ${routePath} route is registered`)
+  assert.ok(
+    eventMutationRoute.route.stack.length >= 3,
+    `${method.toUpperCase()} ${routePath} requires auth and payroll-management authorization`,
+  )
+}
+
 assert.equal(
   canAccessPayrollTarget({ requesterId: 'user-1', isPrivileged: false }, 'user-1'),
   true,
@@ -39,9 +54,11 @@ assert.deepEqual(
     baseSalary: 50000,
     bankAccount: '123',
     taxId: 'TIN',
+    payrollScheme: 'flat_160_hours',
+    maxBillableHoursPerDay: 8,
     unknown: 'ignored',
   }),
-  ['baseSalary', 'bankAccount', 'taxId'],
+  ['baseSalary', 'bankAccount', 'taxId', 'payrollScheme', 'maxBillableHoursPerDay'],
 )
 
 assert.deepEqual(
@@ -49,6 +66,8 @@ assert.deepEqual(
     {
       baseSalary: 50000,
       currency: 'PHP',
+      payrollScheme: 'flat_160_hours',
+      maxBillableHoursPerDay: 7.5,
       bankAccount: '123',
       taxId: 'TIN',
       requestedRole: 'admin',
@@ -60,6 +79,8 @@ assert.deepEqual(
     data: {
       baseSalary: 50000,
       currency: 'PHP',
+      payrollScheme: 'flat_160_hours',
+      maxBillableHoursPerDay: 7.5,
       bankAccount: '123',
       taxId: 'TIN',
     },
@@ -73,12 +94,14 @@ assert.deepEqual(
       baseSalary: 50000,
       bankAccount: '123',
       taxId: 'TIN',
+      payrollScheme: 'flat_20',
+      maxBillableHoursPerDay: 6,
     },
     { isPrivileged: false },
   ),
   {
     data: {},
-    rejectedFields: ['baseSalary', 'bankAccount', 'taxId'],
+    rejectedFields: ['baseSalary', 'bankAccount', 'taxId', 'payrollScheme', 'maxBillableHoursPerDay'],
   },
 )
 

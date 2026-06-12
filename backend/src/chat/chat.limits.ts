@@ -3,6 +3,14 @@ export const CHAT_MAX_MESSAGE_LIMIT = 100
 export const CHAT_MAX_SEARCH_QUERY_LENGTH = 120
 export const CHAT_MAX_MESSAGE_LENGTH = 2000
 export const CHAT_MAX_ID_LENGTH = 128
+export const CHAT_ALLOWED_REACTIONS = new Set([
+  '\u{1F44D}',
+  '\u2705',
+  '\u{1F602}',
+  '\u{1F525}',
+  '\u2764\uFE0F',
+  '\u{1F440}',
+])
 
 const SAFE_CHAT_ID_PATTERN = /^[A-Za-z0-9_-]+$/
 
@@ -40,4 +48,11 @@ export function normalizeAttachment(value: unknown): string | undefined {
 
   const attachment = value.trim()
   return attachment || undefined
+}
+
+export function normalizeReactionEmoji(value: unknown): string {
+  if (typeof value !== 'string') return ''
+
+  const emoji = value.trim()
+  return CHAT_ALLOWED_REACTIONS.has(emoji) ? emoji : ''
 }

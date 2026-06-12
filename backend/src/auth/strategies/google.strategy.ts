@@ -2,10 +2,13 @@ import passport from 'passport'
 import { Strategy as GoogleStrategy, Profile } from 'passport-google-oauth20'
 import { config } from '../../config/env.config'
 import { prisma } from '../../database/prisma.service'
+import { createLogger } from '../../observability/logger'
+
+const logger = createLogger('auth.google')
 
 export function setupGoogleStrategy(): void {
     if (!config.googleClientId || !config.googleClientSecret) {
-        console.warn('⚠️  Google OAuth not configured - skipping Google strategy')
+        logger.warn('Google OAuth not configured; skipping strategy')
         return
     }
 
@@ -46,7 +49,7 @@ export function setupGoogleStrategy(): void {
                             },
                             include: { roles: true },
                         })
-                        console.log(`✅ New user created via Google OAuth: ${email}`)
+                        logger.info('New user created via Google OAuth', { provider: 'google', email })
                     } else {
                         // Update existing user info
                         user = await prisma.user.update({
@@ -61,12 +64,12 @@ export function setupGoogleStrategy(): void {
 
                     return done(null, user)
                 } catch (error) {
-                    console.error('Google OAuth error:', error)
+                    logger.error('Google OAuth error', error)
                     return done(error as Error)
                 }
             }
         )
     )
 
-    console.log('✅ Google OAuth strategy configured')
+    logger.info('Google OAuth strategy configured')
 }

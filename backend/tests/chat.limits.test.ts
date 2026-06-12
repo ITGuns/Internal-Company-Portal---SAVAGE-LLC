@@ -8,6 +8,7 @@ import {
   normalizeChatCursor,
   normalizeChatLimit,
   normalizeMessageContent,
+  normalizeReactionEmoji,
   normalizeSearchQuery,
 } from '../src/chat/chat.limits'
 
@@ -24,5 +25,7 @@ assert.equal(normalizeSearchQuery(` ${'q'.repeat(200)} `).length, CHAT_MAX_SEARC
 assert.equal(normalizeMessageContent(` ${'m'.repeat(2500)} `).length, CHAT_MAX_MESSAGE_LENGTH)
 assert.equal(normalizeAttachment('  data:image/png;base64,abc  '), 'data:image/png;base64,abc')
 assert.equal(normalizeAttachment('   '), undefined)
+assert.equal(normalizeReactionEmoji(' \u{1F44D} '), '\u{1F44D}')
+assert.equal(normalizeReactionEmoji('not-emoji'), '')
 
 console.log('chat.limits tests passed')

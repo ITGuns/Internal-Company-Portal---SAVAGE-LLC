@@ -4,22 +4,25 @@ import { useState, useEffect } from 'react';
 import { Sun, Moon } from 'lucide-react';
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window === 'undefined') return 'dark';
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [themeReady, setThemeReady] = useState(false);
+
+  useEffect(() => {
     const saved = localStorage.getItem('theme') as 'light' | 'dark' | null;
-    if (saved) return saved;
-    return 'dark';
-  });
+    if (saved) setTheme(saved);
+    setThemeReady(true);
+  }, []);
 
   // apply theme to document and persist
   useEffect(() => {
+    if (!themeReady) return;
     if (typeof document === 'undefined') return;
     const root = document.documentElement;
     root.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
     if (theme === 'dark') root.classList.add('dark');
     else root.classList.remove('dark');
     localStorage.setItem('theme', theme);
-  }, [theme]);
+  }, [theme, themeReady]);
 
   // cross-tab sync
   useEffect(() => {

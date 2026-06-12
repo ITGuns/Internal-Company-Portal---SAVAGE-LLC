@@ -22,7 +22,7 @@ const emailWrapper = (content: string): string => `
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Deskii</title>
+  <title>SAVAGE LLC Internal Portal</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -128,11 +128,11 @@ export const welcomeEmailTemplate = (data: WelcomeEmailData): string => {
   const content = `
     <div class="container">
       <div class="header">
-        <h1>🎉 Welcome to Deskii!</h1>
+        <h1>🎉 Welcome to SAVAGE LLC!</h1>
       </div>
       <div class="content">
         <p>Hi <strong>${data.userName}</strong>,</p>
-        <p>Welcome to the Deskii Workspace! We're excited to have you on board.</p>
+        <p>Welcome to the SAVAGE LLC Internal Company Portal! We're excited to have you on board.</p>
         <p>Your account has been successfully created. Here are your login credentials:</p>
         <div class="task-card" style="border-left-color: #667eea; background-color: #f8f9fa;">
           <p style="margin: 5px 0;"><strong>Email:</strong> ${data.userEmail}</p>
@@ -144,11 +144,11 @@ export const welcomeEmailTemplate = (data: WelcomeEmailData): string => {
           <a href="${data.loginUrl}" class="button">Access Portal</a>
         </center>
         <p>If you have any questions or need assistance, please don't hesitate to reach out to your department lead.</p>
-        <p>Best regards,<br><strong>Deskii Team</strong></p>
+        <p>Best regards,<br><strong>SAVAGE LLC Team</strong></p>
       </div>
       <div class="footer">
-        <p>This is an automated message from Deskii</p>
-        <p>&copy; 2026 Deskii. All rights reserved.</p>
+        <p>This is an automated message from SAVAGE LLC Internal Portal</p>
+        <p>&copy; 2026 SAVAGE LLC. All rights reserved.</p>
       </div>
     </div>
   `;
@@ -175,11 +175,11 @@ export const taskAssignedEmailTemplate = (data: TaskAssignedEmailData): string =
           <a href="${data.taskUrl}" class="button">View Task</a>
         </center>
         <p>Please review the task details and update the status as you make progress.</p>
-        <p>Best regards,<br><strong>Deskii Team</strong></p>
+        <p>Best regards,<br><strong>SAVAGE LLC Team</strong></p>
       </div>
       <div class="footer">
-        <p>This is an automated message from Deskii</p>
-        <p>&copy; 2026 Deskii. All rights reserved.</p>
+        <p>This is an automated message from SAVAGE LLC Internal Portal</p>
+        <p>&copy; 2026 SAVAGE LLC. All rights reserved.</p>
       </div>
     </div>
   `;
@@ -211,11 +211,11 @@ export const taskStatusChangedEmailTemplate = (data: TaskStatusChangedEmailData)
         <center>
           <a href="${data.taskUrl}" class="button">View Task</a>
         </center>
-        <p>Best regards,<br><strong>Deskii Team</strong></p>
+        <p>Best regards,<br><strong>SAVAGE LLC Team</strong></p>
       </div>
       <div class="footer">
-        <p>This is an automated message from Deskii</p>
-        <p>&copy; 2026 Deskii. All rights reserved.</p>
+        <p>This is an automated message from SAVAGE LLC Internal Portal</p>
+        <p>&copy; 2026 SAVAGE LLC. All rights reserved.</p>
       </div>
     </div>
   `;
@@ -282,12 +282,12 @@ export const dailyDigestEmailTemplate = (data: DailyDigestEmailData): string => 
         </center>
 
         <p>Keep up the great work!</p>
-        <p>Best regards,<br><strong>Deskii Team</strong></p>
+        <p>Best regards,<br><strong>SAVAGE LLC Team</strong></p>
       </div>
       <div class="footer">
-        <p>This is an automated daily digest from Deskii</p>
+        <p>This is an automated daily digest from SAVAGE LLC Internal Portal</p>
         <p>You're receiving this because you have active tasks assigned to you.</p>
-        <p>&copy; 2026 Deskii. All rights reserved.</p>
+        <p>&copy; 2026 SAVAGE LLC. All rights reserved.</p>
       </div>
     </div>
   `;
@@ -319,11 +319,11 @@ export const departmentUpdateEmailTemplate = (data: DepartmentUpdateEmailData): 
         <center>
           <a href="${data.departmentUrl}" class="button">View Department</a>
         </center>
-        <p>Best regards,<br><strong>Deskii Team</strong></p>
+        <p>Best regards,<br><strong>SAVAGE LLC Team</strong></p>
       </div>
       <div class="footer">
-        <p>This is an automated message from Deskii</p>
-        <p>&copy; 2026 Deskii. All rights reserved.</p>
+        <p>This is an automated message from SAVAGE LLC Internal Portal</p>
+        <p>&copy; 2026 SAVAGE LLC. All rights reserved.</p>
       </div>
     </div>
   `;
@@ -361,11 +361,11 @@ export const payslipGeneratedEmailTemplate = (data: PayslipGeneratedEmailData): 
         </center>
         
         <p>If you have any questions regarding your pay, please contact the HR department.</p>
-        <p>Best regards,<br><strong>Deskii Finance Team</strong></p>
+        <p>Best regards,<br><strong>SAVAGE LLC Finance Team</strong></p>
       </div>
       <div class="footer">
-        <p>This is an automated message from Deskii</p>
-        <p>&copy; 2026 Deskii. All rights reserved.</p>
+        <p>This is an automated message from SAVAGE LLC Internal Portal</p>
+        <p>&copy; 2026 SAVAGE LLC. All rights reserved.</p>
       </div>
     </div>
   `;
@@ -381,17 +381,17 @@ export const passwordResetEmailTemplate = (data: PasswordResetEmailData): string
       </div>
       <div class="content">
         <p>Hi <strong>${data.userName}</strong>,</p>
-        <p>We received a request to reset your password for the Deskii Workspace.</p>
+        <p>We received a request to reset your password for the SAVAGE LLC Internal Portal.</p>
         <p>Click the button below to set a new password. This link will expire in <strong>${data.expiresInMinutes} minutes</strong>.</p>
         <center>
           <a href="${data.resetUrl}" class="button" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">Reset Password</a>
         </center>
         <p style="font-size: 13px; color: #666;">If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.</p>
-        <p>Best regards,<br><strong>Deskii Team</strong></p>
+        <p>Best regards,<br><strong>SAVAGE LLC Team</strong></p>
       </div>
       <div class="footer">
-        <p>This is an automated message from Deskii</p>
-        <p>&copy; 2026 Deskii. All rights reserved.</p>
+        <p>This is an automated message from SAVAGE LLC Internal Portal</p>
+        <p>&copy; 2026 SAVAGE LLC. All rights reserved.</p>
       </div>
     </div>
   `;

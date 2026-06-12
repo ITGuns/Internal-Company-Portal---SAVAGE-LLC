@@ -11,6 +11,8 @@
     "prisma:migrate": "dotenv -e .env -- prisma migrate dev",
     "prisma:deploy": "dotenv -e .env -- prisma migrate deploy",
     "prisma:deploy:production": "dotenv -e .env.production -- prisma migrate deploy",
+    "prisma:deploy:render": "prisma migrate deploy",
+    "prisma:bootstrap:render": "node scripts/bootstrap-production-database.mjs",
     "prisma:bootstrap-production": "dotenv -e .env.production -- node scripts/bootstrap-production-database.mjs",
     "prisma:studio": "dotenv -e .env -- prisma studio",
     "prisma:reset": "dotenv -e .env -- prisma migrate reset",

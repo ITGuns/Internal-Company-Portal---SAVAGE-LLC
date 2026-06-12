@@ -40,7 +40,7 @@ export default function NewChatModal({
     if (!isOpen) return null
 
     return (
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="portal-form-backdrop absolute inset-0 z-50 flex items-center justify-center p-4">
             <div
                 ref={dialogRef}
                 role="dialog"

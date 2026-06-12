@@ -6,7 +6,7 @@ import Link from 'next/link'
 import Header from '@/components/Header'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import { DashboardSkeleton } from '@/components/ui/Skeleton'
+import { DashboardSkeleton, Skeleton } from '@/components/ui/Skeleton'
 import {
   AlertCircle,
   AlertTriangle,
@@ -15,7 +15,6 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
-  ExternalLink,
   FileText,
   Megaphone,
   Send,
@@ -30,10 +29,10 @@ import { useSocket } from '@/context/SocketContext'
 import { fetchConversations, fetchMessages, sendMessage, type Message, type Conversation } from '@/lib/chat'
 import TimeClock from '@/components/TimeClock'
 import { useTasks } from '@/hooks/useTasksQuery'
-import { useAnnouncements } from '@/hooks/useAnnouncementsQuery'
+import { useAnnouncementsPaginated } from '@/hooks/useAnnouncementsQuery'
 import { useTimeEntries } from '@/hooks/useTimeEntriesQuery'
 import { useToast } from '@/components/ToastProvider'
-import { useDailyLogs } from '@/hooks/useDailyLogsQuery'
+import { useMyDailyLogs } from '@/hooks/useDailyLogsQuery'
 import { fetchPendingEmployees } from '@/lib/employees'
 import {
   buildDashboardSummary,
@@ -46,58 +45,20 @@ const dashboardNumberFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 0,
 });
 
-function QuickLink({ title, subtitle, icon: Icon, onClick, href }: { title: string; subtitle?: string; icon: React.ComponentType<{ className?: string }>; onClick?: () => void; href?: string }) {
-  const quickLinkClass = 'motion-interactive flex min-h-14 w-full items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3 text-left hover:border-[var(--accent)] hover:bg-[var(--surface-hover)] hover:shadow-[var(--shadow-sm)] active:scale-[0.995] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]';
-  const content = (
-    <>
-      <Icon className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden="true" />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium text-[var(--foreground)]">{title}</div>
-        {subtitle && <div className="mt-1 truncate text-xs text-[var(--muted)]">{subtitle}</div>}
-      </div>
-      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[var(--muted)]" aria-hidden="true" />
-    </>
-  );
-
-  if (href && !onClick) {
-    return (
-      <a href={href} target="_blank" rel="noreferrer" className={quickLinkClass}>
-        {content}
-      </a>
-    );
-  }
-
-  const handleClick = () => {
-    if (onClick) {
-      onClick();
-    } else if (href) {
-      window.open(href, '_blank');
-    }
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      className={quickLinkClass}
-    >
-      {content}
-    </button>
-  )
-}
-
 function DashboardMetric({
   label,
   value,
   helper,
   icon: Icon,
   tone,
+  isLoading = false,
 }: {
   label: string;
-  value: string | number;
+  value: React.ReactNode;
   helper: string;
   icon: React.ComponentType<{ className?: string }>;
   tone: 'emerald' | 'blue' | 'amber' | 'red' | 'slate';
+  isLoading?: boolean;
 }) {
   const toneClass = {
     emerald: 'border-[var(--status-completed)] bg-[var(--status-completed-bg)] text-[var(--status-completed)]',
@@ -112,8 +73,12 @@ function DashboardMetric({
       <div className="flex h-full items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">{label}</div>
-          <div className="mt-2 truncate text-2xl font-semibold tabular-nums text-[var(--foreground)]">{value}</div>
-          <div className="mt-1 line-clamp-2 text-xs text-[var(--muted)]">{helper}</div>
+          <div className="mt-2 truncate text-2xl font-semibold tabular-nums text-[var(--foreground)]">
+            {isLoading ? <Skeleton className="h-8 w-16" /> : value}
+          </div>
+          <div className="mt-1 line-clamp-2 text-xs text-[var(--muted)]">
+            {isLoading ? <Skeleton className="h-3 w-28" /> : helper}
+          </div>
         </div>
         <div className={`rounded-[var(--radius-md)] border p-2 shadow-[0_0_24px_-18px_currentColor] ${toneClass}`}>
           <Icon className="h-5 w-5" aria-hidden="true" />
@@ -131,7 +96,7 @@ function AttentionRow({ item }: { item: DashboardAttentionItem }) {
       : 'bg-sky-500/10 text-sky-500';
 
   return (
-    <a
+    <Link
       href={item.href}
       className="motion-interactive flex items-start gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3 hover:border-[var(--accent)] hover:bg-[var(--surface-hover)] hover:shadow-[var(--shadow-sm)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
     >
@@ -150,7 +115,7 @@ function AttentionRow({ item }: { item: DashboardAttentionItem }) {
         <div className="mt-1 text-xs text-[var(--muted)]">{item.description}</div>
       </div>
       <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-[var(--muted)]" aria-hidden="true" />
-    </a>
+    </Link>
   );
 }
 
@@ -193,21 +158,50 @@ function getTodayDateInput() {
   ].join('-');
 }
 
+function getTodayDateRangeInput() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const end = new Date(start);
+  end.setDate(start.getDate() + 1);
+
+  return {
+    start: start.toISOString(),
+    end: end.toISOString(),
+  };
+}
+
+function DashboardListSkeleton({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: rows }).map((_, index) => (
+        <div key={index} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3">
+          <Skeleton className="h-4 w-2/3 max-w-full" />
+          <Skeleton className="mt-2 h-3 w-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { user, isLoading: userLoading } = useUser();
+  const today = useMemo(() => getTodayDateInput(), []);
+  const todayRange = useMemo(() => getTodayDateRangeInput(), []);
   const isManagementDashboard = hasDashboardManagementAccess(user);
-  const { data: allTasks = [], isLoading: tasksLoading } = useTasks();
-  const { data: allAnnouncements = [], isLoading: announcementsLoading } = useAnnouncements();
-  const { data: timeEntries = [], isLoading: timeLoading } = useTimeEntries();
-  const { data: dailyLogs = [], isLoading: dailyLogsLoading } = useDailyLogs();
+  const authReady = Boolean(user);
+  const { data: allTasks = [], isLoading: tasksLoading } = useTasks(undefined, undefined, { enabled: authReady });
+  const { data: announcementsPage, isLoading: announcementsLoading } = useAnnouncementsPaginated(1, 6, { enabled: authReady });
+  const { data: timeEntries = [], isLoading: timeLoading } = useTimeEntries(todayRange.start, todayRange.end, undefined, { enabled: authReady });
+  const { data: dailyLogs = [], isLoading: dailyLogsLoading } = useMyDailyLogs({ enabled: authReady });
   const { data: pendingEmployees = [], isLoading: pendingEmployeesLoading } = useQuery({
     queryKey: ['employees', 'pending'],
     queryFn: fetchPendingEmployees,
-    enabled: isManagementDashboard,
+    enabled: authReady && isManagementDashboard,
     staleTime: 60 * 1000,
   });
 
-  const today = useMemo(() => getTodayDateInput(), []);
+  const allAnnouncements = useMemo(() => announcementsPage?.data ?? [], [announcementsPage?.data]);
+  const summaryLoading = tasksLoading || timeLoading || dailyLogsLoading || (isManagementDashboard && pendingEmployeesLoading);
   const dashboardSummary = useMemo(
     () => buildDashboardSummary({
       userId: user?.id,
@@ -228,7 +222,6 @@ export default function DashboardPage() {
     const sorted = [...allAnnouncements].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     return sorted.filter(a => a.category === 'shoutouts').slice(0, 3);
   }, [allAnnouncements]);
-  const loading = tasksLoading || announcementsLoading || timeLoading || dailyLogsLoading || (isManagementDashboard && pendingEmployeesLoading);
 
   // Chat State
   const toast = useToast();
@@ -356,11 +349,13 @@ export default function DashboardPage() {
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
 
-  if (loading || userLoading) {
+  if (userLoading) {
     return (
-      <main className="main-content-height bg-transparent p-6 text-[var(--foreground)]">
+      <main className="main-content-height bg-transparent text-[var(--foreground)]">
         <Header />
-        <DashboardSkeleton />
+        <div className="mx-auto max-w-[1480px] p-4 pt-3 md:p-6">
+          <DashboardSkeleton />
+        </div>
       </main>
     );
   }
@@ -372,7 +367,7 @@ export default function DashboardPage() {
         <div className="flex flex-col items-center justify-center h-[60vh] text-center">
           <h2 className="text-2xl font-bold mb-4">Please Log In</h2>
           <p className="text-[var(--muted)] mb-6">You need to be logged in to view the dashboard.</p>
-          <Button onClick={() => window.location.href = '/login'}>Go to Login</Button>
+          <Button onClick={() => router.push('/login')}>Go to Login</Button>
         </div>
       </main>
     );
@@ -413,6 +408,7 @@ export default function DashboardPage() {
                 helper={dashboardSummary.metrics.activeClockIn ? 'Clock is running' : 'Tracked today'}
                 icon={Clock}
                 tone="emerald"
+                isLoading={timeLoading}
               />
               <DashboardMetric
                 label="Assigned Tasks"
@@ -420,6 +416,7 @@ export default function DashboardPage() {
                 helper={isManagementDashboard ? 'Visible to your role' : 'Assigned to you'}
                 icon={ClipboardList}
                 tone="blue"
+                isLoading={tasksLoading}
               />
               <DashboardMetric
                 label="In Progress"
@@ -427,6 +424,7 @@ export default function DashboardPage() {
                 helper="Active work items"
                 icon={TrendingUp}
                 tone="slate"
+                isLoading={tasksLoading}
               />
               <DashboardMetric
                 label="Completed Today"
@@ -434,6 +432,7 @@ export default function DashboardPage() {
                 helper="Closed today"
                 icon={CheckCircle2}
                 tone="emerald"
+                isLoading={tasksLoading}
               />
               <DashboardMetric
                 label="Overdue"
@@ -441,6 +440,7 @@ export default function DashboardPage() {
                 helper="Past due and open"
                 icon={AlertCircle}
                 tone={dashboardSummary.metrics.overdueTasks > 0 ? 'red' : 'amber'}
+                isLoading={tasksLoading}
               />
               <DashboardMetric
                 label={isManagementDashboard ? 'Approvals' : 'Daily Log'}
@@ -448,6 +448,7 @@ export default function DashboardPage() {
                 helper={isManagementDashboard ? 'Pending employees' : 'Today status'}
                 icon={isManagementDashboard ? UserCheck : FileText}
                 tone={dashboardSummary.metrics.pendingApprovals > 0 || dashboardSummary.metrics.pendingDailyLog ? 'amber' : 'emerald'}
+                isLoading={isManagementDashboard ? pendingEmployeesLoading : dailyLogsLoading}
               />
             </div>
           </div>
@@ -462,7 +463,9 @@ export default function DashboardPage() {
               </div>
             </Card.Header>
             <Card.Content className="space-y-2">
-              {dashboardSummary.attentionItems.length === 0 ? (
+              {summaryLoading ? (
+                <DashboardListSkeleton rows={3} />
+              ) : dashboardSummary.attentionItems.length === 0 ? (
                 <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--border)] bg-[var(--card-bg)] p-4 text-sm text-[var(--muted)]">
                   Nothing needs immediate review.
                 </div>
@@ -477,34 +480,6 @@ export default function DashboardPage() {
 
         <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6">
           <div className="space-y-4">
-            <Card variant="elevated" className="overflow-hidden">
-              <Card.Header>
-                <h3 className="font-semibold text-sm">Quick Links</h3>
-              </Card.Header>
-
-              <Card.Content className="grid gap-3">
-                <QuickLink
-                  title="Discord Server"
-                  subtitle="Join the conversation"
-                  icon={Send}
-                  onClick={() => {
-                    // Try to open Discord app
-                    window.location.href = 'discord://discord.com/channels/1464856711813660694/1464865716200018042';
-                    // Fallback to web after 500ms if app doesn't open
-                    setTimeout(() => {
-                      window.open('https://discord.com/channels/1464856711813660694/1464865716200018042', '_blank');
-                    }, 500);
-                  }}
-                />
-                <QuickLink
-                  title="Google Drive"
-                  subtitle="Access shared files"
-                  icon={ExternalLink}
-                  href="https://drive.google.com"
-                />
-              </Card.Content>
-            </Card>
-
             <Card variant="elevated" className="overflow-hidden flex flex-col h-[400px]">
               <Card.Header>
                 <div className="flex items-center justify-between w-full">
@@ -518,6 +493,8 @@ export default function DashboardPage() {
 
               <div
                 ref={chatScrollRef}
+                tabIndex={0}
+                aria-label="Company chat messages"
                 className="chat-scroll flex-1 space-y-3 overflow-y-auto bg-[var(--card-bg)] p-4"
               >
                 {messages.length === 0 ? (
@@ -575,7 +552,11 @@ export default function DashboardPage() {
                 <Link href="/announcements" className="inline-flex min-h-10 items-center rounded-[var(--radius-md)] px-2 text-sm text-[var(--muted)] hover:text-[var(--accent)] hover:underline">View All</Link>
               </Card.Header>
 
-              {recentAnnouncements.length === 0 ? (
+              {announcementsLoading ? (
+                <div className="bg-[var(--card-surface)] p-4">
+                  <DashboardListSkeleton rows={3} />
+                </div>
+              ) : recentAnnouncements.length === 0 ? (
                 <div className="p-8 text-center bg-[var(--card-surface)]">
                   <Megaphone className="mx-auto mb-3 h-10 w-10 text-[var(--muted)] opacity-50" aria-hidden="true" />
                   <div className="text-sm text-[var(--muted)]">No announcements yet</div>
@@ -614,7 +595,11 @@ export default function DashboardPage() {
                   <Link href="/announcements" className="inline-flex min-h-10 items-center rounded-[var(--radius-md)] px-2 text-sm text-[var(--muted)] hover:text-[var(--accent)] hover:underline">View All</Link>
                 </Card.Header>
 
-                {recentShoutouts.length === 0 ? (
+                {announcementsLoading ? (
+                  <Card.Content>
+                    <DashboardListSkeleton rows={2} />
+                  </Card.Content>
+                ) : recentShoutouts.length === 0 ? (
                   <div className="bg-[var(--card-bg)] p-8 text-center">
                     <Star className="mx-auto mb-3 h-10 w-10 text-[var(--muted)] opacity-50" aria-hidden="true" />
                     <div className="text-sm text-[var(--muted)]">No shoutouts yet</div>

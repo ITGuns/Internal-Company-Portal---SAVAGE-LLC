@@ -55,6 +55,14 @@ export class DailyLogsService {
                         select: { id: true, name: true, avatar: true }
                     }
                 }
+            },
+            comments: {
+                include: {
+                    author: {
+                        select: { id: true, name: true, avatar: true, email: true }
+                    }
+                },
+                orderBy: { createdAt: 'asc' as const }
             }
         }
 
@@ -94,6 +102,14 @@ export class DailyLogsService {
                             select: { id: true, name: true, avatar: true }
                         }
                     }
+                },
+                comments: {
+                    include: {
+                        author: {
+                            select: { id: true, name: true, avatar: true, email: true }
+                        }
+                    },
+                    orderBy: { createdAt: 'asc' as const }
                 }
             },
             orderBy: { date: 'desc' }
@@ -113,6 +129,14 @@ export class DailyLogsService {
                             select: { id: true, name: true, avatar: true }
                         }
                     }
+                },
+                comments: {
+                    include: {
+                        author: {
+                            select: { id: true, name: true, avatar: true, email: true }
+                        }
+                    },
+                    orderBy: { createdAt: 'asc' as const }
                 }
             }
         })
@@ -149,7 +173,15 @@ export class DailyLogsService {
                 author: {
                     select: { id: true, name: true, avatar: true }
                 },
-                likes: true
+                likes: true,
+                comments: {
+                    include: {
+                        author: {
+                            select: { id: true, name: true, avatar: true, email: true }
+                        }
+                    },
+                    orderBy: { createdAt: 'asc' }
+                }
             }
         })
     }
@@ -176,7 +208,15 @@ export class DailyLogsService {
                 author: {
                     select: { id: true, name: true, avatar: true }
                 },
-                likes: true
+                likes: true,
+                comments: {
+                    include: {
+                        author: {
+                            select: { id: true, name: true, avatar: true, email: true }
+                        }
+                    },
+                    orderBy: { createdAt: 'asc' }
+                }
             }
         })
     }
@@ -208,6 +248,48 @@ export class DailyLogsService {
             })
             return { liked: true }
         }
+    }
+
+    async addComment(dailyLogId: string, authorId: string, text: string) {
+        const dailyLog = await this.prisma.dailyLog.findUnique({
+            where: { id: dailyLogId },
+            select: { id: true },
+        })
+
+        if (!dailyLog) {
+            throw new Error('Daily log not found')
+        }
+
+        return this.prisma.dailyLogComment.create({
+            data: {
+                dailyLogId,
+                authorId,
+                text,
+            },
+            include: {
+                author: {
+                    select: { id: true, name: true, avatar: true, email: true },
+                },
+            },
+        })
+    }
+
+    async deleteComment(dailyLogId: string, commentId: string, userId: string) {
+        const comment = await this.prisma.dailyLogComment.findUnique({
+            where: { id: commentId },
+        })
+
+        if (!comment || comment.dailyLogId !== dailyLogId) {
+            throw new Error('Comment not found')
+        }
+
+        if (comment.authorId !== userId) {
+            throw new Error('Unauthorized to delete this comment')
+        }
+
+        return this.prisma.dailyLogComment.delete({
+            where: { id: commentId },
+        })
     }
 }
 

@@ -11,9 +11,21 @@ Dashboard is the command-center entry point for the portal.
 - Dashboard workflow links use query params to open exact states: new task modal, new daily log modal, payroll calendar tab, and pending employee approvals.
 - Task attention links can open Task Tracking with overdue or in-progress filters applied.
 
+## Global Search
+
+The header search / command palette searches both navigation commands and authorized system records.
+
+- Escape closes transient app surfaces such as command palette, modals, drawers, popup menus, and active task/project windows before changing underlying page state.
+- Page commands and the main sidebar remain role-aware, so client users do not see internal destinations and non-payroll roles do not get payroll-management shortcuts.
+- Backend global search returns only records the authenticated user can access.
+- Internal users can find visible tasks, daily logs, announcements, chat messages, file-directory folders, and internal people.
+- Client users can find assigned client-portal records that are active and client-visible.
+- Client operations roles can find client operations records across client workspaces.
+- Payroll records are finance/payroll-management scoped and are not returned to ordinary internal or client users.
+
 ## Task Tracking
 
-Task tracking supports calendar, board, and list views for task status, assignment, timing, and progress.
+Task tracking supports calendar, board, and list views for task status, assignment, timing, and progress. Board and calendar views stay in the normal page scroll so tall work focus, project, calendar, and summary sections remain reachable.
 
 ### Assignment Behavior
 
@@ -27,35 +39,51 @@ Task tracking supports calendar, board, and list views for task status, assignme
 - Employees do not manually choose their own assignee or role in the task modal.
 - Full-access admins, project managers, operations managers, and chief operations officers can assign tasks to other employees.
 - Manager/admin assignment controls include an `Assign to me` shortcut.
-- Selecting an assignee in the task modal auto-fills that employee's primary department and role when available.
+- Task forms do not collect department manually; selecting an assignee uses that employee's primary account department and role.
 - New task records store `createdById` separately from `assigneeId`, so requester visibility no longer depends only on assignment.
 - Task role options come from backend department `availableRoles` instead of frontend-only constants.
+- Manager/admin task forms can invite additional employee collaborators while preserving the primary assignee.
+- Collaborator chips appear on task cards/list rows, and task details show the invited collaborator names.
+- Task projects can be created from an `Add Project` modal in Task Tracking, assigned to tasks, filtered, grouped, paused/resumed, and marked complete.
+- Clicking a task project card filters the task list to that project; clicking the selected card again, pressing Esc, or using `Back to all tasks` clears the project view.
+- Opening the Project Organization panel expands a project overview dialog with per-project analytics for completion, open work, review load, overdue work, due-today work, estimates, tracked time, and target-date risk.
+- Project assignment appears on task cards, list rows, detail modals, calendar/report data, and exported Deskii task reports.
+- Start and due date fields use segmented day/month/year inputs with `Today` shortcuts that move focus forward as the user completes each segment.
+- Task estimates use `HH:MM` input in the modal while the API continues storing estimated time as total minutes.
+- Task search matches task title, description, status, priority, notes, project, department, assignee, creator, and collaborators.
+- Work Focus can stay automatic or be pinned to a selected task per user.
 
 ### Detail And Work History
 
 - Clicking a task in board, list, or calendar view opens a read-first detail modal.
 - The detail modal shows assignment, department/role, dates, progress, tracked time, estimated time, remaining or over-estimate time, and session count.
+- The detail modal includes quick actions to start or pause the task timer, mark open tasks done, and reopen completed tasks.
 - Work history lists recorded timer sessions with worker, start/end time, and duration.
 - Editing remains available through the detail modal's `Edit Task` action.
 - `Generate EOD Report` can post the selected period summary directly into Daily Logs, using structured linked task objects and optional shift notes.
 
 ## Daily Logs
 
-Daily logs track EOD, weekly, and monthly work summaries by date, department, status, hours, task list, and shift notes.
+Daily logs track EOD, weekly, and monthly work summaries by date, department, task-derived status, HH:MM hours, task list, and shift notes.
 
 - Employee logs use the department assigned to the employee account.
 - Full-access admins, project managers, operations managers, and chief operations officers can review or override log departments when their access allows it.
 - Task Tracking report posts create real Daily Log records and refresh Daily Logs after submission.
+- Daily Log cards have a clickable comments control that expands an inline thread, lets authenticated users add comments, and lets authors delete their own comments.
 
 ### Task Import Behavior
 
 - `/daily-logs?new=1` opens the Add Daily Log modal automatically.
+- The Add Daily Log modal uses `HH:MM` hour entry and normalizes numeric input such as `8` to `08:00`.
+- The Date field includes a `Today` shortcut in the label row.
+- Users no longer choose a log status manually in the form; the log derives its stored status from the logged task rows.
 - The Add Daily Log modal includes an `Import from Task Tracking` section.
 - The import section suggests completed and in-progress tasks assigned to the logged-in user for the selected log date.
 - Completed task suggestions use `completedAt` for the selected date; completed tasks without `completedAt` are not inferred from due or update dates.
 - Review-stage tasks appear in a separate optional section, with task-session counts and tracked minutes when available.
 - Suggested tasks can be imported individually or in bulk with `Import All`.
 - Imported completed tasks are checked in the daily-log task list; imported in-progress tasks remain unchecked.
+- Imported Task Tracking entries retain source task IDs and task statuses so saved logs can show Completed, Review, or In Progress badges.
 - Manual task entry remains available for work that was not created in Task Tracking.
 
 ### Manager Review
@@ -63,6 +91,14 @@ Daily logs track EOD, weekly, and monthly work summaries by date, department, st
 - Managers/admins can review team daily-log totals with summary counts for reviewed logs, completed items, blocked items, linked tasks, hours, and latest log date.
 - Linked Task Tracking items show a source badge and session count in the log task list when the source task is visible.
 - Review-status tasks are intentionally not imported automatically; employees can add them manually from the optional review-stage section when needed.
+
+## File Directory
+
+File Directory organizes internal folder records by department without opening external storage links from the portal.
+
+- Folder cards open internal child-folder navigation only.
+- Add Folder creates one internal folder record with name, department, and folder color.
+- New file-directory records do not store Drive links, and legacy Drive link fields are ignored by the active folder UI.
 
 ## Auth And Employee Approval
 
@@ -83,12 +119,14 @@ Operations manages departments, role options, and client account administration.
 - Default role options are maintained in the backend org catalog and mirrored in frontend static department helpers for payroll/file-directory forms.
 - Role-option APIs preserve existing configured roles and add missing org-chart defaults for matching departments, so admin onboarding is not blocked by stale seed data.
 - Admin Operations syncs the default org chart into persisted department and role rows so `/operations` displays the planned structure even on databases that still contain older department records.
-- The Operations `Members` tab lists internal users/employees, shows their active authorization groups, and lets full-access admins add or remove role assignments through the server-controlled user-role APIs.
+- Department creation in Operations only asks for the department name; department cards do not expose Google Drive IDs, Drive link status, or internal department IDs.
+- The Operations `Members` tab lists internal users/employees only, shows their active authorization groups, and lets full-access admins add or remove role assignments through the server-controlled user-role APIs.
+- The Operations `Org Chart` tab builds a flexible manager/direct-report hierarchy from internal member reporting lines, renders it as centered tree tiers, and lets full-access admins update each member's manager.
 - Department and role deletes now require a typed confirmation modal.
 - The delete action stays disabled until the exact target name is typed.
 - Department delete confirmation displays linked task and user-role counts when provided by the API.
 - `/operations/onboarding` generates copyable setup links for approved internal users without exposing passwords to admins.
-- Operations includes a `Clients` tab that links to the client operations command center.
+- Operations includes a `Clients` tab that lists client portal accounts separately from employees and links to the client account operations workflow.
 - `/operations/clients` is the Client Operations command center for account health, open work, requests, approvals, latest updates, reports, and focused route links.
 - `/operations/clients/accounts` manages client setup, website work intake type, invitations, approved existing-user access, membership status changes, account profile details, service tiers, and archive/restore controls.
 - Client service tiers include the SOP-derived presets: Standard Business Website, Growth Business Website, Conversion and Local Growth System, Managed Growth Website System, and Premium Managed Growth System.
@@ -120,7 +158,7 @@ Payroll Calendar tracks calendar events, employee time entries, and payroll revi
 
 - `/payroll-calendar?tab=calendar` opens the calendar tab; `/payroll-calendar?tab=employees&view=pending` opens pending employee review for authorized managers/admins.
 - Payroll-management users can use the calendar employee selector or `/payroll-calendar?tab=calendar&userId=:userId` to audit another employee's time entries.
-- Payroll-management audit controls include employee search plus start/end date filters, and the selected audit context is reflected in the URL.
+- Payroll-management audit controls show the current audited employee/date range, keep selected employees visible while searching, include `Today` shortcuts and reset, and reflect `userId`, `start`, and `end` filters in the URL.
 - Employee audit mode hides clock-in/out controls and keeps manual entry/edit actions routed through backend payroll permissions.
 - Manager-created or edited employee time entries prompt for correction notes so payroll review has context.
 - Clicking a calendar date opens a day review panel in the sidebar.
@@ -129,3 +167,23 @@ Payroll Calendar tracks calendar events, employee time entries, and payroll revi
 - Time entries can be edited from today's entry list or from the selected day review panel.
 - Time entry deletion now opens a typed confirmation modal and stays disabled until `DELETE` is typed.
 - Payroll profile compensation and banking fields are protected by backend role checks.
+- Employee payroll setup includes max billable hours per day and a salary divisor scheme: weekdays credited, flat 30 days, flat 20 days, or flat 160 hours.
+- Payslip previews and generation show tracked hours, billable hours, and pending overtime separately. Automatic gross pay excludes time beyond the daily billable cap until a manager manually overrides or approves it.
+
+## Announcements
+
+Announcements centralize company updates, shoutouts, events, and birthdays for internal users.
+
+- Category cards filter the feed by Company News, Shoutouts, Events, or Birthdays and show current post counts.
+- The category tab row uses the same filters, includes Birthdays, resets pagination on filter changes, and reflects the active filter in the `category` URL query parameter.
+- Empty filtered states let users return to all posts without losing the announcement page context.
+
+## Company Chat
+
+Company Chat supports internal direct messages, group/channel conversations, realtime updates, and message correction.
+
+- Users can edit or delete their own messages.
+- Users can attach files, images, and GIFs through the message composer.
+- The composer includes expandable quick emoji insertion.
+- Messages support stored quick reactions; reaction chips show counts and can be toggled by conversation participants, while quick reaction shortcuts expand from a side action button beside each message bubble.
+- Reactions are broadcast through the same conversation room as message events.

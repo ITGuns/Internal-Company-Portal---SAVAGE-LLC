@@ -1,14 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import Header from "@/components/Header";
-import { User, Mail, Shield, X } from "lucide-react";
+import Image from 'next/image';
+import { Pencil, User, Mail, Shield, X } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import ProfileEditForm from "@/components/ProfileEditForm";
-import { useRouter } from "next/navigation";
 
 export default function ProfilePage() {
   const { user, isLoading } = useUser();
-  const router = useRouter();
+  const [isEditing, setIsEditing] = useState(true);
   const displayRoles = user?.roles?.length ? user.roles : user?.role ? [user.role] : [];
 
   if (isLoading) {
@@ -48,8 +49,7 @@ export default function ProfilePage() {
             <div className="flex flex-col items-center gap-6 md:flex-row md:items-start">
               <div className="h-32 w-32 shrink-0 overflow-hidden rounded-full border-2 border-[var(--border)] bg-[var(--card-bg)]">
                 {user.avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={user.avatar} alt={user.name || "Profile avatar"} className="h-full w-full object-cover" />
+                  <Image src={user.avatar} alt={user.name || "Profile avatar"} width={128} height={128} className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-[var(--muted)]">
                     {user.name?.charAt(0) || '?'}
@@ -99,19 +99,40 @@ export default function ProfilePage() {
             </div>
           </section>
 
-          <section id="edit-profile" className="relative rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-6 scroll-mt-28">
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="absolute top-4 right-4 p-2 rounded-lg text-[var(--muted)] hover:bg-[var(--card-bg)] hover:text-[var(--foreground)]"
-              aria-label="Close edit profile"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            <div className="mb-5 pr-8">
-              <h2 className="text-lg font-semibold text-[var(--foreground)]">Edit Profile</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">Update your account details without opening another overlay.</p>
+          <section id="edit-profile" className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-6 scroll-mt-28">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--foreground)]">
+                  {isEditing ? "Edit Profile" : "Profile Settings"}
+                </h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  {isEditing ? "Update your account details without opening another overlay." : "Open the editor when you need to change your profile."}
+                </p>
+              </div>
+              {isEditing ? (
+                <button
+                  type="button"
+                  className="motion-interactive inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] text-[var(--muted)] hover:bg-[var(--card-bg)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                  aria-label="Close profile editor"
+                  onClick={() => setIsEditing(false)}
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              ) : null}
             </div>
-            <ProfileEditForm user={user} onCancel={() => router.push("/dashboard")} />
+
+            {isEditing ? (
+              <ProfileEditForm user={user} onCancel={() => setIsEditing(false)} onSave={() => setIsEditing(false)} />
+            ) : (
+              <button
+                type="button"
+                className="motion-interactive inline-flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
+                onClick={() => setIsEditing(true)}
+              >
+                <Pencil className="h-4 w-4" aria-hidden="true" />
+                Edit Profile
+              </button>
+            )}
           </section>
         </div>
       </div>

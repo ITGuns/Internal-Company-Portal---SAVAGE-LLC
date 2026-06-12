@@ -4,6 +4,9 @@
  */
 
 import { config } from '../config/env.config';
+import { createLogger } from '../observability/logger';
+
+const logger = createLogger('email.config');
 
 export interface EmailConfig {
     enabled: boolean;
@@ -32,8 +35,8 @@ export const emailConfig: EmailConfig = {
     provider: (process.env.EMAIL_PROVIDER as 'sendgrid' | 'smtp') || 'sendgrid',
     testOverrideEmail: process.env.TEST_EMAIL_OVERRIDE || null,
     from: {
-        email: process.env.EMAIL_FROM_ADDRESS || 'noreply@deskii.com',
-        name: process.env.EMAIL_FROM_NAME || 'Deskii',
+        email: process.env.EMAIL_FROM_ADDRESS || 'noreply@savage-llc.com',
+        name: process.env.EMAIL_FROM_NAME || 'SAVAGE LLC Internal Portal',
     },
     sendgrid: {
         apiKey: process.env.SENDGRID_API_KEY || '',
@@ -51,27 +54,27 @@ export const emailConfig: EmailConfig = {
 
 export const validateEmailConfig = (): boolean => {
     if (!emailConfig.enabled) {
-        console.log('📧 Email service is disabled');
+        logger.info('Email service is disabled');
         return false;
     }
 
     if (emailConfig.provider === 'sendgrid') {
         if (!emailConfig.sendgrid?.apiKey) {
-            console.error('❌ SendGrid API key is missing');
+            logger.error('SendGrid API key is missing');
             return false;
         }
     } else if (emailConfig.provider === 'smtp') {
         if (!emailConfig.smtp?.auth.user || !emailConfig.smtp?.auth.pass) {
-            console.error('❌ SMTP credentials are missing');
+            logger.error('SMTP credentials are missing');
             return false;
         }
     }
 
     if (!emailConfig.from.email) {
-        console.error('❌ Email FROM address is missing');
+        logger.error('Email FROM address is missing');
         return false;
     }
 
-    console.log(`✅ Email service configured (provider: ${emailConfig.provider})`);
+    logger.info('Email service configured', { provider: emailConfig.provider });
     return true;
 };
