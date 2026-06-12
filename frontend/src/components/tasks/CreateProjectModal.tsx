@@ -5,19 +5,15 @@ import { Plus } from "lucide-react";
 import Button from "@/components/Button";
 import FormField from "@/components/forms/FormField";
 import Modal from "@/components/Modal";
-import type { TaskDepartment } from "@/lib/tasks";
 
 interface CreateProjectModalProps {
   isOpen: boolean;
-  departments: TaskDepartment[];
   projectName: string;
   projectDescription: string;
-  projectDepartmentId: string;
   projectTargetDate: string;
   isSubmitting: boolean;
   onProjectNameChange: (value: string) => void;
   onProjectDescriptionChange: (value: string) => void;
-  onProjectDepartmentChange: (value: string) => void;
   onProjectTargetDateChange: (value: string) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onClose: () => void;
@@ -29,15 +25,12 @@ function getTodayDateValue() {
 
 export default function CreateProjectModal({
   isOpen,
-  departments,
   projectName,
   projectDescription,
-  projectDepartmentId,
   projectTargetDate,
   isSubmitting,
   onProjectNameChange,
   onProjectDescriptionChange,
-  onProjectDepartmentChange,
   onProjectTargetDateChange,
   onSubmit,
   onClose,
@@ -85,34 +78,7 @@ export default function CreateProjectModal({
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label
-              htmlFor="task-project-department"
-              className="mb-2 block text-sm font-medium text-[var(--foreground)]"
-            >
-              Department Scope
-            </label>
-            <select
-              id="task-project-department"
-              name="projectDepartment"
-              value={projectDepartmentId}
-              onChange={(event) => onProjectDepartmentChange(event.target.value)}
-              autoComplete="off"
-              className="portal-select min-h-10 w-full rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-[border-color,box-shadow] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
-            >
-              <option value="">Any department</option>
-              {departments.map((department) => (
-                <option key={department.id} value={department.id}>
-                  {department.name}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              Leave open when the project spans multiple teams.
-            </p>
-          </div>
-
+        <div className="grid gap-4">
           <FormField
             id="task-project-target-date"
             name="projectTargetDate"

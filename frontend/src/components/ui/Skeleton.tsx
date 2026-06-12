@@ -151,24 +151,6 @@ export function DashboardSkeleton() {
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6">
         <div className="space-y-4">
-          <section className={`${panelClass} overflow-hidden`}>
-            <div className="border-b border-[var(--border)] px-4 py-4">
-              <Skeleton className="h-4 w-24" />
-            </div>
-            <div className="grid gap-3 p-4">
-              {Array.from({ length: 2 }).map((_, index) => (
-                <div key={index} className={`${surfacePanelClass} flex min-h-16 items-center gap-3 p-3`}>
-                  <Skeleton className="h-4 w-4 shrink-0" />
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-3 w-40 max-w-full" />
-                  </div>
-                  <Skeleton className="h-4 w-4 shrink-0" />
-                </div>
-              ))}
-            </div>
-          </section>
-
           <section className={`${panelClass} flex h-[400px] flex-col overflow-hidden`}>
             <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-4">
               <Skeleton className="h-4 w-28" />

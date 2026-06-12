@@ -342,7 +342,6 @@ export default function TaskTrackingPage() {
   const [progressNotes, setProgressNotes] = useState("");
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
-  const [projectDepartmentId, setProjectDepartmentId] = useState("");
   const [projectTargetDate, setProjectTargetDate] = useState("");
 
   function applyCurrentUserAssignment() {
@@ -431,7 +430,6 @@ export default function TaskTrackingPage() {
   function resetProjectForm() {
     setProjectName("");
     setProjectDescription("");
-    setProjectDepartmentId("");
     setProjectTargetDate("");
   }
 
@@ -661,7 +659,7 @@ export default function TaskTrackingPage() {
         name: projectName.trim(),
         description: projectDescription.trim() || null,
         status: "active",
-        departmentId: projectDepartmentId || null,
+        departmentId: null,
         targetDate: projectTargetDate || null,
       });
       closeProjectCreateModal();
@@ -1633,15 +1631,12 @@ export default function TaskTrackingPage() {
 
       <CreateProjectModal
         isOpen={showProjectCreateModal}
-        departments={departments}
         projectName={projectName}
         projectDescription={projectDescription}
-        projectDepartmentId={projectDepartmentId}
         projectTargetDate={projectTargetDate}
         isSubmitting={createProjectMutation.isPending}
         onProjectNameChange={setProjectName}
         onProjectDescriptionChange={setProjectDescription}
-        onProjectDepartmentChange={setProjectDepartmentId}
         onProjectTargetDateChange={setProjectTargetDate}
         onSubmit={handleCreateProject}
         onClose={closeProjectCreateModal}

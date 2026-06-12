@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   BarChart3,
   BriefcaseBusiness,
@@ -14,6 +14,7 @@ import {
   Grid,
   Home,
   Megaphone,
+  Menu,
   MessageSquare,
   ShieldCheck,
   Ticket,
@@ -27,8 +28,10 @@ import { useSocket } from '@/context/SocketContext';
 import { useUser } from '@/contexts/UserContext';
 import { useWorkspaceConfig } from '@/contexts/WorkspaceConfigContext';
 import { useSidebar } from '@/contexts/SidebarContext';
+import { useEscapeToClose } from '@/hooks/useEscapeToClose';
 import { fetchClientOrganizations } from '@/lib/client-portal';
 import { CLIENT_PORTAL_NAV_ITEMS } from '@/lib/client-portal-navigation';
+import { getClientWorkspaceResolutionState } from '@/lib/sidebar-client-workspace';
 import { isSidebarNavItemActive, type SidebarNavActiveMode } from '@/lib/sidebar-navigation';
 import {
   hasClientOperationsAccess,
@@ -36,6 +39,7 @@ import {
   hasClientWorkspaceShellAccess,
   hasFullAccess,
   hasManagementAccess,
+  hasPayrollManagementAccess,
 } from '@/lib/role-access';
 import { cn } from '@/lib/utils';
 
@@ -46,6 +50,15 @@ type NavItemConfig = {
   badge?: number;
   activeMode?: SidebarNavActiveMode;
 };
+
+function shouldUseNativeNavigation(event: React.MouseEvent<HTMLAnchorElement>) {
+  return event.defaultPrevented
+    || event.button !== 0
+    || event.metaKey
+    || event.altKey
+    || event.ctrlKey
+    || event.shiftKey;
+}
 
 const clientPortalIconByHref: Record<string, NavItemConfig['icon']> = {
   '/client': BriefcaseBusiness,
@@ -59,7 +72,18 @@ const clientPortalIconByHref: Record<string, NavItemConfig['icon']> = {
   '/client/calendar': CalendarDays,
 };
 
-function NavItem({ icon: Icon, label, badge, href, activeMode, collapsed }: NavItemConfig & { collapsed: boolean }) {
+function NavItem({
+  icon: Icon,
+  label,
+  badge,
+  href,
+  activeMode,
+  collapsed,
+  onNavigate,
+}: NavItemConfig & {
+  collapsed: boolean;
+  onNavigate: (event: React.MouseEvent<HTMLAnchorElement>, href: string) => void;
+}) {
   const pathname = usePathname() || '/';
   const isActive = isSidebarNavItemActive(pathname, href, activeMode);
 
@@ -68,6 +92,7 @@ function NavItem({ icon: Icon, label, badge, href, activeMode, collapsed }: NavI
       href={href}
       aria-label={label}
       aria-current={isActive ? 'page' : undefined}
+      onClick={(event) => onNavigate(event, href)}
       className={cn(
         'nav-animated relative flex min-h-10 w-full items-center gap-3 rounded-[var(--radius-md)] border px-3 py-2 text-sm',
         'transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-out)]',
@@ -92,7 +117,17 @@ function NavItem({ icon: Icon, label, badge, href, activeMode, collapsed }: NavI
   );
 }
 
-function NavSection({ title, items, collapsed }: { title: string; items: NavItemConfig[]; collapsed: boolean }) {
+function NavSection({
+  title,
+  items,
+  collapsed,
+  onNavigate,
+}: {
+  title: string;
+  items: NavItemConfig[];
+  collapsed: boolean;
+  onNavigate: (event: React.MouseEvent<HTMLAnchorElement>, href: string) => void;
+}) {
   return (
     <section className="space-y-2">
       <h2 className={cn(
@@ -103,7 +138,7 @@ function NavSection({ title, items, collapsed }: { title: string; items: NavItem
       </h2>
       <nav className="space-y-1" aria-label={title}>
         {items.map((item) => (
-          <NavItem key={item.href} {...item} collapsed={collapsed} />
+          <NavItem key={item.href} {...item} collapsed={collapsed} onNavigate={onNavigate} />
         ))}
       </nav>
     </section>
@@ -112,25 +147,39 @@ function NavSection({ title, items, collapsed }: { title: string; items: NavItem
 
 export default function Sidebar() {
   const pathname = usePathname() || '/';
+  const router = useRouter();
   const { user } = useUser();
   const workspace = useWorkspaceConfig();
   const { unreadChatCount } = useSocket();
-  const { desktopCollapsed, mobileOpen, closeMobileSidebar } = useSidebar();
+  const { desktopCollapsed, mobileOpen, closeMobileSidebar, toggleNavigation } = useSidebar();
   const [hasClientWorkspace, setHasClientWorkspace] = useState(false);
   const [clientWorkspaceChecked, setClientWorkspaceChecked] = useState(false);
+  const userId = user?.id != null ? String(user.id) : '';
   const canUseFullAccessAdmin = hasFullAccess(user);
   const canAccessClientOperations = useMemo(() => hasClientOperationsAccess(user), [user]);
   const canUseOperationsAdmin = useMemo(() => hasManagementAccess(user), [user]);
+  const canUsePayrollManagement = useMemo(() => hasPayrollManagementAccess(user), [user]);
   const hasRoleBasedClientPortalAccess = useMemo(() => hasClientPortalAccess(user), [user]);
-  const canUseClientPortal = hasRoleBasedClientPortalAccess || hasClientWorkspace;
   const usesClientShell = useMemo(
     () => hasClientWorkspaceShellAccess(user, hasClientWorkspace),
     [hasClientWorkspace, user],
   );
-  const isResolvingClientWorkspace = Boolean(user)
-    && !canAccessClientOperations
-    && !hasRoleBasedClientPortalAccess
-    && !clientWorkspaceChecked;
+  const { shouldResolveClientWorkspace, isResolvingClientWorkspace } = getClientWorkspaceResolutionState({
+    userId,
+    canAccessClientOperations,
+    hasRoleBasedClientPortalAccess,
+    clientWorkspaceChecked,
+  });
+
+  const handleInternalNavigation = useCallback((event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (shouldUseNativeNavigation(event)) return;
+
+    event.preventDefault();
+    closeMobileSidebar();
+    if (pathname !== href) router.push(href);
+  }, [closeMobileSidebar, pathname, router]);
+
+  useEscapeToClose({ isOpen: mobileOpen, onClose: closeMobileSidebar });
 
   useEffect(() => {
     closeMobileSidebar();
@@ -138,17 +187,22 @@ export default function Sidebar() {
 
   useEffect(() => {
     let ignore = false;
+
+    if (!userId) {
+      setHasClientWorkspace(false);
+      setClientWorkspaceChecked(false);
+      return;
+    }
+
+    if (!shouldResolveClientWorkspace) {
+      setHasClientWorkspace(false);
+      setClientWorkspaceChecked(true);
+      return;
+    }
+
     setClientWorkspaceChecked(false);
 
     async function checkClientWorkspace() {
-      if (!user || canAccessClientOperations || hasRoleBasedClientPortalAccess) {
-        if (!ignore) {
-          setHasClientWorkspace(false);
-          setClientWorkspaceChecked(true);
-        }
-        return;
-      }
-
       try {
         const organizations = await fetchClientOrganizations();
         if (!ignore) setHasClientWorkspace(organizations.length > 0);
@@ -164,14 +218,13 @@ export default function Sidebar() {
     return () => {
       ignore = true;
     };
-  }, [canAccessClientOperations, hasRoleBasedClientPortalAccess, user]);
+  }, [shouldResolveClientWorkspace, userId]);
 
   const employeeMainItems: NavItemConfig[] = [
     { href: '/dashboard', icon: Home, label: 'Dashboard' },
-    ...(canUseClientPortal ? [{ href: '/client', icon: BriefcaseBusiness, label: 'Client Portal', activeMode: 'exact' as SidebarNavActiveMode }] : []),
     { href: '/task-tracking', icon: Grid, label: 'Task Tracking' },
     { href: '/daily-logs', icon: Users, label: 'Daily Logs' },
-    { href: '/payroll-calendar', icon: CalendarDays, label: 'Payroll Calendar' },
+    ...(canUsePayrollManagement ? [{ href: '/payroll-calendar', icon: CalendarDays, label: 'Payroll Calendar' }] : []),
     { href: '/my-payslips', icon: DollarSign, label: 'My Payslips' },
   ];
 
@@ -202,10 +255,23 @@ export default function Sidebar() {
 
   return (
     <>
+      {usesClientShell && !mobileOpen ? (
+        <button
+          type="button"
+          className="nav-animated fixed left-4 top-4 z-40 inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] text-[var(--muted)] shadow-[var(--shadow-sm)] hover:border-[var(--muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] md:hidden"
+          onClick={toggleNavigation}
+          aria-label="Open client navigation"
+          aria-expanded={mobileOpen}
+          aria-controls="primary-sidebar"
+        >
+          <Menu className="h-5 w-5" aria-hidden="true" />
+        </button>
+      ) : null}
+
       {mobileOpen ? (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-[var(--scrim)] backdrop-blur-[2px] md:hidden"
+          className="portal-form-backdrop fixed inset-0 z-40 md:hidden"
           onClick={closeMobileSidebar}
           aria-label="Close navigation"
         />
@@ -248,16 +314,36 @@ export default function Sidebar() {
 
           <div className="sidebar-scroll flex-1 space-y-6 overflow-y-auto px-3 py-5">
             {mainItems.length > 0 ? (
-              <NavSection title={usesClientShell ? 'Client Workspace' : 'Work'} items={mainItems} collapsed={desktopCollapsed} />
+              <NavSection
+                title={usesClientShell ? 'Client Workspace' : 'Work'}
+                items={mainItems}
+                collapsed={desktopCollapsed}
+                onNavigate={handleInternalNavigation}
+              />
             ) : null}
-            {collaborationItems.length > 0 ? <NavSection title="Company" items={collaborationItems} collapsed={desktopCollapsed} /> : null}
-            {adminItems.length > 0 ? <NavSection title="Admin" items={adminItems} collapsed={desktopCollapsed} /> : null}
+            {collaborationItems.length > 0 ? (
+              <NavSection
+                title="Company"
+                items={collaborationItems}
+                collapsed={desktopCollapsed}
+                onNavigate={handleInternalNavigation}
+              />
+            ) : null}
+            {adminItems.length > 0 ? (
+              <NavSection
+                title="Admin"
+                items={adminItems}
+                collapsed={desktopCollapsed}
+                onNavigate={handleInternalNavigation}
+              />
+            ) : null}
           </div>
 
           <footer className="border-t border-[var(--sidebar-border)] p-3">
             <Link
               href="/profile"
               aria-label="Profile"
+              onClick={(event) => handleInternalNavigation(event, '/profile')}
               className={cn(
                 'nav-animated flex min-h-14 items-center gap-3 rounded-[var(--radius-md)] border border-transparent px-3 py-2 hover:border-[var(--border)] hover:bg-[var(--surface-hover)]',
                 desktopCollapsed && 'md:justify-center md:gap-0 md:px-2',

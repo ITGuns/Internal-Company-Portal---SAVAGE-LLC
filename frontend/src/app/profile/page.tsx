@@ -48,7 +48,6 @@ export default function ProfilePage() {
             <div className="flex flex-col items-center gap-6 md:flex-row md:items-start">
               <div className="h-32 w-32 shrink-0 overflow-hidden rounded-full border-2 border-[var(--border)] bg-[var(--card-bg)]">
                 {user.avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={user.avatar} alt={user.name || "Profile avatar"} className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-[var(--muted)]">
@@ -102,7 +101,7 @@ export default function ProfilePage() {
           <section id="edit-profile" className="relative rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-6 scroll-mt-28">
             <button
               onClick={() => router.push("/dashboard")}
-              className="absolute top-4 right-4 p-2 rounded-lg text-[var(--muted)] hover:bg-[var(--card-bg)] hover:text-[var(--foreground)]"
+              className="absolute top-4 right-4 flex h-11 w-11 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--card-bg)] hover:text-[var(--foreground)]"
               aria-label="Close edit profile"
             >
               <X className="h-5 w-5" />

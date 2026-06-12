@@ -1,6 +1,7 @@
 import express, { Request, Response, Router } from 'express'
-import { config } from '../config/env.config'
+import { config, isAdminEmail } from '../config/env.config'
 import { authenticateToken } from '../auth/auth.middleware'
+import { hasManagementAccess, type OrgRoleLike } from '../org/org-access-policy'
 import fs from 'fs'
 import path from 'path'
 
@@ -12,6 +13,18 @@ export interface PublicWorkspaceConfig {
   logoAlt: string
   tagline: string
   signInMessage: string
+}
+
+interface WorkspaceBrandingUser {
+  email?: string | null
+  roles?: OrgRoleLike[] | null
+}
+
+export function canUpdateWorkspaceBranding(
+  user?: WorkspaceBrandingUser | null,
+  tokenEmail?: string | null,
+): boolean {
+  return hasManagementAccess(user?.roles || [], isAdminEmail(user?.email || tokenEmail))
 }
 
 function sanitizePublicImageUrl(value?: string): string | null {
@@ -88,10 +101,7 @@ export class WorkspaceController {
           include: { roles: true }
         })
 
-        const hasAccess = user?.roles.some((r: any) =>
-          ['admin', 'operations'].includes(r.role.toLowerCase())
-        )
-        if (!hasAccess) {
+        if (!canUpdateWorkspaceBranding(user, authReq.user?.email)) {
           return res.status(403).json({ error: 'Forbidden' })
         }
 

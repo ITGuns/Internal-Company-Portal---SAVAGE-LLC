@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict'
 import { config } from '../src/config/env.config'
-import { getPublicWorkspaceConfig } from '../src/workspace/workspace.controller'
+import {
+  canUpdateWorkspaceBranding,
+  getPublicWorkspaceConfig,
+} from '../src/workspace/workspace.controller'
 
 const originalWorkspaceConfig = {
   workspaceName: config.workspaceName,
   workspaceLogoUrl: config.workspaceLogoUrl,
   workspaceLogoAlt: config.workspaceLogoAlt,
   workspaceTagline: config.workspaceTagline,
+  adminEmails: [...config.adminEmails],
 }
 
 try {
@@ -34,9 +38,29 @@ try {
 
   config.workspaceLogoUrl = 'https://cdn.example.com/logo with spaces.svg'
   assert.equal(getPublicWorkspaceConfig().logoUrl, null)
+
+  assert.equal(
+    canUpdateWorkspaceBranding({ roles: [{ role: 'Operations Manager' }] }),
+    true,
+  )
+  assert.equal(
+    canUpdateWorkspaceBranding({ roles: [{ role: 'Owner / Founder' }] }),
+    true,
+  )
+  assert.equal(
+    canUpdateWorkspaceBranding({ roles: [{ role: 'Client' }] }),
+    false,
+  )
+
+  config.adminEmails = ['owner@example.com']
+  assert.equal(
+    canUpdateWorkspaceBranding({ email: 'owner@example.com', roles: [] }),
+    true,
+  )
 } finally {
   config.workspaceName = originalWorkspaceConfig.workspaceName
   config.workspaceLogoUrl = originalWorkspaceConfig.workspaceLogoUrl
   config.workspaceLogoAlt = originalWorkspaceConfig.workspaceLogoAlt
   config.workspaceTagline = originalWorkspaceConfig.workspaceTagline
+  config.adminEmails = originalWorkspaceConfig.adminEmails
 }

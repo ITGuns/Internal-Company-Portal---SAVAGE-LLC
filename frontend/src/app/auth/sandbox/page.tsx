@@ -10,7 +10,6 @@ export default function OAuthSandboxPage() {
   const provider = searchParams.get("provider") || "google";
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [workspaceName, setWorkspaceName] = useState("Deskii");
   const isGoogle = provider === "google";
 
@@ -18,7 +17,6 @@ export default function OAuthSandboxPage() {
     fetchWorkspaceConfig().then((config) => {
       if (config) {
         setWorkspaceName(config.name);
-        setLogoUrl(config.logoUrl);
       }
     });
   }, []);

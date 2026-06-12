@@ -1,5 +1,46 @@
 # Development Notes
 
+## 2026-06-12 - ITGuns Main Sync Safeguards
+
+### Completed
+
+- Fast-forwarded local `main` to the latest ITGuns `origin/main` after creating the safety branch `codex/pre-itguns-sync-1788101`.
+- Preserved feedback fixes that remote updates had partially regressed: internal/client sidebar boundaries, payroll access gating, mobile sidebar escape behavior, project creation modal flow, and dashboard skeleton alignment.
+- Removed active Google Drive browsing/link UI from the file directory frontend while leaving legacy nullable drive fields intact for compatibility.
+- Hardened workspace branding update access so management-capable roles and configured admin emails can update branding, while client users cannot.
+- Removed the project-level department picker from the create-project modal because departments are owned by accounts/users.
+
+### Files Changed
+
+- `backend/src/workspace/workspace.controller.ts`
+- `backend/tests/workspace.config.test.ts`
+- `frontend/src/components/Sidebar.tsx`
+- `frontend/src/components/tasks/CreateProjectModal.tsx`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/ui/Skeleton.tsx`
+- `frontend/src/lib/file-directory.ts`
+- `frontend/src/lib/file-directory-types.ts`
+- `frontend/src/components/file-directory/DriveFileViewer.tsx`
+- `frontend/src/app/auth/sandbox/page.tsx`
+- `frontend/src/app/file-directory/page.tsx`
+- `frontend/src/app/profile/page.tsx`
+
+### Decisions Made
+
+- Kept backend/schema drive identifiers for backward compatibility, but removed frontend Google Drive fetch/open affordances.
+- Treated clients as separate portal users: internal navigation remains employee/admin focused, and client access stays in the client portal/client admin areas.
+- Kept project department scope implicit instead of asking users to duplicate department data already attached to accounts and roles.
+
+### How to Test
+
+- Run `npm run check`.
+- Run `npm --prefix frontend run test:visual` when the local app can be rendered.
+- Browser-check `/dashboard`, `/task-tracking`, `/file-directory`, `/operations`, and the client portal shell for sidebar, modal, skeleton, project, and file-directory regressions.
+
+### Next Steps
+
+- Continue product-level audits against the final pushed SHA before cutting a production release.
+
 ## 2026-06-12 - Priority 1 Auth, Profile, Branding, Calendar, And Asset Fixes
 
 ### Completed
