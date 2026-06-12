@@ -69,7 +69,7 @@ assert.deepEqual(getTaskVisibilityFilter(employeeAccess), {
     },
     {
       assigneeIds: {
-        path: '$',
+        path: [],
         array_contains: 'user-1',
       },
     },

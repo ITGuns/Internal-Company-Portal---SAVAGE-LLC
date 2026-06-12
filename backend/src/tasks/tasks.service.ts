@@ -58,6 +58,7 @@ export interface CreateTaskProjectDto {
   color?: string | null
   departmentId?: string | null
   ownerId?: string | null
+  memberIds?: string[]
   createdById?: string | null
   startDate?: Date | string | null
   targetDate?: Date | string | null
@@ -70,6 +71,7 @@ export interface UpdateTaskProjectDto {
   color?: string | null
   departmentId?: string | null
   ownerId?: string | null
+  memberIds?: string[]
   startDate?: Date | string | null
   targetDate?: Date | string | null
   completedAt?: Date | string | null
@@ -130,6 +132,16 @@ function normalizeCollaboratorIds(ids?: string[], excludedIds: Array<string | nu
     .filter((id) => id && !excluded.has(id))
 
   return Array.from(new Set(normalized))
+}
+
+function normalizeProjectMemberIds(ids?: string[]): string[] {
+  if (!ids) return []
+
+  return Array.from(new Set(
+    ids
+      .map((id) => String(id || '').trim())
+      .filter(Boolean),
+  ))
 }
 
 export class TasksService {
@@ -651,6 +663,17 @@ export class TasksService {
         creator: {
           select: userSummarySelect,
         },
+        members: {
+          orderBy: { createdAt: 'asc' as const },
+          include: {
+            user: {
+              select: userSummarySelect,
+            },
+            addedBy: {
+              select: userSummarySelect,
+            },
+          },
+        },
         _count: {
           select: {
             tasks: true,
@@ -674,6 +697,15 @@ export class TasksService {
             name: true,
           },
         },
+        members: {
+          where: {
+            status: 'active',
+          },
+          select: {
+            userId: true,
+            status: true,
+          },
+        },
         _count: {
           select: {
             tasks: true,
@@ -684,6 +716,14 @@ export class TasksService {
   }
 
   async createProject(data: CreateTaskProjectDto) {
+    const userSummarySelect = {
+      id: true,
+      email: true,
+      name: true,
+      avatar: true,
+    }
+    const memberIds = normalizeProjectMemberIds(data.memberIds)
+
     return this.prisma.taskProject.create({
       data: {
         name: data.name,
@@ -695,11 +735,56 @@ export class TasksService {
         createdById: data.createdById || undefined,
         startDate: data.startDate ? new Date(data.startDate) : undefined,
         targetDate: data.targetDate ? new Date(data.targetDate) : undefined,
+        members: memberIds.length > 0
+          ? {
+              create: memberIds.map((userId) => ({
+                userId,
+                addedById: data.createdById || undefined,
+                status: 'active',
+              })),
+            }
+          : undefined,
+      },
+      include: {
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        owner: {
+          select: userSummarySelect,
+        },
+        creator: {
+          select: userSummarySelect,
+        },
+        members: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            user: {
+              select: userSummarySelect,
+            },
+            addedBy: {
+              select: userSummarySelect,
+            },
+          },
+        },
+        _count: {
+          select: {
+            tasks: true,
+          },
+        },
       },
     })
   }
 
   async updateProject(id: string, data: UpdateTaskProjectDto) {
+    const userSummarySelect = {
+      id: true,
+      email: true,
+      name: true,
+      avatar: true,
+    }
     const statusCompletedAt =
       data.status === 'completed'
         ? (data.completedAt === undefined ? new Date() : data.completedAt ? new Date(data.completedAt) : null)
@@ -711,19 +796,80 @@ export class TasksService {
               ? new Date(data.completedAt)
               : null
 
-    return this.prisma.taskProject.update({
-      where: { id },
-      data: {
-        name: data.name,
-        description: data.description === undefined ? undefined : data.description,
-        status: data.status,
-        color: data.color === undefined ? undefined : data.color,
-        departmentId: data.departmentId === undefined ? undefined : data.departmentId || null,
-        ownerId: data.ownerId === undefined ? undefined : data.ownerId || null,
-        startDate: data.startDate === undefined ? undefined : data.startDate ? new Date(data.startDate) : null,
-        targetDate: data.targetDate === undefined ? undefined : data.targetDate ? new Date(data.targetDate) : null,
-        completedAt: statusCompletedAt,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      if (data.memberIds !== undefined) {
+        const memberIds = normalizeProjectMemberIds(data.memberIds)
+
+        await tx.taskProjectMember.deleteMany({
+          where: memberIds.length > 0
+            ? { projectId: id, userId: { notIn: memberIds } }
+            : { projectId: id },
+        })
+
+        for (const userId of memberIds) {
+          await tx.taskProjectMember.upsert({
+            where: {
+              projectId_userId: {
+                projectId: id,
+                userId,
+              },
+            },
+            update: {
+              status: 'active',
+            },
+            create: {
+              projectId: id,
+              userId,
+              status: 'active',
+            },
+          })
+        }
+      }
+
+      return tx.taskProject.update({
+        where: { id },
+        data: {
+          name: data.name,
+          description: data.description === undefined ? undefined : data.description,
+          status: data.status,
+          color: data.color === undefined ? undefined : data.color,
+          departmentId: data.departmentId === undefined ? undefined : data.departmentId || null,
+          ownerId: data.ownerId === undefined ? undefined : data.ownerId || null,
+          startDate: data.startDate === undefined ? undefined : data.startDate ? new Date(data.startDate) : null,
+          targetDate: data.targetDate === undefined ? undefined : data.targetDate ? new Date(data.targetDate) : null,
+          completedAt: statusCompletedAt,
+        },
+        include: {
+          department: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          owner: {
+            select: userSummarySelect,
+          },
+          creator: {
+            select: userSummarySelect,
+          },
+          members: {
+            orderBy: { createdAt: 'asc' },
+            include: {
+              user: {
+                select: userSummarySelect,
+              },
+              addedBy: {
+                select: userSummarySelect,
+              },
+            },
+          },
+          _count: {
+            select: {
+              tasks: true,
+            },
+          },
+        },
+      })
     })
   }
 

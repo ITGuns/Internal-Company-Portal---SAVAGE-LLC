@@ -56,7 +56,20 @@ export interface TaskProject {
   department?: Pick<TaskDepartment, 'id' | 'name'> | null;
   owner?: Pick<TaskUser, 'id' | 'name' | 'email' | 'avatar'> | null;
   creator?: Pick<TaskUser, 'id' | 'name' | 'email' | 'avatar'> | null;
+  members?: TaskProjectMember[];
   taskCount?: number;
+}
+
+export interface TaskProjectMember {
+  id: string;
+  projectId: string;
+  userId: string;
+  addedById?: string | null;
+  status: 'active' | string;
+  createdAt?: string;
+  updatedAt?: string;
+  user?: Pick<TaskUser, 'id' | 'name' | 'email' | 'avatar'>;
+  addedBy?: Pick<TaskUser, 'id' | 'name' | 'email' | 'avatar'> | null;
 }
 
 export interface TaskWorkSession {
@@ -169,6 +182,7 @@ export interface CreateTaskProjectPayload {
   color?: string | null;
   departmentId?: string | null;
   ownerId?: string | null;
+  memberIds?: string[];
   startDate?: string | null;
   targetDate?: string | null;
 }
@@ -236,6 +250,9 @@ function processTaskFromApi(task: ApiTask): Task {
     projectId: task.projectId ?? null,
     project: task.project ? processTaskProjectFromApi(task.project) : null,
     assigneeId: task.assigneeId,
+    assigneeIds: Array.isArray(task.assigneeIds)
+      ? task.assigneeIds.map((assigneeId) => String(assigneeId))
+      : undefined,
     assignee: task.assignee,
     createdById: task.createdById as number | string | undefined,
     creator: task.creator as TaskUser | undefined,
@@ -314,6 +331,19 @@ export function processTaskProjectFromApi(project: ApiTaskProject): TaskProject 
     department: project.department ?? null,
     owner: project.owner ?? null,
     creator: project.creator ?? null,
+    members: Array.isArray(project.members)
+      ? project.members.map((member) => ({
+          id: member.id,
+          projectId: member.projectId,
+          userId: member.userId,
+          addedById: member.addedById ?? null,
+          status: member.status,
+          createdAt: member.createdAt,
+          updatedAt: member.updatedAt,
+          user: member.user,
+          addedBy: member.addedBy ?? null,
+        }))
+      : [],
     taskCount: project._count?.tasks ?? 0,
   };
 }

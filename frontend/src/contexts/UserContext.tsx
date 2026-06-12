@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useCallback, ReactNode } from 'react';
 import {
   getAuthToken,
   getCurrentUser,
@@ -41,6 +41,7 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 const USER_SESSION_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const useBrowserLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 async function fetchCurrentAuthUser(accessToken: string): Promise<{ status: number; user?: User }> {
   const res = await fetch(`/backend-auth/me`, {
@@ -63,6 +64,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
+
+  useBrowserLayoutEffect(() => {
+    const storedUser = getCurrentUser() as User | null;
+    if (storedUser) {
+      setUser(storedUser);
+    }
+  }, []);
 
   const logout = useCallback(() => {
     setUser(null);

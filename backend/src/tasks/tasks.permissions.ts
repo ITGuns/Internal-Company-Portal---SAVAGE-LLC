@@ -78,7 +78,7 @@ export function getTaskVisibilityFilter(access: TaskAccessPolicy): { OR?: Array<
       },
       {
         assigneeIds: {
-          path: '$',
+          path: [],
           array_contains: access.requesterId,
         },
       },

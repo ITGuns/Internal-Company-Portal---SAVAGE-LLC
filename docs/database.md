@@ -11,6 +11,8 @@ Current additive migrations related to the recent release:
 - `202605240001_client_portal_foundation`
 - `202605270002_client_activity`
 - `202606100001_task_projects_org_reporting`
+- `202606120001_task_project_members`
+- `202606120002_task_assignee_ids`
 
 Migration SQL is now tracked. Do not ignore migration SQL files or rely on local schema drift.
 
@@ -147,9 +149,9 @@ Payroll-sensitive fields also live on `EmployeeProfile`.
 
 - `tasks` is a JSON field used by the frontend for manual entries and Task Tracking imports.
 - Imported task entries use stable source IDs such as `task:<taskId>` to prevent duplicate imports.
-- Imported task entries may also store `sourceTaskId`, `status`, `progress`, `sessionCount`, and `trackedMinutes` so Daily Logs can show task-derived status badges.
+- Imported task entries may also store `sourceTaskId`, `status`, `progress`, `sessionCount`, `trackedMinutes`, and `participants` so Daily Logs can show task-derived status badges and shared-work context.
 - New frontend submissions derive `DailyLog.status` from the task rows instead of asking the user to choose a status manually.
-- Completed task imports should be based on `Task.completedAt`; in-progress assigned tasks can still appear as active work suggestions.
+- Completed task imports should be based on `Task.completedAt`; in-progress tasks assigned to or shared with the user can still appear as active work suggestions.
 - Review-stage task suggestions are UI review helpers and should remain separate from employee self-report imports unless explicitly added by the user.
 
 `DailyLogComment` stores inline comments for a daily log.
@@ -173,6 +175,14 @@ Payroll-sensitive fields also live on `EmployeeProfile`.
 - Automatic payslip generation uses billable hours after applying the employee daily cap. Pending overtime is recorded as a zero-amount `PayrollItem` note until a manager approves or manually overrides pay.
 
 `PayrollEvent` stores calendar-level payroll events.
+
+## Internal Task Projects
+
+`TaskProject` stores internal project organization for Task Tracking.
+
+- `TaskProjectMember` links employee users to internal task projects and is the project-level visibility boundary for member-scoped cross-functional work.
+- `TaskProjectMember.projectId` cascades on project delete; `userId` cascades on user delete; `addedById` is retained as nullable history.
+- `Task.assigneeIds` is a JSONB compatibility field for legacy multi-assignee visibility and is additive through `202606120002_task_assignee_ids`.
 
 ## Client Portal
 

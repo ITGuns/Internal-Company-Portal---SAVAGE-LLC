@@ -5,16 +5,20 @@ import { Plus } from "lucide-react";
 import Button from "@/components/Button";
 import FormField from "@/components/forms/FormField";
 import Modal from "@/components/Modal";
+import type { TaskUser } from "@/lib/tasks";
 
 interface CreateProjectModalProps {
   isOpen: boolean;
   projectName: string;
   projectDescription: string;
   projectTargetDate: string;
+  projectMemberIds: string[];
+  users: TaskUser[];
   isSubmitting: boolean;
   onProjectNameChange: (value: string) => void;
   onProjectDescriptionChange: (value: string) => void;
   onProjectTargetDateChange: (value: string) => void;
+  onProjectMemberIdsChange: (value: string[]) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onClose: () => void;
 }
@@ -28,13 +32,34 @@ export default function CreateProjectModal({
   projectName,
   projectDescription,
   projectTargetDate,
+  projectMemberIds,
+  users,
   isSubmitting,
   onProjectNameChange,
   onProjectDescriptionChange,
   onProjectTargetDateChange,
+  onProjectMemberIdsChange,
   onSubmit,
   onClose,
 }: CreateProjectModalProps) {
+  const selectedMemberSet = React.useMemo(
+    () => new Set(projectMemberIds.map(String)),
+    [projectMemberIds],
+  );
+  const activeUsers = React.useMemo(
+    () => users.filter((user) => user.email),
+    [users],
+  );
+
+  function toggleMember(userId: string) {
+    if (selectedMemberSet.has(userId)) {
+      onProjectMemberIdsChange(projectMemberIds.filter((id) => id !== userId));
+      return;
+    }
+
+    onProjectMemberIdsChange([...projectMemberIds, userId]);
+  }
+
   return (
     <Modal
       isOpen={isOpen}
@@ -98,6 +123,78 @@ export default function CreateProjectModal({
             }
             helperText="Optional target date for project reporting."
           />
+        </div>
+
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div>
+              <div id="task-project-members-label" className="text-sm font-medium text-[var(--foreground)]">
+                Members
+              </div>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Add employees who should see and help work inside this project.
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2 text-xs">
+              <span className="rounded border border-[var(--border)] px-2 py-1 text-[var(--muted)]">
+                {projectMemberIds.length} selected
+              </span>
+              {activeUsers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onProjectMemberIdsChange(activeUsers.map((user) => String(user.id)))}
+                  className="rounded text-xs font-semibold text-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                >
+                  Select all
+                </button>
+              )}
+              {projectMemberIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onProjectMemberIdsChange([])}
+                  className="rounded text-xs font-semibold text-[var(--muted)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div
+            role="group"
+            aria-labelledby="task-project-members-label"
+            className="max-h-48 overflow-y-auto rounded-md border border-[var(--border)] bg-[var(--card-surface)] p-2 chat-scroll"
+          >
+            {activeUsers.length === 0 ? (
+              <div className="px-2 py-3 text-sm text-[var(--muted)]">No employees available.</div>
+            ) : (
+              activeUsers.map((user) => {
+                const userId = String(user.id);
+                const roleLabel = user.role || user.roles?.[0]?.role || null;
+
+                return (
+                  <label
+                    key={userId}
+                    className="flex min-h-10 cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-[var(--card-bg)]"
+                  >
+                    <input
+                      type="checkbox"
+                      name="projectMemberIds"
+                      value={userId}
+                      checked={selectedMemberSet.has(userId)}
+                      onChange={() => toggleMember(userId)}
+                      className="h-4 w-4 rounded border-[var(--border)] accent-[var(--accent)]"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-[var(--foreground)]">{user.name || user.email}</span>
+                      <span className="block truncate text-xs text-[var(--muted)]">{user.email}</span>
+                    </span>
+                    {roleLabel ? <span className="max-w-32 truncate text-xs text-[var(--muted)]">{roleLabel}</span> : null}
+                  </label>
+                );
+              })
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col-reverse gap-3 border-t border-[var(--border)] pt-4 sm:flex-row sm:justify-end">

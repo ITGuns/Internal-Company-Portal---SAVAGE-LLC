@@ -29,6 +29,8 @@ export default function ClientPortalWorkspaceFrame({
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-4 sm:p-6">
         <div className="mt-6 space-y-5">
+          <h1 className="sr-only">{title}</h1>
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             {organizations.length > 1 ? (
               <select

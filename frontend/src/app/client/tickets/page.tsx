@@ -240,6 +240,7 @@ export default function ClientTicketsPage() {
   return (
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-4 sm:p-6">
+        <h1 className="sr-only">Client tickets</h1>
         {organizations.length > 1 ? (
           <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
             <select className="min-h-10 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] px-3 text-sm" value={selectedId} onChange={(event) => setSelectedId(event.target.value)} aria-label="Client organization">

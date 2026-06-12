@@ -200,6 +200,17 @@ export interface ApiTaskProject {
   department?: { id: string; name: string } | null;
   owner?: { id: string; name: string | null; email: string; avatar: string | null } | null;
   creator?: { id: string; name: string | null; email: string; avatar: string | null } | null;
+  members?: Array<{
+    id: string;
+    projectId: string;
+    userId: string;
+    addedById?: string | null;
+    status: string;
+    createdAt?: string;
+    updatedAt?: string;
+    user?: { id: string; name: string | null; email: string; avatar: string | null };
+    addedBy?: { id: string; name: string | null; email: string; avatar: string | null } | null;
+  }>;
   _count?: { tasks?: number };
 }
 
@@ -229,6 +240,7 @@ export interface ApiTask {
   projectId?: string | null;
   project?: ApiTaskProject | null;
   assigneeId?: number | string;
+  assigneeIds?: Array<number | string> | null;
   assignee?: { id: number | string; name: string | null; email: string; avatar: string | null };
   createdById?: number | string;
   creator?: { id: number | string; name: string | null; email: string; avatar: string | null };

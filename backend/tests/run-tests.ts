@@ -8,6 +8,7 @@ process.env.REFRESH_TOKEN_SECRET ||= 'test-runner-refresh-secret'
 
 const tests = [
   'tasks.permissions.test.ts',
+  'tasks.projects.test.ts',
   'search.access.test.ts',
   'daily-logs.department.test.ts',
   'signup.requests.test.ts',

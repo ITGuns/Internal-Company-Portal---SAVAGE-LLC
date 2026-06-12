@@ -1,5 +1,118 @@
 # Development Notes
 
+## 2026-06-12 - Skeleton Loading Alignment
+
+### Completed
+
+- Kept the loading shell aligned with the cached signed-in user so refresh/loading states keep the correct workspace header, sidebar sections, and footer identity instead of flashing Guest/incomplete navigation.
+- Added a Task Tracking route-level loading fallback so the board surface renders structured placeholders instead of a blank panel during route/data transitions.
+- Hardened cached user parsing and active time-entry parsing so malformed local storage or payroll payloads cannot break the loading shell or show `NaN:NaN:NaN` in the header clock.
+
+### Files Changed
+
+- `frontend/src/app/task-tracking/loading.tsx`
+- `frontend/src/contexts/UserContext.tsx`
+- `frontend/src/lib/api.ts`
+- `frontend/src/lib/time-entries.ts`
+- `frontend/tests/api-auth-storage.test.mjs`
+- `frontend/tests/time-entries-active.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Used a browser layout effect for cached user hydration to avoid React server/client hydration mismatches while still reducing the visible refresh flash.
+- Kept the skeleton fixes scoped to existing route-specific placeholders instead of redesigning the dashboard, task board, or sidebar layouts.
+
+### How to Test
+
+- Run `npm --prefix frontend test`.
+- Run `npm --prefix frontend run lint`.
+- Run `npm --prefix frontend run build`.
+- Run delayed visual smoke with `/dashboard`, `/task-tracking`, `/daily-logs`, `/announcements`, and `/operations`.
+
+### Next Steps
+
+- Add screenshot assertions to the visual-smoke harness if skeleton fidelity needs to become a permanent release gate.
+
+## 2026-06-12 - Shared Task Daily Log Imports
+
+### Completed
+
+- Updated Daily Log task imports so completed, in-progress, and review-stage Task Tracking items can appear for primary assignees, multi-assignees, and active collaborators.
+- Added participant summaries to imported Daily Log task rows so shared task completions show team context on the Daily Logs post.
+- Changed Daily Logs to load visible tasks instead of only primary-assignee tasks, preserving backend visibility rules for collaborators and multi-assignees.
+
+### Files Changed
+
+- `frontend/src/app/daily-logs/page.tsx`
+- `frontend/src/lib/daily-log-task-import.ts`
+- `frontend/src/lib/daily-logs.ts`
+- `frontend/src/lib/tasks.ts`
+- `frontend/src/lib/types/api.ts`
+- `frontend/tests/daily-log-task-import.test.mjs`
+- `docs/api.md`
+- `docs/database.md`
+- `docs/dev-notes.md`
+- `docs/features.md`
+
+### Decisions Made
+
+- Reused existing task visibility and Daily Log JSON storage instead of adding a new backend import endpoint.
+- Kept declined collaborators out of Daily Log suggestions.
+
+### How to Test
+
+- Run `npm --prefix frontend test -- daily-log-task-import.test.mjs`.
+- Browser-check `/daily-logs`, open `Add Daily Log`, import a shared completed task, and verify the saved Daily Log task row shows `Team: ...`.
+
+### Next Steps
+
+- If individual per-user completion is needed later, add a dedicated task participant completion model instead of inferring from the shared task status.
+
+## 2026-06-12 - Task Project Members
+
+### Completed
+
+- Added real internal task project membership so the `Add Project` modal can assign employee members to a project.
+- Returned project members from task project APIs and displayed members on project cards and expanded project analytics.
+- Updated project visibility so non-privileged employees can see member-scoped projects they belong to while non-members cannot.
+- Added additive migrations for `TaskProjectMember` and the previously schema-declared `Task.assigneeIds` JSONB field.
+- Fixed the Prisma JSON visibility filter to use a string-array root path for `assigneeIds`.
+
+### Files Changed
+
+- `backend/prisma/schema.prisma`
+- `backend/prisma/migrations/202606120001_task_project_members/migration.sql`
+- `backend/prisma/migrations/202606120002_task_assignee_ids/migration.sql`
+- `backend/src/tasks/tasks.controller.ts`
+- `backend/src/tasks/tasks.permissions.ts`
+- `backend/src/tasks/tasks.service.ts`
+- `backend/tests/run-tests.ts`
+- `backend/tests/tasks.permissions.test.ts`
+- `backend/tests/tasks.projects.test.ts`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/tasks/CreateProjectModal.tsx`
+- `frontend/src/components/tasks/ProjectAnalyticsCard.tsx`
+- `frontend/src/lib/tasks.ts`
+- `frontend/src/lib/types/api.ts`
+
+### Decisions Made
+
+- Used a proper `TaskProjectMember` relation instead of storing project members in description text or frontend-only state.
+- Kept the migration additive and non-destructive so existing projects remain valid without members.
+- Kept explicit member-scoped cross-functional projects private to their members instead of visible to every employee.
+
+### How to Test
+
+- Run `npx prisma migrate deploy --schema prisma/schema.prisma` from `backend/`.
+- Run `node -r ts-node/register tests/tasks.projects.test.ts` from `backend/`.
+- Run `npm run check`.
+- Browser-check `/task-tracking`, open `Add Project`, select members, create the project, and verify the project card shows assigned members.
+
+### Next Steps
+
+- Apply the new backend migrations before deploying this code to any production database.
+
 ## 2026-06-12 - Production Auth Schema Drift Hotfix
 
 ### Completed

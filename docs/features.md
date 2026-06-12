@@ -44,7 +44,7 @@ Task tracking supports calendar, board, and list views for task status, assignme
 - Task role options come from backend department `availableRoles` instead of frontend-only constants.
 - Manager/admin task forms can invite additional employee collaborators while preserving the primary assignee.
 - Collaborator chips appear on task cards/list rows, and task details show the invited collaborator names.
-- Task projects can be created from an `Add Project` modal in Task Tracking, assigned to tasks, filtered, grouped, paused/resumed, and marked complete.
+- Task projects can be created from an `Add Project` modal in Task Tracking, assigned to employee members, assigned to tasks, filtered, grouped, paused/resumed, and marked complete.
 - Clicking a task project card filters the task list to that project; clicking the selected card again, pressing Esc, or using `Back to all tasks` clears the project view.
 - Opening the Project Organization panel expands a project overview dialog with per-project analytics for completion, open work, review load, overdue work, due-today work, estimates, tracked time, and target-date risk.
 - Project assignment appears on task cards, list rows, detail modals, calendar/report data, and exported Deskii task reports.
@@ -78,12 +78,12 @@ Daily logs track EOD, weekly, and monthly work summaries by date, department, ta
 - The Date field includes a `Today` shortcut in the label row.
 - Users no longer choose a log status manually in the form; the log derives its stored status from the logged task rows.
 - The Add Daily Log modal includes an `Import from Task Tracking` section.
-- The import section suggests completed and in-progress tasks assigned to the logged-in user for the selected log date.
+- The import section suggests completed and in-progress tasks assigned to the logged-in user or shared with them as a collaborator/multi-assignee for the selected log date.
 - Completed task suggestions use `completedAt` for the selected date; completed tasks without `completedAt` are not inferred from due or update dates.
 - Review-stage tasks appear in a separate optional section, with task-session counts and tracked minutes when available.
 - Suggested tasks can be imported individually or in bulk with `Import All`.
 - Imported completed tasks are checked in the daily-log task list; imported in-progress tasks remain unchecked.
-- Imported Task Tracking entries retain source task IDs and task statuses so saved logs can show Completed, Review, or In Progress badges.
+- Imported Task Tracking entries retain source task IDs, task statuses, and task participant summaries so saved logs can show Completed, Review, In Progress, and team-work context badges.
 - Manual task entry remains available for work that was not created in Task Tracking.
 
 ### Manager Review

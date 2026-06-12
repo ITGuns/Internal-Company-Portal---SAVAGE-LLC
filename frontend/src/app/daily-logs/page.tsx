@@ -40,9 +40,11 @@ import {
 } from '@/lib/daily-log-format';
 import {
   getDailyLogTaskImportOptions,
+  getDailyLogTaskParticipants,
   getDailyLogTaskReviewOptions,
   mergeDailyLogTasksWithImports,
   type DailyLogTaskImportOption,
+  type DailyLogTaskParticipant,
 } from '@/lib/daily-log-task-import';
 import { shouldOpenCreateFromSearch } from '@/lib/dashboard-deep-links';
 import {
@@ -80,8 +82,8 @@ export default function DailyLogsPage() {
   const {
     data: trackedTasks = [],
     isLoading: trackedTasksLoading,
-  } = useTasks(undefined, canReviewTeamLogs ? undefined : currentUserId || undefined, {
-    enabled: canReviewTeamLogs || Boolean(currentUserId),
+  } = useTasks(undefined, undefined, {
+    enabled: Boolean(currentUserId),
   });
   const [showModal, setShowModal] = useState(false);
   const [editingLog, setEditingLog] = useState<DailyLog | null>(null);
@@ -158,6 +160,16 @@ export default function DailyLogsPage() {
     selectedUserId: userFilter === 'all' ? undefined : userFilter,
   });
   const todayStr = getLocalTodayDateInput();
+
+  function getParticipantLabel(participant: DailyLogTaskParticipant): string {
+    return participant.name || participant.email || 'Assigned user';
+  }
+
+  function formatParticipantSummary(participants: DailyLogTaskParticipant[]): string {
+    const labels = participants.map(getParticipantLabel);
+    if (labels.length <= 3) return labels.join(', ');
+    return `${labels.slice(0, 3).join(', ')} +${labels.length - 3}`;
+  }
 
   // Filter logs
   const filteredLogs = logs.filter(log => {
@@ -631,6 +643,9 @@ export default function DailyLogsPage() {
                               const taskStatus = normalizeLogTaskStatus(task);
                               const linkedTaskId = task.sourceTaskId || (task.id.startsWith('task:') ? task.id.slice('task:'.length) : '');
                               const linkedTask = linkedTaskId ? taskLookup.get(linkedTaskId) : undefined;
+                              const taskParticipants = linkedTask
+                                ? getDailyLogTaskParticipants(linkedTask)
+                                : task.participants || [];
 
                               return (
                                 <div key={task.id} className="flex items-start gap-2 text-sm">
@@ -657,6 +672,14 @@ export default function DailyLogsPage() {
                                           </span>
                                         ) : task.sessionCount ? (
                                           <span>{task.sessionCount} session{task.sessionCount === 1 ? '' : 's'}</span>
+                                        ) : null}
+                                        {taskParticipants.length > 1 ? (
+                                          <span
+                                            className="rounded bg-[var(--card-surface)] px-1.5 py-0.5"
+                                            aria-label={`Task participants: ${taskParticipants.map(getParticipantLabel).join(', ')}`}
+                                          >
+                                            Team: {formatParticipantSummary(taskParticipants)}
+                                          </span>
                                         ) : null}
                                       </div>
                                     )}
@@ -884,7 +907,7 @@ export default function DailyLogsPage() {
                     <div>
                       <div className="text-sm font-medium">Import from Task Tracking</div>
                       <p className="mt-0.5 text-xs text-[var(--muted)]">
-                        Completed and in-progress tasks assigned to you for {formDate}. Review-stage tasks appear below.
+                        Completed and in-progress tasks assigned to or shared with you for {formDate}. Review-stage tasks appear below.
                       </p>
                     </div>
                   </div>
@@ -899,7 +922,7 @@ export default function DailyLogsPage() {
                 </div>
 
                 {trackedTasksLoading ? (
-                  <div className="text-xs text-[var(--muted)]">Checking your assigned tasks...</div>
+                  <div className="text-xs text-[var(--muted)]">Checking your assigned and shared tasks...</div>
                 ) : taskImportOptions.length === 0 ? (
                   <div className="text-xs text-[var(--muted)]">
                     No matching task-tracking items found for this date. You can still add work manually below.

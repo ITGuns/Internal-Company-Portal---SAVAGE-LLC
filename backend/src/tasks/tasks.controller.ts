@@ -92,7 +92,26 @@ export class TasksController {
       or.push({ departmentId: access.primaryAssignment.departmentId })
     }
 
-    or.push({ departmentId: null })
+    or.push({
+      members: {
+        some: {
+          userId: access.requesterId,
+          status: 'active',
+        },
+      },
+    })
+    or.push({
+      AND: [
+        { departmentId: null },
+        {
+          members: {
+            none: {
+              status: 'active',
+            },
+          },
+        },
+      ],
+    })
     return { OR: or }
   }
 
@@ -111,8 +130,14 @@ export class TasksController {
 
     if (!access.isPrivileged) {
       const requesterDepartmentId = access.primaryAssignment?.departmentId
-      if (project.departmentId && project.departmentId !== requesterDepartmentId) {
+      const isProjectMember = Boolean(project.members?.some((member) =>
+        member.userId === access.requesterId && member.status === 'active',
+      ))
+      if (project.departmentId && project.departmentId !== requesterDepartmentId && !isProjectMember) {
         return { ok: false, status: 403, error: 'You can only use projects in your assigned department' }
+      }
+      if (!project.departmentId && project.members?.length && !isProjectMember) {
+        return { ok: false, status: 403, error: 'You can only use projects you are a member of' }
       }
     }
 
@@ -273,6 +298,11 @@ export class TasksController {
         }
 
         const status = normalizeProjectStatus(req.body.status) || 'active'
+        const memberIdsInput = parseOptionalStringList(req.body.memberIds, 'memberIds')
+        if (memberIdsInput.ok === false) {
+          return res.status(400).json({ error: memberIdsInput.error })
+        }
+
         const project = await this.service.createProject({
           name,
           description: normalizeOptionalNullableString(req.body.description),
@@ -280,6 +310,7 @@ export class TasksController {
           color: normalizeOptionalNullableString(req.body.color),
           departmentId: normalizeOptionalNullableString(req.body.departmentId),
           ownerId: normalizeOptionalNullableString(req.body.ownerId),
+          memberIds: memberIdsInput.values,
           createdById: access.requesterId,
           startDate: normalizeOptionalNullableString(req.body.startDate),
           targetDate: normalizeOptionalNullableString(req.body.targetDate),
@@ -289,7 +320,7 @@ export class TasksController {
         res.status(201).json(project)
       } catch (error) {
         if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
-          return res.status(400).json({ error: 'Invalid department or owner ID' })
+          return res.status(400).json({ error: 'Invalid department, owner, or member ID' })
         }
         res.status(500).json({ error: 'Failed to create task project' })
       }
@@ -315,6 +346,10 @@ export class TasksController {
         if (req.body.status !== undefined && !status) {
           return res.status(400).json({ error: 'Invalid project status' })
         }
+        const memberIdsInput = parseOptionalStringList(req.body.memberIds, 'memberIds')
+        if (memberIdsInput.ok === false) {
+          return res.status(400).json({ error: memberIdsInput.error })
+        }
 
         const project = await this.service.updateProject(projectId, {
           name,
@@ -323,6 +358,7 @@ export class TasksController {
           color: normalizeOptionalNullableString(req.body.color),
           departmentId: normalizeOptionalNullableString(req.body.departmentId),
           ownerId: normalizeOptionalNullableString(req.body.ownerId),
+          memberIds: memberIdsInput.values,
           startDate: normalizeOptionalNullableString(req.body.startDate),
           targetDate: normalizeOptionalNullableString(req.body.targetDate),
           completedAt: normalizeOptionalNullableString(req.body.completedAt),
@@ -334,7 +370,7 @@ export class TasksController {
         if (error instanceof Error && 'code' in error) {
           const code = (error as Record<string, unknown>).code
           if (code === 'P2025') return res.status(404).json({ error: 'Task project not found' })
-          if (code === 'P2003') return res.status(400).json({ error: 'Invalid department or owner ID' })
+          if (code === 'P2003') return res.status(400).json({ error: 'Invalid department, owner, or member ID' })
         }
         res.status(500).json({ error: 'Failed to update task project' })
       }

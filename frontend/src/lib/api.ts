@@ -44,7 +44,14 @@ export const setRefreshToken = (token?: string | null) => {
 export const getCurrentUser = () => {
     if (typeof window !== 'undefined') {
         const user = localStorage.getItem(STORAGE_KEYS.USER);
-        return user ? JSON.parse(user) : null;
+        if (!user) return null;
+
+        try {
+            return JSON.parse(user);
+        } catch {
+            localStorage.removeItem(STORAGE_KEYS.USER);
+            return null;
+        }
     }
     return null;
 }

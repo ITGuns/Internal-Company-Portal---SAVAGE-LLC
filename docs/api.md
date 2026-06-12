@@ -156,7 +156,7 @@ Employee task reads are server-scoped.
 - Non-privileged users cannot update `assigneeId`, `departmentId`, or `role`.
 - Non-privileged users cannot update `collaboratorIds`.
 - Privileged users may replace the collaborator list with `collaboratorIds`; an empty array clears collaborators.
-- `projectId` may be set or cleared. Non-privileged users may only use projects visible to their assigned department or cross-functional projects.
+- `projectId` may be set or cleared. Non-privileged users may only use projects visible to their assigned department, project membership, or cross-functional projects without explicit members.
 - Moving a task into `completed` sets `completedAt` server-side.
 - Moving a task away from `completed` clears `completedAt`.
 - Closing a running task timer records a `TaskWorkSession` when duration is available.
@@ -169,9 +169,9 @@ Employee task reads are server-scoped.
 
 Task project routes support project-based task organization inside Task Tracking.
 
-- `GET /api/tasks/projects` returns projects visible to the requester. Privileged users can see all projects; non-privileged users see cross-functional projects, projects in their assigned department, or projects already containing tasks visible to them.
-- `POST /api/tasks/projects` creates a project and requires privileged task assignment access.
-- `PATCH /api/tasks/projects/:projectId` updates project metadata/status and requires privileged task assignment access.
+- `GET /api/tasks/projects` returns projects visible to the requester. Privileged users can see all projects; non-privileged users see projects they are members of, projects in their assigned department, cross-functional projects without explicit members, or projects already containing tasks visible to them.
+- `POST /api/tasks/projects` creates a project and requires privileged task assignment access. Optional `memberIds` assigns employee members to the project.
+- `PATCH /api/tasks/projects/:projectId` updates project metadata/status and requires privileged task assignment access. Optional `memberIds` replaces the project member list; an empty array clears members.
 - `DELETE /api/tasks/projects/:projectId` clears linked task `projectId` values, deletes the project, and requires privileged task assignment access.
 - Project statuses are `active`, `paused`, `completed`, and `archived`.
 
@@ -261,7 +261,7 @@ All daily-log endpoints require authentication.
 - `POST /api/daily-logs/:id/comments` adds an authenticated user's comment to a log.
 - `DELETE /api/daily-logs/:id/comments/:commentId` deletes the authenticated user's own comment.
 - Frontend create/update flows derive the submitted `status` from task JSON instead of exposing a manual status field in the Daily Log form.
-- Daily-log task JSON may include optional `sourceTaskId`, `status`, `progress`, `sessionCount`, and `trackedMinutes` fields for Task Tracking imports.
+- Daily-log task JSON may include optional `sourceTaskId`, `status`, `progress`, `sessionCount`, `trackedMinutes`, and `participants` fields for Task Tracking imports.
 
 Daily-log department handling is server-managed:
 
@@ -270,7 +270,7 @@ Daily-log department handling is server-managed:
 - Owner/founder, admin, manager, project-manager, operations-manager, chief-operations-officer, and configured admin bypass emails may submit a department override.
 - Accounts with no assigned department cannot create daily logs until their role assignment is fixed.
 
-Frontend task import, task-report posting, and manager review helpers use existing task and daily-log APIs. There is no dedicated task-import backend route at this time.
+Frontend task import, task-report posting, and manager review helpers use existing task and daily-log APIs. Task import treats primary assignees, multi-assignees, and non-declined collaborators as task participants. There is no dedicated task-import backend route at this time.
 
 ## Payroll
 

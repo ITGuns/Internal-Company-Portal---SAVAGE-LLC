@@ -93,6 +93,84 @@ test('suggests completed and in-progress tasks assigned to the user for the sele
   assert.match(options[1].text, /Prepare client handoff/);
 });
 
+test('suggests shared completed tasks for collaborators and multi-assignees', () => {
+  const { getDailyLogTaskImportOptions } = loadImportHelper();
+
+  const tasks = [
+    {
+      id: 'collaborator-completed',
+      title: 'Ship shared client fix',
+      status: 'completed',
+      assigneeId: 'owner-user',
+      assignee: { id: 'owner-user', name: 'Owner User', email: 'owner@example.test' },
+      collaborators: [
+        {
+          id: 'collab-1',
+          taskId: 'collaborator-completed',
+          userId: 'user-1',
+          status: 'accepted',
+          user: { id: 'user-1', name: 'Daily Logger', email: 'logger@example.test' },
+        },
+      ],
+      completedAt: '2026-05-21T09:00:00',
+    },
+    {
+      id: 'multi-assignee-completed',
+      title: 'Complete grouped QA',
+      status: 'completed',
+      assigneeId: 'owner-user',
+      assigneeIds: ['owner-user', 'user-1'],
+      collaborators: [
+        {
+          id: 'collab-3',
+          taskId: 'multi-assignee-completed',
+          userId: 'user-1',
+          status: 'accepted',
+          user: { id: 'user-1', name: 'Daily Logger', email: 'logger@example.test' },
+        },
+      ],
+      completedAt: '2026-05-21T10:00:00',
+    },
+    {
+      id: 'declined-collaborator',
+      title: 'Declined collaborator task',
+      status: 'completed',
+      assigneeId: 'owner-user',
+      collaborators: [
+        {
+          id: 'collab-2',
+          taskId: 'declined-collaborator',
+          userId: 'user-1',
+          status: 'declined',
+          user: { id: 'user-1', name: 'Daily Logger', email: 'logger@example.test' },
+        },
+      ],
+      completedAt: '2026-05-21T11:00:00',
+    },
+  ];
+
+  const options = getDailyLogTaskImportOptions(tasks, {
+    currentUserId: 'user-1',
+    selectedDate: '2026-05-21',
+    existingTasks: [],
+  });
+
+  assert.deepEqual(options.map((option) => option.sourceTaskId), [
+    'collaborator-completed',
+    'multi-assignee-completed',
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(options[0].participants.map((participant) => participant.id))), [
+    'owner-user',
+    'user-1',
+  ]);
+  assert.equal(options[0].participants[1].name, 'Daily Logger');
+  assert.deepEqual(JSON.parse(JSON.stringify(options[1].participants.map((participant) => participant.id))), [
+    'owner-user',
+    'user-1',
+  ]);
+  assert.equal(options[1].participants[1].name, 'Daily Logger');
+});
+
 test('does not infer completed work from due or update date when completedAt is missing', () => {
   const { getDailyLogTaskImportOptions } = loadImportHelper();
 

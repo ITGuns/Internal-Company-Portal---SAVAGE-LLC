@@ -128,6 +128,28 @@ export default function ProjectAnalyticsCard({
         </div>
       </div>
 
+      {project.members && project.members.length > 0 ? (
+        <div className="mt-4 border-t border-[var(--border)] pt-3">
+          <div className="text-xs font-semibold uppercase text-[var(--muted)]">Members</div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {project.members.slice(0, 6).map((member) => (
+              <span
+                key={member.id}
+                className="max-w-36 truncate rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs text-[var(--muted)]"
+                title={member.user?.name || member.user?.email || "Project member"}
+              >
+                {member.user?.name || member.user?.email || "Member"}
+              </span>
+            ))}
+            {project.members.length > 6 ? (
+              <span className="rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs text-[var(--muted)]">
+                +{project.members.length - 6}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {canManageAssignments ? (
         <div className="mt-4 flex flex-wrap gap-2 border-t border-[var(--border)] pt-3">
           {project.status !== "completed" ? (

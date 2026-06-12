@@ -73,6 +73,7 @@ import {
 import { taskMatchesSearchQuery } from "@/lib/task-search";
 import { getReopenedTaskProgress, type TaskQuickAction } from "@/lib/task-status-actions";
 import { formatEstimatedMinutesAsClock, parseEstimatedClockToMinutes } from "@/lib/task-estimate";
+import { getInternalOperationsMembers } from "@/lib/member-role-management";
 
 // Lazy-loaded heavy components
 const LogReportModal = dynamic(() => import("@/components/tasks/LogReportModal"), { ssr: false });
@@ -157,6 +158,10 @@ export default function TaskTrackingPage() {
   const currentUserAssignment = useMemo(
     () => getUserTaskAssignment(currentUser, users),
     [currentUser, users],
+  );
+  const internalProjectMembers = useMemo(
+    () => getInternalOperationsMembers(users),
+    [users],
   );
 
   // UI State
@@ -343,6 +348,7 @@ export default function TaskTrackingPage() {
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [projectTargetDate, setProjectTargetDate] = useState("");
+  const [projectMemberIds, setProjectMemberIds] = useState<string[]>([]);
 
   function applyCurrentUserAssignment() {
     if (!currentUserId) return;
@@ -431,6 +437,7 @@ export default function TaskTrackingPage() {
     setProjectName("");
     setProjectDescription("");
     setProjectTargetDate("");
+    setProjectMemberIds([]);
   }
 
   function openProjectCreateModal() {
@@ -646,7 +653,7 @@ export default function TaskTrackingPage() {
     }
   }
 
-  async function handleCreateProject(event: React.FormEvent) {
+  async function handleCreateProject(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!projectName.trim()) {
@@ -654,12 +661,19 @@ export default function TaskTrackingPage() {
       return;
     }
 
+    const submittedMemberIds = Array.from(
+      new FormData(event.currentTarget).getAll("projectMemberIds"),
+    )
+      .map((value) => String(value))
+      .filter(Boolean);
+
     try {
       const project = await createProjectMutation.mutateAsync({
         name: projectName.trim(),
         description: projectDescription.trim() || null,
         status: "active",
         departmentId: null,
+        memberIds: submittedMemberIds,
         targetDate: projectTargetDate || null,
       });
       closeProjectCreateModal();
@@ -1104,6 +1118,24 @@ export default function TaskTrackingPage() {
                           {project.department?.name && <span>{project.department.name}</span>}
                           {project.targetDate && <span>Target {project.targetDate}</span>}
                         </div>
+                        {project.members && project.members.length > 0 ? (
+                          <div className="mt-3 flex flex-wrap gap-1" aria-label={`${project.name} project members`}>
+                            {project.members.slice(0, 4).map((member) => (
+                              <span
+                                key={member.id}
+                                className="max-w-28 truncate rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[10px] text-[var(--muted)]"
+                                title={member.user?.name || member.user?.email || "Project member"}
+                              >
+                                {member.user?.name || member.user?.email || "Member"}
+                              </span>
+                            ))}
+                            {project.members.length > 4 ? (
+                              <span className="rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[10px] text-[var(--muted)]">
+                                +{project.members.length - 4}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
                       {canManageAssignments && (
                         <div className="relative z-30 mt-3 flex flex-wrap gap-2">
@@ -1634,10 +1666,13 @@ export default function TaskTrackingPage() {
         projectName={projectName}
         projectDescription={projectDescription}
         projectTargetDate={projectTargetDate}
+        projectMemberIds={projectMemberIds}
+        users={internalProjectMembers}
         isSubmitting={createProjectMutation.isPending}
         onProjectNameChange={setProjectName}
         onProjectDescriptionChange={setProjectDescription}
         onProjectTargetDateChange={setProjectTargetDate}
+        onProjectMemberIdsChange={setProjectMemberIds}
         onSubmit={handleCreateProject}
         onClose={closeProjectCreateModal}
       />

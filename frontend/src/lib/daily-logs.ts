@@ -5,6 +5,7 @@
 
 import { apiFetch } from './api';
 import type { DailyLogTaskStatus, DerivedDailyLogStatus } from './daily-log-format';
+import type { DailyLogTaskParticipant } from './daily-log-task-import';
 import type { ApiDailyLog, ApiDailyLogComment, ApiDailyLogLike } from './types/api';
 import type { PaginatedResponse } from './types/pagination';
 
@@ -19,6 +20,7 @@ export interface LogTask {
   progress?: number | null;
   sessionCount?: number;
   trackedMinutes?: number;
+  participants?: DailyLogTaskParticipant[];
 }
 
 export interface DailyLog {

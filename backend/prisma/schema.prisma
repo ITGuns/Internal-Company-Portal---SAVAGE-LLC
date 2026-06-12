@@ -14,10 +14,10 @@ datasource db {
 // ============================================
 
 model User {
-  id     String  @id @default(cuid())
-  email  String  @unique
-  name   String?
-  avatar String?
+  id        String  @id @default(cuid())
+  email     String  @unique
+  name      String?
+  avatar    String?
   managerId String?
 
   // Profile fields (added in migration 20260217105259)
@@ -28,9 +28,9 @@ model User {
   birthday    DateTime?
 
   // Auth & Access Control
-  password           String?
-  isApproved         Boolean   @default(false)
-  passwordResetToken String?
+  password            String?
+  isApproved          Boolean   @default(false)
+  passwordResetToken  String?
   passwordResetExpiry DateTime?
 
   // Employee Workflow fields
@@ -41,42 +41,44 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  tasks                Task[]            @relation("TaskAssignee")
-  createdTasks         Task[]            @relation("TaskCreator")
-  roles                UserRole[]
-  announcements        Announcement[]
-  dailyLogs            DailyLog[]
-  timeEntries          TimeEntry[]
-  announcementLikes    AnnouncementLike[]
-  announcementComments AnnouncementComment[]
-  announcementRSVPs    AnnouncementRSVP[]
-  dailyLogLikes        DailyLogLike[]
-  dailyLogComments     DailyLogComment[]
-  participants         Participant[]
-  messages             Message[]
-  messageReactions     MessageReaction[]
-  employeeProfile      EmployeeProfile?
-  payslips             Payslip[]
-  taskWorkSessions     TaskWorkSession[]
-  taskCollaborations   TaskCollaborator[] @relation("TaskCollaboratorUser")
-  taskCollaboratorInvites TaskCollaborator[] @relation("TaskCollaboratorInviter")
-  clientMemberships    ClientMembership[]
-  clientTicketsCreated ClientTicket[]        @relation("ClientTicketCreator")
-  clientTicketsAssigned ClientTicket[]       @relation("ClientTicketAssignee")
-  clientTicketComments ClientTicketComment[] @relation("ClientTicketCommentAuthor")
-  clientUpdatesCreated ClientUpdate[]        @relation("ClientUpdateCreator")
-  clientResourceLinksCreated ClientResourceLink[] @relation("ClientResourceLinkCreator")
-  clientWorkItemsCreated ClientWorkItem[]    @relation("ClientWorkItemCreator")
-  clientWorkItemsAssigned ClientWorkItem[]   @relation("ClientWorkItemAssignee")
-  clientApprovalsRequested ClientApproval[]  @relation("ClientApprovalRequester")
-  clientApprovalsDecided ClientApproval[]    @relation("ClientApprovalDecider")
-  clientReportsCreated ClientReport[]        @relation("ClientReportCreator")
-  clientCalendarItemsCreated ClientCalendarItem[] @relation("ClientCalendarItemCreator")
-  clientActivities ClientActivity[]          @relation("ClientActivityActor")
-  manager              User?         @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull)
-  directReports        User[]        @relation("UserManager")
-  ownedTaskProjects    TaskProject[] @relation("TaskProjectOwner")
-  createdTaskProjects  TaskProject[] @relation("TaskProjectCreator")
+  tasks                       Task[]                @relation("TaskAssignee")
+  createdTasks                Task[]                @relation("TaskCreator")
+  roles                       UserRole[]
+  announcements               Announcement[]
+  dailyLogs                   DailyLog[]
+  timeEntries                 TimeEntry[]
+  announcementLikes           AnnouncementLike[]
+  announcementComments        AnnouncementComment[]
+  announcementRSVPs           AnnouncementRSVP[]
+  dailyLogLikes               DailyLogLike[]
+  dailyLogComments            DailyLogComment[]
+  participants                Participant[]
+  messages                    Message[]
+  messageReactions            MessageReaction[]
+  employeeProfile             EmployeeProfile?
+  payslips                    Payslip[]
+  taskWorkSessions            TaskWorkSession[]
+  taskCollaborations          TaskCollaborator[]    @relation("TaskCollaboratorUser")
+  taskCollaboratorInvites     TaskCollaborator[]    @relation("TaskCollaboratorInviter")
+  taskProjectMemberships      TaskProjectMember[]   @relation("TaskProjectMemberUser")
+  taskProjectMembershipsAdded TaskProjectMember[]   @relation("TaskProjectMemberAddedBy")
+  clientMemberships           ClientMembership[]
+  clientTicketsCreated        ClientTicket[]        @relation("ClientTicketCreator")
+  clientTicketsAssigned       ClientTicket[]        @relation("ClientTicketAssignee")
+  clientTicketComments        ClientTicketComment[] @relation("ClientTicketCommentAuthor")
+  clientUpdatesCreated        ClientUpdate[]        @relation("ClientUpdateCreator")
+  clientResourceLinksCreated  ClientResourceLink[]  @relation("ClientResourceLinkCreator")
+  clientWorkItemsCreated      ClientWorkItem[]      @relation("ClientWorkItemCreator")
+  clientWorkItemsAssigned     ClientWorkItem[]      @relation("ClientWorkItemAssignee")
+  clientApprovalsRequested    ClientApproval[]      @relation("ClientApprovalRequester")
+  clientApprovalsDecided      ClientApproval[]      @relation("ClientApprovalDecider")
+  clientReportsCreated        ClientReport[]        @relation("ClientReportCreator")
+  clientCalendarItemsCreated  ClientCalendarItem[]  @relation("ClientCalendarItemCreator")
+  clientActivities            ClientActivity[]      @relation("ClientActivityActor")
+  manager                     User?                 @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull)
+  directReports               User[]                @relation("UserManager")
+  ownedTaskProjects           TaskProject[]         @relation("TaskProjectOwner")
+  createdTaskProjects         TaskProject[]         @relation("TaskProjectCreator")
 
   @@index([email])
   @@index([managerId])
@@ -138,11 +140,11 @@ model Task {
   updatedAt DateTime @updatedAt
 
   // Relations
-  department   Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  assignee     User?             @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  creator      User?             @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  project      TaskProject?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  workSessions TaskWorkSession[]
+  department    Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  assignee      User?              @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  creator       User?              @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  project       TaskProject?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  workSessions  TaskWorkSession[]
   collaborators TaskCollaborator[]
 
   @@index([status])
@@ -168,15 +170,36 @@ model TaskProject {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  owner      User?       @relation("TaskProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  creator    User?       @relation("TaskProjectCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  department Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  owner      User?               @relation("TaskProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  creator    User?               @relation("TaskProjectCreator", fields: [createdById], references: [id], onDelete: SetNull)
   tasks      Task[]
+  members    TaskProjectMember[]
 
   @@index([status])
   @@index([departmentId])
   @@index([ownerId])
   @@index([createdById])
+}
+
+model TaskProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  addedById String?
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project TaskProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User        @relation("TaskProjectMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  addedBy User?       @relation("TaskProjectMemberAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+  @@index([addedById])
+  @@index([status])
 }
 
 model TaskCollaborator {
@@ -233,32 +256,32 @@ model ClientServiceTier {
 }
 
 model ClientOrganization {
-  id         String   @id @default(cuid())
-  name       String
-  slug       String   @unique
-  status     String   @default("active")
-  tierId     String?
-  websiteUrl String?
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  status          String   @default("active")
+  tierId          String?
+  websiteUrl      String?
   websiteWorkType String?
-  notes      String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  tier            ClientServiceTier?    @relation(fields: [tierId], references: [id], onDelete: SetNull)
-  memberships     ClientMembership[]
-  projects        ClientProject[]
-  tickets         ClientTicket[]
-  updates         ClientUpdate[]
-  metricSnapshots ClientMetricSnapshot[]
-  resourceLinks   ClientResourceLink[]
-  workItems       ClientWorkItem[]
-  approvals       ClientApproval[]
-  reports         ClientReport[]
+  tier                   ClientServiceTier?            @relation(fields: [tierId], references: [id], onDelete: SetNull)
+  memberships            ClientMembership[]
+  projects               ClientProject[]
+  tickets                ClientTicket[]
+  updates                ClientUpdate[]
+  metricSnapshots        ClientMetricSnapshot[]
+  resourceLinks          ClientResourceLink[]
+  workItems              ClientWorkItem[]
+  approvals              ClientApproval[]
+  reports                ClientReport[]
   roadmapRecommendations ClientRoadmapRecommendation[]
-  assets          ClientAsset[]
-  billingStatus   ClientBillingStatus?
-  calendarItems   ClientCalendarItem[]
-  activities      ClientActivity[]
+  assets                 ClientAsset[]
+  billingStatus          ClientBillingStatus?
+  calendarItems          ClientCalendarItem[]
+  activities             ClientActivity[]
 
   @@index([status])
   @@index([tierId])
@@ -297,7 +320,7 @@ model ClientProject {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  organization  ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization  ClientOrganization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   tickets       ClientTicket[]
   updates       ClientUpdate[]
   resourceLinks ClientResourceLink[]
@@ -326,10 +349,10 @@ model ClientTicket {
   updatedAt      DateTime  @updatedAt
   closedAt       DateTime?
 
-  organization ClientOrganization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  project      ClientProject?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  creator      User?                @relation("ClientTicketCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  assignee     User?                @relation("ClientTicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  organization ClientOrganization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      ClientProject?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  creator      User?                 @relation("ClientTicketCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  assignee     User?                 @relation("ClientTicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
   comments     ClientTicketComment[]
 
   @@index([organizationId])
@@ -483,24 +506,24 @@ model ClientApproval {
 }
 
 model ClientReport {
-  id                       String    @id @default(cuid())
-  organizationId           String
-  title                    String
-  summary                  String?
-  periodStart              DateTime
-  periodEnd                DateTime
-  status                   String    @default("draft")
-  visibleToClient          Boolean   @default(true)
-  leadsCaptured            Int?
-  missedOpportunities      Int?
-  followUpStatus           String?
-  leadSourceBreakdown      Json?
-  reputationSnapshot       Json?
-  localVisibilitySnapshot  Json?
-  createdById              String?
-  publishedAt              DateTime?
-  createdAt                DateTime  @default(now())
-  updatedAt                DateTime  @updatedAt
+  id                      String    @id @default(cuid())
+  organizationId          String
+  title                   String
+  summary                 String?
+  periodStart             DateTime
+  periodEnd               DateTime
+  status                  String    @default("draft")
+  visibleToClient         Boolean   @default(true)
+  leadsCaptured           Int?
+  missedOpportunities     Int?
+  followUpStatus          String?
+  leadSourceBreakdown     Json?
+  reputationSnapshot      Json?
+  localVisibilitySnapshot Json?
+  createdById             String?
+  publishedAt             DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   creator      User?              @relation("ClientReportCreator", fields: [createdById], references: [id], onDelete: SetNull)
@@ -822,19 +845,19 @@ model PayrollEvent {
 }
 
 model EmployeeProfile {
-  id               String  @id @default(cuid())
-  userId           String  @unique
-  jobTitle         String?
-  employmentType   String? @default("Full-Time")
-  requestedRole    String?
-  requestedDepartmentId String?
-  baseSalary       Float?  @default(0)
-  currency         String  @default("PHP")
-  paymentFrequency String  @default("Semi-Monthly")
-  payrollScheme    String  @default("weekdays")
-  maxBillableHoursPerDay Float @default(8)
-  bankAccount      String?
-  taxId            String?
+  id                     String  @id @default(cuid())
+  userId                 String  @unique
+  jobTitle               String?
+  employmentType         String? @default("Full-Time")
+  requestedRole          String?
+  requestedDepartmentId  String?
+  baseSalary             Float?  @default(0)
+  currency               String  @default("PHP")
+  paymentFrequency       String  @default("Semi-Monthly")
+  payrollScheme          String  @default("weekdays")
+  maxBillableHoursPerDay Float   @default(8)
+  bankAccount            String?
+  taxId                  String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -942,8 +965,8 @@ model Message {
   updatedAt      DateTime  @updatedAt
 
   // Relations
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  conversation Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User              @relation(fields: [senderId], references: [id], onDelete: Cascade)
   reactions    MessageReaction[]
 
   @@index([conversationId])
@@ -972,10 +995,10 @@ model MessageReaction {
 // ============================================
 
 model FileFolder {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
-  type        String   @default("folder")
-  department  String   // "All Departments" = visible to everyone
+  type        String  @default("folder")
+  department  String // "All Departments" = visible to everyone
   driveLink   String?
   parentId    String?
   customColor String?

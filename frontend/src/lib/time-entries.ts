@@ -14,6 +14,14 @@ export type TimeEntry = {
   notes?: string;
 };
 
+function isApiTimeEntry(data: unknown): data is ApiTimeEntry {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
+
+  const entry = data as Partial<ApiTimeEntry>;
+  return typeof entry.id === 'string'
+    && typeof entry.start === 'string'
+    && !Number.isNaN(new Date(entry.start).getTime());
+}
 
 // Helper to correctly map backend fields
 // NOTE: Prisma schema uses `start`/`end` (not startTime/endTime)
@@ -49,7 +57,8 @@ export async function fetchTimeEntries(startDate?: string, endDate?: string, use
     const res = await apiFetch(`/payroll/time-entries?${query.toString()}`);
     if (res.status === 200) {
       const data = await res.json();
-      return data.map(mapBackendToFrontend);
+      if (!Array.isArray(data)) return [];
+      return data.filter(isApiTimeEntry).map(mapBackendToFrontend);
     }
   } catch (error) {
     console.error('Failed to fetch time entries:', error);
@@ -65,7 +74,7 @@ export async function fetchActiveTimeEntry(): Promise<TimeEntry | null> {
     const res = await apiFetch('/payroll/time-entries/active');
     if (res.status === 200) {
       const data = await res.json();
-      return data ? mapBackendToFrontend(data) : null;
+      return isApiTimeEntry(data) ? mapBackendToFrontend(data) : null;
     }
   } catch (error) {
     console.error('Failed to fetch active time entry:', error);
