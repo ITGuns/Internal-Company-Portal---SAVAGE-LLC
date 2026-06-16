@@ -1,5 +1,55 @@
 # Development Notes
 
+## 2026-06-16 - QA Checklist Profile And Task Invite Slice
+
+### Completed
+
+- Verified profile avatar upload/change/remove behavior through backend route coverage, including self upload, admin upload, forbidden cross-user upload, and empty avatar removal.
+- Added explicit task collaboration invite responses so invited employees can accept or decline a task from the task detail modal.
+- Kept declined task invites out of the invited user's task list by invalidating task queries and closing the detail modal after decline.
+- Cleared backend/frontend high-severity dependency audit findings by refreshing safe lockfile updates and overriding transitive `ws` resolution to the patched `8.21.0` release.
+
+### Files Changed
+
+- `backend/package.json`
+- `backend/package-lock.json`
+- `backend/src/tasks/tasks.controller.ts`
+- `backend/src/tasks/tasks.service.ts`
+- `backend/tests/tasks.projects.test.ts`
+- `backend/tests/users.routes-security.test.ts`
+- `frontend/package.json`
+- `frontend/package-lock.json`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/tasks/TaskDetailModal.tsx`
+- `frontend/src/hooks/useTasksQuery.ts`
+- `frontend/src/lib/task-invitations.ts`
+- `frontend/src/lib/tasks.ts`
+- `frontend/tests/task-invitations.test.mjs`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+
+- Treated the QA document's profile avatar item as implementation-complete once the missing route coverage passed.
+- Used task detail as the first invitation response surface instead of adding a separate inbox, because deep-linked task invites already route there.
+- Used a narrow package override for `ws@8.21.0` instead of the breaking audit-force downgrade suggested for Socket.IO.
+- Left external payment, bank, and scheduling integrations as product/backlog work that needs provider decisions and credentials.
+
+### How to Test
+
+- `node -r ts-node/register tests/users.routes-security.test.ts` from `backend/`.
+- `node -r ts-node/register tests/tasks.projects.test.ts` from `backend/`.
+- `node --test tests/task-invitations.test.mjs` from `frontend/`.
+- `npm run lint` from `frontend/`.
+- `npm run check` from the repo root.
+- `npm run prisma:generate` and `npx dotenv -e .env -- prisma validate` from `backend/`.
+- `docker compose config` from the repo root with validation-only placeholder secrets.
+- `VISUAL_SMOKE_BASE_URL=http://localhost:3000 VISUAL_SMOKE_ROUTES=/task-tracking npm run test:visual` from `frontend/`.
+
+### Next Steps
+
+- Continue the remaining checklist backlog with product-scoped slices for payroll automation, billing integrations, and calendar booking once provider choices are confirmed.
+
 ## 2026-06-13 - Product Completeness Audit Slice
 
 ### Completed

@@ -31,7 +31,15 @@ async function requestJson(
   })
 
   const text = await response.text()
-  const body = text ? JSON.parse(text) : {}
+  const body = text
+    ? (() => {
+        try {
+          return JSON.parse(text)
+        } catch {
+          return { raw: text }
+        }
+      })()
+    : {}
 
   return {
     status: response.status,
@@ -79,6 +87,7 @@ async function runTaskProjectRouteTests() {
   const memberEmail = uniqueEmail('task-project-member')
   const outsiderEmail = uniqueEmail('task-project-outsider')
   const projectIds: string[] = []
+  const taskIds: string[] = []
 
   const manager = await prisma.user.create({
     data: {
@@ -171,8 +180,79 @@ async function runTaskProjectRouteTests() {
       })
       assert.equal(globalProjects.status, 200)
       assert.equal((globalProjects.body as JsonRecord[]).some((project) => project.id === projectId), true)
+
+      const createCollaborativeTask = await requestJson(baseUrl, '/api/tasks', {
+        method: 'POST',
+        token: tokenFor(manager),
+        body: {
+          title: `Collaborative task ${suffix}`,
+          description: 'Invite response route coverage',
+          departmentId: department.id,
+          assigneeId: manager.id,
+          collaboratorIds: [member.id],
+        },
+      })
+      assert.equal(createCollaborativeTask.status, 201)
+
+      const taskId = String((createCollaborativeTask.body as JsonRecord).id)
+      taskIds.push(taskId)
+
+      const invitedTask = await requestJson(baseUrl, `/api/tasks/${taskId}`, {
+        token: tokenFor(member),
+      })
+      assert.equal(invitedTask.status, 200)
+      assert.equal(
+        ((invitedTask.body as JsonRecord).collaborators as JsonRecord[])
+          .find((collaborator) => collaborator.userId === member.id)?.status,
+        'invited',
+      )
+
+      const acceptInvite = await requestJson(baseUrl, `/api/tasks/${taskId}/collaborators/me`, {
+        method: 'PATCH',
+        token: tokenFor(member),
+        body: {
+          status: 'accepted',
+        },
+      })
+      assert.equal(acceptInvite.status, 200)
+      assert.equal(
+        ((acceptInvite.body as JsonRecord).collaborators as JsonRecord[])
+          .find((collaborator) => collaborator.userId === member.id)?.status,
+        'accepted',
+      )
+
+      const outsiderInviteResponse = await requestJson(baseUrl, `/api/tasks/${taskId}/collaborators/me`, {
+        method: 'PATCH',
+        token: tokenFor(outsider),
+        body: {
+          status: 'accepted',
+        },
+      })
+      assert.equal(outsiderInviteResponse.status, 404)
+
+      const declineInvite = await requestJson(baseUrl, `/api/tasks/${taskId}/collaborators/me`, {
+        method: 'PATCH',
+        token: tokenFor(member),
+        body: {
+          status: 'declined',
+        },
+      })
+      assert.equal(declineInvite.status, 200)
+      assert.equal(
+        ((declineInvite.body as JsonRecord).collaborators as JsonRecord[])
+          .find((collaborator) => collaborator.userId === member.id)?.status,
+        'declined',
+      )
+
+      const declinedTask = await requestJson(baseUrl, `/api/tasks/${taskId}`, {
+        token: tokenFor(member),
+      })
+      assert.equal(declinedTask.status, 403)
     })
   } finally {
+    if (taskIds.length > 0) {
+      await prisma.task.deleteMany({ where: { id: { in: taskIds } } })
+    }
     if (projectIds.length > 0) {
       await prisma.taskProjectMember.deleteMany({ where: { projectId: { in: projectIds } } })
       await prisma.taskProject.deleteMany({ where: { id: { in: projectIds } } })

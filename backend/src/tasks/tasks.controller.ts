@@ -1,5 +1,5 @@
 import express, { Request, Response, Router } from 'express'
-import { TasksService, TaskStatus } from './tasks.service'
+import { TasksService, TaskStatus, type TaskCollaboratorResponseStatus } from './tasks.service'
 import { authenticateToken, requireRole, AuthRequest } from '../auth/auth.middleware'
 import { emailService } from '../email/email.service'
 import { notificationService } from '../notifications/socket.service'
@@ -25,6 +25,7 @@ interface TaskAccessContext {
 }
 
 const TASK_PROJECT_STATUSES = new Set(['active', 'paused', 'completed', 'archived'])
+const TASK_COLLABORATOR_RESPONSE_STATUSES = new Set(['accepted', 'declined'])
 
 function normalizeOptionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
@@ -396,6 +397,37 @@ export class TasksController {
           return res.status(404).json({ error: 'Task project not found' })
         }
         res.status(500).json({ error: 'Failed to delete task project' })
+      }
+    })
+
+    // Respond to the current user's task collaboration invite
+    router.patch('/:id/collaborators/me', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+        const status = normalizeOptionalString(req.body.status)
+        if (!status || !TASK_COLLABORATOR_RESPONSE_STATUSES.has(status)) {
+          return res.status(400).json({ error: 'Status must be accepted or declined' })
+        }
+
+        const access = await this.getAccessContext(req)
+        if (!access) {
+          return res.status(401).json({ error: 'Authentication required' })
+        }
+
+        const task = await this.service.updateCollaboratorStatus(
+          id,
+          access.requesterId,
+          status as TaskCollaboratorResponseStatus,
+        )
+        if (!task) {
+          return res.status(404).json({ error: 'Task collaboration invite not found' })
+        }
+
+        notificationService.broadcastDataChange('tasks')
+        res.json(task)
+      } catch (error) {
+        logger.error('Task collaboration invite response error:', error)
+        res.status(500).json({ error: 'Failed to update collaboration invite' })
       }
     })
 

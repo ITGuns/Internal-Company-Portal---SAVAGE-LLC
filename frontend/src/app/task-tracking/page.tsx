@@ -30,6 +30,7 @@ import { TaskBoardSkeleton } from '@/components/ui/Skeleton';
 import {
   createTask,
   updateTask,
+  respondToTaskInvite,
   deleteTask,
   fetchTaskDetail,
   getTaskViewPreference,
@@ -41,6 +42,7 @@ import {
   type TaskStatus,
   type UpdateTaskPayload,
 } from "@/lib/tasks";
+import type { TaskInviteResponseStatus } from "@/lib/task-invitations";
 import {
   useTasks,
   useUsers,
@@ -139,6 +141,30 @@ function replaceTaskInQueryData(currentData: unknown, updatedTask: Task) {
   }
 
   return currentData;
+}
+
+function removeTaskFromQueryData(currentData: unknown, taskId: string) {
+  if (Array.isArray(currentData)) {
+    return currentData.filter((task) => task.id !== taskId);
+  }
+
+  if (
+    currentData &&
+    typeof currentData === "object" &&
+    "data" in currentData &&
+    Array.isArray((currentData as { data?: unknown }).data)
+  ) {
+    return {
+      ...currentData,
+      data: (currentData as { data: Task[] }).data.filter((task) => task.id !== taskId),
+    };
+  }
+
+  return currentData;
+}
+
+function isTaskListQuery(query: { queryKey: readonly unknown[] }) {
+  return query.queryKey[0] === "tasks" && query.queryKey[1] !== "detail";
 }
 
 export default function TaskTrackingPage() {
@@ -681,6 +707,37 @@ export default function TaskTrackingPage() {
       toast.success("Project created");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to create project");
+    }
+  }
+
+  async function handleInviteResponse(taskId: string, status: TaskInviteResponseStatus) {
+    try {
+      const updatedTask = await respondToTaskInvite(taskId, status);
+      queryClient.setQueriesData({ queryKey: ['tasks'] }, (currentData) => {
+        return status === "declined"
+          ? removeTaskFromQueryData(currentData, taskId)
+          : replaceTaskInQueryData(currentData, updatedTask);
+      });
+      queryClient.setQueryData(['tasks', 'detail', taskId], (currentData: Task | undefined) => ({
+        ...currentData,
+        ...updatedTask,
+        workSessions: updatedTask.workSessions ?? currentData?.workSessions,
+      }));
+
+      if (status === "declined") {
+        setSelectedTask(null);
+        queryClient.removeQueries({ queryKey: ['tasks', 'detail', taskId] });
+        queryClient.invalidateQueries({ predicate: isTaskListQuery });
+        toast.success("Task invite declined");
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      setSelectedTask(updatedTask);
+      toast.success("Task invite accepted");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update task invite");
+      throw error;
     }
   }
 
@@ -1643,9 +1700,11 @@ export default function TaskTrackingPage() {
       {selectedTask && (
         <TaskDetailModal
           task={selectedTask}
+          currentUserId={currentUserId}
           onClose={closeTaskDetails}
           onEdit={openEditFromDetails}
           onAction={handleTaskAction}
+          onInviteResponse={handleInviteResponse}
         />
       )}
 

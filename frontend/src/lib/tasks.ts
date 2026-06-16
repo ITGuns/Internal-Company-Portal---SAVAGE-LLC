@@ -5,6 +5,7 @@
 import { apiFetch } from './api';
 import type { PaginatedResponse } from './types/pagination';
 import type { ApiTask, ApiTaskProject } from './types/api';
+import type { TaskInviteResponseStatus } from './task-invitations';
 
 export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'completed';
 export type TaskPriority = 'Low' | 'Med' | 'High';
@@ -425,6 +426,19 @@ export async function updateTask(taskId: string, updates: UpdateTaskPayload): Pr
   }
   const result = await res.json();
   return processTaskFromApi(result);
+}
+
+export async function respondToTaskInvite(taskId: string, status: TaskInviteResponseStatus): Promise<Task> {
+  const res = await apiFetch(`/tasks/${taskId}/collaborators/me`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to update task invite');
+  }
+  return processTaskFromApi(await res.json());
 }
 
 /**

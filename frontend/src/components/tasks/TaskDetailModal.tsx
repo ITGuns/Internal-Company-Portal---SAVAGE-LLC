@@ -23,7 +23,9 @@ import {
   Play,
   RotateCcw,
   Timer,
+  UserCheck,
   UserRound,
+  UserX,
   X,
 } from "lucide-react";
 import {
@@ -31,6 +33,10 @@ import {
   TASK_QUICK_ACTION_LABELS,
   type TaskQuickAction,
 } from "@/lib/task-status-actions";
+import {
+  getPendingTaskInviteForUser,
+  type TaskInviteResponseStatus,
+} from "@/lib/task-invitations";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "To Do",
@@ -54,9 +60,11 @@ const PRIORITY_STYLES: Record<TaskPriority, string> = {
 
 interface TaskDetailModalProps {
   task: Task;
+  currentUserId?: string;
   onClose: () => void;
   onEdit: (task: Task) => void;
   onAction?: (e: React.MouseEvent, taskId: string, action: TaskQuickAction) => void;
+  onInviteResponse?: (taskId: string, status: TaskInviteResponseStatus) => Promise<void>;
 }
 
 function formatDate(value?: string | null) {
@@ -93,16 +101,24 @@ function getInitials(name?: string | null) {
     .join("");
 }
 
-export default function TaskDetailModal({ task, onClose, onEdit, onAction }: TaskDetailModalProps) {
+export default function TaskDetailModal({
+  task,
+  currentUserId,
+  onClose,
+  onEdit,
+  onAction,
+  onInviteResponse,
+}: TaskDetailModalProps) {
   const dialogTitleId = React.useId();
   const dialogDescriptionId = React.useId();
+  const [inviteAction, setInviteAction] = React.useState<TaskInviteResponseStatus | null>(null);
   const { dialogRef, handleDialogKeyDown } = useDialogA11y({ onClose });
   const {
     data: taskDetail,
     isLoading,
     isError,
     refetch,
-  } = useTaskDetail(task.id);
+  } = useTaskDetail(task.id, { enabled: inviteAction !== "declined" });
   const activeTask = taskDetail || task;
   const liveElapsed = useLiveElapsed(
     activeTask.timerStatus,
@@ -120,11 +136,28 @@ export default function TaskDetailModal({ task, onClose, onEdit, onAction }: Tas
     : getReopenedTaskProgress({ ...activeTask, totalElapsed: liveElapsed });
   const assigneeName = activeTask.assignee?.name || activeTask.assignee?.email || "Unassigned";
   const collaborators = activeTask.collaborators || [];
+  const pendingInvite = getPendingTaskInviteForUser(activeTask, currentUserId);
+  const inviterName = pendingInvite?.invitedBy?.name || pendingInvite?.invitedBy?.email || "the task owner";
   const remainingLabel = summary.isOverEstimate
     ? `${formatDurationSeconds(summary.trackedSeconds - summary.estimatedSeconds)} over`
     : formatDurationSeconds(summary.remainingSeconds);
   const isCompleted = activeTask.status === "completed";
   const isTimerRunning = activeTask.timerStatus === "playing";
+
+  async function handleInviteResponse(status: TaskInviteResponseStatus) {
+    if (!onInviteResponse) return;
+
+    setInviteAction(status);
+    try {
+      await onInviteResponse(activeTask.id, status);
+      if (status === "accepted") {
+        await refetch();
+        setInviteAction(null);
+      }
+    } catch {
+      setInviteAction(null);
+    }
+  }
 
   return (
     <div
@@ -223,6 +256,43 @@ export default function TaskDetailModal({ task, onClose, onEdit, onAction }: Tas
             </button>
           </div>
         </div>
+
+        {pendingInvite && (
+          <div className="mt-5 rounded-lg border border-[var(--accent)]/35 bg-[var(--accent)]/10 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-[var(--foreground)]">Collaboration invite</div>
+                <div className="mt-1 text-sm text-[var(--muted)]">
+                  {inviterName} invited you to work on this task.
+                </div>
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  icon={<UserCheck className="h-4 w-4" />}
+                  disabled={inviteAction !== null}
+                  onClick={() => handleInviteResponse("accepted")}
+                  aria-label="Accept task collaboration invite"
+                >
+                  {inviteAction === "accepted" ? "Accepting" : "Accept"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  icon={<UserX className="h-4 w-4" />}
+                  disabled={inviteAction !== null}
+                  onClick={() => handleInviteResponse("declined")}
+                  aria-label="Decline task collaboration invite"
+                >
+                  {inviteAction === "declined" ? "Declining" : "Decline"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-3 py-5 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded border border-[var(--border)] bg-[var(--card-surface)] p-3">

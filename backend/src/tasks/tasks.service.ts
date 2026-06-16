@@ -3,6 +3,7 @@ import { prisma } from '../database/prisma.service'
 
 // Task status type
 export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'completed'
+export type TaskCollaboratorResponseStatus = 'accepted' | 'declined'
 
 export interface CreateTaskDto {
   title: string
@@ -567,6 +568,36 @@ export class TasksService {
         },
       }) as Promise<TaskWithRelations>
     })
+  }
+
+  async updateCollaboratorStatus(
+    taskId: string,
+    userId: string,
+    status: TaskCollaboratorResponseStatus,
+  ): Promise<TaskDetailWithRelations | null> {
+    const collaborator = await this.prisma.taskCollaborator.findUnique({
+      where: {
+        taskId_userId: {
+          taskId,
+          userId,
+        },
+      },
+      select: { id: true },
+    })
+
+    if (!collaborator) return null
+
+    await this.prisma.taskCollaborator.update({
+      where: {
+        taskId_userId: {
+          taskId,
+          userId,
+        },
+      },
+      data: { status },
+    })
+
+    return this.findById(taskId)
   }
 
   /**

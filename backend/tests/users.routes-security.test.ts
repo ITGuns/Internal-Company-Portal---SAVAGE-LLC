@@ -8,6 +8,18 @@ import { UsersController } from '../src/users/users.controller'
 
 type JsonRecord = Record<string, any>
 
+const pngAvatarDataUri = `data:image/png;base64,${Buffer.from([
+  0x89,
+  0x50,
+  0x4e,
+  0x47,
+  0x0d,
+  0x0a,
+  0x1a,
+  0x0a,
+  0x00,
+]).toString('base64')}`
+
 async function requestJson(
   baseUrl: string,
   path: string,
@@ -190,6 +202,50 @@ async function runUsersRouteSecurityTests() {
       })
       assert.equal(sameEmailProfileUpdate.status, 200)
       assert.equal(sameEmailProfileUpdate.body.user.name, 'Allowed Profile Update')
+
+      const employeeAvatarUpload = await requestJson(baseUrl, `/api/users/${employee.id}/avatar`, {
+        method: 'POST',
+        token: employeeToken,
+        body: {
+          avatar: pngAvatarDataUri,
+        },
+      })
+      assert.equal(employeeAvatarUpload.status, 200)
+      assert.equal(employeeAvatarUpload.body.success, true)
+      assert.equal(employeeAvatarUpload.body.user.avatar, pngAvatarDataUri)
+
+      const blockedClientAvatarUpload = await requestJson(baseUrl, `/api/users/${employee.id}/avatar`, {
+        method: 'POST',
+        token: clientToken,
+        body: {
+          avatar: pngAvatarDataUri,
+        },
+      })
+      assert.equal(blockedClientAvatarUpload.status, 403)
+
+      const adminAvatarUpload = await requestJson(baseUrl, `/api/users/${client.id}/avatar`, {
+        method: 'POST',
+        token: adminToken,
+        body: {
+          avatar: pngAvatarDataUri,
+        },
+      })
+      assert.equal(adminAvatarUpload.status, 200)
+      assert.equal(adminAvatarUpload.body.success, true)
+      assert.equal(adminAvatarUpload.body.user.avatar, pngAvatarDataUri)
+
+      const clearEmployeeAvatar = await requestJson(baseUrl, `/api/users/${employee.id}`, {
+        method: 'PATCH',
+        token: employeeToken,
+        body: {
+          avatar: '',
+        },
+      })
+      assert.equal(clearEmployeeAvatar.status, 200)
+      assert.equal(clearEmployeeAvatar.body.user.avatar, '')
+
+      const employeeWithClearedAvatar = await prisma.user.findUniqueOrThrow({ where: { id: employee.id } })
+      assert.equal(employeeWithClearedAvatar.avatar, '')
 
       const adminEmailChange = await requestJson(baseUrl, `/api/users/${employee.id}`, {
         method: 'PATCH',

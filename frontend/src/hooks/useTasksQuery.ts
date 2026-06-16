@@ -49,11 +49,11 @@ export function useTasksPaginated(page: number, limit: number) {
   });
 }
 
-export function useTaskDetail(taskId?: string) {
+export function useTaskDetail(taskId?: string, options: UseTasksOptions = {}) {
   return useQuery({
     queryKey: [...TASKS_KEY, 'detail', taskId],
     queryFn: () => fetchTaskDetail(taskId as string),
-    enabled: Boolean(taskId),
+    enabled: Boolean(taskId) && (options.enabled ?? true),
   });
 }
 

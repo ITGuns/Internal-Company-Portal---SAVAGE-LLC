@@ -44,6 +44,7 @@ Task tracking supports calendar, board, and list views for task status, assignme
 - Task role options come from backend department `availableRoles` instead of frontend-only constants.
 - Manager/admin task forms can invite additional employee collaborators while preserving the primary assignee.
 - Collaborator chips appear on task cards/list rows, and task details show the invited collaborator names.
+- Invited collaborators see an accept/decline panel in task details; accepting keeps the task in their work view, while declining removes it from their accessible task list.
 - Task projects can be created from an `Add Project` modal in Task Tracking, assigned to employee members, assigned to tasks, filtered, grouped, paused/resumed, and marked complete.
 - Clicking a task project card filters the task list to that project; clicking the selected card again, pressing Esc, or using `Back to all tasks` clears the project view.
 - Opening the Project Organization panel expands a project overview dialog with per-project analytics for completion, open work, review load, overdue work, due-today work, estimates, tracked time, and target-date risk.
@@ -104,6 +105,7 @@ File Directory organizes internal folder records by department without opening e
 
 Signup creates a pending account and preserves the requested department/role without granting authorization immediately.
 
+- Profile editing supports validated avatar upload, avatar removal, phone/contact updates, and self-profile responses that preserve private profile fields for the current user.
 - Pending accounts cannot log in.
 - Pending accounts have no active `UserRole` records.
 - Approval deploys the employee, marks the account approved, and assigns the requested department/role.
