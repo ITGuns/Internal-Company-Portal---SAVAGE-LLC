@@ -1,0 +1,1088 @@
+"use client";
+
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import Header from '@/components/Header';
+import Modal from '@/components/Modal';
+import Button from '@/components/Button';
+import { DailyLogsSkeleton } from '@/components/ui/Skeleton';
+import EmptyState from '@/components/ui/EmptyState';
+import StatusBadge from '@/components/ui/StatusBadge';
+import Pagination from '@/components/ui/Pagination';
+import FormField from '@/components/forms/FormField';
+import { useToast } from '@/components/ToastProvider';
+import { useUser } from '@/contexts/UserContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { Search, Plus, Clock, CheckCircle2, MessageCircle, ThumbsUp, FileText, StickyNote, ClipboardList, Send, Trash2 } from 'lucide-react';
+import { DEPARTMENTS } from '@/lib/departments';
+import { useDailyLogs } from '@/hooks/useDailyLogsQuery';
+import { useTasks } from '@/hooks/useTasksQuery';
+import {
+  createDailyLog,
+  addDailyLogComment,
+  deleteDailyLogComment,
+  updateDailyLog,
+  toggleLogLike,
+  getThisWeekLogs,
+  getCompletedTasksCount,
+  formatLogDate,
+  getUniqueUsers,
+  type DailyLog,
+  type LogStatus,
+  type LogTask,
+} from '@/lib/daily-logs';
+import {
+  deriveDailyLogStatusFromTasks,
+  formatDecimalHoursAsClock,
+  getLocalTodayDateInput,
+  normalizeHoursClockInput,
+  normalizeLogTaskStatus,
+  parseHoursClockToDecimal,
+} from '@/lib/daily-log-format';
+import {
+  getDailyLogTaskImportOptions,
+  getDailyLogTaskParticipants,
+  getDailyLogTaskReviewOptions,
+  mergeDailyLogTasksWithImports,
+  type DailyLogTaskImportOption,
+  type DailyLogTaskParticipant,
+} from '@/lib/daily-log-task-import';
+import { shouldOpenCreateFromSearch } from '@/lib/dashboard-deep-links';
+import {
+  canDeleteDailyLogComment,
+  getDailyLogCommentAuthorLabel,
+  getDailyLogCommentCount,
+} from '@/lib/daily-log-comments';
+import { getDailyLogReviewSummary } from '@/lib/daily-log-review';
+import { hasManagementAccess } from '@/lib/role-access';
+
+type DateFilter = 'today' | 'week' | 'month' | 'all';
+
+const INITIAL_STATUS_FILTERS: Record<LogStatus, boolean> = {
+  completed: true,
+  review: true,
+  'in-progress': true,
+  blocked: true,
+};
+
+const STATUS_FILTER_OPTIONS: Array<{ value: LogStatus; label: string }> = [
+  { value: 'completed', label: 'Completed' },
+  { value: 'review', label: 'Review' },
+  { value: 'in-progress', label: 'In Progress' },
+  { value: 'blocked', label: 'Blocked' },
+];
+
+export default function DailyLogsPage() {
+  const toast = useToast();
+  const { user: currentUser } = useUser();
+  const currentUserDepartment = currentUser?.department;
+  const canReviewTeamLogs = hasManagementAccess(currentUser);
+  const queryClient = useQueryClient();
+  const { data: logs = [], isLoading: loading } = useDailyLogs();
+  const currentUserId = currentUser?.id ? String(currentUser.id) : '';
+  const {
+    data: trackedTasks = [],
+    isLoading: trackedTasksLoading,
+  } = useTasks(undefined, undefined, {
+    enabled: Boolean(currentUserId),
+  });
+  const [showModal, setShowModal] = useState(false);
+  const [editingLog, setEditingLog] = useState<DailyLog | null>(null);
+  const [openCommentsLogId, setOpenCommentsLogId] = useState<string | null>(null);
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [commentSubmittingLogId, setCommentSubmittingLogId] = useState<string | null>(null);
+  const handledNewLogDeepLinkRef = useRef(false);
+
+  // Filters
+  const [dateFilter, setDateFilter] = useState<DateFilter>('today');
+  const [departmentFilter, setDepartmentFilter] = useState<string>(DEPARTMENTS[0]);
+  const [userFilter, setUserFilter] = useState<string>('all');
+  const [statusFilters, setStatusFilters] = useState<Record<LogStatus, boolean>>(INITIAL_STATUS_FILTERS);
+  const [logTypeFilter, setLogTypeFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 15;
+
+  // Form state
+  const [formDate, setFormDate] = useState(getLocalTodayDateInput);
+  const [formHours, setFormHours] = useState(() => formatDecimalHoursAsClock(8));
+  const [formHoursError, setFormHoursError] = useState('');
+  const [formTasks, setFormTasks] = useState<LogTask[]>([]);
+  const [formTaskInput, setFormTaskInput] = useState('');
+  const [formShiftNotes, setFormShiftNotes] = useState('');
+  const [formLogType, setFormLogType] = useState<string>('daily');
+  const taskImportOptions = useMemo(
+    () => getDailyLogTaskImportOptions(trackedTasks, {
+      currentUserId,
+      selectedDate: formDate,
+      existingTasks: formTasks,
+    }),
+    [currentUserId, formDate, formTasks, trackedTasks],
+  );
+  const taskReviewOptions = useMemo(
+    () => getDailyLogTaskReviewOptions(trackedTasks, {
+      currentUserId,
+      selectedDate: formDate,
+      existingTasks: formTasks,
+    }),
+    [currentUserId, formDate, formTasks, trackedTasks],
+  );
+  const taskLookup = useMemo(
+    () => new Map(trackedTasks.map((task) => [task.id, task])),
+    [trackedTasks],
+  );
+
+  // Set default department when user loads
+  useEffect(() => {
+    if (currentUserDepartment && !canReviewTeamLogs) {
+      setDepartmentFilter(previous => {
+        if (previous === DEPARTMENTS[0]) {
+          return currentUserDepartment;
+        }
+        return previous;
+      });
+    }
+  }, [canReviewTeamLogs, currentUserDepartment]);
+
+  useEffect(() => {
+    if (handledNewLogDeepLinkRef.current || typeof window === 'undefined') return;
+
+    if (shouldOpenCreateFromSearch(new URLSearchParams(window.location.search))) {
+      handledNewLogDeepLinkRef.current = true;
+      setEditingLog(null);
+      setShowModal(true);
+    }
+  }, []);
+
+
+
+  const users = getUniqueUsers(logs);
+  const reviewSummary = getDailyLogReviewSummary(logs, {
+    selectedUserId: userFilter === 'all' ? undefined : userFilter,
+  });
+  const todayStr = getLocalTodayDateInput();
+
+  function getParticipantLabel(participant: DailyLogTaskParticipant): string {
+    return participant.name || participant.email || 'Assigned user';
+  }
+
+  function formatParticipantSummary(participants: DailyLogTaskParticipant[]): string {
+    const labels = participants.map(getParticipantLabel);
+    if (labels.length <= 3) return labels.join(', ');
+    return `${labels.slice(0, 3).join(', ')} +${labels.length - 3}`;
+  }
+
+  // Filter logs
+  const filteredLogs = logs.filter(log => {
+    // Date filter
+    if (dateFilter === 'today') {
+      if (log.date !== todayStr) return false;
+    } else if (dateFilter === 'week') {
+      const weekLogs = getThisWeekLogs(logs);
+      if (!weekLogs.find(l => l.id === log.id)) return false;
+    } else if (dateFilter === 'month') {
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (log.date < fmt(firstDayOfMonth)) return false;
+    }
+
+    // Log type filter
+    if (logTypeFilter !== 'all' && log.logType !== logTypeFilter) return false;
+
+    // Department filter
+    if (departmentFilter !== 'All Departments' && log.department !== departmentFilter) return false;
+
+    // User filter
+    if (userFilter !== 'all' && log.authorId !== userFilter) return false;
+
+    // Status filter
+    if (!statusFilters[log.status]) return false;
+
+    // Search filter
+    if (searchQuery) {
+      const searchLower = searchQuery.toLowerCase();
+      const matchesAuthor = log.author.toLowerCase().includes(searchLower);
+      const matchesTasks = log.tasks.some(task => task.text.toLowerCase().includes(searchLower));
+      if (!matchesAuthor && !matchesTasks) return false;
+    }
+
+    return true;
+  });
+
+  const totalPages = Math.ceil(filteredLogs.length / PAGE_SIZE);
+  const paginatedLogs = filteredLogs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [dateFilter, departmentFilter, userFilter, statusFilters, logTypeFilter, searchQuery]);
+
+  if (loading) {
+    return (
+      <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
+        <div className="p-6 pt-3">
+          <Header title="Daily Logs" subtitle="Track daily progress and team activities" />
+          <DailyLogsSkeleton />
+        </div>
+      </main>
+    );
+  }
+
+  // Stats
+  const totalLogs = filteredLogs.length;
+  const weekLogs = getThisWeekLogs(logs).length;
+  const yourLogs = currentUser ? logs.filter(l => l.authorId === String(currentUser.id)).length : 0;
+  const todayLogs = logs.filter((log) => log.date === todayStr).length;
+  const reviewLogs = filteredLogs.filter((log) => log.status === 'review').length;
+
+  const handleAddTask = () => {
+    if (!formTaskInput.trim()) return;
+    const newTask: LogTask = {
+      id: `task-${Date.now()}`,
+      text: formTaskInput.trim(),
+      completed: false,
+      status: 'in_progress',
+    };
+    setFormTasks([...formTasks, newTask]);
+    setFormTaskInput('');
+  };
+
+  const handleToggleTask = (taskId: string) => {
+    setFormTasks(formTasks.map(task => {
+      if (task.id !== taskId) return task;
+      const completed = !task.completed;
+      return { ...task, completed, status: completed ? 'completed' : 'in_progress' };
+    }));
+  };
+
+  const handleRemoveTask = (taskId: string) => {
+    setFormTasks(formTasks.filter(task => task.id !== taskId));
+  };
+
+  const handleImportTask = (option: DailyLogTaskImportOption) => {
+    setFormTasks((tasks) => mergeDailyLogTasksWithImports(tasks, [option]));
+  };
+
+  const handleImportAllTasks = () => {
+    setFormTasks((tasks) => mergeDailyLogTasksWithImports(tasks, taskImportOptions));
+    if (taskImportOptions.length > 0) {
+      toast.success(`Imported ${taskImportOptions.length} task${taskImportOptions.length === 1 ? '' : 's'} from Task Tracking`);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (formTasks.length === 0) return;
+
+    try {
+      const parsedHours = parseHoursClockToDecimal(formHours);
+      if (parsedHours === null) {
+        setFormHoursError('Use HH:MM, for example 08:00.');
+        toast.error('Hours logged must use HH:MM format');
+        return;
+      }
+
+      const derivedStatus = deriveDailyLogStatusFromTasks(formTasks);
+      let savedLog: DailyLog | null = null;
+
+      if (editingLog) {
+        savedLog = await updateDailyLog(editingLog.id, {
+          date: formDate,
+          hoursLogged: parsedHours,
+          tasks: formTasks,
+          status: derivedStatus,
+          shiftNotes: formShiftNotes,
+          logType: formLogType,
+        });
+      } else {
+        savedLog = await createDailyLog({
+          date: formDate,
+          hoursLogged: parsedHours,
+          tasks: formTasks,
+          status: derivedStatus,
+          shiftNotes: formShiftNotes,
+          logType: formLogType,
+        });
+      }
+
+      if (!savedLog) {
+        throw new Error('Daily log save returned no data');
+      }
+
+      toast.success(editingLog ? 'Daily log updated successfully' : 'Daily log added successfully');
+      queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
+      resetForm();
+      setShowModal(false);
+    } catch (err) {
+      console.error('Failed to save log:', err);
+      toast.error('Failed to save log');
+    }
+  };
+
+  const resetForm = () => {
+    setFormDate(getLocalTodayDateInput());
+    setFormHours(formatDecimalHoursAsClock(8));
+    setFormHoursError('');
+    setFormTasks([]);
+    setFormTaskInput('');
+    setFormShiftNotes('');
+    setFormLogType('daily');
+    setEditingLog(null);
+  };
+
+  const handleLike = async (logId: string) => {
+    await toggleLogLike(logId);
+    queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
+  };
+
+  const handleToggleComments = (logId: string) => {
+    setOpenCommentsLogId(previous => previous === logId ? null : logId);
+  };
+
+  const handleCommentDraftChange = (logId: string, value: string) => {
+    setCommentDrafts(previous => ({ ...previous, [logId]: value }));
+  };
+
+  const handleAddComment = async (logId: string) => {
+    const text = (commentDrafts[logId] || '').trim();
+    if (!text) return;
+
+    try {
+      setCommentSubmittingLogId(logId);
+      const comment = await addDailyLogComment(logId, text);
+      if (!comment) {
+        throw new Error('Comment save returned no data');
+      }
+      setCommentDrafts(previous => ({ ...previous, [logId]: '' }));
+      setOpenCommentsLogId(logId);
+      queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
+      toast.success('Comment added');
+    } catch (error) {
+      console.error('Failed to add comment:', error);
+      toast.error('Failed to add comment');
+    } finally {
+      setCommentSubmittingLogId(null);
+    }
+  };
+
+  const handleDeleteComment = async (logId: string, commentId: string) => {
+    try {
+      const deleted = await deleteDailyLogComment(logId, commentId);
+      if (!deleted) {
+        throw new Error('Comment delete failed');
+      }
+      queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
+      toast.success('Comment deleted');
+    } catch (error) {
+      console.error('Failed to delete comment:', error);
+      toast.error('Failed to delete comment');
+    }
+  };
+
+  const formatCommentTimestamp = (timestamp: string) => {
+    const parsed = new Date(timestamp);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
+  const derivedFormStatus = deriveDailyLogStatusFromTasks(formTasks);
+
+  return (
+    <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
+      <div className="p-6 pt-3">
+        <Header
+          title="Daily Logs"
+          subtitle="Track daily progress and team activities"
+        />
+
+        <section className="mt-6 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-[var(--foreground)]">Log today's work before review</div>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+                Create the daily record first, then use filters when you need to audit older logs or team activity.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={() => setShowModal(true)}>
+                Add Log
+              </Button>
+              <Button variant="secondary" icon={<ClipboardList className="w-4 h-4" />} onClick={() => setDateFilter('today')}>
+                Show Today
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {[
+              { label: "Today", value: todayLogs, caption: "Logs submitted" },
+              { label: "Your logs", value: yourLogs, caption: "Personal history" },
+              { label: "Review", value: reviewLogs, caption: "Awaiting check" },
+            ].map((item) => (
+              <div key={item.label} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2">
+                <div className="text-xs text-[var(--muted)]">{item.label}</div>
+                <div className="mt-1 flex items-end justify-between gap-3">
+                  <span className="font-mono text-2xl font-semibold tabular-nums">{item.value}</span>
+                  <span className="text-xs text-[var(--muted)]">{item.caption}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <div className="mt-6 grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
+          {/* Filters Sidebar */}
+          <div className="order-2 min-w-0 lg:order-1">
+            <div className="bg-[var(--card-bg)] border border-[var(--border)] rounded-lg p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-sm">Filters</h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDateFilter('today');
+                    setDepartmentFilter(DEPARTMENTS[0]);
+                    setUserFilter('all');
+                    setStatusFilters({ ...INITIAL_STATUS_FILTERS });
+                    setSearchQuery('');
+                  }}
+                >
+                  Reset
+                </Button>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Date Range</label>
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value as DateFilter)}
+                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-sm [color-scheme:light] dark:[color-scheme:dark]"
+                  aria-label="Date Range"
+                >
+                  <option value="today">Today</option>
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
+                  <option value="all">All Time</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Department</label>
+                <select
+                  value={departmentFilter}
+                  onChange={(e) => setDepartmentFilter(e.target.value)}
+                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-sm [color-scheme:light] dark:[color-scheme:dark]"
+                  aria-label="Department"
+                >
+                  {DEPARTMENTS.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Team Member</label>
+                <select
+                  value={userFilter}
+                  onChange={(e) => setUserFilter(e.target.value)}
+                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-sm [color-scheme:light] dark:[color-scheme:dark]"
+                  aria-label="Team Member"
+                >
+                  <option value="all">All Members</option>
+                  {users.map(user => (
+                    <option key={user.id} value={user.id}>{user.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Log Type</label>
+                <select
+                  value={logTypeFilter}
+                  onChange={(e) => setLogTypeFilter(e.target.value)}
+                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-sm [color-scheme:light] dark:[color-scheme:dark]"
+                  aria-label="Log Type"
+                >
+                  <option value="all">All Types</option>
+                  <option value="daily">Daily / EOD</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Status</label>
+                <div className="space-y-2">
+                  {STATUS_FILTER_OPTIONS.map((option) => (
+                    <label key={option.value} className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] px-2">
+                      <input
+                        type="checkbox"
+                        checked={statusFilters[option.value]}
+                        onChange={(e) => setStatusFilters({ ...statusFilters, [option.value]: e.target.checked })}
+                        className="w-4 h-4 rounded [color-scheme:light] dark:[color-scheme:dark]"
+                      />
+                      <span className="text-sm">{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-[var(--border)]">
+                <h3 className="font-semibold text-sm mb-3">Quick Stats</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-[var(--muted)]">Total Logs</span>
+                    <span className="font-semibold">{totalLogs}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--muted)]">This Week</span>
+                    <span className="font-semibold">{weekLogs}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--muted)]">Your Logs</span>
+                    <span className="font-semibold">{yourLogs}</span>
+                  </div>
+                </div>
+              </div>
+
+              {canReviewTeamLogs && (
+                <div className="pt-4 border-t border-[var(--border)]">
+                  <h3 className="font-semibold text-sm mb-3">Manager Review</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-[var(--muted)]">Reviewed Logs</span>
+                      <span className="font-semibold">{reviewSummary.totalLogs}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[var(--muted)]">Completed</span>
+                      <span className="font-semibold">{reviewSummary.completedLogs}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[var(--muted)]">Blocked</span>
+                      <span className="font-semibold">{reviewSummary.blockedLogs}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[var(--muted)]">Linked Tasks</span>
+                      <span className="font-semibold">{reviewSummary.linkedTaskCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[var(--muted)]">Hours</span>
+                      <span className="font-semibold">{reviewSummary.totalHours}</span>
+                    </div>
+                    <div className="text-xs text-[var(--muted)]">
+                      Last log: {reviewSummary.lastLogDate || 'No logs yet'}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Main Content */}
+          <div className="order-1 min-w-0 lg:order-2">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative min-w-0 flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
+                <input
+                  type="text"
+                  placeholder="Search logs by keyword, task, or person..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] dark:[color-scheme:dark]"
+                />
+              </div>
+              <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={() => setShowModal(true)}>
+                Add Log
+              </Button>
+            </div>
+
+            {/* Log Entries */}
+            <div className="h-[calc(100vh-12rem)] space-y-4 overflow-y-auto pr-2 pb-24 chat-scroll">
+              {filteredLogs.length === 0 ? (
+                <EmptyState
+                  icon={FileText}
+                  title="No logs found"
+                  description="Get started by creating your first daily log"
+                  actionLabel="Create your first log"
+                  onAction={() => setShowModal(true)}
+                />
+              ) : (
+                <>
+                  {paginatedLogs.map(log => (
+                  <div key={log.id} className="min-w-0 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4 transition hover:shadow-sm sm:p-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                      {/* Avatar */}
+                      <div className="w-12 h-12 rounded-full bg-[var(--card-surface)] flex items-center justify-center font-semibold flex-shrink-0">
+                        {log.author.charAt(0)}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        {/* Header */}
+                        <div className="mb-2 flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h2 className="font-semibold">{log.author}</h2>
+                              <StatusBadge status={log.status} size="md" />
+                            </div>
+                            <div className="mt-1 text-sm text-[var(--muted)]">
+                              {log.department} • {formatLogDate(log.date)} • <span className="capitalize">{log.logType}</span>
+                            </div>
+                          </div>
+                          <button type="button" aria-label={`Open actions for ${log.author}'s log`} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]">⋮</button>
+                        </div>
+
+                        {/* Tasks */}
+                        <div className="mb-4">
+                          <div className="text-sm font-medium mb-2">What I Did Today:</div>
+                          <div className="space-y-1">
+                            {log.tasks.map(task => {
+                              const taskStatus = normalizeLogTaskStatus(task);
+                              const linkedTaskId = task.sourceTaskId || (task.id.startsWith('task:') ? task.id.slice('task:'.length) : '');
+                              const linkedTask = linkedTaskId ? taskLookup.get(linkedTaskId) : undefined;
+                              const taskParticipants = linkedTask
+                                ? getDailyLogTaskParticipants(linkedTask)
+                                : task.participants || [];
+
+                              return (
+                                <div key={task.id} className="flex items-start gap-2 text-sm">
+                                  {taskStatus === 'completed' ? (
+                                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                                  ) : (
+                                    <div className="w-4 h-4 rounded-full border-2 border-[var(--border)] flex-shrink-0 mt-0.5" />
+                                  )}
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className={taskStatus === 'completed' ? 'line-through text-[var(--muted)]' : ''}>
+                                        {task.text}
+                                      </span>
+                                      <StatusBadge status={taskStatus} size="sm" />
+                                    </div>
+                                    {linkedTaskId && (
+                                      <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-[var(--muted)]">
+                                        <span className="rounded bg-sky-500/10 px-1.5 py-0.5 text-sky-600 dark:text-sky-300">
+                                          Task Tracking
+                                        </span>
+                                        {linkedTask?.workSessions?.length ? (
+                                          <span>
+                                            {linkedTask.workSessions.length} session{linkedTask.workSessions.length === 1 ? '' : 's'}
+                                          </span>
+                                        ) : task.sessionCount ? (
+                                          <span>{task.sessionCount} session{task.sessionCount === 1 ? '' : 's'}</span>
+                                        ) : null}
+                                        {taskParticipants.length > 1 ? (
+                                          <span
+                                            className="rounded bg-[var(--card-surface)] px-1.5 py-0.5"
+                                            aria-label={`Task participants: ${taskParticipants.map(getParticipantLabel).join(', ')}`}
+                                          >
+                                            Team: {formatParticipantSummary(taskParticipants)}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* EOD Shift Notes */}
+                        {log.shiftNotes && (
+                          <div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1.5">
+                              <StickyNote className="w-3.5 h-3.5" />
+                              EOD Shift Notes
+                            </div>
+                            <p className="text-sm text-[var(--foreground)] whitespace-pre-wrap leading-relaxed">
+                              {log.shiftNotes}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Footer Stats */}
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--muted)]">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            <span>{log.hoursLogged} hours logged</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>{getCompletedTasksCount(log)} tasks completed</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleLike(log.id)}
+                            className={`flex min-h-10 items-center gap-1 rounded-[var(--radius-md)] px-2 transition hover:bg-[var(--card-surface)] hover:text-[var(--foreground)] ${currentUser && log.likes.includes(String(currentUser.id)) ? 'text-red-500' : ''}`}
+                          >
+                            <ThumbsUp className={`w-4 h-4 ${currentUser && log.likes.includes(String(currentUser.id)) ? 'fill-current' : ''}`} />
+                            <span>{log.likes.length} {log.likes.length === 1 ? 'like' : 'likes'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleComments(log.id)}
+                            aria-expanded={openCommentsLogId === log.id}
+                            aria-controls={`daily-log-comments-${log.id}`}
+                            className="flex min-h-10 items-center gap-1 rounded-[var(--radius-md)] px-2 transition hover:bg-[var(--card-surface)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            <span>{getDailyLogCommentCount(log)} {getDailyLogCommentCount(log) === 1 ? 'comment' : 'comments'}</span>
+                          </button>
+                        </div>
+
+                        {openCommentsLogId === log.id && (
+                          <div
+                            id={`daily-log-comments-${log.id}`}
+                            className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--card-surface)] p-3"
+                          >
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                              <h3 className="text-sm font-semibold text-[var(--foreground)]">Comments</h3>
+                              <span className="text-xs text-[var(--muted)]">
+                                {getDailyLogCommentCount(log)} total
+                              </span>
+                            </div>
+
+                            {log.comments.length === 0 ? (
+                              <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--border)] px-3 py-4 text-sm text-[var(--muted)]">
+                                No comments yet.
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {log.comments.map(comment => (
+                                  <div key={comment.id} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background)] p-3">
+                                    <div className="mb-1 flex items-start justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <div className="truncate text-sm font-semibold">
+                                          {getDailyLogCommentAuthorLabel(comment, currentUserId || null)}
+                                        </div>
+                                        <div className="text-xs text-[var(--muted)]">
+                                          {formatCommentTimestamp(comment.createdAt)}
+                                        </div>
+                                      </div>
+                                      {canDeleteDailyLogComment(comment, currentUserId || null) && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteComment(log.id, comment.id)}
+                                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] text-[var(--muted)] transition hover:bg-red-500/10 hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/70"
+                                          aria-label="Delete comment"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      )}
+                                    </div>
+                                    <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--foreground)]">
+                                      {comment.text}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                              <label className="sr-only" htmlFor={`daily-log-comment-input-${log.id}`}>
+                                Add a comment
+                              </label>
+                              <input
+                                id={`daily-log-comment-input-${log.id}`}
+                                type="text"
+                                value={commentDrafts[log.id] || ''}
+                                onChange={(event) => handleCommentDraftChange(log.id, event.target.value)}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter' && !event.shiftKey) {
+                                    event.preventDefault();
+                                    handleAddComment(log.id);
+                                  }
+                                }}
+                                placeholder="Add a comment..."
+                                className="min-h-10 flex-1 rounded border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm [color-scheme:light] dark:[color-scheme:dark]"
+                              />
+                              <Button
+                                variant="primary"
+                                onClick={() => handleAddComment(log.id)}
+                                disabled={commentSubmittingLogId === log.id || !(commentDrafts[log.id] || '').trim()}
+                                icon={<Send className="w-4 h-4" />}
+                              >
+                                Send
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                  <Pagination
+                    page={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    total={filteredLogs.length}
+                    className="mt-6"
+                  />
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Add/Edit Log Modal */}
+        <Modal
+          isOpen={showModal}
+          onClose={() => {
+            setShowModal(false);
+            resetForm();
+          }}
+          title={editingLog ? "Edit Daily Log" : "Add Daily Log"}
+          size="lg"
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                id="log-date"
+                label="Date"
+                type="date"
+                value={formDate}
+                onChange={setFormDate}
+                icon={Clock}
+                labelAction={
+                  <button
+                    type="button"
+                    onClick={() => setFormDate(getLocalTodayDateInput())}
+                    className="text-xs font-semibold text-[var(--accent)] transition-colors hover:text-[var(--accent-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card-bg)]"
+                  >
+                    Today
+                  </button>
+                }
+              />
+              <FormField
+                id="log-hours"
+                label="Hours Logged"
+                type="text"
+                value={formHours}
+                onChange={(val) => {
+                  setFormHours(val);
+                  if (formHoursError) setFormHoursError('');
+                }}
+                onBlur={() => {
+                  const normalized = normalizeHoursClockInput(formHours);
+                  if (normalized === null) {
+                    setFormHoursError('Use HH:MM, for example 08:00.');
+                    return;
+                  }
+                  setFormHours(normalized || '00:00');
+                  setFormHoursError('');
+                }}
+                error={formHoursError}
+                placeholder="08:00"
+                inputMode="decimal"
+                helperText="Use HH:MM."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Log Type</label>
+              <select
+                value={formLogType}
+                onChange={(e) => setFormLogType(e.target.value)}
+                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] dark:[color-scheme:dark]"
+                aria-label="Log Type"
+              >
+                <option value="daily">Daily / EOD</option>
+                <option value="weekly">End of Week</option>
+                <option value="monthly">End of Month</option>
+              </select>
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-medium">Tasks Logged Today</label>
+                <StatusBadge status={derivedFormStatus} size="sm" />
+              </div>
+              <div className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--card-surface)] p-3">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2">
+                    <ClipboardList className="mt-0.5 h-4 w-4 text-[var(--accent)]" />
+                    <div>
+                      <div className="text-sm font-medium">Import from Task Tracking</div>
+                      <p className="mt-0.5 text-xs text-[var(--muted)]">
+                        Completed and in-progress tasks assigned to or shared with you for {formDate}. Review-stage tasks appear below.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleImportAllTasks}
+                    disabled={taskImportOptions.length === 0}
+                  >
+                    Import All
+                  </Button>
+                </div>
+
+                {trackedTasksLoading ? (
+                  <div className="text-xs text-[var(--muted)]">Checking your assigned and shared tasks...</div>
+                ) : taskImportOptions.length === 0 ? (
+                  <div className="text-xs text-[var(--muted)]">
+                    No matching task-tracking items found for this date. You can still add work manually below.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {taskImportOptions.map(option => (
+                      <div
+                        key={option.id}
+                        className="flex items-center justify-between gap-3 rounded border border-[var(--border)] bg-[var(--background)] px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium">{option.text}</div>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                            <StatusBadge status={option.status === 'in_progress' ? 'in-progress' : option.status} size="sm" />
+                            {typeof option.progress === 'number' && (
+                              <span>{option.progress}% progress</span>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleImportTask(option)}
+                        >
+                          Import
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {taskReviewOptions.length > 0 && (
+                  <div className="mt-3 border-t border-[var(--border)] pt-3">
+                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+                      Optional review-stage tasks
+                    </div>
+                    <div className="space-y-2">
+                      {taskReviewOptions.map(option => (
+                        <div
+                          key={option.id}
+                          className="flex items-center justify-between gap-3 rounded border border-amber-500/20 bg-amber-500/10 px-3 py-2"
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium">{option.text}</div>
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                              <span className="text-amber-600 dark:text-amber-300">Review</span>
+                              {typeof option.progress === 'number' && (
+                                <span>{option.progress}% progress</span>
+                              )}
+                              {option.sessionCount ? (
+                                <span>{option.sessionCount} session{option.sessionCount === 1 ? '' : 's'}</span>
+                              ) : null}
+                              {option.trackedMinutes ? (
+                                <span>{option.trackedMinutes}m tracked</span>
+                              ) : null}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleImportTask(option)}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  value={formTaskInput}
+                  onChange={(e) => setFormTaskInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTask())}
+                  placeholder="Add a task..."
+                  className="flex-1 p-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] dark:[color-scheme:dark]"
+                />
+                <Button variant="secondary" onClick={handleAddTask}>
+                  Add
+                </Button>
+              </div>
+
+              <div className="space-y-2 max-h-64 overflow-y-auto chat-scroll">
+                {formTasks.map(task => {
+                  const taskStatus = normalizeLogTaskStatus(task);
+
+                  return (
+                    <div key={task.id} className="flex items-center gap-2 rounded bg-[var(--card-surface)] p-2">
+                      <input
+                        type="checkbox"
+                        checked={taskStatus === 'completed'}
+                        onChange={() => handleToggleTask(task.id)}
+                        className="w-4 h-4 rounded [color-scheme:light] dark:[color-scheme:dark]"
+                        aria-label="Mark task as completed"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`text-sm ${taskStatus === 'completed' ? 'line-through text-[var(--muted)]' : ''}`}>
+                            {task.text}
+                          </span>
+                          <StatusBadge status={taskStatus} size="sm" />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTask(task.id)}
+                        className="min-h-10 rounded-[var(--radius-md)] px-2 text-sm text-red-500 hover:bg-red-500/10 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/70"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* EOD Shift Notes */}
+            <div>
+              <label className="block text-sm font-medium mb-1" htmlFor="shift-notes">
+                <span className="flex items-center gap-1.5">
+                  <StickyNote className="w-4 h-4 text-amber-500" />
+                  EOD Shift Notes
+                  <span className="text-[var(--muted)] font-normal text-xs">(optional)</span>
+                </span>
+              </label>
+              <textarea
+                id="shift-notes"
+                value={formShiftNotes}
+                onChange={(e) => setFormShiftNotes(e.target.value)}
+                placeholder="Summarize handover info, blockers, highlights, or anything the next shift should know..."
+                rows={4}
+                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-sm resize-none [color-scheme:light] dark:[color-scheme:dark]"
+              />
+            </div>
+
+            <div className="flex gap-3 justify-end pt-4">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowModal(false);
+                  resetForm();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="success"
+                onClick={handleSubmit}
+                disabled={formTasks.length === 0}
+                icon={<Plus className="w-4 h-4" />}
+              >
+                {editingLog ? 'Update Log' : 'Add Log'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      </div>
+    </main>
+  );
+}

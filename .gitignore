@@ -1,0 +1,19 @@
+# Playwright MCP logs/screenshots
+.playwright-mcp/
+.codex-run-logs/
+
+# Temporary debug scripts
+tmp/
+backend/debug_output.txt
+backend/final_list.txt
+
+# Root dependencies
+node_modules/
+
+# Root environment files
+.env
+.env.local
+.env.*.local
+.env.production
+
+.vercel

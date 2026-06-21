@@ -1,0 +1,896 @@
+"use client";
+
+import React, { useState, useCallback, useEffect, useMemo, useRef, useTransition } from "react";
+import dynamic from "next/dynamic";
+import Link from "next/link";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import Header from "@/components/Header";
+import Modal from "@/components/Modal";
+import Button from "@/components/Button";
+import FormField from "@/components/forms/FormField";
+import EmptyState from "@/components/ui/EmptyState";
+import { MembersPanelSkeleton, OperationsErrorState, OperationsGridSkeleton } from "@/components/operations/OperationsLoadingStates";
+import { useToast } from "@/components/ToastProvider";
+import { ArrowRight, Building, Plus, Trash2, UserPlus } from "lucide-react";
+import { apiFetch } from "@/lib/api";
+import { assignUserRole, removeUserRole } from "@/lib/users";
+import { useUser } from "@/contexts/UserContext";
+import { hasFullAccess } from "@/lib/role-access";
+import {
+  buildOperationsDepartmentCreatePayload,
+  deriveOperationsRolesFromDepartments,
+  fetchOperationsDepartments,
+  fetchOperationsMembers,
+  OPERATIONS_CACHE_GC_MS,
+  OPERATIONS_CORE_STALE_MS,
+  OPERATIONS_MEMBERS_STALE_MS,
+  OPERATIONS_QUERY_KEYS,
+  readCachedOperationsDepartments,
+  syncOperationsOrgCatalog,
+  type OperationsDepartment,
+  type OperationsRole,
+} from "@/lib/operations-data";
+import {
+  cacheOperationsTab,
+  getInitialOperationsTab,
+  markOperationsOrgCatalogSynced,
+  shouldAutoSyncOperationsOrgCatalog,
+  type OperationsTab,
+} from "@/lib/operations-session";
+import {
+  getClientPortalMembers,
+  getInternalOperationsMembers,
+  type MemberRoleAssignment,
+  type OperationsMember,
+} from "@/lib/member-role-management";
+
+const OperationsMembersPanel = dynamic(() => import("@/components/operations/OperationsMembersPanel"), {
+  loading: () => <MembersPanelSkeleton />,
+});
+const OperationsOrgChartPanel = dynamic(() => import("@/components/operations/OperationsOrgChartPanel"), {
+  loading: () => <MembersPanelSkeleton />,
+});
+const OperationsClientsPanel = dynamic(() => import("@/components/operations/OperationsClientsPanel"), {
+  loading: () => <MembersPanelSkeleton />,
+});
+
+type DeleteTarget =
+  | { type: 'department'; id: string; name: string; tasks: number; roles: number }
+  | { type: 'role'; id: string; name: string; departmentName?: string };
+
+const EMPTY_DEPARTMENTS: OperationsDepartment[] = [];
+const EMPTY_MEMBERS: OperationsMember[] = [];
+
+function scheduleOperationsMembersPrefetch(callback: () => void): () => void {
+  if (typeof window === 'undefined') return () => undefined;
+
+  const idleWindow = window as Window & {
+    requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+    cancelIdleCallback?: (handle: number) => void;
+  };
+
+  if (idleWindow.requestIdleCallback) {
+    const handle = idleWindow.requestIdleCallback(callback, { timeout: 3000 });
+    return () => idleWindow.cancelIdleCallback?.(handle);
+  }
+
+  const timeout = window.setTimeout(callback, 1200);
+  return () => window.clearTimeout(timeout);
+}
+
+export default function OperationsPage() {
+  const { user } = useUser();
+  const queryClient = useQueryClient();
+  const [showModal, setShowModal] = useState(false);
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<OperationsTab>(() => getInitialOperationsTab());
+  const [isTabPending, startTabTransition] = useTransition();
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+
+  // Form states
+  const [name, setName] = useState("");
+  const [roleName, setRoleName] = useState("");
+  const [roleDeptId, setRoleDeptId] = useState("");
+  const [wsName, setWsName] = useState("");
+  const [wsLogoUrl, setWsLogoUrl] = useState("");
+  const [wsLogoAlt, setWsLogoAlt] = useState("");
+  const [wsTagline, setWsTagline] = useState("");
+  const [wsSignInMessage, setWsSignInMessage] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [savingBranding, setSavingBranding] = useState(false);
+  const [syncingCatalog, setSyncingCatalog] = useState(false);
+  const catalogSyncAttemptedRef = useRef(false);
+  const toast = useToast();
+  const canManageOrgSettings = hasFullAccess(user);
+  const userId = user?.id != null ? String(user.id) : "";
+
+  const departmentsQuery = useQuery({
+    queryKey: OPERATIONS_QUERY_KEYS.departments,
+    queryFn: fetchOperationsDepartments,
+    staleTime: OPERATIONS_CORE_STALE_MS,
+    gcTime: OPERATIONS_CACHE_GC_MS,
+    placeholderData: keepPreviousData,
+  });
+  const membersQuery = useQuery({
+    queryKey: OPERATIONS_QUERY_KEYS.members,
+    queryFn: fetchOperationsMembers,
+    enabled: activeTab === 'members' || activeTab === 'org-chart' || activeTab === 'clients',
+    staleTime: OPERATIONS_MEMBERS_STALE_MS,
+    gcTime: OPERATIONS_CACHE_GC_MS,
+    placeholderData: keepPreviousData,
+  });
+
+  const departments = departmentsQuery.data ?? EMPTY_DEPARTMENTS;
+  const roles = useMemo(() => deriveOperationsRolesFromDepartments(departments), [departments]);
+  const members = (membersQuery.data ?? EMPTY_MEMBERS) as OperationsMember[];
+  const internalMembers = useMemo(() => getInternalOperationsMembers(members), [members]);
+  const clientMembers = useMemo(() => getClientPortalMembers(members), [members]);
+  const departmentsLoading = departmentsQuery.isPending && departments.length === 0;
+  const rolesLoading = departmentsLoading && roles.length === 0;
+  const membersLoading = membersQuery.isPending && members.length === 0;
+
+  const refreshCoreOperationsData = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEYS.departments });
+  }, [queryClient]);
+
+  useEffect(() => {
+    if (activeTab !== 'branding') return;
+
+    apiFetch('/workspace/public')
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json();
+        setWsName(data.name || "");
+        setWsLogoUrl(data.logoUrl || "");
+        setWsLogoAlt(data.logoAlt || "");
+        setWsTagline(data.tagline || "");
+        setWsSignInMessage(data.signInMessage || "");
+      })
+      .catch((error) => {
+        console.error(error);
+        toast.error("Workspace branding did not load");
+      });
+  }, [activeTab, toast]);
+
+  async function handleBrandingSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingBranding(true);
+    try {
+      const res = await apiFetch('/workspace', {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: wsName,
+          logoUrl: wsLogoUrl,
+          logoAlt: wsLogoAlt,
+          tagline: wsTagline,
+          signInMessage: wsSignInMessage,
+        }),
+      });
+      if (!res.ok) {
+        toast.error("Failed to update workspace branding");
+        return;
+      }
+
+      toast.success("Workspace branding updated. Reloading portal...");
+      window.setTimeout(() => window.location.reload(), 1200);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to save branding settings");
+    } finally {
+      setSavingBranding(false);
+    }
+  }
+
+  const syncOrgCatalog = useCallback(async (options: { showToast?: boolean } = {}) => {
+    if (!canManageOrgSettings || !userId) return false;
+
+    setSyncingCatalog(true);
+    try {
+      await syncOperationsOrgCatalog();
+      await refreshCoreOperationsData();
+      markOperationsOrgCatalogSynced(userId);
+      if (options.showToast) toast.success('Org chart departments and roles synced');
+      return true;
+    } catch (error) {
+      console.error(error);
+      if (options.showToast) toast.error('Failed to sync org chart');
+      return false;
+    } finally {
+      setSyncingCatalog(false);
+    }
+  }, [canManageOrgSettings, refreshCoreOperationsData, toast, userId]);
+
+  const prefetchOperationsTab = useCallback((tab: OperationsTab) => {
+    if (tab === 'departments') {
+      void queryClient.prefetchQuery({
+        queryKey: OPERATIONS_QUERY_KEYS.departments,
+        queryFn: fetchOperationsDepartments,
+        staleTime: OPERATIONS_CORE_STALE_MS,
+        gcTime: OPERATIONS_CACHE_GC_MS,
+      });
+      return;
+    }
+
+    if (tab === 'roles') {
+      void queryClient.prefetchQuery({
+        queryKey: OPERATIONS_QUERY_KEYS.departments,
+        queryFn: fetchOperationsDepartments,
+        staleTime: OPERATIONS_CORE_STALE_MS,
+        gcTime: OPERATIONS_CACHE_GC_MS,
+      });
+      return;
+    }
+
+    if (tab === 'members' || tab === 'org-chart' || tab === 'clients') {
+      void queryClient.prefetchQuery({
+        queryKey: OPERATIONS_QUERY_KEYS.members,
+        queryFn: fetchOperationsMembers,
+        staleTime: OPERATIONS_MEMBERS_STALE_MS,
+        gcTime: OPERATIONS_CACHE_GC_MS,
+      });
+      void queryClient.prefetchQuery({
+        queryKey: OPERATIONS_QUERY_KEYS.departments,
+        queryFn: fetchOperationsDepartments,
+        staleTime: OPERATIONS_CORE_STALE_MS,
+        gcTime: OPERATIONS_CACHE_GC_MS,
+      });
+    }
+  }, [queryClient]);
+
+  const selectTab = useCallback((tab: OperationsTab) => {
+    prefetchOperationsTab(tab);
+    cacheOperationsTab(tab);
+    startTabTransition(() => setActiveTab(tab));
+  }, [prefetchOperationsTab]);
+
+  useEffect(() => {
+    if (!canManageOrgSettings || !userId || catalogSyncAttemptedRef.current) return;
+    if (!departmentsQuery.isFetched || departmentsQuery.isError || departments.length > 0) return;
+    if (!shouldAutoSyncOperationsOrgCatalog(userId, canManageOrgSettings)) return;
+    catalogSyncAttemptedRef.current = true;
+    void syncOrgCatalog();
+  }, [
+    canManageOrgSettings,
+    departments.length,
+    departmentsQuery.isError,
+    departmentsQuery.isFetched,
+    syncOrgCatalog,
+    userId,
+  ]);
+
+  useEffect(() => {
+    if (departments.length > 0 || departmentsQuery.isFetched) return;
+
+    const cached = readCachedOperationsDepartments();
+    if (!cached) return;
+
+    queryClient.setQueryData(OPERATIONS_QUERY_KEYS.departments, cached.departments);
+  }, [departments.length, departmentsQuery.isFetched, queryClient]);
+
+  useEffect(() => {
+    if (!canManageOrgSettings || activeTab === 'members' || activeTab === 'org-chart' || activeTab === 'clients' || departmentsLoading || departmentsQuery.isError) return;
+    if (queryClient.getQueryData(OPERATIONS_QUERY_KEYS.members)) return;
+
+    return scheduleOperationsMembersPrefetch(() => {
+      void queryClient.prefetchQuery({
+        queryKey: OPERATIONS_QUERY_KEYS.members,
+        queryFn: fetchOperationsMembers,
+        staleTime: OPERATIONS_MEMBERS_STALE_MS,
+        gcTime: OPERATIONS_CACHE_GC_MS,
+      });
+    });
+  }, [activeTab, canManageOrgSettings, departmentsLoading, departmentsQuery.isError, queryClient]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) {
+      toast.error('Department name is required');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await apiFetch('/departments', {
+        method: 'POST',
+        body: JSON.stringify(buildOperationsDepartmentCreatePayload(name))
+      });
+
+      if (res.ok) {
+        setShowModal(false);
+        setName("");
+        toast.success('Department created successfully');
+        await queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEYS.departments });
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to create department');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRoleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!roleName.trim() || !roleDeptId) {
+      toast.error('Role name and Department are required');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await apiFetch('/roles', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: roleName.trim(),
+          departmentId: roleDeptId || undefined
+        })
+      });
+
+      if (res.ok) {
+        setShowRoleModal(false);
+        setRoleName("");
+        setRoleDeptId("");
+        toast.success('Role created successfully');
+        await refreshCoreOperationsData();
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to create role');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function openDepartmentDelete(department: OperationsDepartment) {
+    setDeleteTarget({
+      type: 'department',
+      id: department.id,
+      name: department.name,
+      tasks: department._count?.tasks || 0,
+      roles: department._count?.roles || 0,
+    });
+    setDeleteConfirmation("");
+  }
+
+  function openRoleDelete(role: OperationsRole) {
+    setDeleteTarget({
+      type: 'role',
+      id: role.id,
+      name: role.name,
+      departmentName: role.department?.name,
+    });
+    setDeleteConfirmation("");
+  }
+
+  async function handleDeleteConfirmed() {
+    if (!deleteTarget || deleteConfirmation !== deleteTarget.name) return;
+
+    setLoading(true);
+    try {
+      const endpoint = deleteTarget.type === 'department'
+        ? `/departments/${deleteTarget.id}`
+        : `/roles/${deleteTarget.id}`;
+      const res = await apiFetch(endpoint, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success(`${deleteTarget.type === 'department' ? 'Department' : 'Role'} deleted successfully`);
+        setDeleteTarget(null);
+        setDeleteConfirmation("");
+        await refreshCoreOperationsData();
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error(`Failed to delete ${deleteTarget.type}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleAssignMemberRole(userId: string, roleData: { role: string; departmentId?: string }) {
+    try {
+      await assignUserRole(userId, roleData);
+      toast.success('Member role updated');
+      await queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEYS.members });
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update member role');
+      throw error;
+    }
+  }
+
+  async function handleRemoveMemberRole(userId: string, assignment: MemberRoleAssignment) {
+    try {
+      await removeUserRole(userId, assignment);
+      toast.success('Member role removed');
+      await queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEYS.members });
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : 'Failed to remove member role');
+      throw error;
+    }
+  }
+
+  async function handleUpdateMemberManager(memberId: string, managerId: string | null) {
+    try {
+      const response = await apiFetch(`/users/${memberId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ managerId }),
+      });
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.error || 'Failed to update reporting line');
+      }
+
+      toast.success('Reporting line updated');
+      await queryClient.invalidateQueries({ queryKey: OPERATIONS_QUERY_KEYS.members });
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update reporting line');
+      throw error;
+    }
+  }
+
+  return (
+    <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
+      <div className="p-6 pt-0">
+        <Header
+          title="Operations"
+          subtitle="Manage departments, members, and operational roles."
+        />
+
+        <div className="mt-6">
+          <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-[var(--border)] pb-3" role="tablist" aria-label="Operations sections">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'departments'}
+              onMouseEnter={() => prefetchOperationsTab('departments')}
+              onFocus={() => prefetchOperationsTab('departments')}
+              onClick={() => selectTab('departments')}
+              className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'departments' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
+            >
+              Departments
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'roles'}
+              onMouseEnter={() => prefetchOperationsTab('roles')}
+              onFocus={() => prefetchOperationsTab('roles')}
+              onClick={() => selectTab('roles')}
+              className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'roles' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
+            >
+              Roles
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'members'}
+              onMouseEnter={() => prefetchOperationsTab('members')}
+              onFocus={() => prefetchOperationsTab('members')}
+              onClick={() => selectTab('members')}
+              className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'members' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
+            >
+              Members
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'org-chart'}
+              onMouseEnter={() => prefetchOperationsTab('org-chart')}
+              onFocus={() => prefetchOperationsTab('org-chart')}
+              onClick={() => selectTab('org-chart')}
+              className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'org-chart' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
+            >
+              Org Chart
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'clients'}
+              onClick={() => selectTab('clients')}
+              className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'clients' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
+            >
+              Clients
+            </button>
+            {canManageOrgSettings ? (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'branding'}
+                onClick={() => selectTab('branding')}
+                className={`min-h-10 rounded-[var(--radius-md)] border px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'branding' ? 'border-[var(--accent)] bg-[var(--card-surface)] text-[var(--accent)]' : 'border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)]'}`}
+              >
+                Branding
+              </button>
+            ) : null}
+            {isTabPending ? (
+              <span className="ml-auto inline-flex items-center gap-2 text-xs text-[var(--muted)]">
+                <span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" aria-hidden="true" />
+                Preparing section
+              </span>
+            ) : null}
+          </div>
+
+          <div className="flex gap-3 mb-6">
+            {activeTab === 'departments' ? (
+              <>
+                <Button
+                  variant="primary"
+                  icon={<Plus className="w-4 h-4" />}
+                  onClick={() => setShowModal(true)}
+                >
+                  Add Department
+                </Button>
+                {canManageOrgSettings ? (
+                  <Button
+                    variant="secondary"
+                    loading={syncingCatalog}
+                    onClick={() => {
+                      void syncOrgCatalog({ showToast: true });
+                    }}
+                  >
+                    Sync Org Chart
+                  </Button>
+                ) : null}
+              </>
+            ) : activeTab === 'roles' ? (
+              <>
+                <Button
+                  variant="primary"
+                  icon={<Plus className="w-4 h-4" />}
+                  onClick={() => setShowRoleModal(true)}
+                >
+                  Add Role
+                </Button>
+                {canManageOrgSettings ? (
+                  <Button
+                    variant="secondary"
+                    loading={syncingCatalog}
+                    onClick={() => {
+                      void syncOrgCatalog({ showToast: true });
+                    }}
+                  >
+                    Sync Org Chart
+                  </Button>
+                ) : null}
+              </>
+            ) : activeTab === 'members' || activeTab === 'org-chart' ? (
+              <Link
+                href="/operations/onboarding"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] shadow-[0_12px_32px_-22px_var(--accent)] transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-105 active:translate-y-px"
+              >
+                <UserPlus className="h-4 w-4" aria-hidden="true" />
+                Onboard Member
+              </Link>
+            ) : activeTab === 'clients' ? (
+              <Link
+                href="/operations/clients/accounts"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] shadow-[0_12px_32px_-22px_var(--accent)] transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-105 active:translate-y-px"
+              >
+                Open Client Accounts
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            ) : activeTab === 'branding' ? (
+              <Button type="submit" form="workspace-branding-form" variant="primary" loading={savingBranding}>
+                Save Branding Settings
+              </Button>
+            ) : null}
+          </div>
+
+          {activeTab === 'departments' ? (
+            departmentsLoading ? (
+              <OperationsGridSkeleton label="Loading departments" variant="department" />
+            ) : departmentsQuery.isError ? (
+              <OperationsErrorState
+                title="Departments did not load"
+                description={departmentsQuery.error instanceof Error ? departmentsQuery.error.message : "Refresh this section to try again."}
+                onRetry={() => void departmentsQuery.refetch()}
+              />
+            ) : departments.length === 0 ? (
+              <EmptyState
+                icon={Building}
+                title="No departments yet"
+                description="Create your first department to organize your company structure."
+                actionLabel="Create first department"
+                onAction={() => setShowModal(true)}
+              />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {departments.map((dept) => (
+                  <div key={dept.id} className="p-5 rounded-lg border bg-[var(--card-surface)] flex flex-col justify-between min-h-32">
+                    <div className="flex justify-between items-start">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-[var(--card-bg)] flex items-center justify-center text-[var(--muted)]">
+                          <Building className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate text-lg font-bold">{dept.name}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between gap-3 text-sm text-[var(--muted)]">
+                      <div className="flex min-w-0 flex-wrap gap-2">
+                        <span className="rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs">
+                          {dept._count?.roles ?? 0} roles
+                        </span>
+                        <span className="rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs">
+                          {dept._count?.tasks ?? 0} tasks
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => openDepartmentDelete(dept)}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded text-red-500 hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 dark:hover:bg-red-900/30"
+                        aria-label={`Delete ${dept.name}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : activeTab === 'roles' ? (
+            rolesLoading ? (
+              <OperationsGridSkeleton label="Loading roles" variant="role" />
+            ) : departmentsQuery.isError ? (
+              <OperationsErrorState
+                title="Roles did not load"
+                description={departmentsQuery.error instanceof Error ? departmentsQuery.error.message : "Refresh this section to try again."}
+                onRetry={() => void departmentsQuery.refetch()}
+              />
+            ) : roles.length === 0 ? (
+              <EmptyState
+                icon={Building}
+                title="No roles yet"
+                description="Define roles that can be assigned to users in different departments."
+                actionLabel="Define first role"
+                onAction={() => setShowRoleModal(true)}
+              />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {roles.map((role) => (
+                  <div key={role.id} className="p-5 rounded-lg border bg-[var(--card-surface)] flex flex-col justify-between h-32">
+                    <div>
+                      <div className="font-bold text-lg">{role.name}</div>
+                      <div className="text-xs text-[var(--muted)]">
+                        {role.department ? `Department: ${role.department.name}` : 'Global Role'}
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => openRoleDelete(role)}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded text-red-500 hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 dark:hover:bg-red-900/30"
+                        aria-label={`Delete role ${role.name}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : activeTab === 'members' ? (
+            membersLoading ? (
+              <MembersPanelSkeleton />
+            ) : membersQuery.isError ? (
+              <OperationsErrorState
+                title="Members did not load"
+                description={membersQuery.error instanceof Error ? membersQuery.error.message : "Refresh this section to try again."}
+                onRetry={() => void membersQuery.refetch()}
+              />
+            ) : (
+              <OperationsMembersPanel
+                members={internalMembers}
+                availableRoles={roles}
+                canManageMembers={canManageOrgSettings && !rolesLoading && !departmentsQuery.isError}
+                onAssignRole={handleAssignMemberRole}
+                onRemoveRole={handleRemoveMemberRole}
+              />
+            )
+          ) : activeTab === 'org-chart' ? (
+            membersLoading ? (
+              <MembersPanelSkeleton />
+            ) : membersQuery.isError ? (
+              <OperationsErrorState
+                title="Organization chart did not load"
+                description={membersQuery.error instanceof Error ? membersQuery.error.message : "Refresh this section to try again."}
+                onRetry={() => void membersQuery.refetch()}
+              />
+            ) : (
+              <OperationsOrgChartPanel
+                members={internalMembers}
+                canManageMembers={canManageOrgSettings}
+                onUpdateManager={handleUpdateMemberManager}
+              />
+            )
+          ) : activeTab === 'clients' ? (
+            membersLoading ? (
+              <MembersPanelSkeleton />
+            ) : membersQuery.isError ? (
+              <OperationsErrorState
+                title="Clients did not load"
+                description={membersQuery.error instanceof Error ? membersQuery.error.message : "Refresh this section to try again."}
+                onRetry={() => void membersQuery.refetch()}
+              />
+            ) : (
+              <OperationsClientsPanel clients={clientMembers} />
+            )
+          ) : activeTab === 'branding' ? (
+            <form id="workspace-branding-form" onSubmit={handleBrandingSave} className="space-y-5 rounded-lg border border-[var(--border)] bg-[var(--card-surface)] p-5">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--foreground)]">Workspace Branding</h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">Control the public portal name, sign-in message, and logo shown around the workspace.</p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField
+                  id="workspace-name"
+                  label="Workspace Name"
+                  value={wsName}
+                  onChange={setWsName}
+                  placeholder="Deskii"
+                />
+                <FormField
+                  id="workspace-logo-url"
+                  label="Logo URL"
+                  value={wsLogoUrl}
+                  onChange={setWsLogoUrl}
+                  placeholder="/deskii-logo.svg"
+                />
+                <FormField
+                  id="workspace-logo-alt"
+                  label="Logo Alt Text"
+                  value={wsLogoAlt}
+                  onChange={setWsLogoAlt}
+                  placeholder="Deskii"
+                />
+                <FormField
+                  id="workspace-tagline"
+                  label="Tagline"
+                  value={wsTagline}
+                  onChange={setWsTagline}
+                  placeholder="Secure workspace operations"
+                />
+              </div>
+              <FormField
+                id="workspace-sign-in-message"
+                label="Sign-In Message"
+                value={wsSignInMessage}
+                onChange={setWsSignInMessage}
+                placeholder="Welcome back to your operations hub."
+              />
+            </form>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Add Department Modal */}
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Add Department"
+        size="md"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <FormField
+            id="dept-name"
+            label="Department Name"
+            value={name}
+            onChange={(value) => setName(value)}
+            placeholder="e.g., Logistics, Marketing"
+            required
+          />
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
+            <Button type="submit" variant="primary" loading={loading}>Create Department</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Role Modal */}
+      <Modal
+        isOpen={showRoleModal}
+        onClose={() => setShowRoleModal(false)}
+        title="Add Role"
+        size="md"
+      >
+        <form onSubmit={handleRoleSubmit} className="space-y-4">
+          <FormField
+            id="role-name"
+            label="Role Name"
+            value={roleName}
+            onChange={(value) => setRoleName(value)}
+            placeholder="e.g., Manager, Developer"
+            required
+          />
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Department <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={roleDeptId}
+              onChange={(e) => setRoleDeptId(e.target.value)}
+              className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] dark:[color-scheme:dark]"
+              aria-label="Department Attachment"
+              required
+            >
+              <option value="">Select Department</option>
+              {departments.map(dept => (
+                <option key={dept.id} value={dept.id}>{dept.name}</option>
+              ))}
+            </select>
+            <p className="text-xs text-[var(--muted)] mt-1 italic">Associate this role with a specific department or leave empty for a global role.</p>
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="secondary" onClick={() => setShowRoleModal(false)}>Cancel</Button>
+            <Button type="submit" variant="primary" loading={loading}>Create Role</Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => {
+          setDeleteTarget(null);
+          setDeleteConfirmation("");
+        }}
+        title={deleteTarget ? `Delete ${deleteTarget.type}` : "Delete"}
+        size="md"
+      >
+        {deleteTarget && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm">
+              <div className="font-semibold text-red-600 dark:text-red-400">
+                This action cannot be undone.
+              </div>
+              <p className="mt-2 text-[var(--foreground)]">
+                You are deleting <strong>{deleteTarget.name}</strong>.
+              </p>
+              {deleteTarget.type === 'department' && (
+                <p className="mt-2 text-[var(--muted)]">
+                  Current linked records: {deleteTarget.tasks} task{deleteTarget.tasks === 1 ? '' : 's'} and {deleteTarget.roles} user role{deleteTarget.roles === 1 ? '' : 's'}.
+                </p>
+              )}
+              {deleteTarget.type === 'role' && (
+                <p className="mt-2 text-[var(--muted)]">
+                  This removes the role option{deleteTarget.departmentName ? ` for ${deleteTarget.departmentName}` : ''}. Existing user assignments are not automatically changed.
+                </p>
+              )}
+            </div>
+
+            <FormField
+              id="delete-confirmation"
+              label={`Type "${deleteTarget.name}" to confirm`}
+              value={deleteConfirmation}
+              onChange={setDeleteConfirmation}
+              placeholder={deleteTarget.name}
+            />
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setDeleteConfirmation("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                icon={<Trash2 className="w-4 h-4" />}
+                onClick={handleDeleteConfirmed}
+                loading={loading}
+                disabled={deleteConfirmation !== deleteTarget.name}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </main>
+  );
+}

@@ -1,0 +1,157 @@
+
+import { apiFetch } from './api';
+
+export interface Message {
+    id: string;
+    conversationId: string;
+    senderId: string;
+    content: string;
+    attachment?: string;
+    editedAt?: string;
+    createdAt: string;
+    reactions?: MessageReaction[];
+    sender: {
+        id: string;
+        name: string;
+        avatar: string;
+        email: string;
+    };
+}
+
+export interface MessageReaction {
+    id: string;
+    messageId: string;
+    userId: string;
+    emoji: string;
+    createdAt?: string;
+    user?: {
+        id: string;
+        name: string | null;
+        avatar: string | null;
+        email: string;
+    };
+}
+
+export interface MessageReactionToggleResult {
+    messageId: string;
+    conversationId: string;
+    emoji: string;
+    userId: string;
+    active: boolean;
+    reactions: MessageReaction[];
+}
+
+export interface Conversation {
+    id: string;
+    type: 'direct' | 'group' | 'channel';
+    name?: string;
+    updatedAt: string;
+    archivedAt?: string | null;
+    unreadCount?: number;
+    participants: {
+        userId: string;
+        user: {
+            id: string;
+            name: string;
+            avatar: string;
+            email: string;
+        };
+    }[];
+    messages?: Message[];
+}
+
+export type ChatArchiveView = 'active' | 'archived' | 'all';
+
+export const fetchConversations = async (view: ChatArchiveView = 'active'): Promise<Conversation[]> => {
+    const res = await apiFetch(`/chat?view=${encodeURIComponent(view)}`);
+    return res.json();
+};
+
+export const fetchMessages = async (conversationId: string, limit = 50, cursor?: string): Promise<Message[]> => {
+    let url = `/chat/${conversationId}/messages?limit=${limit}`;
+    if (cursor) url += `&cursor=${cursor}`;
+    const res = await apiFetch(url);
+    const messages = await res.json();
+    return Array.isArray(messages) ? messages.reverse() : [];
+};
+
+export const sendMessage = async (conversationId: string, content: string, attachment?: string): Promise<Message> => {
+    const res = await apiFetch(`/chat/${conversationId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content, attachment }),
+    });
+    return res.json();
+};
+
+export const createConversation = async (type: 'direct' | 'group' | 'channel', participantIds: string[], name?: string): Promise<Conversation> => {
+    const res = await apiFetch('/chat', {
+        method: 'POST',
+        body: JSON.stringify({ type, participantIds, name }),
+    });
+    return res.json();
+};
+
+export const markAsRead = async (conversationId: string): Promise<void> => {
+    await apiFetch(`/chat/${conversationId}/read`, {
+        method: 'POST'
+    });
+};
+
+export const deleteMessage = async (messageId: string): Promise<void> => {
+    await apiFetch(`/chat/messages/${messageId}`, {
+        method: 'DELETE'
+    });
+};
+
+export const deleteConversation = async (conversationId: string): Promise<void> => {
+    await apiFetch(`/chat/${conversationId}`, {
+        method: 'DELETE'
+    });
+};
+
+export const archiveConversation = async (conversationId: string): Promise<void> => {
+    await apiFetch(`/chat/${conversationId}/archive`, {
+        method: 'POST'
+    });
+};
+
+export const unarchiveConversation = async (conversationId: string): Promise<void> => {
+    await apiFetch(`/chat/${conversationId}/unarchive`, {
+        method: 'POST'
+    });
+};
+
+export const editMessage = async (messageId: string, content: string): Promise<Message> => {
+    const res = await apiFetch(`/chat/messages/${messageId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ content }),
+    });
+    return res.json();
+};
+
+export const toggleMessageReaction = async (messageId: string, emoji: string): Promise<MessageReactionToggleResult> => {
+    const res = await apiFetch(`/chat/messages/${messageId}/reactions`, {
+        method: 'POST',
+        body: JSON.stringify({ emoji }),
+    });
+    return res.json();
+};
+
+export interface SearchResult {
+    id: string;
+    content: string;
+    createdAt: string;
+    sender: { id: string; name: string; avatar: string; email: string };
+    conversation: { id: string; name: string | null; type: string };
+}
+
+export const searchMessages = async (query: string): Promise<SearchResult[]> => {
+    const res = await apiFetch(`/chat/search?q=${encodeURIComponent(query)}`);
+    return res.json();
+};
+
+export const fetchOnlineUsers = async (): Promise<string[]> => {
+    const res = await apiFetch('/chat/online');
+    const data = await res.json();
+    return data.onlineUserIds ?? [];
+};

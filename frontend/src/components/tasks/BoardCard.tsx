@@ -1,0 +1,201 @@
+"use client";
+
+import React from "react";
+import Image from 'next/image';
+import Card from "@/components/Card";
+import {
+  Play,
+  Pause,
+  CheckCircle2,
+  RotateCcw,
+} from "lucide-react";
+import type { Task, TaskPriority } from "@/lib/tasks";
+import { useLiveElapsed } from "@/hooks/useLiveElapsed";
+import { TASK_QUICK_ACTION_LABELS, type TaskQuickAction } from "@/lib/task-status-actions";
+
+const PRIORITY_COLORS: Record<TaskPriority, string> = {
+  Low: "var(--priority-low)",
+  Med: "var(--priority-medium)",
+  High: "var(--priority-high)",
+};
+
+const formatTime = (seconds: number) => {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+};
+
+const formatMinutes = (minutes: number) => {
+  if (!minutes) return "0h";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h > 0) return `${h}h${m > 0 ? ` ${m}m` : ""}`;
+  return `${m}m`;
+};
+
+interface BoardCardProps {
+  task: Task;
+  onClick?: () => void;
+  onAction?: (e: React.MouseEvent, taskId: string, action: TaskQuickAction) => void;
+}
+
+function calcProgress(elapsedSecs: number, estimatedMinutes: number | undefined): number {
+  if (!estimatedMinutes) return 0;
+  return Math.min(100, Math.round((elapsedSecs / (estimatedMinutes * 60)) * 100));
+}
+
+export default function BoardCard({ task, onClick, onAction }: BoardCardProps) {
+  const assigneeName = task.assignee?.name || task.assignee?.email || "Unassigned";
+  const collaboratorCount = task.collaborators?.length || 0;
+  const liveElapsed = useLiveElapsed(task.timerStatus, task.timerStart, task.totalElapsed || 0);
+  const progress = task.status === 'completed' ? 100 : calcProgress(liveElapsed, task.estimatedTime);
+  const actionButtonClass =
+    "inline-flex min-h-10 items-center gap-1 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
+
+  return (
+    <Card
+      padding="sm"
+      className="mb-3 cursor-pointer motion-interactive motion-list-in hover:shadow-md group"
+      onClick={onClick}
+      data-task-id={task.id}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1">
+          <div className="font-medium text-sm text-[var(--foreground)] flex items-center gap-2">
+            <span
+              className={`priority-dot ${task.priority.toLowerCase()}`}
+              style={{ backgroundColor: PRIORITY_COLORS[task.priority] }}
+            />
+            {task.title}
+          </div>
+          {task.description ? (
+            <div className="text-xs text-[var(--muted)] mt-1 line-clamp-2">
+              {task.description}
+            </div>
+          ) : null}
+
+          {task.project?.name && (
+            <div className="mt-2 inline-flex max-w-full rounded border border-[var(--accent)]/30 bg-[var(--accent)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--accent)]">
+              <span className="truncate">{task.project.name}</span>
+            </div>
+          )}
+          {collaboratorCount > 0 && (
+            <div className="mt-2 inline-flex max-w-full rounded border border-[var(--border)] bg-[var(--card-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--muted)]">
+              +{collaboratorCount} collaborator{collaboratorCount === 1 ? "" : "s"}
+            </div>
+          )}
+
+          {/* Dates */}
+          {(task.startDate || task.dueDate) && (
+            <div className="mt-2 text-[10px] flex items-center gap-3 text-[var(--muted)]">
+              {task.startDate && (
+                <div>
+                  Start: <span className="text-[var(--foreground)]">{task.startDate}</span>
+                </div>
+              )}
+              {task.dueDate && (
+                <div className="text-[var(--status-blocked)]">
+                  Due: <span className="text-[var(--foreground)]">{task.dueDate}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Progress Bar */}
+          <div className="mt-3">
+            <div className="flex justify-end text-[10px] mb-1">
+              <span className="font-medium text-[var(--foreground)]">{progress}%</span>
+            </div>
+            <div className="w-full bg-[var(--border)] h-1 rounded-full overflow-hidden">
+              <div
+                className="bg-[var(--accent)] h-full motion-progress"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Time Tracking Comparison */}
+          <div className="mt-2 flex items-center justify-between text-[10px]">
+            <span className="text-[var(--muted)]">Time (Act/Est)</span>
+            <span
+              className={`font-medium ${
+                task.estimatedTime && liveElapsed / 60 > task.estimatedTime
+                  ? "text-red-500"
+                  : "text-[var(--foreground)]"
+              }`}
+            >
+              {formatTime(liveElapsed)} /{" "}
+              {task.estimatedTime ? formatMinutes(task.estimatedTime) : "-"}
+            </span>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-full bg-[var(--card-bg)] flex items-center justify-center text-[var(--muted)] border border-[var(--border)] overflow-hidden">
+                {task.assignee?.avatar ? (
+                  <Image src={task.assignee.avatar} alt="Avatar" width={20} height={20} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-[10px]">{assigneeName.charAt(0).toUpperCase()}</span>
+                )}
+              </div>
+              <div className="text-[10px] text-[var(--muted)] truncate max-w-[60px]">
+                {assigneeName}
+              </div>
+            </div>
+
+            {/* Timer Controls */}
+            <div className="flex items-center gap-1">
+              {task.status === "completed" ? (
+                <button
+                  onClick={(e) => onAction?.(e, task.id, "reopen")}
+                  className={`${actionButtonClass} text-amber-500`}
+                  title="Reopen task"
+                  aria-label="Reopen task"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>{TASK_QUICK_ACTION_LABELS.reopen}</span>
+                </button>
+              ) : (
+                <>
+                  {task.timerStatus === "playing" ? (
+                    <button
+                      onClick={(e) => onAction?.(e, task.id, "pause")}
+                      className={`${actionButtonClass} text-[var(--accent)]`}
+                      title="Pause Task"
+                      aria-label="Pause task"
+                    >
+                      <Pause className="w-3.5 h-3.5 fill-current" />
+                      <span>{TASK_QUICK_ACTION_LABELS.pause}</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => onAction?.(e, task.id, "play")}
+                      className={`${actionButtonClass} text-emerald-500`}
+                      title="Start Task"
+                      aria-label="Start task"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>{TASK_QUICK_ACTION_LABELS.play}</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => onAction?.(e, task.id, "complete")}
+                    className={`${actionButtonClass} text-blue-500`}
+                    title="Complete Task"
+                    aria-label="Complete task"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{TASK_QUICK_ACTION_LABELS.complete}</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}

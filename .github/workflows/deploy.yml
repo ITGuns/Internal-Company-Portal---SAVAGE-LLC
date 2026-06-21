@@ -1,0 +1,330 @@
+name: Production Deploy
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to verify or deploy.
+        required: true
+        default: main
+      run_migrations:
+        description: Run Prisma deployment migrations on the remote host.
+        required: true
+        type: boolean
+        default: true
+      bootstrap_empty_database:
+        description: Bootstrap a new empty production/staging database before normal migration deploy.
+        required: true
+        type: boolean
+        default: false
+      deploy_over_ssh:
+        description: Deploy to the configured SSH Docker host after the release gate passes.
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  release-gate:
+    name: Release Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+      DIRECT_DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+      JWT_SECRET: local-ci-jwt-secret
+      REFRESH_TOKEN_SECRET: local-ci-refresh-secret
+      NODE_ENV: test
+      CORS_ORIGIN: http://localhost:3000
+      FRONTEND_URL: http://localhost:3000
+      AUTH_RATE_LIMIT_STORE: memory
+      POSTGRES_PASSWORD: local-compose-check-password
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      NEXT_PUBLIC_WS_URL: ws://localhost:4000
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.sha }}
+          fetch-depth: 0
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Repository Checks
+        run: |
+          npm run check:skills
+          npm audit --audit-level=high
+          docker compose config
+          docker compose -f docker-compose.production.yml config
+
+      - name: Backend Dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Backend Prisma And Tests
+        working-directory: ./backend
+        run: |
+          npx prisma validate
+          npx prisma generate
+          npx prisma db push
+          npm test
+          npm run build
+          npm audit --audit-level=high
+
+      - name: Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Frontend Tests And Build
+        working-directory: ./frontend
+        run: |
+          npm test
+          npm run lint
+          npm run build
+          npm audit --audit-level=high
+
+      - name: Docker Build
+        run: |
+          docker compose build backend frontend
+          docker compose -f docker-compose.production.yml build backend frontend
+
+      - name: Release Summary
+        run: |
+          {
+            echo "## Release Gate"
+            echo ""
+            echo "- Repository checks passed."
+            echo "- Backend Prisma validation, generated client, disposable schema provisioning, tests, build, and audit passed."
+            echo "- Frontend tests, lint, build, and audit passed."
+            echo "- Local and production Docker Compose config and image builds passed."
+            echo ""
+            echo "Production migration command: npm --prefix backend run prisma:deploy:production"
+            echo "First empty-database bootstrap command: npm --prefix backend run prisma:bootstrap-production"
+            echo "Production smoke path: /health plus login, chat socket, uploads, and primary dashboard routes."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  ssh-deploy:
+    name: SSH Docker Deploy
+    needs: release-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_over_ssh == true }}
+
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      RUN_MIGRATIONS: ${{ inputs.run_migrations }}
+      BOOTSTRAP_EMPTY_DATABASE: ${{ inputs.bootstrap_empty_database }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      REFRESH_TOKEN_SECRET: ${{ secrets.REFRESH_TOKEN_SECRET }}
+      FRONTEND_URL: ${{ secrets.FRONTEND_URL || vars.FRONTEND_URL }}
+      CORS_ORIGIN: ${{ secrets.CORS_ORIGIN || vars.CORS_ORIGIN }}
+      NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || vars.NEXT_PUBLIC_API_URL }}
+      NEXT_PUBLIC_WS_URL: ${{ secrets.NEXT_PUBLIC_WS_URL || vars.NEXT_PUBLIC_WS_URL }}
+      REDIS_URL: ${{ secrets.REDIS_URL }}
+      AUTH_RATE_LIMIT_STORE: ${{ vars.AUTH_RATE_LIMIT_STORE }}
+      AUTH_RATE_LIMIT_REDIS_PREFIX: ${{ vars.AUTH_RATE_LIMIT_REDIS_PREFIX }}
+      TRUST_PROXY_HOPS: ${{ vars.TRUST_PROXY_HOPS }}
+      LOG_LEVEL: ${{ vars.LOG_LEVEL }}
+      OPS_MANAGER_EMAIL: ${{ vars.OPS_MANAGER_EMAIL }}
+      ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
+      EMAIL_ENABLED: ${{ vars.EMAIL_ENABLED }}
+      EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER }}
+      EMAIL_FROM_ADDRESS: ${{ vars.EMAIL_FROM_ADDRESS }}
+      EMAIL_FROM_NAME: ${{ vars.EMAIL_FROM_NAME }}
+      SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_SECURE: ${{ secrets.SMTP_SECURE }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASS: ${{ secrets.SMTP_PASS }}
+      BACKEND_PORT: ${{ vars.BACKEND_PORT }}
+      FRONTEND_PORT: ${{ vars.FRONTEND_PORT }}
+      NEXT_PUBLIC_ENABLE_DEBUG: ${{ vars.NEXT_PUBLIC_ENABLE_DEBUG }}
+      PRODUCTION_BACKEND_URL: ${{ vars.PRODUCTION_BACKEND_URL }}
+      PRODUCTION_FRONTEND_URL: ${{ vars.PRODUCTION_FRONTEND_URL }}
+
+    steps:
+      - name: Validate Deployment Secrets
+        shell: bash
+        run: |
+          missing=()
+          for key in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_SSH_KEY DATABASE_URL JWT_SECRET REFRESH_TOKEN_SECRET FRONTEND_URL CORS_ORIGIN NEXT_PUBLIC_API_URL NEXT_PUBLIC_WS_URL; do
+            if [ -z "${!key}" ]; then
+              missing+=("$key")
+            fi
+          done
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf 'Missing required deployment secrets: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/mydeskii_deploy_key
+          chmod 600 ~/.ssh/mydeskii_deploy_key
+          ssh-keyscan -p "${DEPLOY_PORT:-22}" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Prepare Production Environment Files
+        shell: bash
+        run: |
+          umask 077
+          python3 - <<'PY'
+          import os
+          import shlex
+          from pathlib import Path
+
+          shared_keys = [
+              "NODE_ENV",
+              "PORT",
+              "DATABASE_URL",
+              "DIRECT_DATABASE_URL",
+              "DIRECT_URL",
+              "REDIS_URL",
+              "AUTH_RATE_LIMIT_STORE",
+              "AUTH_RATE_LIMIT_REDIS_PREFIX",
+              "TRUST_PROXY_HOPS",
+              "LOG_LEVEL",
+              "JWT_SECRET",
+              "REFRESH_TOKEN_SECRET",
+              "FRONTEND_URL",
+              "CORS_ORIGIN",
+              "OPS_MANAGER_EMAIL",
+              "ADMIN_EMAILS",
+              "EMAIL_ENABLED",
+              "EMAIL_PROVIDER",
+              "EMAIL_FROM_ADDRESS",
+              "EMAIL_FROM_NAME",
+              "SENDGRID_API_KEY",
+              "SMTP_HOST",
+              "SMTP_PORT",
+              "SMTP_SECURE",
+              "SMTP_USER",
+              "SMTP_PASS",
+          ]
+          compose_only_keys = [
+              "NEXT_PUBLIC_API_URL",
+              "NEXT_PUBLIC_WS_URL",
+              "NEXT_PUBLIC_ENABLE_DEBUG",
+              "BACKEND_PORT",
+              "FRONTEND_PORT",
+          ]
+
+          defaults = {
+              "NODE_ENV": "production",
+              "PORT": "4000",
+              "AUTH_RATE_LIMIT_STORE": "redis",
+              "AUTH_RATE_LIMIT_REDIS_PREFIX": "portal:auth-rate-limit",
+              "REDIS_URL": "redis://redis:6379",
+              "LOG_LEVEL": "info",
+              "EMAIL_ENABLED": "false",
+              "EMAIL_PROVIDER": "sendgrid",
+              "SMTP_PORT": "587",
+              "SMTP_SECURE": "false",
+              "NEXT_PUBLIC_ENABLE_DEBUG": "false",
+          }
+
+          def value_for(key):
+              value = os.environ.get(key)
+              if value is None or value == "":
+                  value = defaults.get(key, "")
+              return value
+
+          def write_env(path, keys):
+              with Path(path).open("w", encoding="utf-8") as file:
+                  for key in keys:
+                      value = value_for(key)
+                      if value == "":
+                          continue
+                      file.write(f"{key}={shlex.quote(value)}\n")
+
+                  if os.environ.get("BOOTSTRAP_EMPTY_DATABASE") == "true":
+                      file.write("ALLOW_EMPTY_DATABASE_BOOTSTRAP=true\n")
+
+          write_env("production.env", shared_keys + compose_only_keys)
+          write_env("backend.production.env", shared_keys)
+          PY
+
+      - name: Sync Production Environment Files
+        shell: bash
+        run: |
+          scp -P "${DEPLOY_PORT:-22}" -i ~/.ssh/mydeskii_deploy_key production.env "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/.env.production"
+          scp -P "${DEPLOY_PORT:-22}" -i ~/.ssh/mydeskii_deploy_key backend.production.env "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/backend/.env.production"
+          ssh -p "${DEPLOY_PORT:-22}" -i ~/.ssh/mydeskii_deploy_key "$DEPLOY_USER@$DEPLOY_HOST" \
+            "chmod 600 '$DEPLOY_PATH/.env.production' '$DEPLOY_PATH/backend/.env.production'"
+
+      - name: Deploy On Remote Docker Host
+        shell: bash
+        run: |
+          ssh -p "${DEPLOY_PORT:-22}" -i ~/.ssh/mydeskii_deploy_key "$DEPLOY_USER@$DEPLOY_HOST" \
+            "DEPLOY_PATH='$DEPLOY_PATH' RUN_MIGRATIONS='$RUN_MIGRATIONS' BOOTSTRAP_EMPTY_DATABASE='$BOOTSTRAP_EMPTY_DATABASE' BACKEND_PORT='${BACKEND_PORT:-4000}' bash -se" <<'REMOTE'
+          set -euo pipefail
+
+          cd "$DEPLOY_PATH"
+          git fetch origin main
+          git checkout main
+          git pull --ff-only origin main
+
+          if [ "$RUN_MIGRATIONS" = "true" ]; then
+            npm --prefix backend ci
+            if [ "$BOOTSTRAP_EMPTY_DATABASE" = "true" ]; then
+              npm --prefix backend run prisma:bootstrap-production
+            else
+              npm --prefix backend run prisma:deploy:production
+            fi
+          fi
+
+          docker compose --env-file .env.production -f docker-compose.production.yml up -d --build
+          docker compose --env-file .env.production -f docker-compose.production.yml ps
+          curl -fsS "http://localhost:${BACKEND_PORT:-4000}/health"
+          REMOTE
+
+      - name: Public Smoke Checks
+        shell: bash
+        run: |
+          if [ -n "$PRODUCTION_BACKEND_URL" ]; then
+            curl -fsS "$PRODUCTION_BACKEND_URL/health"
+          fi
+
+          if [ -n "$PRODUCTION_FRONTEND_URL" ]; then
+            curl -fsS "$PRODUCTION_FRONTEND_URL"
+          fi

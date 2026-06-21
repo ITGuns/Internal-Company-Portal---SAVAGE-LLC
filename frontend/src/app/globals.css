@@ -1,0 +1,1328 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Basic defaults - daisyUI classes available */
+html,
+body {
+  height: 100%;
+}
+
+html {
+  color-scheme: dark;
+  background: var(--background);
+}
+
+body {
+  @apply antialiased;
+}
+
+@import "tailwindcss";
+
+@import "tw-animate-css";
+
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  color-scheme: dark;
+  --background: #050816;
+  --foreground: #f5fbff;
+  --muted: #93a6bd;
+  --muted-foreground: #93a6bd;
+  --card-bg: #09111f;
+  --card-surface: #0d1a2b;
+  --border: rgba(102, 220, 255, 0.18);
+  --accent: #17d9f5;
+  --accent-foreground: #041018;
+  --accent-secondary: #f23bbf;
+  --accent-secondary-foreground: #fff6fc;
+  --surface-raised: #0b1424;
+  --surface-hover: #10233a;
+  --workspace-ink: #070d1a;
+  --workspace-ink-soft: #0d1a2b;
+  --workspace-ink-muted: rgba(213, 241, 255, 0.68);
+  --workspace-ink-foreground: #f5fbff;
+  --workspace-ink-border: rgba(102, 220, 255, 0.2);
+  --workspace-ink-accent: #8eeeff;
+  --workspace-ink-accent-soft: rgba(23, 217, 245, 0.12);
+  --scrim: rgba(5, 8, 22, 0.62);
+  --form-backdrop: rgba(4, 7, 15, 0.64);
+  --form-backdrop-fallback: rgba(4, 7, 15, 0.78);
+  --form-backdrop-filter: blur(12px) saturate(82%);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.035), 0 14px 30px -26px rgba(23, 217, 245, 0.42);
+  --shadow-md: 0 22px 60px -34px rgba(23, 217, 245, 0.46), 0 14px 44px -36px rgba(242, 59, 191, 0.42);
+  --header-height: 6rem;
+  --sidebar-width: 18rem;
+  --nav-hover-shadow: rgba(23, 217, 245, 0.2);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --motion-fast: 150ms;
+  --motion-base: 220ms;
+  --motion-panel: 320ms;
+
+  /* Priority Colors */
+  --priority-low: #2ee59d;
+  --priority-low-bg: rgba(46, 229, 157, 0.13);
+  --priority-medium: #f6c95c;
+  --priority-medium-bg: rgba(246, 201, 92, 0.14);
+  --priority-high: #ff5c7a;
+  --priority-high-bg: rgba(255, 92, 122, 0.14);
+
+  /* Status Colors */
+  --status-pending: #9aaec4;
+  --status-pending-bg: rgba(154, 174, 196, 0.14);
+  --status-in-progress: #17d9f5;
+  --status-in-progress-bg: rgba(23, 217, 245, 0.13);
+  --status-completed: #2ee59d;
+  --status-completed-bg: rgba(46, 229, 157, 0.13);
+  --status-blocked: #ff5c7a;
+  --status-blocked-bg: rgba(255, 92, 122, 0.14);
+
+  /* Department Colors */
+  --dept-operations: #17d9f5;
+  --dept-operations-bg: rgba(23, 217, 245, 0.12);
+  --dept-creatives: #f23bbf;
+  --dept-creatives-bg: rgba(242, 59, 191, 0.12);
+  --dept-finance: #2ee59d;
+  --dept-finance-bg: rgba(46, 229, 157, 0.12);
+  --dept-engineering: #f6c95c;
+  --dept-engineering-bg: rgba(246, 201, 92, 0.13);
+
+  /* Scrollbar Colors */
+  --scrollbar-thumb: rgba(102, 220, 255, 0.28);
+  --scrollbar-thumb-hover: rgba(23, 217, 245, 0.52);
+  --scrollbar-track: transparent;
+  --card: var(--card-bg);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--foreground);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-foreground);
+  --secondary: var(--card-surface);
+  --secondary-foreground: var(--foreground);
+  --destructive: var(--status-blocked);
+  --input: var(--border);
+  --ring: var(--accent);
+  --chart-1: var(--accent);
+  --chart-2: var(--accent-secondary);
+  --chart-3: var(--status-completed);
+  --chart-4: var(--priority-medium);
+  --chart-5: var(--muted);
+  --radius: 0.5rem;
+  --sidebar: #060b17;
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: var(--accent-foreground);
+  --sidebar-accent: var(--surface-hover);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--accent);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --animate-shimmer-slide: shimmer-slide var(--speed) ease-in-out infinite alternate;
+  --animate-spin-around: spin-around calc(var(--speed) * 2) infinite linear;
+  @keyframes shimmer-slide {
+  to {
+    transform: translate(calc(100cqw - 100%), 0);
+    }
+  }
+  @keyframes spin-around {
+  0% {
+    transform: translateZ(0) rotate(0);
+    }
+  15%, 35% {
+    transform: translateZ(0) rotate(90deg);
+    }
+  65%, 85% {
+    transform: translateZ(0) rotate(270deg);
+    }
+  100% {
+    transform: translateZ(0) rotate(360deg);
+    }
+  }
+}
+
+/* Allow runtime theme switching via `data-theme="dark"` or the `dark` class on <html> */
+html[data-theme="dark"],
+html.dark {
+  color-scheme: dark;
+  --background: #050816;
+  --foreground: #f5fbff;
+  --muted: #93a6bd;
+  --muted-foreground: #93a6bd;
+  --card-bg: #09111f;
+  --card-surface: #0d1a2b;
+  --border: rgba(102, 220, 255, 0.18);
+  --accent: #17d9f5;
+  --accent-foreground: #041018;
+  --accent-secondary: #f23bbf;
+  --accent-secondary-foreground: #fff6fc;
+  --surface-raised: #0b1424;
+  --surface-hover: #10233a;
+  --workspace-ink: #070d1a;
+  --workspace-ink-soft: #0d1a2b;
+  --workspace-ink-muted: rgba(213, 241, 255, 0.68);
+  --workspace-ink-foreground: #f5fbff;
+  --workspace-ink-border: rgba(102, 220, 255, 0.2);
+  --workspace-ink-accent: #8eeeff;
+  --workspace-ink-accent-soft: rgba(23, 217, 245, 0.12);
+  --scrim: rgba(5, 8, 22, 0.62);
+  --form-backdrop: rgba(4, 7, 15, 0.64);
+  --form-backdrop-fallback: rgba(4, 7, 15, 0.78);
+  --form-backdrop-filter: blur(12px) saturate(82%);
+  --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.035), 0 14px 30px -26px rgba(23, 217, 245, 0.42);
+  --shadow-md: 0 22px 60px -34px rgba(23, 217, 245, 0.46), 0 14px 44px -36px rgba(242, 59, 191, 0.42);
+  --nav-hover-shadow: rgba(23, 217, 245, 0.2);
+
+  --priority-low: #2ee59d;
+  --priority-low-bg: rgba(46, 229, 157, 0.13);
+  --priority-medium: #f6c95c;
+  --priority-medium-bg: rgba(246, 201, 92, 0.14);
+  --priority-high: #ff5c7a;
+  --priority-high-bg: rgba(255, 92, 122, 0.14);
+
+  --status-pending: #9aaec4;
+  --status-pending-bg: rgba(154, 174, 196, 0.14);
+  --status-in-progress: #17d9f5;
+  --status-in-progress-bg: rgba(23, 217, 245, 0.13);
+  --status-completed: #2ee59d;
+  --status-completed-bg: rgba(46, 229, 157, 0.13);
+  --status-blocked: #ff5c7a;
+  --status-blocked-bg: rgba(255, 92, 122, 0.14);
+
+  --dept-operations: #17d9f5;
+  --dept-operations-bg: rgba(23, 217, 245, 0.12);
+  --dept-creatives: #f23bbf;
+  --dept-creatives-bg: rgba(242, 59, 191, 0.12);
+  --dept-finance: #2ee59d;
+  --dept-finance-bg: rgba(46, 229, 157, 0.12);
+  --dept-engineering: #f6c95c;
+  --dept-engineering-bg: rgba(246, 201, 92, 0.13);
+
+  --scrollbar-thumb: rgba(102, 220, 255, 0.28);
+  --scrollbar-thumb-hover: rgba(23, 217, 245, 0.52);
+  --scrollbar-track: transparent;
+
+  --card: var(--card-bg);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--foreground);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-foreground);
+  --secondary: var(--card-surface);
+  --secondary-foreground: var(--foreground);
+  --destructive: var(--status-blocked);
+  --input: var(--border);
+  --ring: var(--accent);
+  --chart-1: var(--accent);
+  --chart-2: var(--accent-secondary);
+  --chart-3: var(--status-completed);
+  --chart-4: var(--priority-medium);
+  --chart-5: var(--muted);
+  --sidebar: #060b17;
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: var(--accent-foreground);
+  --sidebar-accent: var(--surface-hover);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--accent);
+}
+html[data-theme="light"] {
+  color-scheme: light;
+  --background: oklch(0.982 0.006 210);
+  --foreground: oklch(0.19 0.017 255);
+  --muted: oklch(0.46 0.028 235);
+  --muted-foreground: oklch(0.46 0.028 235);
+  --card-bg: oklch(0.996 0.004 210);
+  --card-surface: oklch(0.955 0.01 210);
+  --border: oklch(0.86 0.025 210);
+  --accent: #0caeca;
+  --accent-foreground: #f7fdff;
+  --accent-secondary: #d82aa5;
+  --accent-secondary-foreground: #fff7fc;
+  --surface-raised: oklch(0.99 0.006 210);
+  --surface-hover: oklch(0.935 0.014 210);
+  --workspace-ink: #f8fdff;
+  --workspace-ink-soft: #eaf8fb;
+  --workspace-ink-muted: rgba(42, 65, 83, 0.72);
+  --workspace-ink-foreground: #0f1d2e;
+  --workspace-ink-border: rgba(12, 174, 202, 0.26);
+  --workspace-ink-accent: #087f95;
+  --workspace-ink-accent-soft: rgba(12, 174, 202, 0.1);
+  --scrim: rgba(4, 7, 15, 0.58);
+  --form-backdrop: rgba(4, 7, 15, 0.58);
+  --form-backdrop-fallback: rgba(4, 7, 15, 0.72);
+  --form-backdrop-filter: blur(12px) saturate(82%);
+  --shadow-sm: 0 1px 2px oklch(0.25 0.02 255 / 0.04);
+  --shadow-md: 0 14px 32px -24px oklch(0.25 0.02 255 / 0.28);
+  --nav-hover-shadow: oklch(0.25 0.02 255 / 0.05);
+
+  /* Priority Colors */
+  --priority-low: #047857;
+  --priority-low-bg: rgba(4, 120, 87, 0.1);
+  --priority-medium: #b7791f;
+  --priority-medium-bg: rgba(183, 121, 31, 0.12);
+  --priority-high: #dc2626;
+  --priority-high-bg: rgba(220, 38, 38, 0.1);
+
+  /* Status Colors */
+  --status-pending: #64748b;
+  --status-pending-bg: rgba(100, 116, 139, 0.12);
+  --status-in-progress: #0caeca;
+  --status-in-progress-bg: rgba(12, 174, 202, 0.1);
+  --status-completed: #047857;
+  --status-completed-bg: rgba(4, 120, 87, 0.1);
+  --status-blocked: #dc2626;
+  --status-blocked-bg: rgba(220, 38, 38, 0.1);
+
+  /* Department Colors */
+  --dept-operations: #0caeca;
+  --dept-operations-bg: rgba(12, 174, 202, 0.1);
+  --dept-creatives: #d82aa5;
+  --dept-creatives-bg: rgba(216, 42, 165, 0.1);
+  --dept-finance: #10b981;
+  --dept-finance-bg: rgba(16, 185, 129, 0.1);
+  --dept-engineering: #f59e0b;
+  --dept-engineering-bg: rgba(245, 158, 11, 0.1);
+
+  /* Scrollbar Colors */
+  --scrollbar-thumb: rgba(12, 174, 202, 0.26);
+  --scrollbar-thumb-hover: rgba(12, 174, 202, 0.46);
+  --scrollbar-track: transparent;
+
+  --card: var(--card-bg);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--foreground);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-foreground);
+  --secondary: var(--card-surface);
+  --secondary-foreground: var(--foreground);
+  --destructive: var(--status-blocked);
+  --input: var(--border);
+  --ring: var(--accent);
+  --chart-1: var(--accent);
+  --chart-2: var(--accent-secondary);
+  --chart-3: var(--status-completed);
+  --chart-4: var(--priority-medium);
+  --chart-5: var(--muted);
+  --sidebar: #f8fcff;
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: var(--accent-foreground);
+  --sidebar-accent: var(--surface-hover);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--accent);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-variant-numeric: tabular-nums;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+  background-image:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 32%),
+    linear-gradient(225deg, color-mix(in srgb, var(--accent-secondary) 7%, transparent), transparent 34%),
+    linear-gradient(180deg, var(--background), color-mix(in srgb, var(--background) 86%, black));
+  background-attachment: fixed;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  background-color: var(--card-bg);
+  color: var(--foreground);
+  color-scheme: inherit;
+}
+
+select,
+.portal-select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: var(--card-surface);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.1rem) calc(50% - 0.18rem),
+    calc(100% - 0.82rem) calc(50% - 0.18rem);
+  background-repeat: no-repeat;
+  background-size: 0.32rem 0.32rem, 0.32rem 0.32rem;
+  padding-right: 2.5rem;
+}
+
+select:disabled,
+.portal-select:disabled {
+  background-image:
+    linear-gradient(45deg, transparent 50%, color-mix(in srgb, var(--muted) 55%, transparent) 50%),
+    linear-gradient(135deg, color-mix(in srgb, var(--muted) 55%, transparent) 50%, transparent 50%);
+}
+
+/* Utility classes for tokens */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.accent {
+  color: var(--accent);
+}
+
+.portal-form-backdrop {
+  background: var(--form-backdrop);
+  -webkit-backdrop-filter: var(--form-backdrop-filter);
+  backdrop-filter: var(--form-backdrop-filter);
+  overscroll-behavior: contain;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .portal-form-backdrop {
+    background: var(--form-backdrop-fallback);
+  }
+}
+
+/* Improve keyboard focus visibility */
+:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Shared motion primitives */
+@keyframes motionFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes motionPanelIn {
+  from {
+    opacity: 0.94;
+    transform: translateY(18px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes motionDrawerRightIn {
+  from {
+    opacity: 0.96;
+    transform: translateX(32px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes motionContentIn {
+  from {
+    opacity: 0.92;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes motionListIn {
+  from {
+    opacity: 0.9;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes motionViewIn {
+  from {
+    opacity: 0.82;
+    transform: translateY(16px) scale(0.992);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-fadeIn {
+  animation: motionFadeIn var(--motion-base) var(--ease-out) both;
+}
+
+.animate-slideUp {
+  animation: motionPanelIn var(--motion-panel) var(--ease-out) both;
+}
+
+.motion-fade-in {
+  animation: motionFadeIn var(--motion-base) var(--ease-out) both;
+}
+
+.motion-panel-in {
+  animation: motionPanelIn var(--motion-panel) var(--ease-out) both;
+  will-change: opacity, transform;
+}
+
+.motion-drawer-right-in {
+  animation: motionDrawerRightIn var(--motion-panel) var(--ease-out) both;
+  will-change: opacity, transform;
+}
+
+.motion-content-enter,
+.animate-page-enter {
+  animation: motionContentIn var(--motion-panel) var(--ease-out);
+}
+
+.motion-list-in {
+  animation: motionListIn var(--motion-panel) var(--ease-out) both;
+  will-change: opacity, transform;
+}
+
+.motion-list-in:nth-child(2) {
+  animation-delay: 35ms;
+}
+
+.motion-list-in:nth-child(3) {
+  animation-delay: 70ms;
+}
+
+.motion-list-in:nth-child(4) {
+  animation-delay: 105ms;
+}
+
+.motion-list-in:nth-child(n + 5) {
+  animation-delay: 140ms;
+}
+
+.motion-view-enter {
+  animation: motionViewIn 420ms var(--ease-out) both;
+  will-change: opacity, transform;
+}
+
+.motion-interactive {
+  transition-duration: var(--motion-base);
+  transition-property: background-color, border-color, color, box-shadow, transform;
+  transition-timing-function: var(--ease-out);
+}
+
+.motion-interactive:hover,
+.motion-interactive:focus-visible {
+  transform: translateY(-2px);
+}
+
+.motion-interactive:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.motion-progress {
+  transform-origin: left center;
+  transition-duration: var(--motion-panel);
+  transition-property: width, transform;
+  transition-timing-function: var(--ease-out);
+}
+
+/* Button press feedback for reduced-motion: instant feedback via opacity */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fadeIn,
+  .animate-slideUp,
+  .animate-page-enter,
+  .motion-fade-in,
+  .motion-panel-in,
+  .motion-drawer-right-in,
+  .motion-content-enter,
+  .motion-list-in,
+  .motion-view-enter {
+    animation: none;
+    transform: none;
+  }
+
+  .motion-interactive,
+  .motion-progress {
+    transition-duration: 1ms;
+  }
+
+  .motion-interactive:hover,
+  .motion-interactive:focus-visible,
+  .motion-interactive:active {
+    transform: none !important;
+  }
+
+  button:active {
+    transform: none !important;
+    opacity: 0.8;
+  }
+}
+
+/* Give interactive chrome a higher stacking context so dev overlays don't block clicks */
+header,
+aside,
+main {
+  position: relative;
+  z-index: 10;
+}
+
+/* Better input placeholder contrast and focus */
+input::placeholder {
+  color: var(--muted);
+}
+
+input:focus {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+/* Theme-aware custom scrollbar for chat and other scrollable cards */
+.chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.chat-scroll::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.chat-scroll::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 8px;
+  border: 3px solid var(--card-bg);
+}
+
+.chat-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Sidebar scrollbar: themed for light and dark modes */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Sidebar / nav interaction animations (prefers-reduced-motion safe) */
+.nav-animated {
+  will-change: transform, background-color;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-animated {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+/* Explicit hover/pressed background so nav items show a gray surface in both themes */
+.nav-animated {
+  background-color: transparent;
+  transition-property: background-color, transform, filter;
+  transition-duration: 160ms;
+  transition-timing-function: ease-out;
+}
+
+.nav-animated:hover,
+.nav-animated:focus-visible {
+  background-color: var(--card-surface);
+  box-shadow: inset 0 0 0 1px var(--nav-hover-shadow);
+}
+
+.nav-animated:active {
+  /* slightly darken on press for tactile feedback */
+  filter: brightness(0.96);
+  transform: translateY(1px) scale(0.995);
+}
+
+/* Keep reduced-motion users from seeing transform/filters */
+@media (prefers-reduced-motion: reduce) {
+
+  .nav-animated:hover,
+  .nav-animated:active {
+    background-color: var(--card-surface);
+    filter: none !important;
+    transform: none !important;
+  }
+
+  /* FullCalendar theme-aware button styles */
+  .fc {
+    font-family: inherit;
+  }
+
+  .fc .fc-toolbar-title {
+    color: var(--foreground);
+    font-weight: 600;
+  }
+
+  .fc .fc-button {
+    background: transparent;
+    color: var(--foreground);
+    border: 1px solid var(--border);
+    display: inline-flex;
+    min-height: 2.5rem;
+    min-width: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.5rem;
+    box-shadow: none;
+    font-weight: 600;
+    line-height: 1;
+    transition:
+      background-color 120ms ease,
+      color 120ms ease,
+      transform 60ms ease;
+  }
+
+  .fc .fc-button:hover,
+  .fc .fc-button:focus {
+    background: var(--card-surface);
+    color: var(--foreground);
+    outline: none;
+  }
+
+  .fc .fc-button:active,
+  .fc .fc-button[aria-pressed="true"],
+  .fc .fc-button.fc-button-active,
+  .fc .fc-button.fc-state-active {
+    background: var(--accent);
+    color: var(--accent-foreground);
+    border-color: var(--accent);
+  }
+
+  .fc .fc-button-primary {
+    background: var(--card-surface);
+    color: var(--foreground);
+    border-color: var(--border);
+  }
+
+  .fc .fc-button[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Compact button group spacing */
+  .fc .fc-button-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  .fc .fc-button-group>*+* {
+    margin-left: 0;
+  }
+
+  /* Ensure toolbar background remains transparent and inherits page surface */
+  .fc .fc-toolbar,
+  .fc .fc-toolbar-chunk {
+    background: transparent;
+  }
+}
+
+/* FullCalendar event styling that follows theme tokens */
+.fc {
+  --fc-event-bg: var(--card-surface);
+  --fc-event-color: var(--foreground);
+  --fc-event-border: var(--border);
+}
+
+.fc .fc-daygrid-event,
+.fc .fc-event {
+  color: var(--fc-event-color) !important;
+  box-shadow: none !important;
+  padding: 0.125rem 0.35rem !important;
+  border-radius: 0.375rem !important;
+}
+
+.fc .fc-daygrid-event .fc-event-title,
+.fc .fc-daygrid-event .fc-event-main {
+  color: var(--fc-event-color) !important;
+  font-size: 0.75rem;
+}
+
+.fc .fc-daygrid-event:hover,
+.fc .fc-event:hover {
+  background: color-mix(in srgb,
+      var(--fc-event-bg) 85%,
+      var(--foreground) 15%) !important;
+  transform: translateY(-1px);
+}
+
+/* Ensure contrast in dark mode where needed (variables already adapt), keep rules for data-theme as fallback */
+html[data-theme="dark"] .fc .fc-daygrid-event,
+html.dark .fc .fc-daygrid-event {
+  background: var(--card-surface) !important;
+  color: var(--foreground) !important;
+  border-color: var(--border) !important;
+}
+
+/* Theme-aware native date picker and calendar icon styles
+   - Make the native calendar picker visible on dark backgrounds by applying
+     a filter in dark mode. Also ensure SVG calendar icons inherit a readable
+     color from the theme variables. */
+input[type="date"] {
+  color: var(--foreground);
+  background: var(--card-surface);
+}
+
+/* Chrome/Safari native calendar icon */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  /* allow the indicator to inherit contrast via filter variable */
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  margin-right: 0.25rem;
+  filter: var(--date-indicator-filter, none);
+  opacity: 0.95;
+}
+
+/* Make a theme variable available for dark mode adjustments */
+:root {
+  --date-indicator-filter: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --date-indicator-filter: invert(1) brightness(1.8) contrast(1.1);
+  }
+}
+
+/* Also support runtime theme switching via data-theme or .dark class */
+html[data-theme="dark"],
+html.dark {
+  --date-indicator-filter: invert(1) brightness(1.8) contrast(1.1);
+}
+
+/* If a calendar button uses a lucide SVG, ensure it inherits readable color */
+.date-picker-btn,
+.date-picker-btn svg,
+.date-picker-icon {
+  color: var(--muted);
+}
+
+html[data-theme="dark"] .date-picker-btn,
+html.dark .date-picker-btn,
+html[data-theme="dark"] .date-picker-icon,
+html.dark .date-picker-icon {
+  color: var(--muted);
+}
+
+/* When a control needs stronger contrast, use foreground color */
+.date-picker-btn.contrast,
+.date-picker-icon.contrast {
+  color: var(--foreground);
+}
+
+/* Priority option colors */
+select.priority-select option.priority-low {
+  background: #facc15;
+  color: #000;
+}
+
+select.priority-select option.priority-med {
+  background: #fb923c;
+  color: #000;
+}
+
+select.priority-select option.priority-high {
+  background: #ef4444;
+  color: #fff;
+}
+
+/* Dark mode adjustments for option backgrounds (some browsers ignore option styling) */
+html[data-theme="dark"] select.priority-select option.priority-low {
+  background: #facc15;
+  color: #000;
+}
+
+html[data-theme="dark"] select.priority-select option.priority-med {
+  background: #fb923c;
+  color: #000;
+}
+
+html[data-theme="dark"] select.priority-select option.priority-high {
+  background: #ef4444;
+  color: #fff;
+}
+
+/* Also color the selected control border via inline style from React; fallback: use box-shadow tint */
+select.priority-select {
+  box-shadow: 0 0 0 1px transparent inset;
+}
+
+/* Small priority dot used in lists, boards, and calendar events */
+.priority-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+.priority-dot.low {
+  background: #facc15;
+}
+
+.priority-dot.med {
+  background: #fb923c;
+}
+
+.priority-dot.high {
+  background: #ef4444;
+}
+
+/* ensure visibility in dark mode (same colors are fine, but keep contrast) */
+html[data-theme="dark"] .priority-dot.low {
+  background: #facc15;
+}
+
+html[data-theme="dark"] .priority-dot.med {
+  background: #fb923c;
+}
+
+html[data-theme="dark"] .priority-dot.high {
+  background: #ef4444;
+}
+
+/* Utility: Main content height (for pages that need to fill viewport minus header) */
+.main-content-height {
+  min-height: calc(100dvh - var(--header-height));
+}
+
+/* Shimmer Effect for Premium Buttons */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s infinite;
+}
+
+/* ==========================================
+   Print Styles - Optimized for Payslips
+   ========================================== */
+@media print {
+
+  /* Hide all app chrome and overlays */
+  aside,
+  header,
+  .topbar,
+  [data-sidebar-divider],
+  .portal-form-backdrop,
+  [aria-label="Close modal"],
+  .flex.gap-3.justify-end.pt-4.border-t {
+    display: none !important;
+  }
+
+  /* Reset layout constraints */
+  .min-h-screen {
+    padding-left: 0 !important;
+    padding-top: 0 !important;
+    min-height: auto !important;
+  }
+
+  /* Target the Modal print wrapper specifically */
+  .modal-print-wrapper {
+    position: static !important;
+    padding: 0 !important;
+    display: block !important;
+    left: 0 !important;
+    z-index: auto !important;
+  }
+
+  /* Ensure the specific print content is clean */
+  .print-payslip {
+    visibility: visible !important;
+    display: block !important;
+    width: 100% !important;
+    padding: 0 !important;
+    background: transparent !important;
+    color: black !important;
+  }
+
+  /* Re-style the modal-content for printing */
+  .relative.bg-\[var\(--card-surface\)\].rounded-lg.shadow-xl {
+    box-shadow: none !important;
+    border: none !important;
+    max-width: none !important;
+    width: 100% !important;
+    background: white !important;
+  }
+
+  /* Force white background for tables and cards */
+  .bg-gray-50,
+  .dark\:bg-gray-800\/50,
+  .p-3.rounded-lg.bg-gray-50 {
+    background-color: #f9fafb !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Ensure the total/net pay section prints with color */
+  .bg-gradient-to-br.from-blue-500.to-purple-600 {
+    background: #3b82f6 !important;
+    color: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide scrollbars in print */
+  .max-h-\[60vh\].overflow-y-auto {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
+
+/* =============================================
+   FULLCALENDAR DARK MODE OVERRIDES
+   These override FullCalendar's hard-coded light 
+   colors to use our CSS variable design system.
+   ============================================= */
+
+/* Calendar container */
+.fc {
+  color: var(--foreground);
+}
+
+/* All borders */
+.fc .fc-scrollgrid,
+.fc .fc-scrollgrid-section>td,
+.fc .fc-daygrid-day,
+.fc td,
+.fc th {
+  border-color: var(--border) !important;
+}
+
+/* Header row (Sun, Mon, Tue…) */
+.fc .fc-col-header-cell {
+  background-color: var(--card-surface) !important;
+}
+
+.fc .fc-col-header-cell-cushion {
+  color: var(--muted) !important;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none !important;
+  padding: 6px 4px;
+}
+
+/* Day cells */
+.fc .fc-daygrid-day {
+  background-color: var(--background) !important;
+}
+
+.fc .fc-daygrid-day:hover {
+  background-color: var(--card-surface) !important;
+}
+
+/* Day number links */
+.fc .fc-daygrid-day-number {
+  color: var(--muted) !important;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none !important;
+  padding: 4px 6px;
+}
+
+/* Today highlight */
+.fc .fc-day-today {
+  background-color: rgba(192, 51, 51, 0.06) !important;
+}
+
+.fc .fc-day-today .fc-daygrid-day-number {
+  color: var(--accent) !important;
+  font-weight: 700;
+}
+
+/* Toolbar buttons area */
+.fc .fc-toolbar {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.fc .fc-toolbar-chunk {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.fc .fc-toolbar-title {
+  color: var(--foreground) !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+}
+
+/* Prev / Next / Today buttons */
+.fc .fc-button {
+  background-color: var(--card-surface) !important;
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
+  display: inline-flex !important;
+  min-height: 2.5rem !important;
+  min-width: 2.5rem !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0.55rem 0.75rem !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  box-shadow: none !important;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.fc .fc-prev-button,
+.fc .fc-next-button {
+  padding-inline: 0 !important;
+}
+
+.fc .fc-button-group {
+  display: inline-flex !important;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.fc .fc-button-group > * + * {
+  margin-left: 0 !important;
+}
+
+.fc .fc-button:hover {
+  background-color: var(--card-bg) !important;
+  border-color: var(--muted) !important;
+}
+
+.fc .fc-button-primary:not(.fc-button-active):not(:disabled):active {
+  background-color: var(--card-bg) !important;
+}
+
+.fc .fc-button-active,
+.fc .fc-button-primary.fc-button-active {
+  background-color: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+}
+
+/* Week/day view time slots */
+.fc .fc-timegrid-slot,
+.fc .fc-timegrid-axis {
+  background-color: var(--background) !important;
+  border-color: var(--border) !important;
+  color: var(--muted) !important;
+}
+
+/* "More" events link (+3 more) */
+.fc .fc-daygrid-more-link {
+  color: var(--accent) !important;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Fix Fullcalendar popover UI */
+.fc .fc-popover {
+  z-index: 40 !important;
+  background-color: var(--card-bg) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-md) !important;
+  overflow: hidden;
+}
+
+.fc .fc-popover-header {
+  background-color: var(--card-surface) !important;
+  color: var(--foreground) !important;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.fc .fc-popover-title {
+  color: var(--foreground) !important;
+}
+
+.fc .fc-popover-close {
+  color: var(--muted) !important;
+  opacity: 0.8;
+}
+
+.fc .fc-popover-close:hover {
+  color: var(--foreground) !important;
+  opacity: 1;
+}
+
+.fc .fc-popover-body {
+  padding: 8px !important;
+  background-color: var(--card-bg) !important;
+}
+
+/* Event pill improvements */
+.fc .fc-event {
+  border: none !important;
+  border-radius: 4px !important;
+  cursor: pointer;
+}
+
+.fc .fc-event:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+  transition: opacity 0.1s, transform 0.1s;
+}
+
+/* Remove the blue/purple default focus ring that appears on click */
+.fc .fc-event:focus,
+.fc .fc-event:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Scrollgrid background */
+.fc .fc-scrollgrid-liquid {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* ============================================================
+   DROPDOWN / POPOVER OVERFLOW FIX
+   Prevents menus from being clipped when near the bottom of
+   the viewport. The `dropdown-glass` class is applied to
+   floating panels that need safe overflow behaviour.
+   ============================================================ */
+.dropdown-glass {
+  overflow-y: auto;
+  max-height: min(85vh, 600px);
+  /* Ensure the panel appears above all other content */
+  z-index: 9999 !important;
+}
+
+/* Any relatively-positioned parent that contains a floating
+   dropdown must NOT clip its children with overflow:hidden.
+   Add this class to such wrappers. */
+.dropdown-anchor {
+  position: relative;
+  overflow: visible !important;
+}
+
+/* Ensure dropdowns/selects near bottom of viewport flip upward
+   via JS is preferred, but this forces visibility regardless */
+[data-popover],
+[data-dropdown] {
+  max-height: min(85vh, 480px);
+  overflow-y: auto;
+}

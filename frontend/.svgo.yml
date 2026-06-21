@@ -1,0 +1,10 @@
+plugins:
+  - name: removeDimensions
+  - name: removeAttrs
+    params:
+      attrs: '(data-name|fill-rule|clip-rule)'
+  - name: removeTitle
+  - name: removeDesc
+  - name: removeStyleElement
+  - name: convertColors
+  - name: removeXMLNS

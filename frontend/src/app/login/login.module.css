@@ -1,0 +1,713 @@
+/**
+ * Deskii Login Page — Premium Animated Auth Surface
+ * Two-panel layout: animated hero (left) + auth card (right)
+ */
+
+/* ============================================
+   KEYFRAME ANIMATIONS
+   ============================================ */
+
+@keyframes orbFloat1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(60px, -80px) scale(1.08); }
+  66%       { transform: translate(-40px, 40px) scale(0.94); }
+}
+
+@keyframes orbFloat2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(-70px, 60px) scale(1.05); }
+  66%       { transform: translate(50px, -50px) scale(0.96); }
+}
+
+@keyframes orbFloat3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%       { transform: translate(30px, 70px) scale(1.1); }
+}
+
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50%       { opacity: 1; }
+}
+
+/* ============================================
+   ROOT CONTAINER — Full-screen split layout
+   ============================================ */
+.loginContainer {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 1fr;
+  position: relative;
+  overflow: hidden;
+
+  /* Animated dark gradient background */
+  background: linear-gradient(
+    135deg,
+    hsl(228, 24%, 6%) 0%,
+    hsl(232, 28%, 9%) 40%,
+    hsl(248, 22%, 8%) 70%,
+    hsl(228, 24%, 6%) 100%
+  );
+  background-size: 300% 300%;
+  animation: gradientShift 18s ease infinite;
+  color: #e2e8f0;
+}
+
+@media (min-width: 960px) {
+  .loginContainer {
+    grid-template-columns: 1fr 480px;
+  }
+}
+
+/* ============================================
+   ANIMATED BACKGROUND ORBS
+   ============================================ */
+.orb1, .orb2, .orb3 {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(80px);
+  z-index: 0;
+}
+
+.orb1 {
+  width: 520px;
+  height: 520px;
+  top: -120px;
+  left: -160px;
+  background: radial-gradient(circle, rgba(23, 217, 245, 0.18) 0%, transparent 70%);
+  animation: orbFloat1 20s ease-in-out infinite;
+}
+
+.orb2 {
+  width: 400px;
+  height: 400px;
+  bottom: -80px;
+  right: -80px;
+  background: radial-gradient(circle, rgba(242, 59, 191, 0.15) 0%, transparent 70%);
+  animation: orbFloat2 24s ease-in-out infinite;
+}
+
+.orb3 {
+  width: 280px;
+  height: 280px;
+  top: 40%;
+  left: 50%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, transparent 70%);
+  animation: orbFloat3 16s ease-in-out infinite;
+}
+
+/* ============================================
+   DOT GRID OVERLAY
+   ============================================ */
+.dotGrid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(circle, rgba(23, 217, 245, 0.12) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: linear-gradient(180deg, transparent 0%, black 15%, black 80%, transparent 100%);
+}
+
+/* ============================================
+   HERO SECTION (Left panel, desktop only)
+   ============================================ */
+.heroSection {
+  display: none;
+  position: relative;
+  z-index: 1;
+  padding: 60px 56px;
+  flex-direction: column;
+  justify-content: center;
+  animation: fadeSlideUp 0.7s ease both;
+}
+
+@media (min-width: 960px) {
+  .heroSection {
+    display: flex;
+  }
+}
+
+.logoMark {
+  margin-bottom: 24px;
+  animation: fadeSlideUp 0.6s ease 0.1s both;
+}
+
+.logoImage {
+  height: 48px;
+  width: 48px;
+  border-radius: 10px;
+  object-fit: contain;
+}
+
+.heroTitle {
+  font-size: 3.25rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.1;
+  margin: 0 0 16px;
+  background: linear-gradient(135deg, #ffffff 0%, #17d9f5 50%, #f23bbf 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: fadeSlideUp 0.6s ease 0.2s both;
+}
+
+.heroTagline {
+  font-size: 1.15rem;
+  line-height: 1.6;
+  color: rgba(226, 232, 240, 0.65);
+  margin: 0 0 40px;
+  animation: fadeSlideUp 0.6s ease 0.3s both;
+}
+
+.featureList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: fadeSlideUp 0.6s ease 0.4s both;
+}
+
+.featureList li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: rgba(226, 232, 240, 0.55);
+  letter-spacing: 0;
+  transition: color 200ms ease;
+}
+
+.featureList li::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #17d9f5;
+  box-shadow: 0 0 12px rgba(23, 217, 245, 0.45);
+}
+
+.featureList li:hover {
+  color: rgba(23, 217, 245, 0.9);
+}
+
+/* ============================================
+   AUTH CARD (right panel)
+   ============================================ */
+.card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(32px, 6vw, 56px) clamp(24px, 5vw, 48px);
+  min-height: 100dvh;
+  animation: fadeSlideUp 0.6s ease 0.15s both;
+
+  /* Subtle glass panel on desktop */
+  background: rgba(15, 17, 23, 0.7);
+  backdrop-filter: blur(24px);
+  border-left: 1px solid rgba(23, 217, 245, 0.08);
+}
+
+@media (max-width: 959px) {
+  .card {
+    background: transparent;
+    border-left: none;
+    backdrop-filter: none;
+    align-items: center;
+  }
+
+  .card > * {
+    width: 100%;
+    max-width: 420px;
+  }
+}
+
+/* ============================================
+   MOBILE LOGO ROW
+   ============================================ */
+.mobileLogoRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.mobileLogoName {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  background: linear-gradient(135deg, #fff 0%, #17d9f5 60%, #f23bbf 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.mobileLogoImage {
+  height: 32px;
+  width: 32px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+@media (min-width: 960px) {
+  .mobileLogoRow {
+    display: none;
+  }
+}
+
+/* ============================================
+   HEADER TYPOGRAPHY
+   ============================================ */
+.header {
+  margin-bottom: 28px;
+}
+
+.title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0;
+  color: #f1f5f9;
+  margin: 0 0 8px;
+}
+
+.subtitle {
+  font-size: 0.9rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: rgba(148, 163, 184, 0.8);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ============================================
+   SOCIAL SIGN-IN BUTTONS
+   ============================================ */
+.socialRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.socialBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: rgba(226, 232, 240, 0.85);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    transform 100ms ease;
+}
+
+.socialBtn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(23, 217, 245, 0.25);
+  transform: translateY(-1px);
+}
+
+.socialBtn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.socialBtn:focus-visible {
+  outline: 2px solid #17d9f5;
+  outline-offset: 2px;
+}
+
+/* ============================================
+   DIVIDER
+   ============================================ */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.dividerLine {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dividerText {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: rgba(148, 163, 184, 0.5);
+  white-space: nowrap;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+/* ============================================
+   FORM
+   ============================================ */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.formGroup {
+  margin-bottom: 14px;
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 7px;
+  min-height: 22px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.82);
+}
+
+.labelIcon {
+  color: rgba(23, 217, 245, 0.72);
+  flex-shrink: 0;
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 14px;
+  z-index: 1;
+  color: rgba(148, 163, 184, 0.68);
+  pointer-events: none;
+}
+
+.input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px 0 42px;
+  font-size: 0.95rem;
+  color: #f8fafc;
+  background: rgba(15, 23, 42, 0.62);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  outline: none;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.input::placeholder {
+  color: rgba(148, 163, 184, 0.58);
+}
+
+.input:hover:not(:disabled) {
+  border-color: rgba(23, 217, 245, 0.28);
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.input:focus-visible {
+  border-color: rgba(23, 217, 245, 0.78);
+  box-shadow: 0 0 0 3px rgba(23, 217, 245, 0.16);
+}
+
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.select {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 42px 0 14px;
+  font-size: 0.95rem;
+  color: #f8fafc;
+  background: rgba(15, 23, 42, 0.62);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  outline: none;
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(148, 163, 184, 0.9) 50%),
+    linear-gradient(135deg, rgba(148, 163, 184, 0.9) 50%, transparent 50%);
+  background-position:
+    calc(100% - 19px) 50%,
+    calc(100% - 13px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.select:hover:not(:disabled) {
+  border-color: rgba(23, 217, 245, 0.28);
+  background-color: rgba(15, 23, 42, 0.72);
+}
+
+.select:focus-visible {
+  border-color: rgba(23, 217, 245, 0.78);
+  box-shadow: 0 0 0 3px rgba(23, 217, 245, 0.16);
+}
+
+.select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.helperText {
+  margin: 7px 0 0;
+  color: rgba(148, 163, 184, 0.7);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.passwordInput {
+  padding-right: 48px;
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  color: rgba(148, 163, 184, 0.76);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition:
+    background 150ms ease,
+    color 150ms ease;
+}
+
+.passwordToggle:hover,
+.passwordToggle:focus-visible {
+  color: #17d9f5;
+  background: rgba(23, 217, 245, 0.1);
+}
+
+.eyeIcon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* ============================================
+   FORGOT PASSWORD / LINKS
+   ============================================ */
+.forgotPassword {
+  display: block;
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: rgba(148, 163, 184, 0.6);
+  text-align: right;
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+
+.forgotPassword:hover {
+  color: #17d9f5;
+}
+
+/* ============================================
+   SUBMIT BUTTON
+   ============================================ */
+.submitButton {
+  width: 100%;
+  height: 46px;
+  margin-top: 20px;
+  padding: 0 24px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f1117;
+  background: linear-gradient(135deg, #17d9f5 0%, #0bb5cc 50%, #f23bbf 100%);
+  background-size: 200% 200%;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 24px rgba(23, 217, 245, 0.25), 0 1px 4px rgba(0,0,0,0.3);
+  transition:
+    box-shadow 200ms ease,
+    transform 150ms ease,
+    filter 150ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  animation: gradientShift 4s ease infinite;
+}
+
+.submitButton:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 8px 32px rgba(23, 217, 245, 0.35), 0 2px 8px rgba(0,0,0,0.3);
+  transform: translateY(-1px);
+}
+
+.submitButton:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+  filter: brightness(0.97);
+}
+
+.submitButton:focus-visible {
+  outline: 2px solid #17d9f5;
+  outline-offset: 3px;
+}
+
+.submitButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnArrow {
+  transition: transform 200ms ease;
+}
+
+.submitButton:hover:not(:disabled) .btnArrow {
+  transform: translateX(3px);
+}
+
+/* ============================================
+   ERROR STATE
+   ============================================ */
+.error {
+  margin-top: 14px;
+  padding: 11px 14px;
+  font-size: 0.85rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 8px;
+}
+
+/* ============================================
+   SIGN UP SECTION
+   ============================================ */
+.signUpSection {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  text-align: center;
+}
+
+.signUpText {
+  font-size: 0.8rem;
+  color: rgba(148, 163, 184, 0.55);
+  margin: 0;
+}
+
+.signUpLink {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #17d9f5;
+  text-decoration: none;
+  margin-left: 5px;
+  transition: opacity 150ms ease;
+}
+
+.signUpLink:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+/* ============================================
+   LOADING SPINNER
+   ============================================ */
+.spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(15, 17, 23, 0.35);
+  border-top-color: #0f1117;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ============================================
+   RESPONSIVE — small mobile
+   ============================================ */
+@media (max-width: 480px) {
+  .card {
+    padding: 28px 20px;
+  }
+
+  .socialRow {
+    grid-template-columns: 1fr;
+  }
+
+  .title {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 1180px) and (min-width: 960px) {
+  .heroTitle {
+    font-size: 2.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loginContainer,
+  .orb1,
+  .orb2,
+  .orb3,
+  .heroSection,
+  .logoMark,
+  .heroTitle,
+  .heroTagline,
+  .featureList,
+  .card,
+  .submitButton,
+  .spinner {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

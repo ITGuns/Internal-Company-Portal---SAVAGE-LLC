@@ -1,0 +1,1148 @@
+// This is your Prisma schema file for Prisma v7.4.0
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// CORE MODELS
+// ============================================
+
+model User {
+  id        String  @id @default(cuid())
+  email     String  @unique
+  name      String?
+  avatar    String?
+  managerId String?
+
+  // Profile fields (added in migration 20260217105259)
+  phone       String?
+  address     String?
+  city        String?
+  citizenship String?
+  birthday    DateTime?
+
+  // Auth & Access Control
+  password            String?
+  isApproved          Boolean   @default(false)
+  passwordResetToken  String?
+  passwordResetExpiry DateTime?
+
+  // Employee Workflow fields
+  status      String    @default("active")
+  appliedDate DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tasks                       Task[]                @relation("TaskAssignee")
+  createdTasks                Task[]                @relation("TaskCreator")
+  roles                       UserRole[]
+  announcements               Announcement[]
+  dailyLogs                   DailyLog[]
+  timeEntries                 TimeEntry[]
+  announcementLikes           AnnouncementLike[]
+  announcementComments        AnnouncementComment[]
+  announcementRSVPs           AnnouncementRSVP[]
+  dailyLogLikes               DailyLogLike[]
+  dailyLogComments            DailyLogComment[]
+  participants                Participant[]
+  messages                    Message[]
+  messageReactions            MessageReaction[]
+  employeeProfile             EmployeeProfile?
+  payslips                    Payslip[]
+  taskWorkSessions            TaskWorkSession[]
+  taskCollaborations          TaskCollaborator[]    @relation("TaskCollaboratorUser")
+  taskCollaboratorInvites     TaskCollaborator[]    @relation("TaskCollaboratorInviter")
+  taskProjectMemberships      TaskProjectMember[]   @relation("TaskProjectMemberUser")
+  taskProjectMembershipsAdded TaskProjectMember[]   @relation("TaskProjectMemberAddedBy")
+  clientMemberships           ClientMembership[]
+  clientTicketsCreated        ClientTicket[]        @relation("ClientTicketCreator")
+  clientTicketsAssigned       ClientTicket[]        @relation("ClientTicketAssignee")
+  clientTicketComments        ClientTicketComment[] @relation("ClientTicketCommentAuthor")
+  clientUpdatesCreated        ClientUpdate[]        @relation("ClientUpdateCreator")
+  clientResourceLinksCreated  ClientResourceLink[]  @relation("ClientResourceLinkCreator")
+  clientWorkItemsCreated      ClientWorkItem[]      @relation("ClientWorkItemCreator")
+  clientWorkItemsAssigned     ClientWorkItem[]      @relation("ClientWorkItemAssignee")
+  clientApprovalsRequested    ClientApproval[]      @relation("ClientApprovalRequester")
+  clientApprovalsDecided      ClientApproval[]      @relation("ClientApprovalDecider")
+  clientReportsCreated        ClientReport[]        @relation("ClientReportCreator")
+  clientCalendarItemsCreated  ClientCalendarItem[]  @relation("ClientCalendarItemCreator")
+  clientBookingRequests       ClientBookingRequest[] @relation("ClientBookingRequestRequester")
+  clientActivities            ClientActivity[]      @relation("ClientActivityActor")
+  manager                     User?                 @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull)
+  directReports               User[]                @relation("UserManager")
+  ownedTaskProjects           TaskProject[]         @relation("TaskProjectOwner")
+  createdTaskProjects         TaskProject[]         @relation("TaskProjectCreator")
+
+  @@index([email])
+  @@index([managerId])
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  driveId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tasks          Task[]
+  roles          UserRole[]
+  availableRoles AvailableRole[]
+  taskProjects   TaskProject[]
+
+  @@index([name])
+}
+
+model AvailableRole {
+  id           String   @id @default(cuid())
+  name         String
+  departmentId String?
+  createdAt    DateTime @default(now())
+
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([name, departmentId])
+  @@index([departmentId])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  status      String    @default("todo")
+  priority    String    @default("Med")
+  startDate   DateTime?
+  dueDate     DateTime?
+  notes       Json?
+  role        String?
+
+  departmentId String?
+  assigneeId   String?
+  assigneeIds  Json?
+  createdById  String?
+  projectId    String?
+
+  progress      Int?      @default(0)
+  timerStatus   String?   @default("stopped")
+  timerStart    DateTime?
+  totalElapsed  Int?      @default(0)
+  estimatedTime Int? // In minutes
+  completedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  department    Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  assignee      User?              @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  creator       User?              @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  project       TaskProject?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  workSessions  TaskWorkSession[]
+  collaborators TaskCollaborator[]
+
+  @@index([status])
+  @@index([departmentId])
+  @@index([assigneeId])
+  @@index([createdById])
+  @@index([projectId])
+  @@index([completedAt])
+}
+
+model TaskProject {
+  id           String    @id @default(cuid())
+  name         String
+  description  String?
+  status       String    @default("active")
+  color        String?
+  departmentId String?
+  ownerId      String?
+  createdById  String?
+  startDate    DateTime?
+  targetDate   DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  department Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  owner      User?               @relation("TaskProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  creator    User?               @relation("TaskProjectCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  tasks      Task[]
+  members    TaskProjectMember[]
+
+  @@index([status])
+  @@index([departmentId])
+  @@index([ownerId])
+  @@index([createdById])
+}
+
+model TaskProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  addedById String?
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project TaskProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User        @relation("TaskProjectMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  addedBy User?       @relation("TaskProjectMemberAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+  @@index([addedById])
+  @@index([status])
+}
+
+model TaskCollaborator {
+  id          String   @id @default(cuid())
+  taskId      String
+  userId      String
+  invitedById String?
+  status      String   @default("invited")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  task      Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User  @relation("TaskCollaboratorUser", fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy User? @relation("TaskCollaboratorInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@unique([taskId, userId])
+  @@index([taskId])
+  @@index([userId])
+  @@index([invitedById])
+  @@index([status])
+}
+
+model TaskWorkSession {
+  id              String   @id @default(cuid())
+  taskId          String
+  userId          String
+  startedAt       DateTime
+  endedAt         DateTime
+  durationSeconds Int
+  createdAt       DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([startedAt])
+}
+
+// ============================================
+// CLIENT PORTAL MODULE
+// ============================================
+
+model ClientServiceTier {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  description  String?
+  monthlyPrice Float?
+  priorityRank Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  organizations ClientOrganization[]
+}
+
+model ClientOrganization {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  status          String   @default("active")
+  tierId          String?
+  websiteUrl      String?
+  websiteWorkType String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tier                   ClientServiceTier?            @relation(fields: [tierId], references: [id], onDelete: SetNull)
+  memberships            ClientMembership[]
+  projects               ClientProject[]
+  tickets                ClientTicket[]
+  updates                ClientUpdate[]
+  metricSnapshots        ClientMetricSnapshot[]
+  resourceLinks          ClientResourceLink[]
+  workItems              ClientWorkItem[]
+  approvals              ClientApproval[]
+  reports                ClientReport[]
+  roadmapRecommendations ClientRoadmapRecommendation[]
+  assets                 ClientAsset[]
+  billingStatus          ClientBillingStatus?
+  calendarItems          ClientCalendarItem[]
+  storageRoot            ClientStorageRoot?
+  bookingRequests        ClientBookingRequest[]
+  paymentConnections     ClientPaymentConnection[]
+  invoices               ClientInvoice[]
+  activities             ClientActivity[]
+
+  @@index([status])
+  @@index([tierId])
+}
+
+model ClientMembership {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String   @default("client")
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([status])
+}
+
+model ClientProject {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  status         String    @default("planning")
+  summary        String?
+  progress       Int       @default(0)
+  startedAt      DateTime?
+  targetLaunchAt DateTime?
+  liveUrl        String?
+  previewUrl     String?
+  internalNotes  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization  ClientOrganization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tickets       ClientTicket[]
+  updates       ClientUpdate[]
+  resourceLinks ClientResourceLink[]
+  workItems     ClientWorkItem[]
+  approvals     ClientApproval[]
+  assets        ClientAsset[]
+  calendarItems ClientCalendarItem[]
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model ClientTicket {
+  id             String    @id @default(cuid())
+  organizationId String
+  projectId      String?
+  title          String
+  description    String?
+  category       String    @default("general")
+  priority       String    @default("normal")
+  status         String    @default("new")
+  internalNotes  String?
+  createdById    String?
+  assignedToId   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  closedAt       DateTime?
+
+  organization ClientOrganization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      ClientProject?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  creator      User?                 @relation("ClientTicketCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  assignee     User?                 @relation("ClientTicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  comments     ClientTicketComment[]
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([createdById])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([priority])
+}
+
+model ClientTicketComment {
+  id         String   @id @default(cuid())
+  ticketId   String
+  authorId   String?
+  body       String
+  visibility String   @default("client")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  ticket ClientTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User?        @relation("ClientTicketCommentAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId])
+  @@index([authorId])
+  @@index([visibility])
+}
+
+model ClientUpdate {
+  id              String   @id @default(cuid())
+  organizationId  String
+  projectId       String?
+  title           String
+  body            String
+  status          String   @default("published")
+  visibleToClient Boolean  @default(true)
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      ClientProject?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  author       User?              @relation("ClientUpdateCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([createdById])
+  @@index([visibleToClient])
+  @@index([status])
+}
+
+model ClientMetricSnapshot {
+  id              String    @id @default(cuid())
+  organizationId  String
+  label           String
+  value           String
+  unit            String?
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  source          String    @default("manual")
+  notes           String?
+  visibleToClient Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([visibleToClient])
+  @@index([periodStart])
+}
+
+model ClientResourceLink {
+  id              String   @id @default(cuid())
+  organizationId  String
+  projectId       String?
+  label           String
+  url             String
+  type            String   @default("link")
+  visibleToClient Boolean  @default(true)
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      ClientProject?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  creator      User?              @relation("ClientResourceLinkCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([createdById])
+  @@index([visibleToClient])
+  @@index([type])
+}
+
+model ClientWorkItem {
+  id              String    @id @default(cuid())
+  organizationId  String
+  projectId       String?
+  title           String
+  description     String?
+  status          String    @default("open")
+  priority        String    @default("normal")
+  progress        Int       @default(0)
+  dueAt           DateTime?
+  completedAt     DateTime?
+  visibleToClient Boolean   @default(true)
+  sortOrder       Int       @default(0)
+  createdById     String?
+  assignedToId    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      ClientProject?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  creator      User?              @relation("ClientWorkItemCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  assignee     User?              @relation("ClientWorkItemAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([status])
+  @@index([visibleToClient])
+  @@index([dueAt])
+  @@index([assignedToId])
+}
+
+model ClientApproval {
+  id              String    @id @default(cuid())
+  organizationId  String
+  projectId       String?
+  title           String
+  description     String?
+  status          String    @default("pending")
+  responseNote    String?
+  requestedById   String?
+  decidedById     String?
+  dueAt           DateTime?
+  decidedAt       DateTime?
+  visibleToClient Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      ClientProject?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  requester    User?              @relation("ClientApprovalRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  decider      User?              @relation("ClientApprovalDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([status])
+  @@index([visibleToClient])
+  @@index([dueAt])
+}
+
+model ClientReport {
+  id                      String    @id @default(cuid())
+  organizationId          String
+  title                   String
+  summary                 String?
+  periodStart             DateTime
+  periodEnd               DateTime
+  status                  String    @default("draft")
+  visibleToClient         Boolean   @default(true)
+  leadsCaptured           Int?
+  missedOpportunities     Int?
+  followUpStatus          String?
+  leadSourceBreakdown     Json?
+  reputationSnapshot      Json?
+  localVisibilitySnapshot Json?
+  createdById             String?
+  publishedAt             DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User?              @relation("ClientReportCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([visibleToClient])
+  @@index([periodStart])
+  @@index([createdById])
+}
+
+model ClientRoadmapRecommendation {
+  id              String   @id @default(cuid())
+  organizationId  String
+  title           String
+  body            String
+  priority        String   @default("normal")
+  status          String   @default("recommended")
+  impact          String?
+  effort          String?
+  visibleToClient Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([visibleToClient])
+  @@index([sortOrder])
+}
+
+model ClientAsset {
+  id              String   @id @default(cuid())
+  organizationId  String
+  projectId       String?
+  label           String
+  url             String
+  type            String   @default("link")
+  status          String   @default("received")
+  notes           String?
+  visibleToClient Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      ClientProject?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([type])
+  @@index([status])
+  @@index([visibleToClient])
+}
+
+model ClientBillingStatus {
+  id              String    @id @default(cuid())
+  organizationId  String    @unique
+  planName        String?
+  status          String    @default("active")
+  monthlyAmount   Float?
+  currency        String    @default("USD")
+  renewalAt       DateTime?
+  notes           String?
+  visibleToClient Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoices     ClientInvoice[]
+
+  @@index([status])
+  @@index([visibleToClient])
+}
+
+model ClientStorageRoot {
+  id                String   @id @default(cuid())
+  organizationId    String   @unique
+  provider          String   @default("local_app_storage")
+  status            String   @default("ready")
+  folderName        String
+  directoryFolderId String?  @unique
+  externalFolderId  String?
+  externalUrl       String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization    ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  directoryFolder FileFolder?         @relation(fields: [directoryFolderId], references: [id], onDelete: SetNull)
+
+  @@index([provider])
+  @@index([status])
+}
+
+model ClientBookingRequest {
+  id               String    @id @default(cuid())
+  organizationId   String
+  requestedById    String?
+  provider         String    @default("manual")
+  status           String    @default("requested")
+  subject          String
+  preferredStartAt DateTime?
+  preferredEndAt   DateTime?
+  timezone         String    @default("UTC")
+  meetingUrl       String?
+  notes            String?
+  visibleToClient  Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requestedBy  User?              @relation("ClientBookingRequestRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([requestedById])
+  @@index([provider])
+  @@index([status])
+  @@index([preferredStartAt])
+  @@index([visibleToClient])
+}
+
+model ClientPaymentConnection {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  provider           String
+  accountType        String   @default("payment")
+  status             String   @default("not_connected")
+  mode               String   @default("manual")
+  accountLabel       String?
+  externalCustomerId String?
+  externalMerchantId String?
+  lastFour           String?
+  webhookStatus      String   @default("not_configured")
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider, accountType])
+  @@index([organizationId])
+  @@index([provider])
+  @@index([status])
+  @@index([webhookStatus])
+}
+
+model ClientInvoice {
+  id                 String    @id @default(cuid())
+  organizationId     String
+  billingStatusId    String?
+  invoiceNumber      String?   @unique
+  provider           String    @default("manual")
+  status             String    @default("draft")
+  amount             Float
+  currency           String    @default("USD")
+  issueAt            DateTime  @default(now())
+  dueAt              DateTime?
+  paidAt             DateTime?
+  externalInvoiceId  String?
+  hostedInvoiceUrl   String?
+  notes              String?
+  visibleToClient    Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  organization  ClientOrganization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  billingStatus ClientBillingStatus? @relation(fields: [billingStatusId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([billingStatusId])
+  @@index([provider])
+  @@index([status])
+  @@index([dueAt])
+  @@index([visibleToClient])
+}
+
+model ClientCalendarItem {
+  id              String    @id @default(cuid())
+  organizationId  String
+  projectId       String?
+  title           String
+  description     String?
+  channel         String?
+  status          String    @default("planned")
+  startAt         DateTime
+  endAt           DateTime?
+  visibleToClient Boolean   @default(true)
+  createdById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      ClientProject?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  creator      User?              @relation("ClientCalendarItemCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([status])
+  @@index([visibleToClient])
+  @@index([startAt])
+  @@index([createdById])
+}
+
+model ClientActivity {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorId        String?
+  type           String
+  subjectType    String
+  subjectId      String?
+  visibility     String   @default("internal")
+  title          String
+  body           String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?              @relation("ClientActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, visibility, createdAt])
+  @@index([subjectType, subjectId])
+  @@index([type])
+}
+
+model UserRole {
+  id           String   @id @default(cuid())
+  userId       String
+  role         String
+  departmentId String?
+  createdAt    DateTime @default(now())
+
+  // Relations
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, departmentId, role])
+  @@index([userId])
+  @@index([departmentId])
+}
+
+// ============================================
+// ANNOUNCEMENTS MODULE
+// ============================================
+
+model Announcement {
+  id       String @id @default(cuid())
+  title    String
+  content  String
+  priority String @default("Normal")
+  category String @default("company-news")
+
+  // Event-specific fields
+  eventDate     DateTime?
+  eventLocation String?
+  birthdayDate  DateTime?
+
+  isImportant Boolean @default(false)
+  authorId    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  author   User?                 @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  likes    AnnouncementLike[]
+  comments AnnouncementComment[]
+  rsvps    AnnouncementRSVP[]
+
+  @@index([createdAt])
+  @@index([category])
+  @@index([isImportant])
+}
+
+model AnnouncementLike {
+  id             String   @id @default(cuid())
+  announcementId String
+  userId         String
+  createdAt      DateTime @default(now())
+
+  // Relations
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@index([announcementId])
+  @@index([userId])
+}
+
+model AnnouncementComment {
+  id             String   @id @default(cuid())
+  announcementId String
+  authorId       String
+  text           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([announcementId])
+  @@index([authorId])
+}
+
+model AnnouncementRSVP {
+  id             String   @id @default(cuid())
+  announcementId String
+  userId         String
+  status         String   @default("going")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@index([announcementId])
+  @@index([userId])
+}
+
+// ============================================
+// DAILY LOGS MODULE
+// ============================================
+
+model DailyLog {
+  id          String   @id @default(cuid())
+  content     String
+  date        DateTime @default(now())
+  department  String
+  status      String   @default("in-progress")
+  hoursLogged Float    @default(0)
+  tasks       Json?
+  shiftNotes  String?
+  authorId    String?
+  logType     String   @default("daily")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  author   User?             @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  likes    DailyLogLike[]
+  comments DailyLogComment[]
+
+  @@index([authorId])
+  @@index([date])
+  @@index([department])
+  @@index([status])
+  @@index([logType])
+}
+
+model DailyLogLike {
+  id         String   @id @default(cuid())
+  dailyLogId String
+  userId     String
+  createdAt  DateTime @default(now())
+
+  // Relations
+  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([dailyLogId, userId])
+  @@index([dailyLogId])
+  @@index([userId])
+}
+
+model DailyLogComment {
+  id         String   @id @default(cuid())
+  dailyLogId String
+  authorId   String
+  text       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  dailyLog DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([dailyLogId])
+  @@index([authorId])
+}
+
+// ============================================
+// PAYROLL MODULE
+// ============================================
+
+model TimeEntry {
+  id       String    @id @default(cuid())
+  userId   String
+  start    DateTime
+  end      DateTime?
+  duration Int?
+  notes    String?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([start])
+}
+
+model PayrollEvent {
+  id          String   @id @default(cuid())
+  title       String
+  date        DateTime
+  type        String
+  description String?
+  isBuiltIn   Boolean  @default(false)
+  createdBy   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+  @@index([type])
+}
+
+model EmployeeProfile {
+  id                     String  @id @default(cuid())
+  userId                 String  @unique
+  jobTitle               String?
+  employmentType         String? @default("Full-Time")
+  requestedRole          String?
+  requestedDepartmentId  String?
+  baseSalary             Float?  @default(0)
+  currency               String  @default("PHP")
+  paymentFrequency       String  @default("Semi-Monthly")
+  payrollScheme          String  @default("weekdays")
+  maxBillableHoursPerDay Float   @default(8)
+  bankAccount            String?
+  taxId                  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PayrollPeriod {
+  id          String    @id @default(cuid())
+  startDate   DateTime
+  endDate     DateTime
+  payDate     DateTime?
+  status      String    @default("draft")
+  totalAmount Float     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  payslips Payslip[]
+
+  @@index([startDate])
+  @@index([status])
+}
+
+model Payslip {
+  id          String   @id @default(cuid())
+  periodId    String
+  userId      String
+  grossPay    Float    @default(0)
+  netPay      Float    @default(0)
+  status      String   @default("draft")
+  notes       String?
+  generatedAt DateTime @default(now())
+
+  // Relations
+  period PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items  PayrollItem[]
+
+  @@index([periodId])
+  @@index([userId])
+}
+
+model PayrollItem {
+  id          String   @id @default(cuid())
+  payslipId   String
+  type        String
+  description String
+  amount      Float
+  createdAt   DateTime @default(now())
+
+  // Relations
+  payslip Payslip @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+
+  @@index([payslipId])
+  @@index([type])
+}
+
+// ============================================
+// CHAT MODULE
+// ============================================
+
+model Conversation {
+  id        String   @id @default(cuid())
+  type      String   @default("direct")
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  participants Participant[]
+  messages     Message[]
+
+  @@index([type])
+  @@index([updatedAt])
+}
+
+model Participant {
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  lastReadAt     DateTime @default(now())
+  archivedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([conversationId])
+  @@index([userId, conversationId])
+  @@index([userId, archivedAt])
+}
+
+model Message {
+  id             String    @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  attachment     String?
+  editedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Relations
+  conversation Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User              @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  reactions    MessageReaction[]
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([conversationId, createdAt])
+  @@index([senderId, createdAt])
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+  @@index([userId])
+}
+
+// ============================================
+// FILE DIRECTORY MODULE
+// ============================================
+
+model FileFolder {
+  id          String  @id @default(cuid())
+  name        String
+  type        String  @default("folder")
+  department  String // "All Departments" = visible to everyone
+  driveLink   String?
+  parentId    String?
+  customColor String?
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  parent   FileFolder?  @relation("FolderChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children FileFolder[] @relation("FolderChildren")
+  clientStorageRoot ClientStorageRoot?
+
+  @@index([department])
+  @@index([parentId])
+  @@index([createdById])
+}
+
+// ============================================
+// SCHEDULER MODULE
+// ============================================
+
+model SchedulerJobRun {
+  id          String    @id @default(cuid())
+  jobType     String    // e.g. 'auto-payslip', 'dept-report', 'period-advance'
+  status      String    @default("running") // 'running' | 'success' | 'failed' | 'skipped'
+  triggeredBy String    @default("cron")   // 'cron' | 'manual'
+  startedAt   DateTime  @default(now())
+  finishedAt  DateTime?
+  durationMs  Int?
+  resultJson  String?   // JSON-serialised summary of what ran
+  errorMsg    String?
+
+  @@index([jobType])
+  @@index([status])
+  @@index([startedAt])
+}

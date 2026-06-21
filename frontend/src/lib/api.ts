@@ -1,0 +1,411 @@
+import { STORAGE_KEYS } from './constants';
+import type { LoginCredentials, AuthResponse } from './types/auth';
+import {
+    clearAuthSession,
+    isAuthFailureResponse,
+    SESSION_EXPIRED_MESSAGE,
+} from './auth-session';
+import { buildApiUrl, buildAuthUrl } from './api-url';
+
+export const BACKEND_CONNECTION_ERROR_MESSAGE = 'Could not reach the Deskii backend. Please refresh and try again.';
+
+export type OAuthProvider = 'google' | 'apple' | 'discord';
+
+export const getAuthToken = () => {
+    if (typeof window !== 'undefined') {
+        return localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)
+    }
+    return null
+}
+
+export const setAuthToken = (token: string) => {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token)
+    }
+}
+
+export const getRefreshToken = () => {
+    if (typeof window !== 'undefined') {
+        return localStorage.getItem(STORAGE_KEYS.LEGACY_REFRESH_TOKEN)
+    }
+    return null
+}
+
+export const setRefreshToken = (token?: string | null) => {
+    if (typeof window !== 'undefined') {
+        if (token) {
+            localStorage.setItem(STORAGE_KEYS.LEGACY_REFRESH_TOKEN, token)
+        } else {
+            localStorage.removeItem(STORAGE_KEYS.LEGACY_REFRESH_TOKEN)
+        }
+    }
+}
+
+export const getCurrentUser = () => {
+    if (typeof window !== 'undefined') {
+        const user = localStorage.getItem(STORAGE_KEYS.USER);
+        if (!user) return null;
+
+        try {
+            return JSON.parse(user);
+        } catch {
+            localStorage.removeItem(STORAGE_KEYS.USER);
+            return null;
+        }
+    }
+    return null;
+}
+
+export const setCurrentUser = (user: unknown) => {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+    }
+}
+
+function isFetchNetworkError(error: unknown): boolean {
+    return error instanceof TypeError && error.message === 'Failed to fetch'
+}
+
+function normalizeBackendError(error: unknown, fallbackMessage: string): Error {
+    if (isFetchNetworkError(error)) {
+        return new Error(BACKEND_CONNECTION_ERROR_MESSAGE)
+    }
+
+    return error instanceof Error ? error : new Error(fallbackMessage)
+}
+
+function logDevelopmentError(label: string, error: unknown) {
+    if (process.env.NODE_ENV !== 'production') {
+        console.error(label, error)
+    }
+}
+
+export async function readJsonResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
+    try {
+        return await response.json()
+    } catch {
+        throw new Error(response.status >= 500 ? BACKEND_CONNECTION_ERROR_MESSAGE : fallbackMessage)
+    }
+}
+
+/**
+ * Attempt to refresh the access token using the httpOnly refresh cookie.
+ * Legacy localStorage refresh tokens are sent only when still present.
+ */
+export const refreshAccessToken = async (): Promise<string | null> => {
+    const refreshToken = getRefreshToken()
+    try {
+        const res = await fetch(buildAuthUrl('/refresh'), {
+            method: 'POST',
+            credentials: 'include',
+            ...(refreshToken
+                ? {
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refreshToken }),
+                }
+                : {}),
+        })
+        if (res.ok) {
+            const data = await res.json()
+            if (data.accessToken) {
+                setAuthToken(data.accessToken)
+                setRefreshToken(data.refreshToken || null)
+                return data.accessToken
+            }
+        }
+    } catch (err) {
+        console.error('Token refresh failed:', err)
+    }
+    return null
+}
+
+/**
+ * Login with email and password
+ * @param credentials - Email and password
+ * @returns Auth response with user data and tokens
+ * @throws Error if login fails
+ * 
+ * Access tokens are stored client-side; refresh tokens are held in the backend httpOnly cookie.
+ */
+export const loginWithEmail = async (credentials: LoginCredentials): Promise<AuthResponse> => {
+    try {
+        const res = await fetch(buildAuthUrl('/login'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(credentials)
+        });
+
+        const data = await readJsonResponse<AuthResponse & { error?: string }>(res, 'Login failed. Please try again.');
+
+        if (res.ok && data.success && data.tokens) {
+            // Store auth token and user data
+            setAuthToken(data.tokens.accessToken);
+            setRefreshToken(data.tokens.refreshToken || null);
+            setCurrentUser(data.user);
+            return data;
+        }
+
+        // Return error response
+        throw new Error(data.error || 'Login failed');
+    } catch (err) {
+        logDevelopmentError('Email login error:', err);
+        throw normalizeBackendError(err, 'Login failed. Please try again.');
+    }
+}
+
+export function startOAuthLogin(provider: OAuthProvider): void {
+    if (typeof window === 'undefined') return;
+    window.location.assign(buildAuthUrl(`/${provider}`));
+}
+
+/**
+ * Logout user
+ * Clears auth tokens and user data from localStorage
+ */
+export const logout = () => {
+    void fetch(buildAuthUrl('/logout'), {
+        method: 'POST',
+        credentials: 'include',
+    }).catch((error) => {
+        console.warn('Logout request failed:', error)
+    })
+    clearAuthSession()
+}
+
+/**
+ * Request a password reset email
+ */
+export const requestPasswordReset = async (email: string): Promise<{ success: boolean; message: string }> => {
+    try {
+        const res = await fetch(buildAuthUrl('/forgot-password'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+        });
+        const data = await readJsonResponse<{ success: boolean; message: string; error?: string }>(res, 'Failed to send reset email');
+        if (!res.ok) {
+            throw new Error(data.error || 'Failed to send reset email');
+        }
+        return data;
+    } catch (err) {
+        throw normalizeBackendError(err, 'Failed to send reset email')
+    }
+}
+
+/**
+ * Reset password using token from email
+ */
+export const resetPassword = async (token: string, email: string, password: string): Promise<{ success: boolean; message: string }> => {
+    try {
+        const res = await fetch(buildAuthUrl('/reset-password'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, email, password }),
+        });
+        const data = await readJsonResponse<{ success: boolean; message: string; error?: string }>(res, 'Failed to reset password');
+        if (!res.ok) {
+            throw new Error(data.error || 'Failed to reset password');
+        }
+        return data;
+    } catch (err) {
+        throw normalizeBackendError(err, 'Failed to reset password')
+    }
+}
+
+interface APIOptions extends RequestInit {
+    _isRetry?: boolean;
+}
+
+export const apiFetch = async (endpoint: string, options: APIOptions = {}): Promise<Response> => {
+    const token = getAuthToken()
+
+    const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...options.headers,
+    }
+
+    let response: Response
+
+    try {
+        response = await fetch(buildApiUrl(endpoint), {
+            ...options,
+            cache: 'no-store',
+            credentials: 'include',
+            headers,
+        })
+    } catch (err) {
+        throw normalizeBackendError(err, 'Request failed. Please try again.')
+    }
+
+    const isAuthFailure = await isAuthFailureResponse(response);
+
+    // If auth failed, try refreshing the token once before giving up.
+    // The backend returns 403 for expired JWTs, while role failures also use 403.
+    // `isAuthFailureResponse` only treats token-specific 403 payloads as auth expiry.
+    if (isAuthFailure && !options._isRetry) {
+        const newToken = await refreshAccessToken()
+        if (newToken) {
+            return apiFetch(endpoint, { ...options, _isRetry: true })
+        }
+
+        // Nothing worked — clear tokens silently.
+        // DO NOT redirect here: window.location.href cancels all in-flight fetches
+        // with TypeError("Failed to fetch"), flooding the UI with error toasts.
+        // UserContext will detect the 401 on its next /auth/me poll and handle logout.
+        clearAuthSession()
+        throw new Error(SESSION_EXPIRED_MESSAGE)
+    }
+
+    if (isAuthFailure) {
+        clearAuthSession()
+        throw new Error(SESSION_EXPIRED_MESSAGE)
+    }
+
+    if (!response.ok) {
+        let errorData: { details?: unknown; error?: unknown } = {};
+        try {
+            errorData = await readJsonResponse(response, `Request failed with status ${response.status}`);
+        } catch (err) {
+            throw normalizeBackendError(err, `Request failed with status ${response.status}`)
+        }
+
+        const details = typeof errorData.details === 'string' ? errorData.details : undefined;
+        const error = typeof errorData.error === 'string' ? errorData.error : undefined;
+        const message = details || error || `Request failed with status ${response.status}`;
+        throw new Error(message);
+    }
+
+    return response
+}
+
+// ============================================
+// USER PROFILE API
+// ============================================
+
+/**
+ * Update user profile
+ * @param userId - User ID
+ * @param profileData - Profile data to update (name, phone, birthday, address, etc.)
+ * @returns Updated user object
+ */
+export const updateUserProfile = async (userId: string | number, profileData: Partial<{
+    name: string;
+    email?: string;
+    phone?: string;
+    birthday?: string;
+    address?: string;
+    city?: string;
+    citizenship?: string;
+    avatar?: string;
+    bio?: string;
+    position?: string;
+    department?: string;
+}>) => {
+    try {
+        const response = await apiFetch(`/users/${userId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(profileData),
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to update profile');
+        }
+
+        const data = await response.json();
+
+        // Update localStorage with new user data
+        if (data.user) {
+            setCurrentUser(data.user);
+        }
+
+        return data;
+    } catch (error) {
+        console.error('Error updating user profile:', error);
+        throw error;
+    }
+};
+
+/**
+ * Upload user avatar
+ * @param userId - User ID
+ * @param file - Image file or base64 string
+ * @returns Updated user object with new avatar URL
+ */
+export const uploadAvatar = async (userId: string | number, file: File | string) => {
+    try {
+        let avatarData: string;
+
+        if (typeof file === 'string') {
+            // Already a base64 data URI or URL
+            avatarData = file;
+        } else {
+            // Convert File to base64 data URI
+            avatarData = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        const response = await apiFetch(`/users/${userId}/avatar`, {
+            method: 'POST',
+            body: JSON.stringify({ avatar: avatarData }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to upload avatar');
+        }
+
+        const data = await response.json();
+
+        // Update localStorage with new user data
+        if (data.user) {
+            setCurrentUser(data.user);
+        }
+
+        return data;
+    } catch (error) {
+        console.error('Error uploading avatar:', error);
+        throw error;
+    }
+};
+// ============================================
+// ROLES API
+// ============================================
+
+/**
+ * Get all available roles
+ * @param departmentId - Optional department ID to filter by
+ * @returns Array of roles
+ */
+export const fetchRoles = async (departmentId?: string) => {
+    const endpoint = departmentId ? `/roles?departmentId=${departmentId}` : '/roles';
+    const response = await apiFetch(endpoint);
+    return response.json();
+};
+
+/**
+ * Create a new available role
+ * @param roleData - Role name and optional departmentId
+ * @returns Created role
+ */
+export const createRole = async (roleData: { name: string; departmentId?: string }) => {
+    const response = await apiFetch('/roles', {
+        method: 'POST',
+        body: JSON.stringify(roleData),
+    });
+    return response.json();
+};
+
+/**
+ * Delete an available role
+ * @param roleId - Role ID to delete
+ */
+export const deleteRole = async (roleId: string) => {
+    await apiFetch(`/roles/${roleId}`, {
+        method: 'DELETE',
+    });
+};
