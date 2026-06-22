@@ -5,7 +5,7 @@ import Header from "@/components/Header";
 import Card from "@/components/Card";
 import Button from "@/components/Button";
 import EmptyState from "@/components/ui/EmptyState";
-import { PageSkeleton } from "@/components/ui/Skeleton";
+import { PayslipSkeleton } from "@/components/ui/FeatureSkeletons";
 import { useToast } from "@/components/ToastProvider";
 import { apiFetch } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
@@ -300,9 +300,7 @@ export default function MyPayslipsPage() {
 
                 <section className="pt-6 pb-10">
                 {loading ? (
-                    <div className="flex items-center justify-center py-32">
-                        <PageSkeleton />
-                    </div>
+                    <PayslipSkeleton />
                 ) : (
                     <div className="max-w-4xl mx-auto space-y-8">
                         {/* Stats strip */}

@@ -28,7 +28,7 @@ import { useToast } from "@/components/ToastProvider";
 import Button from "@/components/Button";
 import { apiFetch } from "@/lib/api";
 import StatCard from "./StatCard";
-import { PageSkeleton } from "@/components/ui/Skeleton";
+import { PayrollReportsSkeleton } from "@/components/ui/FeatureSkeletons";
 import type { Payslip } from "@/lib/payroll-calendar/types";
 import { generatePayslipPDF } from "@/lib/payroll-calendar/payslip-utils";
 import {
@@ -291,7 +291,7 @@ function PayslipArchive() {
     showToastSuccess(`Exported ${files.length} report files`);
   };
 
-  if (loading) return <PageSkeleton />;
+  if (loading) return <PayrollReportsSkeleton />;
 
   return (
     <div className="flex flex-col gap-4">
@@ -549,7 +549,7 @@ export default function ReportsTab() {
   }, [fetchStats]);
 
   if (loading && activeTab !== "my-reports")
-    return <PageSkeleton />;
+    return <PayrollReportsSkeleton />;
 
   const latest = stats[0] ?? null;
   const latestDepartmentSummary = latest?.departmentSummary || [];

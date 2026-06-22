@@ -26,7 +26,13 @@ import {
   FolderKanban,
   Maximize2,
 } from "lucide-react";
-import { TaskBoardSkeleton } from '@/components/ui/Skeleton';
+import {
+  TaskCalendarPanelSkeleton,
+  TaskFocusSectionSkeleton,
+  TaskKanbanColumnsSkeleton,
+  TaskListRowsSkeleton,
+  TaskProjectCardsSkeleton,
+} from '@/components/ui/FeatureSkeletons';
 import {
   createTask,
   updateTask,
@@ -928,26 +934,6 @@ export default function TaskTrackingPage() {
       })
       .filter(Boolean) as any[];
   })();
-
-
-
-  if (isLoading && tasks.length === 0) {
-    return (
-      <main className="min-h-[calc(100dvh-112px)] overflow-x-hidden bg-[var(--background)] text-[var(--foreground)]">
-        <div className="motion-content-enter flex min-h-0 flex-col p-6 pt-0">
-          <Header
-            title="Task Tracking"
-            subtitle="Track and manage tasks, assignments, and progress."
-          />
-
-          <div className="mt-6 flex flex-col gap-4">
-            <TaskBoardSkeleton includeHeader={false} />
-          </div>
-        </div>
-      </main>
-    );
-  }
-
   return (
     <main className="min-h-[calc(100dvh-112px)] overflow-x-hidden bg-[var(--background)] text-[var(--foreground)]">
       <div className="motion-content-enter flex min-h-0 flex-col p-6 pt-0">
@@ -958,96 +944,102 @@ export default function TaskTrackingPage() {
 
         <div className="mt-6 flex flex-col gap-4 pb-8">
           <section className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-[var(--foreground)]">Work focus</div>
-                {focusTask ? (
-                  <div className="mt-1 min-w-0">
-                    <div className="truncate text-lg font-semibold">{focusTask.title}</div>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-                      <span>{STATUS_LABELS[focusTask.status]}</span>
-                      <span>{focusTask.priority} priority</span>
-                      {focusTask.dueDate ? <span>Due {focusTask.dueDate}</span> : <span>No due date</span>}
-                      {focusTask.assignee ? <span>Assigned to {focusTask.assignee.name || focusTask.assignee.email}</span> : null}
+            {isLoading ? (
+              <TaskFocusSectionSkeleton />
+            ) : (
+              <>
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-[var(--foreground)]">Work focus</div>
+                    {focusTask ? (
+                      <div className="mt-1 min-w-0">
+                        <div className="truncate text-lg font-semibold">{focusTask.title}</div>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                          <span>{STATUS_LABELS[focusTask.status]}</span>
+                          <span>{focusTask.priority} priority</span>
+                          {focusTask.dueDate ? <span>Due {focusTask.dueDate}</span> : <span>No due date</span>}
+                          {focusTask.assignee ? <span>Assigned to {focusTask.assignee.name || focusTask.assignee.email}</span> : null}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-sm text-[var(--muted)]">No open tasks in the current view.</p>
+                    )}
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <label htmlFor="task-focus-select" className="sr-only">Focus task</label>
+                      <select
+                        id="task-focus-select"
+                        value={focusSelection.mode === "pinned" ? pinnedFocusTaskId || "" : ""}
+                        onChange={(event) => savePinnedFocusTask(event.target.value || null)}
+                        className="min-h-10 w-full max-w-md rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
+                        aria-label="Choose focus task"
+                      >
+                        <option value="">
+                          {focusSelection.mode === "auto" ? `Auto: ${focusTask?.title || "No open task"}` : "Auto focus"}
+                        </option>
+                        {focusSelectTasks.map((task) => (
+                          <option key={task.id} value={task.id}>
+                            {getTaskFocusOptionLabel(task)}
+                          </option>
+                        ))}
+                      </select>
+                      {pinnedFocusTaskId ? (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          icon={<X className="w-4 h-4" />}
+                          onClick={() => savePinnedFocusTask(null)}
+                        >
+                          Clear focus
+                        </Button>
+                      ) : null}
                     </div>
                   </div>
-                ) : (
-                  <p className="mt-1 text-sm text-[var(--muted)]">No open tasks in the current view.</p>
-                )}
-                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <label htmlFor="task-focus-select" className="sr-only">Focus task</label>
-                  <select
-                    id="task-focus-select"
-                    value={focusSelection.mode === "pinned" ? pinnedFocusTaskId || "" : ""}
-                    onChange={(event) => savePinnedFocusTask(event.target.value || null)}
-                    className="min-h-10 w-full max-w-md rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]"
-                    aria-label="Choose focus task"
-                  >
-                    <option value="">
-                      {focusSelection.mode === "auto" ? `Auto: ${focusTask?.title || "No open task"}` : "Auto focus"}
-                    </option>
-                    {focusSelectTasks.map((task) => (
-                      <option key={task.id} value={task.id}>
-                        {getTaskFocusOptionLabel(task)}
-                      </option>
+
+                  <div className="grid gap-2 sm:grid-cols-5 xl:min-w-[34rem]">
+                    {[
+                      { label: "Open", value: openCount },
+                      { label: "Overdue", value: overdueTasks.length },
+                      { label: "Due today", value: todaysTasks.length },
+                      { label: "Review", value: reviewCount },
+                      { label: "Completed", value: completedCount },
+                    ].map((item) => (
+                      <div key={item.label} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2">
+                        <div className="text-xs text-[var(--muted)]">{item.label}</div>
+                        <div className="mt-1 font-mono text-xl font-semibold tabular-nums">{item.value}</div>
+                      </div>
                     ))}
-                  </select>
-                  {pinnedFocusTaskId ? (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      icon={<X className="w-4 h-4" />}
-                      onClick={() => savePinnedFocusTask(null)}
-                    >
-                      Clear focus
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-5 xl:min-w-[34rem]">
-                {[
-                  { label: "Open", value: openCount },
-                  { label: "Overdue", value: overdueTasks.length },
-                  { label: "Due today", value: todaysTasks.length },
-                  { label: "Review", value: reviewCount },
-                  { label: "Completed", value: completedCount },
-                ].map((item) => (
-                  <div key={item.label} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2">
-                    <div className="text-xs text-[var(--muted)]">{item.label}</div>
-                    <div className="mt-1 font-mono text-xl font-semibold tabular-nums">{item.value}</div>
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
 
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-              {focusTask ? (
-                <>
-                  <Button
-                    variant="primary"
-                    icon={<CheckSquare className="w-4 h-4" />}
-                    onClick={() => openTaskDetails(focusTask)}
-                  >
-                    Open Focus Task
-                  </Button>
-                  {focusTask.status !== 'completed' ? (
-                    <Button
-                      variant="secondary"
-                      icon={focusTask.timerStatus === 'playing' ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                      onClick={(event) => handleTaskAction(event, focusTask.id, focusTask.timerStatus === 'playing' ? 'pause' : 'play')}
-                    >
-                      {focusTask.timerStatus === 'playing' ? 'Pause Timer' : 'Start Timer'}
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  {focusTask ? (
+                    <>
+                      <Button
+                        variant="primary"
+                        icon={<CheckSquare className="w-4 h-4" />}
+                        onClick={() => openTaskDetails(focusTask)}
+                      >
+                        Open Focus Task
+                      </Button>
+                      {focusTask.status !== 'completed' ? (
+                        <Button
+                          variant="secondary"
+                          icon={focusTask.timerStatus === 'playing' ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                          onClick={(event) => handleTaskAction(event, focusTask.id, focusTask.timerStatus === 'playing' ? 'pause' : 'play')}
+                        >
+                          {focusTask.timerStatus === 'playing' ? 'Pause Timer' : 'Start Timer'}
+                        </Button>
+                      ) : null}
+                    </>
+                  ) : (
+                    <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={openNewTask}>
+                      Create Task
                     </Button>
-                  ) : null}
-                </>
-              ) : (
-                <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={openNewTask}>
-                  Create Task
-                </Button>
-              )}
-            </div>
+                  )}
+                </div>
+              </>
+            )}
           </section>
 
           <section
@@ -1085,112 +1077,116 @@ export default function TaskTrackingPage() {
               )}
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {projects.length === 0 ? (
-                <div className="rounded-md border border-dashed border-[var(--border)] bg-[var(--card-surface)] p-4 text-sm text-[var(--muted)]">
-                  No task projects yet.
-                </div>
-              ) : (
-                projects.slice(0, 8).map((project) => {
-                  const taskCount = project.taskCount ?? tasks.filter((task) => task.projectId === project.id).length;
-                  const isViewingProject = filterProjectId === project.id;
-                  return (
-                    <article
-                      key={project.id}
-                      className={`relative overflow-hidden rounded-md border p-3 transition-[background-color,border-color,box-shadow] duration-150 ${
-                        isViewingProject
-                          ? "border-[var(--accent)] bg-[var(--accent)]/10 shadow-[inset_0_0_0_1px_rgba(23,217,245,0.16)]"
-                          : "border-[var(--border)] bg-[var(--card-surface)] hover:border-[var(--accent)]/50 hover:bg-[var(--card-bg)]"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        aria-pressed={isViewingProject}
-                        aria-label={isViewingProject ? `Exit ${project.name} project task view` : `View tasks in ${project.name}`}
-                        title={isViewingProject ? "Back to all tasks" : "View project tasks"}
-                        onClick={() => toggleProjectTaskView(project.id)}
-                        className="absolute inset-0 z-10 cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card-bg)]"
-                      />
-                      <div className="pointer-events-none relative z-20 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-semibold">{project.name}</div>
-                            <div className="mt-1 text-xs text-[var(--muted)]">
-                              {taskCount} task{taskCount === 1 ? "" : "s"} - {PROJECT_STATUS_LABELS[project.status]}
+            {isLoading ? (
+              <TaskProjectCardsSkeleton />
+            ) : (
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {projects.length === 0 ? (
+                  <div className="rounded-md border border-dashed border-[var(--border)] bg-[var(--card-surface)] p-4 text-sm text-[var(--muted)]">
+                    No task projects yet.
+                  </div>
+                ) : (
+                  projects.slice(0, 8).map((project) => {
+                    const taskCount = project.taskCount ?? tasks.filter((task) => task.projectId === project.id).length;
+                    const isViewingProject = filterProjectId === project.id;
+                    return (
+                      <article
+                        key={project.id}
+                        className={`relative overflow-hidden rounded-md border p-3 transition-[background-color,border-color,box-shadow] duration-150 ${
+                          isViewingProject
+                            ? "border-[var(--accent)] bg-[var(--accent)]/10 shadow-[inset_0_0_0_1px_rgba(23,217,245,0.16)]"
+                            : "border-[var(--border)] bg-[var(--card-surface)] hover:border-[var(--accent)]/50 hover:bg-[var(--card-bg)]"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          aria-pressed={isViewingProject}
+                          aria-label={isViewingProject ? `Exit ${project.name} project task view` : `View tasks in ${project.name}`}
+                          title={isViewingProject ? "Back to all tasks" : "View project tasks"}
+                          onClick={() => toggleProjectTaskView(project.id)}
+                          className="absolute inset-0 z-10 cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card-bg)]"
+                        />
+                        <div className="pointer-events-none relative z-20 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-semibold">{project.name}</div>
+                              <div className="mt-1 text-xs text-[var(--muted)]">
+                                {taskCount} task{taskCount === 1 ? "" : "s"} - {PROJECT_STATUS_LABELS[project.status]}
+                              </div>
                             </div>
-                          </div>
-                          {isViewingProject ? (
-                            <span className="shrink-0 rounded border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-2 py-1 text-[10px] font-semibold uppercase text-[var(--accent)]">
-                              Viewing
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-1 text-[10px] text-[var(--muted)]">
-                          {project.department?.name && <span>{project.department.name}</span>}
-                          {project.targetDate && <span>Target {project.targetDate}</span>}
-                        </div>
-                        {project.members && project.members.length > 0 ? (
-                          <div className="mt-3 flex flex-wrap gap-1" aria-label={`${project.name} project members`}>
-                            {project.members.slice(0, 4).map((member) => (
-                              <span
-                                key={member.id}
-                                className="max-w-28 truncate rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[10px] text-[var(--muted)]"
-                                title={member.user?.name || member.user?.email || "Project member"}
-                              >
-                                {member.user?.name || member.user?.email || "Member"}
-                              </span>
-                            ))}
-                            {project.members.length > 4 ? (
-                              <span className="rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[10px] text-[var(--muted)]">
-                                +{project.members.length - 4}
+                            {isViewingProject ? (
+                              <span className="shrink-0 rounded border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-2 py-1 text-[10px] font-semibold uppercase text-[var(--accent)]">
+                                Viewing
                               </span>
                             ) : null}
                           </div>
-                        ) : null}
-                      </div>
-                      {canManageAssignments && (
-                        <div className="relative z-30 mt-3 flex flex-wrap gap-2">
-                          {project.status !== "completed" ? (
-                            <button
-                              type="button"
-                              onClick={() => handleProjectStatus(project, "completed")}
-                              className="motion-interactive inline-flex min-h-10 items-center justify-center rounded border border-emerald-500/30 px-3 py-2 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-                            >
-                              Complete
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleProjectStatus(project, "active")}
-                              className="motion-interactive inline-flex min-h-10 items-center justify-center rounded border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--card-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                            >
-                              Reopen
-                            </button>
-                          )}
-                          {project.status === "active" ? (
-                            <button
-                              type="button"
-                              onClick={() => handleProjectStatus(project, "paused")}
-                              className="motion-interactive inline-flex min-h-10 items-center justify-center rounded border border-amber-500/30 px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
-                            >
-                              Pause
-                            </button>
-                          ) : project.status === "paused" ? (
-                            <button
-                              type="button"
-                              onClick={() => handleProjectStatus(project, "active")}
-                              className="motion-interactive inline-flex min-h-10 items-center justify-center rounded border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--card-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                            >
-                              Resume
-                            </button>
+                          <div className="mt-2 flex flex-wrap gap-1 text-[10px] text-[var(--muted)]">
+                            {project.department?.name && <span>{project.department.name}</span>}
+                            {project.targetDate && <span>Target {project.targetDate}</span>}
+                          </div>
+                          {project.members && project.members.length > 0 ? (
+                            <div className="mt-3 flex flex-wrap gap-1" aria-label={`${project.name} project members`}>
+                              {project.members.slice(0, 4).map((member) => (
+                                <span
+                                  key={member.id}
+                                  className="max-w-28 truncate rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[10px] text-[var(--muted)]"
+                                  title={member.user?.name || member.user?.email || "Project member"}
+                                >
+                                  {member.user?.name || member.user?.email || "Member"}
+                                </span>
+                              ))}
+                              {project.members.length > 4 ? (
+                                <span className="rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[10px] text-[var(--muted)]">
+                                  +{project.members.length - 4}
+                                </span>
+                              ) : null}
+                            </div>
                           ) : null}
                         </div>
-                      )}
-                    </article>
-                  );
-                })
-              )}
-            </div>
+                        {canManageAssignments && (
+                          <div className="relative z-30 mt-3 flex flex-wrap gap-2">
+                            {project.status !== "completed" ? (
+                              <button
+                                type="button"
+                                onClick={() => handleProjectStatus(project, "completed")}
+                                className="motion-interactive inline-flex min-h-10 items-center justify-center rounded border border-emerald-500/30 px-3 py-2 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                              >
+                                Complete
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleProjectStatus(project, "active")}
+                                className="motion-interactive inline-flex min-h-10 items-center justify-center rounded border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--card-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                              >
+                                Reopen
+                              </button>
+                            )}
+                            {project.status === "active" ? (
+                              <button
+                                type="button"
+                                onClick={() => handleProjectStatus(project, "paused")}
+                                className="motion-interactive inline-flex min-h-10 items-center justify-center rounded border border-amber-500/30 px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
+                              >
+                                Pause
+                              </button>
+                            ) : project.status === "paused" ? (
+                              <button
+                                type="button"
+                                onClick={() => handleProjectStatus(project, "active")}
+                                className="motion-interactive inline-flex min-h-10 items-center justify-center rounded border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--card-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                              >
+                                Resume
+                              </button>
+                            ) : null}
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </section>
 
           <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -1530,7 +1526,9 @@ export default function TaskTrackingPage() {
 
           {view === "grid" && (
             <div key="task-grid-view" className="motion-view-enter min-h-[28rem] overflow-hidden">
-              {sortedTasks.length === 0 && (
+              {isLoading ? (
+                <TaskKanbanColumnsSkeleton columns={Math.max(columns.length, 4)} />
+              ) : sortedTasks.length === 0 ? (
                 <EmptyState
                   icon={CheckSquare}
                   title="No tasks yet"
@@ -1538,9 +1536,7 @@ export default function TaskTrackingPage() {
                   actionLabel="Create your first task"
                   onAction={() => setShowModal(true)}
                 />
-              )}
-
-              {sortedTasks.length > 0 && (
+              ) : (
                 <div className="overflow-x-auto chat-scroll pb-3">
                   <div className="flex min-w-max items-stretch gap-4">
                     {columns.map(col => (
@@ -1581,7 +1577,9 @@ export default function TaskTrackingPage() {
 
           {view === "list" && (
             <div key="task-list-view" className="motion-view-enter pb-6">
-              {sortedTasks.length === 0 ? (
+              {isLoading ? (
+                <TaskListRowsSkeleton />
+              ) : sortedTasks.length === 0 ? (
                 <EmptyState
                   icon={CheckSquare}
                   title="No tasks yet"
@@ -1606,16 +1604,20 @@ export default function TaskTrackingPage() {
 
           {view === "calendar" && (
             <div key="task-calendar-view" className="motion-view-enter pb-6">
-              <TaskCalendarView
-                events={events}
-                todaysTasks={todaysTasks}
-                overdueTasks={overdueTasks}
-                totalCount={filteredTasks.length}
-                completedCount={completedCount}
-                inProgressCount={inProgressCount}
-                onOpenTask={openTaskDetails}
-                onCreateTaskForDate={openNewTaskForDate}
-              />
+              {isLoading ? (
+                <TaskCalendarPanelSkeleton />
+              ) : (
+                <TaskCalendarView
+                  events={events}
+                  todaysTasks={todaysTasks}
+                  overdueTasks={overdueTasks}
+                  totalCount={filteredTasks.length}
+                  completedCount={completedCount}
+                  inProgressCount={inProgressCount}
+                  onOpenTask={openTaskDetails}
+                  onCreateTaskForDate={openNewTaskForDate}
+                />
+              )}
             </div>
           )}
         </div>

@@ -6,6 +6,7 @@ import Header from '@/components/Header';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import FolderCard from '@/components/file-directory/FolderCard';
+import { FileDirectorySkeleton } from '@/components/ui/FeatureSkeletons';
 
 // Lazy-loaded modal (only rendered when opened)
 const AddFolderModal = dynamic(() => import('@/components/file-directory/AddFolderModal'), { ssr: false });
@@ -20,7 +21,6 @@ import {
   List,
   ChevronRight,
   Home,
-  Loader2,
   Upload,
 } from 'lucide-react';
 import {
@@ -375,11 +375,7 @@ export default function FileDirectoryPage() {
         </div>
 
         {loading ? (
-          /* Loading state */
-          <div className="flex items-center justify-center py-20 gap-3 text-[var(--muted)]">
-            <Loader2 className="w-6 h-6 animate-spin" />
-            <span className="text-sm">Loading folders...</span>
-          </div>
+          <FileDirectorySkeleton viewMode={viewMode} />
         ) : folders.length === 0 ? (
           /* Empty state */
           <div className="text-center py-20">

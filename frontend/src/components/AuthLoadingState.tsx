@@ -9,8 +9,13 @@ import {
   DashboardSkeleton,
   PageSkeleton,
   Skeleton,
-  TaskBoardSkeleton,
 } from './ui/Skeleton';
+import {
+  PayrollCalendarBodySkeleton,
+  TaskFocusSectionSkeleton,
+  TaskListRowsSkeleton,
+  TaskProjectCardsSkeleton,
+} from './ui/FeatureSkeletons';
 
 function OperationsRouteSkeleton() {
   return (
@@ -49,8 +54,48 @@ function getProtectedRouteLoading(pathname: string) {
       contentClassName: 'motion-content-enter flex min-h-0 flex-col p-6 pt-0',
       header: <Header title="Task Tracking" subtitle="Track and manage tasks, assignments, and progress." />,
       body: (
-        <div className="mt-6 flex flex-col gap-4">
-          <TaskBoardSkeleton includeHeader={false} />
+        <div className="mt-6 flex flex-col gap-4 pb-8">
+          <section className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4">
+            <TaskFocusSectionSkeleton />
+          </section>
+          <section className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div className="min-w-0 space-y-2">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-72 max-w-full" />
+              </div>
+              <Skeleton className="h-10 w-32 rounded-[var(--radius-md)]" />
+            </div>
+            <TaskProjectCardsSkeleton />
+          </section>
+          <div className="flex flex-wrap items-center gap-3">
+            <Skeleton className="h-10 w-28 rounded-[var(--radius-md)]" />
+            <Skeleton className="h-10 w-32 rounded-[var(--radius-md)]" />
+            <Skeleton className="h-10 w-40 rounded-[var(--radius-md)]" />
+            <Skeleton className="h-10 w-full rounded-full sm:ml-auto sm:w-48" />
+            <Skeleton className="h-10 w-10 rounded-[var(--radius-md)]" />
+            <Skeleton className="h-10 w-10 rounded-[var(--radius-md)]" />
+          </div>
+          <TaskListRowsSkeleton />
+        </div>
+      ),
+    };
+  }
+
+  if (pathname === '/payroll-calendar') {
+    return {
+      mainClassName: 'main-content-height bg-[var(--background)] text-[var(--foreground)]',
+      contentClassName: 'p-6 pt-0',
+      header: <Header title="Payroll Calendar" subtitle="Track pay periods, deadlines, and holidays" />,
+      body: (
+        <div className="mt-6">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <Skeleton className="h-10 w-28 rounded-[var(--radius-md)]" />
+            <Skeleton className="h-10 w-40 rounded-[var(--radius-md)]" />
+            <Skeleton className="h-10 w-44 rounded-[var(--radius-md)]" />
+            <Skeleton className="h-10 w-28 rounded-[var(--radius-md)]" />
+          </div>
+          <PayrollCalendarBodySkeleton />
         </div>
       ),
     };

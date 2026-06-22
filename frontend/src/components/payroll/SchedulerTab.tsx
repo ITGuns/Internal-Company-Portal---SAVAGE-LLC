@@ -26,6 +26,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import Button from "@/components/Button";
+import { PayrollSchedulerRunsSkeleton } from "@/components/ui/FeatureSkeletons";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 
@@ -316,9 +317,7 @@ export default function SchedulerTab() {
         </h3>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-10">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-          </div>
+          <PayrollSchedulerRunsSkeleton />
         ) : runs.length === 0 ? (
           <div className="rounded-xl border border-dashed border-[var(--border)] p-8 text-center text-sm text-[var(--muted)]">
             No job runs yet. Payroll and billing jobs run automatically on the 1st and 16th, or you can trigger them manually above.

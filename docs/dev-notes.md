@@ -1,5 +1,79 @@
 # Development Notes
 
+## 2026-06-22 - Section-Level Loading Skeleton Follow-Up
+
+### Completed
+- Converted Task Tracking, Payroll Calendar, payroll sub-tabs, Chat, and protected auth-loading fallbacks to keep route headers, tabs, filters, and primary controls mounted while only the data sections skeletonize.
+- Added task-specific skeleton sections for work focus, project cards, board columns, task rows, and calendar panels.
+- Added payroll-specific skeleton sections for the calendar body, employee overview, payslip management, and scheduler job runs.
+- Verified delayed API loading and delayed auth checks render section-shaped skeletons instead of whole-page placeholders.
+
+### Files Changed
+- `frontend/src/components/ui/FeatureSkeletons.tsx`
+- `frontend/src/components/ui/feature-skeletons/TaskSkeletons.tsx`
+- `frontend/src/components/ui/feature-skeletons/PayrollSkeletons.tsx`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/app/payroll-calendar/page.tsx`
+- `frontend/src/app/chat/page.tsx`
+- `frontend/src/components/AuthLoadingState.tsx`
+- `frontend/src/components/payroll/EmployeeOverviewTab.tsx`
+- `frontend/src/components/payroll/PayslipsTab.tsx`
+- `frontend/src/components/payroll/SchedulerTab.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+- Matched the Dashboard loading model: preserve the page shell and only show skeletons where async data will appear.
+- Kept the new skeletons in the shared feature-skeleton export surface so future routes can reuse them without adding another loading pattern.
+- Avoided new dependencies and reused the existing `Skeleton` primitive and design tokens.
+
+### How to Test
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run test:visual` with `/task-tracking,/payroll-calendar,/chat,/payroll-dashboard`
+- Delay task, payroll, chat, and auth API calls in browser checks and verify the route chrome remains visible while the matching sections show accessible loading labels.
+
+### Next Steps
+- Apply this same section-level loading rule to any new feature page before using generic page-level skeletons.
+
+## 2026-06-22 - Feature Loading Skeleton Pass
+
+### Completed
+- Added shared feature skeletons that match the Dashboard loading language for chat, file directory, payslips, payroll calendar/reports, profile, client portal, client requests, and admin client operations.
+- Replaced remaining spinner/text/generic loading states on those surfaces with layout-matched skeletons and accessible loading labels.
+- Verified delayed API loading renders the intended skeleton surfaces before data resolves.
+
+### Files Changed
+- `frontend/src/components/ui/FeatureSkeletons.tsx`
+- `frontend/src/components/ui/feature-skeletons/shared.tsx`
+- `frontend/src/components/ui/feature-skeletons/InternalSkeletons.tsx`
+- `frontend/src/components/ui/feature-skeletons/ClientSkeletons.tsx`
+- `frontend/src/app/chat/page.tsx`
+- `frontend/src/app/client/page.tsx`
+- `frontend/src/app/client/tickets/page.tsx`
+- `frontend/src/app/file-directory/page.tsx`
+- `frontend/src/app/my-payslips/page.tsx`
+- `frontend/src/app/payroll-calendar/page.tsx`
+- `frontend/src/app/profile/page.tsx`
+- `frontend/src/components/client-portal/ClientOperationsShell.tsx`
+- `frontend/src/components/client-portal/ClientPortalWorkspaceFrame.tsx`
+- `frontend/src/components/payroll/ReportsTab.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+- Kept the auth fallback generic because it is a cross-route shell state, while feature routes now use skeletons shaped like their final panels, lists, calendars, and client workspaces.
+- Used existing Tailwind tokens and the current `Skeleton` primitive instead of adding another loading dependency.
+
+### How to Test
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- Start the frontend and run visual smoke on `/chat`, `/file-directory`, `/my-payslips`, `/payroll-calendar`, `/operations/clients`, `/operations/clients/requests`, `/profile`, `/client`, `/client/tickets`, and `/client/work`.
+- Delay the matching API calls and verify the labeled skeleton surfaces appear for file directory, payslips, payroll calendar, client workspace, and client operations.
+
+### Next Steps
+- If future feature pages add custom data loading, wire them to `FeatureSkeletons.tsx` before falling back to `PageSkeleton`.
+
 ## 2026-06-22 - Vercel Login Migration Compatibility Patch
 
 ### Completed

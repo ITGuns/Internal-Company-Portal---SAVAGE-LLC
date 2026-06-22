@@ -3,6 +3,7 @@
 import React from "react";
 import { Activity, BriefcaseBusiness, CheckCircle2, FileText, Gauge } from "lucide-react";
 import EmptyState from "@/components/ui/EmptyState";
+import { ClientPortalSkeleton } from "@/components/ui/FeatureSkeletons";
 import { ProductionMetricStrip, type ProductionMetricItem } from "@/components/workspace/ProductionWorkspace";
 import {
   ClientPortalWorkspaceState,
@@ -48,7 +49,7 @@ export default function ClientPortalWorkspaceFrame({
           </div>
 
           {loading ? (
-            <div className="text-sm text-[var(--muted)]">Loading client workspace...</div>
+            <ClientPortalSkeleton compact />
           ) : organizations.length === 0 ? (
             <EmptyState
               icon={BriefcaseBusiness}

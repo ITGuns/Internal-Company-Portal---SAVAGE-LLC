@@ -10,6 +10,7 @@ import { useToast } from "@/components/ToastProvider";
 import EmployeeSidebarItem from "./EmployeeSidebarItem";
 import TimeTrackingCalendar from "./TimeTrackingCalendar";
 import EmployeeProfilePanel from "./EmployeeProfilePanel";
+import { PayrollPayslipsManagementSkeleton } from "@/components/ui/FeatureSkeletons";
 import { createTimeEntry, deleteTimeEntry } from "@/lib/time-entries";
 
 // Lazy-loaded modals (only rendered when opened)
@@ -233,9 +234,8 @@ export default function PayslipsTab() {
 
   if (isLoading && employees.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center">
-        <Loader2 className="w-10 h-10 animate-spin text-blue-500 mb-4" />
-        <p className="text-[var(--muted)]">Loading payroll data...</p>
+      <div className="h-full flex flex-col p-6 pt-0">
+        <PayrollPayslipsManagementSkeleton />
       </div>
     );
   }

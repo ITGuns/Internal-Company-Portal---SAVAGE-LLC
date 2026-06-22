@@ -8,6 +8,7 @@ import ClientTicketFilterControls from "@/components/client-portal/ClientTicketF
 import ChoiceGroup from "@/components/client-portal/ChoiceGroup";
 import TicketDetailPresets from "@/components/client-portal/TicketDetailPresets";
 import EmptyState from "@/components/ui/EmptyState";
+import { ClientTicketsSkeleton } from "@/components/ui/FeatureSkeletons";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { ProductionMetricStrip, type ProductionMetricItem } from "@/components/workspace/ProductionWorkspace";
 import { useToast } from "@/components/ToastProvider";
@@ -250,7 +251,7 @@ export default function ClientTicketsPage() {
         ) : null}
 
         {loading ? (
-          <div className="mt-6 text-sm text-[var(--muted)]">Loading requests...</div>
+          <ClientTicketsSkeleton />
         ) : organizations.length === 0 ? (
           <div className="mt-6">
             <EmptyState icon={Ticket} title="No client workspace assigned" description="Your account is not connected to a client organization yet." />

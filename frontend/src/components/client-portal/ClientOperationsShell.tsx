@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import Header from "@/components/Header";
 import EmptyState from "@/components/ui/EmptyState";
+import { ClientOperationsSkeleton, OperationsAccessSkeleton } from "@/components/ui/FeatureSkeletons";
 import StatusBadge from "@/components/ui/StatusBadge";
 import {
   ProductionMetricStrip,
@@ -401,7 +402,7 @@ export default function ClientOperationsShell({
       <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
         <div className="p-6 pt-0">
           <Header title={routeTitle.title} subtitle={routeTitle.subtitle} />
-          <div className="mt-6 text-sm text-[var(--muted)]">Checking client operations access...</div>
+          <OperationsAccessSkeleton />
         </div>
       </main>
     );
@@ -432,7 +433,7 @@ export default function ClientOperationsShell({
 
         <div className="mt-6 space-y-5">
           {workspace.loading ? (
-            <div className="text-sm text-[var(--muted)]">Loading client operations...</div>
+            <ClientOperationsSkeleton />
           ) : (
             <div className="grid min-w-0 gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
               <ClientOperationsClientPicker workspace={workspace} />

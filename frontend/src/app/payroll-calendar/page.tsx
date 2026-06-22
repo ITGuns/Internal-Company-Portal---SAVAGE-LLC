@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Header from "@/components/Header";
 import Button from "@/components/Button";
-import { PageSkeleton } from "@/components/ui/Skeleton";
+import { PayrollCalendarBodySkeleton } from "@/components/ui/FeatureSkeletons";
 import { useToast } from "@/components/ToastProvider";
 import { Calendar as CalendarIcon, Users, FileText, BarChart3, Plus, Timer } from "lucide-react";
 import { type PayrollEventType } from "@/lib/payroll-events";
@@ -326,22 +326,6 @@ export default function PayrollCalendarPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <main
-        className="main-content-height bg-[var(--background)] text-[var(--foreground)]"
-      >
-        <div className="p-6 pt-0">
-          <Header
-            title="Payroll Calendar"
-            subtitle="Track pay periods, deadlines, and holidays"
-          />
-          <PageSkeleton />
-        </div>
-      </main>
-    );
-  }
-
   return (
     <main
       className="main-content-height bg-[var(--background)] text-[var(--foreground)]"
@@ -428,23 +412,27 @@ export default function PayrollCalendarPage() {
 
           {/* Tab Content */}
           {activeTab === "calendar" && (
-            <CalendarTab
-              displayEvents={displayEvents}
-              events={events}
-              stats={stats}
-              timeEntries={timeEntries}
-              clockedIn={clockedIn}
-              onTitleChange={() => {/* Calendar updates its own title */ }}
-              onEditEvent={handleEditEvent}
-              onDeleteEvent={handleDeleteEvent}
-              onClockIn={handleClockInClick}
-              onClockOut={handleClockOutClick}
-              onAddManualEntry={() => setShowAddModal(true)}
-              onEditTimeEntry={handleEditManualEntry}
-              onDeleteTimeEntry={handleDeleteTimeEntry}
-              isOwnTimeView={isOwnTimeView}
-              auditEmployeeLabel={auditEmployeeLabel}
-            />
+            loading ? (
+              <PayrollCalendarBodySkeleton />
+            ) : (
+              <CalendarTab
+                displayEvents={displayEvents}
+                events={events}
+                stats={stats}
+                timeEntries={timeEntries}
+                clockedIn={clockedIn}
+                onTitleChange={() => {/* Calendar updates its own title */ }}
+                onEditEvent={handleEditEvent}
+                onDeleteEvent={handleDeleteEvent}
+                onClockIn={handleClockInClick}
+                onClockOut={handleClockOutClick}
+                onAddManualEntry={() => setShowAddModal(true)}
+                onEditTimeEntry={handleEditManualEntry}
+                onDeleteTimeEntry={handleDeleteTimeEntry}
+                isOwnTimeView={isOwnTimeView}
+                auditEmployeeLabel={auditEmployeeLabel}
+              />
+            )
           )}
 
           {hasManagementAccess && activeTab === "employees" && (

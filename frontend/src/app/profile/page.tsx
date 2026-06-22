@@ -5,6 +5,7 @@ import { User, Mail, Shield, X } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import ProfileEditForm from "@/components/ProfileEditForm";
 import { useRouter } from "next/navigation";
+import { ProfileSkeleton } from "@/components/ui/FeatureSkeletons";
 
 export default function ProfilePage() {
   const { user, isLoading } = useUser();
@@ -15,7 +16,7 @@ export default function ProfilePage() {
     return (
       <main style={{ minHeight: "calc(100vh - var(--header-height))" }} className="p-6">
         <Header title="Profile" subtitle="Manage your account" />
-        <div className="mt-8">Loading...</div>
+        <ProfileSkeleton />
       </main>
     )
   }

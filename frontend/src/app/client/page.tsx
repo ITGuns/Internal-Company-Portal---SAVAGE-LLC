@@ -24,6 +24,7 @@ import ClientActivityTimeline from "@/components/client-portal/ClientActivityTim
 import ChoiceGroup from "@/components/client-portal/ChoiceGroup";
 import TicketDetailPresets from "@/components/client-portal/TicketDetailPresets";
 import EmptyState from "@/components/ui/EmptyState";
+import { ClientPortalSkeleton } from "@/components/ui/FeatureSkeletons";
 import StatusBadge from "@/components/ui/StatusBadge";
 import {
   ProductionMetricStrip,
@@ -134,7 +135,7 @@ export default function ClientPortalPage() {
     <main className="main-content-height bg-[var(--background)] text-[var(--foreground)]">
       <div className="p-4 sm:p-6">
         {loading ? (
-          <div className="mt-6 text-sm text-[var(--muted)]">Loading client workspace...</div>
+          <ClientPortalSkeleton />
         ) : organizations.length === 0 ? (
           <div className="mt-6">
             <EmptyState icon={BriefcaseBusiness} title="No client workspace assigned" description="Your account is not connected to a client organization yet." />

@@ -5,10 +5,11 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { Users, User, Clock, Award, CheckCircle, XCircle, UserCheck, UserPlus, Edit2, Loader2, Plus } from "lucide-react";
+import { Users, User, Clock, Award, CheckCircle, XCircle, UserCheck, UserPlus, Edit2, Plus } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 import Button from "@/components/Button";
+import { PayrollEmployeesSectionSkeleton } from "@/components/ui/FeatureSkeletons";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
 import EmployeeCard from "./EmployeeCard";
 import StatCard from "./StatCard";
@@ -210,15 +211,6 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
 
     const displayEmployees = view === "deployed" ? employees : pendingEmployees;
 
-    if (isLoading && employees.length === 0) {
-        return (
-            <div className="flex flex-col items-center justify-center py-20">
-                <Loader2 className="w-10 h-10 animate-spin text-blue-500 mb-4" />
-                <p className="text-[var(--muted)]">Loading employee data...</p>
-            </div>
-        );
-    }
-
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-3 p-1 bg-[var(--card-surface)] rounded-lg border border-[var(--border)] w-fit">
@@ -246,7 +238,9 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                 </Button>
             </div>
 
-            {view === "deployed" ? (
+            {isLoading && employees.length === 0 ? (
+                <PayrollEmployeesSectionSkeleton />
+            ) : view === "deployed" ? (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <StatCard
                         icon={<Users className="w-5 h-5" aria-hidden="true" />}
@@ -296,7 +290,7 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                 </div>
             )}
 
-            {view === "deployed" ? (
+            {!isLoading && (view === "deployed" ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {displayEmployees.map((employee) => (
                         <EmployeeCard
@@ -419,7 +413,7 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                         </div>
                     )}
                 </>
-            )}
+            ))}
 
             {view === "pending" && (
                 <div className="flex justify-center">

@@ -10,7 +10,7 @@ import { archiveConversation, fetchConversations, fetchMessages, sendMessage, cr
 import { fetchUsers, type User as SystemUser } from '@/lib/users'
 import { useSocket } from '@/context/SocketContext'
 import { useUser } from '@/contexts/UserContext'
-import { PageSkeleton } from '@/components/ui/Skeleton'
+import { ChatWorkspaceSkeleton } from '@/components/ui/FeatureSkeletons'
 import ChatSidebar from '@/components/chat/ChatSidebar'
 import MessageInput from '@/components/chat/MessageInput'
 import NewChatModal from '@/components/chat/NewChatModal'
@@ -578,9 +578,20 @@ export default function UnifiedChatPage() {
 
     if (loading) {
         return (
-            <main className="flex flex-col h-[calc(100vh-112px)]">
-                <Header title="Company Chat" />
-                <PageSkeleton />
+            <main className="flex h-[calc(100vh-112px)] flex-col overflow-hidden">
+                <Header title="Chat & Messages" subtitle="Loading conversations" />
+                <div className="flex items-center justify-end border-b border-[var(--border)] bg-[var(--card-surface)] px-4 py-1">
+                    <button
+                        type="button"
+                        disabled
+                        className="flex min-h-10 items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-[var(--muted)] opacity-60"
+                        aria-label="Search messages"
+                    >
+                        <Search className="w-4 h-4" aria-hidden="true" />
+                        <span className="text-xs">Search</span>
+                    </button>
+                </div>
+                <ChatWorkspaceSkeleton />
             </main>
         )
     }
