@@ -36,7 +36,7 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log error details for debugging
     console.error('ErrorBoundary caught an error:', error, errorInfo);
-    
+
     this.setState({
       error,
       errorInfo,
@@ -62,48 +62,46 @@ export class ErrorBoundary extends Component<Props, State> {
 
       // Default fallback UI
       return (
-        <div className="min-h-screen flex items-center justify-center bg-base-200">
-          <div className="card w-full max-w-2xl bg-base-100 shadow-xl">
-            <div className="card-body">
-              <h2 className="card-title text-error text-2xl">
-                ⚠️ Something went wrong
-              </h2>
-              
-              <p className="text-base-content/70">
-                The application encountered an unexpected error. Don&apos;t worry, your data is safe.
-              </p>
+        <div className="flex min-h-screen items-center justify-center bg-[var(--background)] p-4 text-[var(--foreground)]">
+          <div className="w-full max-w-2xl rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-6 shadow-xl">
+            <h2 className="text-2xl font-semibold text-red-400">
+              Something went wrong
+            </h2>
 
-              {this.state.error && (
-                <div className="mockup-code bg-base-300 text-sm overflow-auto max-h-60 my-4">
-                  <pre data-prefix="$" className="text-error">
-                    <code>{this.state.error.toString()}</code>
+            <p className="mt-3 text-sm text-[var(--muted)]">
+              The application encountered an unexpected error. Your current session data is still stored locally.
+            </p>
+
+            {this.state.error && (
+              <div className="my-4 max-h-60 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] p-3 text-sm">
+                <pre className="whitespace-pre-wrap text-red-300">
+                  <code>{this.state.error.toString()}</code>
+                </pre>
+                {this.state.errorInfo?.componentStack && (
+                  <pre className="mt-3 whitespace-pre-wrap text-xs text-amber-300">
+                    <code>{this.state.errorInfo.componentStack}</code>
                   </pre>
-                  {this.state.errorInfo?.componentStack && (
-                    <pre data-prefix=">" className="text-warning text-xs">
-                      <code>{this.state.errorInfo.componentStack}</code>
-                    </pre>
-                  )}
-                </div>
-              )}
-
-              <div className="card-actions justify-end gap-2 mt-4">
-                <button
-                  className="btn btn-outline"
-                  onClick={() => window.location.reload()}
-                >
-                  Reload Page
-                </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={this.handleReset}
-                >
-                  Try Again
-                </button>
+                )}
               </div>
+            )}
 
-              <div className="text-xs text-base-content/50 mt-4">
-                If this error persists, please contact support with the error details above.
-              </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-raised)]"
+                onClick={() => window.location.reload()}
+              >
+                Reload Page
+              </button>
+              <button
+                className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--accent-foreground)] transition hover:opacity-90"
+                onClick={this.handleReset}
+              >
+                Try Again
+              </button>
+            </div>
+
+            <div className="mt-4 text-xs text-[var(--muted)]">
+              If this error persists, contact support with the error details above.
             </div>
           </div>
         </div>

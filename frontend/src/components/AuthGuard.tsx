@@ -3,7 +3,7 @@
 import { useEffect, useState, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
-import { getAuthenticatedLandingPath } from '@/lib/role-access';
+import { isClientPortalRouteAllowed } from '@/lib/role-access';
 import AuthLoadingState from './AuthLoadingState';
 
 interface AuthGuardProps {
@@ -46,7 +46,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       return;
     }
 
-    if ((pathname === '/' || pathname === '/dashboard') && getAuthenticatedLandingPath(user) === '/client') {
+    if (!isClientPortalRouteAllowed(user, pathname)) {
       router.replace('/client');
     }
   }, [user, isLoading, pathname, isExemptRoute, router]);
@@ -74,7 +74,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     return null;
   }
 
-  if (user && !isExemptRoute && (pathname === '/' || pathname === '/dashboard') && getAuthenticatedLandingPath(user) === '/client') {
+  if (user && !isExemptRoute && !isClientPortalRouteAllowed(user, pathname)) {
     return null;
   }
 

@@ -3,7 +3,7 @@ import { FileDirectoryService } from './file-directory.service'
 import { AuthRequest, authenticateToken } from '../auth/auth.middleware'
 import { prisma } from '../database/prisma.service'
 import { isAdminEmail } from '../config/env.config'
-import { hasFullAccess } from '../org/org-access-policy'
+import { hasFullAccess, hasInternalDirectoryAccess } from '../org/org-access-policy'
 import { createLogger } from '../observability/logger'
 
 const logger = createLogger('file-directory.file-directory.controller')
@@ -15,16 +15,26 @@ export class FileDirectoryController {
     router(): Router {
         const router = express.Router()
 
-        const getUserDetails = async (userId: string | undefined) => {
-            if (!userId) return { role: 'member', departments: [] }
+        const getUserDetails = async (userId: string | undefined, email?: string) => {
+            if (!userId) {
+                return {
+                    role: 'member',
+                    departments: [] as string[],
+                    canReadInternalDirectory: false,
+                    canChooseDepartment: false,
+                }
+            }
             const dbRoles = await prisma.userRole.findMany({
                 where: { userId },
                 include: { department: true }
             });
-            const isGlobalAdmin = hasFullAccess(dbRoles);
+            const isConfiguredAdminEmail = isAdminEmail(email)
+            const isGlobalAdmin = hasFullAccess(dbRoles, isConfiguredAdminEmail);
             return {
                 role: isGlobalAdmin ? 'admin' : (dbRoles[0]?.role || 'member'),
-                departments: dbRoles.map(r => r.department?.name).filter(Boolean) as string[]
+                departments: dbRoles.map(r => r.department?.name).filter(Boolean) as string[],
+                canReadInternalDirectory: hasInternalDirectoryAccess(dbRoles, isConfiguredAdminEmail),
+                canChooseDepartment: isGlobalAdmin,
             };
         };
 
@@ -32,13 +42,10 @@ export class FileDirectoryController {
         router.get('/', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const user = (req as AuthRequest).user
-                const details = await getUserDetails(user?.userId)
-                
-                // Allow "Operations leads" hack explicitly if needed, but the service `findAll` has the role check.
-                // Actually if `details.role === 'admin'` they see all.
-                // Or if email matches
-                if (isAdminEmail(user?.email)) {
-                    details.role = 'admin'
+                const details = await getUserDetails(user?.userId, user?.email)
+
+                if (!details.canReadInternalDirectory) {
+                    return res.status(403).json({ error: 'File directory access is restricted to internal accounts' })
                 }
 
                 const folders = await this.service.findAll(details.departments, details.role)
@@ -54,10 +61,10 @@ export class FileDirectoryController {
             try {
                 const user = (req as AuthRequest).user
                 const id = String(req.params.id)
-                const details = await getUserDetails(user?.userId)
-                
-                if (isAdminEmail(user?.email)) {
-                    details.role = 'admin'
+                const details = await getUserDetails(user?.userId, user?.email)
+
+                if (!details.canReadInternalDirectory) {
+                    return res.status(403).json({ error: 'File directory access is restricted to internal accounts' })
                 }
 
                 const folders = await this.service.findChildren(id, details.departments, details.role)
@@ -72,20 +79,33 @@ export class FileDirectoryController {
         router.post('/', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const user = (req as AuthRequest).user
-                const { name, type, department, parentId, customColor, driveLink } = req.body
+                const { name, type, department, parentId, customColor } = req.body
 
-                if (!name || !department) {
-                    return res.status(400).json({ error: 'name and department are required' })
+                const details = await getUserDetails(user?.userId, user?.email)
+                if (!details.canReadInternalDirectory) {
+                    return res.status(403).json({ error: 'File directory access is restricted to internal accounts' })
+                }
+
+                const normalizedName = typeof name === 'string' ? name.trim() : ''
+                if (!normalizedName) {
+                    return res.status(400).json({ error: 'name is required' })
+                }
+
+                const resolvedDepartment = details.canChooseDepartment && typeof department === 'string' && department.trim()
+                    ? department.trim()
+                    : details.departments[0]
+
+                if (!resolvedDepartment) {
+                    return res.status(400).json({ error: 'File directory requires an assigned department' })
                 }
 
                 const folder = await this.service.create({
-                    name,
+                    name: normalizedName,
                     type,
-                    department,
+                    department: resolvedDepartment,
                     parentId,
                     customColor,
                     createdById: user?.userId,
-                    driveLink,
                 })
 
                 res.status(201).json(folder)
@@ -107,9 +127,9 @@ export class FileDirectoryController {
                 }
 
                 // Only admin or the creator can delete
-                const details = await getUserDetails(user?.userId)
-                if (isAdminEmail(user?.email)) {
-                    details.role = 'admin'
+                const details = await getUserDetails(user?.userId, user?.email)
+                if (!details.canReadInternalDirectory) {
+                    return res.status(403).json({ error: 'File directory access is restricted to internal accounts' })
                 }
 
                 if (details.role !== 'admin' && folder.createdById !== user?.userId) {

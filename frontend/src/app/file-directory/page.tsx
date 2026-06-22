@@ -126,7 +126,7 @@ export default function FileDirectoryPage() {
           throw new Error(errData.error || 'Upload failed');
         }
 
-        const uploadResult = await uploadRes.json();
+        await uploadRes.json().catch(() => null);
 
         // 2. Add as a file item
         const dept = departmentFilter === 'All Departments' ? 'All Departments' : departmentFilter;
@@ -137,7 +137,6 @@ export default function FileDirectoryPage() {
             type: 'file',
             department: dept,
             parentId: currentFolderId || null,
-            driveLink: uploadResult.url,
           }),
         });
 
@@ -223,11 +222,7 @@ export default function FileDirectoryPage() {
   // Navigate into folder
   const handleFolderClick = (folder: FileDirectory) => {
     if (folder.type === 'file') {
-      if (folder.driveLink) {
-        window.open(folder.driveLink, '_blank');
-      } else {
-        toast.error('File link is missing');
-      }
+      toast.info('File record selected', 'Direct file links are disabled for this workspace.');
     } else {
       setCurrentFolderId(folder.id);
     }

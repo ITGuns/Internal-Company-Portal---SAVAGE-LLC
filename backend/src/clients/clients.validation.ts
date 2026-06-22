@@ -879,12 +879,6 @@ export function parseUpdateClientTicketInput(
   input: InputRecord,
   canManageTicketWorkflow = false,
 ): UpdateClientTicketInput {
-  const workflowKeys = ['projectId', 'assignedToId', 'internalNotes']
-  const requestedWorkflowUpdate = workflowKeys.some((key) => key in input)
-  if (requestedWorkflowUpdate && !canManageTicketWorkflow) {
-    throw new ClientValidationError('Only operations managers and admins can update ticket workflow fields')
-  }
-
   const projectId = canManageTicketWorkflow ? readNullableTrimmedString(input, 'projectId') : undefined
   const assignedToId = canManageTicketWorkflow ? readNullableTrimmedString(input, 'assignedToId') : undefined
   const internalNotes = canManageTicketWorkflow ? readNullableTrimmedString(input, 'internalNotes') : undefined

@@ -145,7 +145,7 @@ Recommended Vercel environment variables:
 
 - `NEXT_PUBLIC_ENABLE_REALTIME=false`
 - `DIRECT_DATABASE_URL`
-- `JWT_EXPIRES_IN=7d`
+- `JWT_EXPIRES_IN=15m`
 - `REFRESH_TOKEN_EXPIRES_IN=30d`
 - `LOG_LEVEL=info`
 - `OPS_MANAGER_EMAIL`
@@ -215,7 +215,8 @@ CI uses `npx prisma db push` only for disposable test databases because the curr
 After deployment, verify:
 
 - Backend `/health` returns `status: healthy`.
-- Login and refresh-token flows work.
+- Login, refresh-token rotation, and logout revocation work.
+- The `RefreshSession` table exists and refresh tokens are not accepted from JavaScript-readable request bodies.
 - `/dashboard`, `/task-tracking`, and `/chat` render.
 - Chat WebSocket delivery works between two authorized users.
 - Uploads/file-directory still read and write files.

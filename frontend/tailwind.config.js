@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: 'class',
@@ -11,8 +10,5 @@ module.exports = {
   theme: {
     extend: {},
   },
-  plugins: [require('daisyui')],
-  daisyui: {
-    themes: ['light', 'dark'],
-  },
+  plugins: [],
 };

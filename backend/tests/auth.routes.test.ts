@@ -7,6 +7,7 @@ import { prisma } from '../src/database/prisma.service'
 import { AuthController } from '../src/auth/auth.controller'
 import { JwtService } from '../src/auth/jwt.service'
 import { REFRESH_TOKEN_COOKIE_NAME } from '../src/auth/auth.session'
+import { config } from '../src/config/env.config'
 
 type JsonRecord = Record<string, any>
 
@@ -42,6 +43,20 @@ async function requestJson(
   }
 }
 
+async function requestRaw(
+  baseUrl: string,
+  path: string,
+): Promise<{ status: number; headers: Headers }> {
+  const response = await fetch(`${baseUrl}${path}`, {
+    redirect: 'manual',
+  })
+
+  return {
+    status: response.status,
+    headers: response.headers,
+  }
+}
+
 async function withServer<T>(run: (baseUrl: string) => Promise<T>): Promise<T> {
   const app = express()
   app.use(express.json())
@@ -71,6 +86,7 @@ function getRefreshCookiePair(setCookieHeader: string): string {
 
 async function runAuthRouteTests() {
   const email = uniqueEmail('auth-route')
+  const sandboxEmail = uniqueEmail('auth-sandbox-prod')
   const password = 'Password123'
   const passwordHash = await bcrypt.hash(password, 10)
 
@@ -114,7 +130,15 @@ async function runAuthRouteTests() {
       })
       assert.equal(cookieRefresh.status, 200)
       assert.equal(typeof cookieRefresh.body.accessToken, 'string')
-      assert.match(cookieRefresh.headers.get('set-cookie') || '', new RegExp(`${REFRESH_TOKEN_COOKIE_NAME}=`))
+      const rotatedRefreshCookie = cookieRefresh.headers.get('set-cookie') || ''
+      assert.match(rotatedRefreshCookie, new RegExp(`${REFRESH_TOKEN_COOKIE_NAME}=`))
+      const rotatedRefreshCookiePair = getRefreshCookiePair(rotatedRefreshCookie)
+
+      const reusedRefresh = await requestJson(baseUrl, '/auth/refresh', {
+        method: 'POST',
+        cookie: refreshCookiePair,
+      })
+      assert.equal(reusedRefresh.status, 403)
 
       const legacyRefreshToken = JwtService.generateRefreshToken({
         userId: user.id,
@@ -125,21 +149,51 @@ async function runAuthRouteTests() {
         method: 'POST',
         body: { refreshToken: legacyRefreshToken },
       })
-      assert.equal(bodyRefresh.status, 200)
-      assert.equal(typeof bodyRefresh.body.accessToken, 'string')
-      assert.match(bodyRefresh.headers.get('set-cookie') || '', new RegExp(`${REFRESH_TOKEN_COOKIE_NAME}=`))
+      assert.equal(bodyRefresh.status, 400)
 
       const logout = await requestJson(baseUrl, '/auth/logout', {
         method: 'POST',
-        cookie: refreshCookiePair,
+        cookie: rotatedRefreshCookiePair,
       })
       assert.equal(logout.status, 200)
       const logoutCookie = logout.headers.get('set-cookie') || ''
       assert.match(logoutCookie, new RegExp(`${REFRESH_TOKEN_COOKIE_NAME}=`))
       assert.match(logoutCookie, /Expires=Thu, 01 Jan 1970/)
+
+      const revokedRefresh = await requestJson(baseUrl, '/auth/refresh', {
+        method: 'POST',
+        cookie: rotatedRefreshCookiePair,
+      })
+      assert.equal(revokedRefresh.status, 403)
+
+      const previousNodeEnv = config.nodeEnv
+      const previousGoogleClientId = config.googleClientId
+      const previousGoogleClientSecret = config.googleClientSecret
+      config.nodeEnv = 'production'
+      config.googleClientId = undefined
+      config.googleClientSecret = undefined
+      try {
+        const productionSandbox = await requestRaw(
+          baseUrl,
+          `/auth/sandbox?provider=google&email=${encodeURIComponent(sandboxEmail)}&name=Sandbox%20Prod`,
+        )
+        assert.equal(productionSandbox.status, 302)
+        assert.match(productionSandbox.headers.get('location') || '', /oauthError=failed/)
+
+        const createdSandboxUser = await prisma.user.findUnique({ where: { email: sandboxEmail } })
+        assert.equal(createdSandboxUser, null)
+
+        const productionGoogleStart = await requestRaw(baseUrl, '/auth/google')
+        assert.equal(productionGoogleStart.status, 302)
+        assert.match(productionGoogleStart.headers.get('location') || '', /oauthError=not_configured/)
+      } finally {
+        config.nodeEnv = previousNodeEnv
+        config.googleClientId = previousGoogleClientId
+        config.googleClientSecret = previousGoogleClientSecret
+      }
     })
   } finally {
-    await prisma.user.deleteMany({ where: { email } })
+    await prisma.user.deleteMany({ where: { email: { in: [email, sandboxEmail] } } })
   }
 }
 

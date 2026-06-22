@@ -59,6 +59,7 @@ test('separates client portal and client operations navigation access', () => {
     hasClientPortalAccess,
     hasClientOperationsAccess,
     hasClientWorkspaceShellAccess,
+    isClientPortalRouteAllowed,
   } = loadRoleAccessHelper();
 
   assert.equal(hasClientPortalAccess({ role: 'client' }), true);
@@ -88,6 +89,14 @@ test('separates client portal and client operations navigation access', () => {
   assert.equal(getAuthenticatedLandingPath({ role: 'member' }, true), '/client');
   assert.equal(getAuthenticatedLandingPath({ role: 'admin' }, true), '/dashboard');
   assert.equal(getAuthenticatedLandingPath({ role: 'web_developer' }), '/dashboard');
+
+  assert.equal(isClientPortalRouteAllowed({ role: 'client' }, '/client'), true);
+  assert.equal(isClientPortalRouteAllowed({ role: 'client' }, '/client/tickets'), true);
+  assert.equal(isClientPortalRouteAllowed({ role: 'client' }, '/dashboard'), false);
+  assert.equal(isClientPortalRouteAllowed({ role: 'client' }, '/operations'), false);
+  assert.equal(isClientPortalRouteAllowed({ role: 'client' }, '/task-tracking'), false);
+  assert.equal(isClientPortalRouteAllowed({ role: 'admin' }, '/operations'), true);
+  assert.equal(isClientPortalRouteAllowed({ role: 'web_developer' }, '/task-tracking'), true);
 });
 
 test('separates payroll management from general management', () => {

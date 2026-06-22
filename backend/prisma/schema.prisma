@@ -41,8 +41,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  tasks                       Task[]                @relation("TaskAssignee")
-  createdTasks                Task[]                @relation("TaskCreator")
+  tasks                       Task[]                 @relation("TaskAssignee")
+  createdTasks                Task[]                 @relation("TaskCreator")
   roles                       UserRole[]
   announcements               Announcement[]
   dailyLogs                   DailyLog[]
@@ -58,31 +58,51 @@ model User {
   employeeProfile             EmployeeProfile?
   payslips                    Payslip[]
   taskWorkSessions            TaskWorkSession[]
-  taskCollaborations          TaskCollaborator[]    @relation("TaskCollaboratorUser")
-  taskCollaboratorInvites     TaskCollaborator[]    @relation("TaskCollaboratorInviter")
-  taskProjectMemberships      TaskProjectMember[]   @relation("TaskProjectMemberUser")
-  taskProjectMembershipsAdded TaskProjectMember[]   @relation("TaskProjectMemberAddedBy")
+  taskCollaborations          TaskCollaborator[]     @relation("TaskCollaboratorUser")
+  taskCollaboratorInvites     TaskCollaborator[]     @relation("TaskCollaboratorInviter")
+  taskProjectMemberships      TaskProjectMember[]    @relation("TaskProjectMemberUser")
+  taskProjectMembershipsAdded TaskProjectMember[]    @relation("TaskProjectMemberAddedBy")
   clientMemberships           ClientMembership[]
-  clientTicketsCreated        ClientTicket[]        @relation("ClientTicketCreator")
-  clientTicketsAssigned       ClientTicket[]        @relation("ClientTicketAssignee")
-  clientTicketComments        ClientTicketComment[] @relation("ClientTicketCommentAuthor")
-  clientUpdatesCreated        ClientUpdate[]        @relation("ClientUpdateCreator")
-  clientResourceLinksCreated  ClientResourceLink[]  @relation("ClientResourceLinkCreator")
-  clientWorkItemsCreated      ClientWorkItem[]      @relation("ClientWorkItemCreator")
-  clientWorkItemsAssigned     ClientWorkItem[]      @relation("ClientWorkItemAssignee")
-  clientApprovalsRequested    ClientApproval[]      @relation("ClientApprovalRequester")
-  clientApprovalsDecided      ClientApproval[]      @relation("ClientApprovalDecider")
-  clientReportsCreated        ClientReport[]        @relation("ClientReportCreator")
-  clientCalendarItemsCreated  ClientCalendarItem[]  @relation("ClientCalendarItemCreator")
+  clientTicketsCreated        ClientTicket[]         @relation("ClientTicketCreator")
+  clientTicketsAssigned       ClientTicket[]         @relation("ClientTicketAssignee")
+  clientTicketComments        ClientTicketComment[]  @relation("ClientTicketCommentAuthor")
+  clientUpdatesCreated        ClientUpdate[]         @relation("ClientUpdateCreator")
+  clientResourceLinksCreated  ClientResourceLink[]   @relation("ClientResourceLinkCreator")
+  clientWorkItemsCreated      ClientWorkItem[]       @relation("ClientWorkItemCreator")
+  clientWorkItemsAssigned     ClientWorkItem[]       @relation("ClientWorkItemAssignee")
+  clientApprovalsRequested    ClientApproval[]       @relation("ClientApprovalRequester")
+  clientApprovalsDecided      ClientApproval[]       @relation("ClientApprovalDecider")
+  clientReportsCreated        ClientReport[]         @relation("ClientReportCreator")
+  clientCalendarItemsCreated  ClientCalendarItem[]   @relation("ClientCalendarItemCreator")
   clientBookingRequests       ClientBookingRequest[] @relation("ClientBookingRequestRequester")
-  clientActivities            ClientActivity[]      @relation("ClientActivityActor")
-  manager                     User?                 @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull)
-  directReports               User[]                @relation("UserManager")
-  ownedTaskProjects           TaskProject[]         @relation("TaskProjectOwner")
-  createdTaskProjects         TaskProject[]         @relation("TaskProjectCreator")
+  clientActivities            ClientActivity[]       @relation("ClientActivityActor")
+  manager                     User?                  @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull)
+  directReports               User[]                 @relation("UserManager")
+  ownedTaskProjects           TaskProject[]          @relation("TaskProjectOwner")
+  createdTaskProjects         TaskProject[]          @relation("TaskProjectCreator")
+  refreshSessions             RefreshSession[]
 
   @@index([email])
   @@index([managerId])
+}
+
+model RefreshSession {
+  id                  String    @id @default(cuid())
+  userId              String
+  tokenHash           String    @unique
+  replacedByTokenHash String?
+  userAgent           String?
+  ipAddress           String?
+  expiresAt           DateTime
+  revokedAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
 }
 
 model Department {
@@ -619,7 +639,7 @@ model ClientStorageRoot {
   updatedAt         DateTime @updatedAt
 
   organization    ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  directoryFolder FileFolder?         @relation(fields: [directoryFolderId], references: [id], onDelete: SetNull)
+  directoryFolder FileFolder?        @relation(fields: [directoryFolderId], references: [id], onDelete: SetNull)
 
   @@index([provider])
   @@index([status])
@@ -678,23 +698,23 @@ model ClientPaymentConnection {
 }
 
 model ClientInvoice {
-  id                 String    @id @default(cuid())
-  organizationId     String
-  billingStatusId    String?
-  invoiceNumber      String?   @unique
-  provider           String    @default("manual")
-  status             String    @default("draft")
-  amount             Float
-  currency           String    @default("USD")
-  issueAt            DateTime  @default(now())
-  dueAt              DateTime?
-  paidAt             DateTime?
-  externalInvoiceId  String?
-  hostedInvoiceUrl   String?
-  notes              String?
-  visibleToClient    Boolean   @default(false)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  organizationId    String
+  billingStatusId   String?
+  invoiceNumber     String?   @unique
+  provider          String    @default("manual")
+  status            String    @default("draft")
+  amount            Float
+  currency          String    @default("USD")
+  issueAt           DateTime  @default(now())
+  dueAt             DateTime?
+  paidAt            DateTime?
+  externalInvoiceId String?
+  hostedInvoiceUrl  String?
+  notes             String?
+  visibleToClient   Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   organization  ClientOrganization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   billingStatus ClientBillingStatus? @relation(fields: [billingStatusId], references: [id], onDelete: SetNull)
@@ -1046,12 +1066,12 @@ model Conversation {
 }
 
 model Participant {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   conversationId String
   userId         String
-  lastReadAt     DateTime @default(now())
+  lastReadAt     DateTime  @default(now())
   archivedAt     DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
 
   // Relations
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
@@ -1118,8 +1138,8 @@ model FileFolder {
   updatedAt DateTime @updatedAt
 
   // Relations
-  parent   FileFolder?  @relation("FolderChildren", fields: [parentId], references: [id], onDelete: Cascade)
-  children FileFolder[] @relation("FolderChildren")
+  parent            FileFolder?        @relation("FolderChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children          FileFolder[]       @relation("FolderChildren")
   clientStorageRoot ClientStorageRoot?
 
   @@index([department])
@@ -1133,13 +1153,13 @@ model FileFolder {
 
 model SchedulerJobRun {
   id          String    @id @default(cuid())
-  jobType     String    // e.g. 'auto-payslip', 'dept-report', 'period-advance'
+  jobType     String // e.g. 'auto-payslip', 'dept-report', 'period-advance'
   status      String    @default("running") // 'running' | 'success' | 'failed' | 'skipped'
-  triggeredBy String    @default("cron")   // 'cron' | 'manual'
+  triggeredBy String    @default("cron") // 'cron' | 'manual'
   startedAt   DateTime  @default(now())
   finishedAt  DateTime?
   durationMs  Int?
-  resultJson  String?   // JSON-serialised summary of what ran
+  resultJson  String? // JSON-serialised summary of what ran
   errorMsg    String?
 
   @@index([jobType])

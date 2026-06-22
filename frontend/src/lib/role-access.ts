@@ -107,3 +107,15 @@ export function getAuthenticatedLandingPath(
 ): "/client" | "/dashboard" {
   return hasClientWorkspaceShellAccess(user, hasClientWorkspace) ? "/client" : "/dashboard";
 }
+
+export function isClientPortalPath(pathname: string): boolean {
+  return pathname === "/client" || pathname.startsWith("/client/");
+}
+
+export function isClientPortalRouteAllowed(
+  user: RoleAccessUser | null | undefined,
+  pathname: string,
+): boolean {
+  if (!hasClientPortalAccess(user)) return true;
+  return isClientPortalPath(pathname);
+}

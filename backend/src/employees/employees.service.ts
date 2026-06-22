@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import { PrismaClient, User } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
 import {
@@ -9,6 +10,7 @@ import { createLogger } from '../observability/logger'
 import { isInternalEmployeeAccount } from './employees.security'
 
 const logger = createLogger('employees.service')
+const APPROVED_EMPLOYEE_SETUP_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000
 
 export interface CreateEmployeeDto {
     email: string
@@ -160,7 +162,17 @@ export class EmployeesService {
     /**
      * Approve a pending employee
      */
-    async approve(id: string): Promise<User> {
+    async approve(id: string): Promise<{
+        user: User
+        onboarding: {
+            setupUrl: string
+            expiresAt: Date
+        }
+    }> {
+        const setupToken = crypto.randomBytes(32).toString('hex')
+        const hashedSetupToken = crypto.createHash('sha256').update(setupToken).digest('hex')
+        const setupExpiresAt = new Date(Date.now() + APPROVED_EMPLOYEE_SETUP_TOKEN_EXPIRY_MS)
+
         const user = await this.prisma.$transaction(async (tx) => {
             const existing = await tx.user.findUniqueOrThrow({
                 where: { id },
@@ -190,6 +202,8 @@ export class EmployeesService {
                 data: {
                     status: 'verified',
                     isApproved: true,
+                    passwordResetToken: hashedSetupToken,
+                    passwordResetExpiry: setupExpiresAt,
                 },
                 include: {
                     employeeProfile: true,
@@ -255,7 +269,15 @@ export class EmployeesService {
             logger.error('Failed to auto-add user to General channel', err)
         }
 
-        return user
+        const setupUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${setupToken}&email=${encodeURIComponent(user.email)}`
+
+        return {
+            user,
+            onboarding: {
+                setupUrl,
+                expiresAt: setupExpiresAt,
+            },
+        }
     }
 
     /**

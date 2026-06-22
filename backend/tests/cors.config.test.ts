@@ -21,3 +21,8 @@ assert.equal(resolveCorsResponseOrigin(undefined, developmentOrigins), 'http://l
 const productionOrigins = buildAllowedCorsOrigins('https://portal.example.com', 'production')
 assert.deepEqual(productionOrigins, ['https://portal.example.com'])
 assert.equal(resolveCorsResponseOrigin('http://localhost:3001', productionOrigins), undefined)
+
+assert.throws(
+  () => buildAllowedCorsOrigins('*', 'production'),
+  /CORS_ORIGIN cannot include \* in production/i,
+)

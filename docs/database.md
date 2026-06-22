@@ -13,6 +13,7 @@ Current additive migrations related to the recent release:
 - `202606100001_task_projects_org_reporting`
 - `202606120001_task_project_members`
 - `202606120002_task_assignee_ids`
+- `202606220001_refresh_sessions`
 
 Migration SQL is now tracked. Do not ignore migration SQL files or rely on local schema drift.
 
@@ -70,6 +71,13 @@ The field is nullable so existing client organizations are not backfilled into a
 ## Identity And Authorization
 
 `User` is the account record and owns authentication fields, roles, tasks, logs, time entries, notifications, and related profile data.
+
+`RefreshSession` stores hashed refresh-token sessions for approved login/OAuth sessions.
+
+- Each login creates a refresh session tied to the user, optional request user agent, optional IP address, and expiry timestamp.
+- Refresh rotates the active session by revoking the previous hash and creating a replacement hash.
+- Logout revokes the active session.
+- Reused or revoked refresh tokens are treated as a session compromise signal and active sessions for the user are revoked.
 
 `UserRole` stores active authorization.
 

@@ -12,8 +12,8 @@ export interface LoginCredentials {
 }
 
 /**
- * Auth tokens returned by backend. New browser sessions receive the refresh
- * token as an httpOnly cookie; `refreshToken` remains optional for legacy flows.
+ * Auth tokens returned by backend. Browser sessions receive refresh state
+ * through the httpOnly cookie; clients should not persist a refresh token.
  */
 export interface AuthTokens {
   accessToken: string;

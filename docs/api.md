@@ -31,10 +31,11 @@ Google and Discord OAuth routes are mounted under `/auth`.
 
 ### Token Refresh And Current User
 
-- `POST /auth/refresh` refreshes an access token from the httpOnly refresh cookie. A body `refreshToken` is still accepted as a legacy fallback for older browser sessions.
-- Refresh rejects missing users and users who are no longer approved.
+- `POST /auth/refresh` refreshes an access token from the httpOnly refresh cookie only. JavaScript-readable refresh-token bodies are not accepted.
+- Refresh tokens are stored as hashed server-side `RefreshSession` records and rotate on every successful refresh.
+- Refresh rejects missing sessions, reused or revoked refresh tokens, missing users, and users who are no longer approved.
 - `GET /auth/me` returns the authenticated user context through the same safe auth serializer.
-- `POST /auth/logout` clears the refresh-token cookie; the frontend also clears its stored access token and user cache.
+- `POST /auth/logout` revokes the active refresh session and clears the refresh-token cookie; the frontend also clears its in-memory access token and cached user snapshot.
 - `POST /auth/forgot-password` and `POST /auth/reset-password` support the password reset flow.
 
 ## Users
@@ -107,6 +108,9 @@ Approval behavior:
 - Sets `status` to `verified` and `isApproved` to `true`.
 - Assigns the requested role and department from `EmployeeProfile` as an active `UserRole` when both values are present.
 - If the pending account has neither a requested role/department nor an existing role assignment with a department, approval returns `400` and does not mark the account approved.
+- Generates a one-time password setup token using the existing reset-password token fields.
+- Sends the approved employee the setup link by email when email delivery succeeds.
+- Approval responses include setup email status, but only include the raw setup URL when email delivery fails and an admin must copy it manually.
 - Approval and rejection responses are serialized before returning to the frontend.
 
 ## Tasks
@@ -385,8 +389,10 @@ Scheduler endpoints require protection because they can create payroll periods, 
 - Stored generic upload filenames use a server-generated timestamp plus a sanitized basename and canonical extension derived from the validated content type, not from the user-supplied extension.
 - `GET /api/uploads/files/:filename` requires authentication, only serves supported stored upload filenames, rejects path traversal or missing files, sets the response content type from the canonical extension, and sends `X-Content-Type-Options: nosniff`.
 - Avatar data URI uploads and stored user avatar updates are limited to JPEG, PNG, GIF, and WebP signatures and remain capped at 5 MB. Stored avatar references are restricted to short initials, safe relative paths, or `http(s)` URLs.
-- File-directory list and children routes require authentication.
-- File-directory create routes require authentication; delete is allowed to the creator or full-access admins. Full-access users can view all department folders.
+- File-directory list, children, create, and delete routes require internal directory access; client-only accounts must use client portal storage/resource flows instead.
+- Non-full-access internal users create folders under their own department derived from active server-side roles. Full-access users may choose a department.
+- File-directory create ignores user-supplied direct link fields. New internal folder/file records do not expose Google Drive or arbitrary external links from request bodies.
+- Delete is allowed to the creator or full-access admins. Full-access users can view all department folders.
 
 ### Notifications
 

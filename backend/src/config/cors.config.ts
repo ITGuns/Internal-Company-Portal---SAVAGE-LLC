@@ -14,6 +14,10 @@ export function parseCorsOrigins(value: string): string[] {
 
 export function buildAllowedCorsOrigins(rawOrigin: string, nodeEnv: string): string[] {
   const configuredOrigins = parseCorsOrigins(rawOrigin)
+  if (nodeEnv === 'production' && configuredOrigins.includes('*')) {
+    throw new Error('CORS_ORIGIN cannot include * in production when credentialed requests are enabled')
+  }
+
   const origins = nodeEnv === 'production'
     ? configuredOrigins
     : [...configuredOrigins, ...DEVELOPMENT_LOCAL_ORIGINS]

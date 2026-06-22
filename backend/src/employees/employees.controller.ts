@@ -88,8 +88,27 @@ export class EmployeesController {
                 return res.status(403).json({ error: 'Unauthorized to approve employees' });
             }
             const { id } = req.params;
-            const updated = await this.employeesService.approve(id as string);
-            res.status(200).json({ success: true, user: serializeDeployedEmployee(updated) });
+            const approval = await this.employeesService.approve(id as string);
+            const emailResult = await emailService.sendTemplateEmail(
+                approval.user.email,
+                'Set up your Deskii workspace access',
+                'password_reset',
+                {
+                    userName: approval.user.name || 'Employee',
+                    resetUrl: approval.onboarding.setupUrl,
+                    expiresInMinutes: Math.round((approval.onboarding.expiresAt.getTime() - Date.now()) / 60000),
+                },
+            );
+            res.status(200).json({
+                success: true,
+                user: serializeDeployedEmployee(approval.user),
+                onboarding: {
+                    setupRequired: true,
+                    emailSent: Boolean(emailResult.success),
+                    expiresAt: approval.onboarding.expiresAt.toISOString(),
+                    ...(emailResult.success ? {} : { setupUrl: approval.onboarding.setupUrl }),
+                },
+            });
         } catch (error) {
             if (error instanceof MissingSignupRoleAssignmentError) {
                 return res.status(400).json({ error: error.message });
@@ -129,9 +148,9 @@ export class EmployeesController {
             }
 
             // 1. SAVE TO DATABASE
-            // Generate a unique random password (12-char hex + S!)
-            const defaultPassword = crypto.randomBytes(6).toString('hex') + 'S!';
-            const passwordHash = await bcrypt.hash(defaultPassword, 10);
+            // Keep the pending account non-loginable until approval/reset without sending credentials by email.
+            const pendingPassword = crypto.randomBytes(24).toString('hex');
+            const passwordHash = await bcrypt.hash(pendingPassword, 10);
 
             const newEmployee = await this.employeesService.createPending({
                 email: employeeData.email,
@@ -146,14 +165,7 @@ export class EmployeesController {
             // Ops manager email from env config
             const opsManagerEmail = config.opsManagerEmail;
 
-            // 2. SEND WELCOME EMAIL TO NEW HIRE
-            const welcomeResult = await emailService.sendWelcomeEmail(
-                employeeData.email,
-                employeeData.name,
-                defaultPassword
-            );
-
-            // 3. SEND NOTIFICATION TO OPS MANAGER
+            // 2. SEND NOTIFICATION TO OPS MANAGER
             const emailResult = await emailService.sendEmployeeVerificationEmail(opsManagerEmail, {
                 id: newEmployee.id,
                 name: employeeData.name,
@@ -166,7 +178,6 @@ export class EmployeesController {
             });
 
             const emailStatus = {
-                welcomeSent: welcomeResult.success,
                 opsNotified: emailResult.success
             };
 
@@ -174,7 +185,7 @@ export class EmployeesController {
 
             res.status(201).json({
                 success: true,
-                message: `Application submitted. Welcome email sent to ${employeeData.name}.`,
+                message: `Application submitted. ${employeeData.name} is pending operations approval.`,
                 employee: serializeEmployeeApplication(newEmployee),
                 emailStatus
             });
@@ -190,7 +201,7 @@ export class EmployeesController {
                 });
             }
 
-            res.status(500).json({ error: 'Internal Server Error', details: error instanceof Error ? error.message : String(error) });
+            res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 

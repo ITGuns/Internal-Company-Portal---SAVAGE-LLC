@@ -104,7 +104,7 @@ The portal uses short-lived JWT access tokens, an httpOnly SameSite refresh-toke
 - Configured admin bypass emails receive selected privileged access through centralized helpers.
 - Employee self-service routes should only expose or mutate the authenticated user's own data unless a feature-specific permission check allows broader access.
 - Chat channels and privileged conversation names such as `General` are restricted to management access.
-- Browser refresh tokens should stay out of JavaScript-readable storage. New login/OAuth responses set the `portal_refresh_token` httpOnly cookie and return only an access token; `/auth/refresh` keeps a temporary body-token fallback for legacy sessions.
+- Browser refresh tokens stay out of JavaScript-readable storage. New login/OAuth responses set the `portal_refresh_token` httpOnly cookie and return only an access token. `/auth/refresh` reads the cookie only, rotates the hashed server-side refresh session, and rejects reused or revoked sessions.
 
 When adding sensitive behavior, update the relevant permission helper or create a small feature-local helper instead of scattering role string checks across UI and API files.
 

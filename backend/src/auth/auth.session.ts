@@ -68,8 +68,5 @@ export function getRefreshTokenFromRequest(req: Request): string | undefined {
     ? req.cookies[REFRESH_TOKEN_COOKIE_NAME]
     : readCookieValue(req.headers.cookie, REFRESH_TOKEN_COOKIE_NAME)
 
-  if (cookieToken) return cookieToken
-
-  const bodyToken = (req.body as { refreshToken?: unknown } | undefined)?.refreshToken
-  return typeof bodyToken === 'string' && bodyToken.trim() ? bodyToken : undefined
+  return cookieToken || undefined
 }

@@ -51,9 +51,8 @@ export function hasStoredAuthSession(): boolean {
     }
   })();
 
-  return Boolean(
-    localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN) ||
-      localStorage.getItem(STORAGE_KEYS.LEGACY_REFRESH_TOKEN) ||
-      hasStoredUserSnapshot,
-  );
+  localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+  localStorage.removeItem(STORAGE_KEYS.LEGACY_REFRESH_TOKEN);
+
+  return hasStoredUserSnapshot;
 }

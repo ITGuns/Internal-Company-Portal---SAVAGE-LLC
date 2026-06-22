@@ -165,7 +165,7 @@ export const config: EnvConfig = {
 
     // JWT
     jwtSecret: getEnvVar('JWT_SECRET'),
-    jwtExpiresIn: getEnvVar('JWT_EXPIRES_IN', '7d'),
+    jwtExpiresIn: getEnvVar('JWT_EXPIRES_IN', '15m'),
     refreshTokenSecret: getEnvVar('REFRESH_TOKEN_SECRET'),
     refreshTokenExpiresIn: getEnvVar('REFRESH_TOKEN_EXPIRES_IN', '30d'),
 

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
+import Script from "next/script";
 import "./globals.css";
 import LayoutWrapper from "../components/LayoutWrapper";
 import { SocketProvider } from "../context/SocketContext";
@@ -32,22 +34,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = (await headers()).get("x-nonce") || undefined;
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {/* Inline script ensures initial theme is applied before React hydrates to avoid flash/mismatch */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('theme');var r=document.documentElement;if(t==='light'){r.setAttribute('data-theme','light');r.classList.remove('dark');}else{r.setAttribute('data-theme','dark');r.classList.add('dark');}}catch(e){} })();`,
-          }}
-        />
+        <Script src="/theme-init.js" strategy="beforeInteractive" nonce={nonce} />
 
         <ErrorBoundary>
           <QueryProvider>

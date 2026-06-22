@@ -23,6 +23,7 @@ const tests = [
   'client-service-tier-presets.test.ts',
   'auth.security.test.ts',
   'auth.routes.test.ts',
+  'file-directory.routes.test.ts',
   'employees.security.test.ts',
   'employees.routes.test.ts',
   'chat.limits.test.ts',

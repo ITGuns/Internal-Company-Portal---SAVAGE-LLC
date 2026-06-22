@@ -100,9 +100,10 @@ Daily logs track EOD, weekly, and monthly work summaries by date, department, ta
 
 File Directory organizes internal folder and file records by department using authenticated app storage.
 
+- File Directory is internal-only. Client users belong in client portal storage/resource workflows, not the employee file directory.
 - Folder cards open internal child-folder navigation only.
-- Add Folder creates one internal folder record with name, department, and folder color.
-- Upload File stores a supported file through `/api/uploads`, registers it as a file item in the selected folder, and opens authenticated file links from file rows/cards.
+- Add Folder creates one internal folder record with name, server-authorized department, and folder color.
+- Upload File stores a supported file through `/api/uploads` and registers it as a file item in the selected folder. Direct external links are not exposed from file rows/cards.
 - The directory includes breadcrumb navigation, search, department filtering, sort controls, and persisted grid/list view preference.
 - Google Drive/Supabase-backed provider sync is not implemented until provider choice and credentials are available.
 
@@ -113,6 +114,7 @@ Signup creates a pending account and preserves the requested department/role wit
 - Pending accounts cannot log in.
 - Pending accounts have no active `UserRole` records.
 - Approval deploys the employee, marks the account approved, and assigns the requested department/role.
+- Approval generates a one-time setup link and emails it when email delivery is configured; the raw link is only returned to the admin when email delivery fails.
 - Approval now requires an existing or requested role/department assignment; applications missing both are rejected with a clear error instead of creating approved users without roles.
 - Full-access admins, project managers, operations managers, and chief operations officers can approve pending employee applications.
 - Admin onboarding under `/operations/onboarding` lets admins generate approved setup links by entering an email and selecting a role. The user follows the link to set and confirm their password through the reset-password flow.

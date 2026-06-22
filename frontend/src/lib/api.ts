@@ -11,33 +11,29 @@ export const BACKEND_CONNECTION_ERROR_MESSAGE = 'Could not reach the Deskii back
 
 export type OAuthProvider = 'google' | 'apple' | 'discord';
 
+let memoryAccessToken: string | null = null;
+
 export const getAuthToken = () => {
-    if (typeof window !== 'undefined') {
-        return localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)
-    }
-    return null
+    return memoryAccessToken
 }
 
-export const setAuthToken = (token: string) => {
+export const setAuthToken = (token?: string | null) => {
+    memoryAccessToken = token || null
     if (typeof window !== 'undefined') {
-        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token)
+        localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN)
     }
 }
 
 export const getRefreshToken = () => {
     if (typeof window !== 'undefined') {
-        return localStorage.getItem(STORAGE_KEYS.LEGACY_REFRESH_TOKEN)
+        localStorage.removeItem(STORAGE_KEYS.LEGACY_REFRESH_TOKEN)
     }
     return null
 }
 
-export const setRefreshToken = (token?: string | null) => {
+export const setRefreshToken = () => {
     if (typeof window !== 'undefined') {
-        if (token) {
-            localStorage.setItem(STORAGE_KEYS.LEGACY_REFRESH_TOKEN, token)
-        } else {
-            localStorage.removeItem(STORAGE_KEYS.LEGACY_REFRESH_TOKEN)
-        }
+        localStorage.removeItem(STORAGE_KEYS.LEGACY_REFRESH_TOKEN)
     }
 }
 
@@ -90,26 +86,19 @@ export async function readJsonResponse<T>(response: Response, fallbackMessage: s
 
 /**
  * Attempt to refresh the access token using the httpOnly refresh cookie.
- * Legacy localStorage refresh tokens are sent only when still present.
  */
 export const refreshAccessToken = async (): Promise<string | null> => {
-    const refreshToken = getRefreshToken()
+    getRefreshToken()
     try {
         const res = await fetch(buildAuthUrl('/refresh'), {
             method: 'POST',
             credentials: 'include',
-            ...(refreshToken
-                ? {
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ refreshToken }),
-                }
-                : {}),
         })
         if (res.ok) {
             const data = await res.json()
             if (data.accessToken) {
                 setAuthToken(data.accessToken)
-                setRefreshToken(data.refreshToken || null)
+                setRefreshToken()
                 return data.accessToken
             }
         }
@@ -125,7 +114,7 @@ export const refreshAccessToken = async (): Promise<string | null> => {
  * @returns Auth response with user data and tokens
  * @throws Error if login fails
  * 
- * Access tokens are stored client-side; refresh tokens are held in the backend httpOnly cookie.
+ * Access tokens are kept in memory; refresh tokens are held in the backend httpOnly cookie.
  */
 export const loginWithEmail = async (credentials: LoginCredentials): Promise<AuthResponse> => {
     try {
@@ -141,7 +130,7 @@ export const loginWithEmail = async (credentials: LoginCredentials): Promise<Aut
         if (res.ok && data.success && data.tokens) {
             // Store auth token and user data
             setAuthToken(data.tokens.accessToken);
-            setRefreshToken(data.tokens.refreshToken || null);
+            setRefreshToken();
             setCurrentUser(data.user);
             return data;
         }
@@ -161,9 +150,11 @@ export function startOAuthLogin(provider: OAuthProvider): void {
 
 /**
  * Logout user
- * Clears auth tokens and user data from localStorage
+ * Clears in-memory auth state, cached user data, and the backend refresh cookie.
  */
 export const logout = () => {
+    setAuthToken(null)
+    setRefreshToken()
     void fetch(buildAuthUrl('/logout'), {
         method: 'POST',
         credentials: 'include',
@@ -254,11 +245,15 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
         // DO NOT redirect here: window.location.href cancels all in-flight fetches
         // with TypeError("Failed to fetch"), flooding the UI with error toasts.
         // UserContext will detect the 401 on its next /auth/me poll and handle logout.
+        setAuthToken(null)
+        setRefreshToken()
         clearAuthSession()
         throw new Error(SESSION_EXPIRED_MESSAGE)
     }
 
     if (isAuthFailure) {
+        setAuthToken(null)
+        setRefreshToken()
         clearAuthSession()
         throw new Error(SESSION_EXPIRED_MESSAGE)
     }

@@ -94,3 +94,21 @@ test('drops malformed cached auth user instead of throwing', () => {
   assert.equal(getCurrentUser(), null);
   assert.equal(localStorage.has('currentUser'), false);
 });
+
+test('keeps access tokens in memory instead of local storage', () => {
+  const localStorage = createStorage();
+  const { getAuthToken, setAuthToken } = loadApiHelpers(localStorage);
+
+  setAuthToken('access-token-value');
+
+  assert.equal(getAuthToken(), 'access-token-value');
+  assert.equal(localStorage.has('accessToken'), false);
+});
+
+test('purges legacy local storage refresh tokens instead of reusing them', () => {
+  const localStorage = createStorage({ refreshToken: 'legacy-refresh-token' });
+  const { getRefreshToken } = loadApiHelpers(localStorage);
+
+  assert.equal(getRefreshToken(), null);
+  assert.equal(localStorage.has('refreshToken'), false);
+});

@@ -17,6 +17,7 @@ import {
     getRefreshTokenFromRequest,
     setRefreshTokenCookie,
 } from './auth.session'
+import { RefreshSessionService } from './refresh-session.service'
 import {
     hasConfiguredSignupRolesForDepartment,
     isDefaultSignupRoleAllowed,
@@ -47,12 +48,18 @@ interface AuthControllerOptions {
 
 export class AuthController {
     private readonly rateLimiters: AuthRateLimiters
+    private readonly refreshSessions = new RefreshSessionService()
 
     constructor(options: AuthControllerOptions = {}) {
         this.rateLimiters = options.rateLimiters || createAuthRateLimiters()
     }
 
-    private completeOAuthLogin(provider: OAuthProvider, user: AuthUserLike, res: Response): void {
+    private async completeOAuthLogin(
+        provider: OAuthProvider,
+        user: AuthUserLike,
+        req: Request,
+        res: Response,
+    ): Promise<void> {
         if (!canIssueAuthTokens(user)) {
             res.redirect(buildOAuthFrontendRedirect(provider, 'pending'))
             return
@@ -63,6 +70,7 @@ export class AuthController {
             email: user.email,
             name: user.name || undefined,
         })
+        await this.refreshSessions.create(user.id, tokens.refreshToken, req)
         setRefreshTokenCookie(res, tokens.refreshToken)
         res.redirect(buildOAuthFrontendRedirect(provider))
     }
@@ -80,12 +88,7 @@ export class AuthController {
                 return res.redirect(buildOAuthFrontendRedirect(provider as any, 'failed'))
             }
 
-            // In production, guard against sandbox usage if actual keys are defined
-            const isConfigured = provider === 'google'
-                ? (config.googleClientId && config.googleClientSecret)
-                : (config.appleClientId && config.applePrivateKey)
-
-            if (isConfigured && config.nodeEnv === 'production') {
+            if (config.nodeEnv === 'production') {
                 return res.redirect(buildOAuthFrontendRedirect(provider as any, 'failed'))
             }
 
@@ -108,7 +111,7 @@ export class AuthController {
                     })
                 }
 
-                this.completeOAuthLogin(provider as any, user, res)
+                await this.completeOAuthLogin(provider as any, user, req, res)
             } catch (error) {
                 console.error('Sandbox login failed:', error)
                 res.redirect(buildOAuthFrontendRedirect(provider as any, 'failed'))
@@ -118,6 +121,9 @@ export class AuthController {
         // Google OAuth routes
         router.get('/google', (req: Request, res: Response, next) => {
             if (!config.googleClientId || !config.googleClientSecret) {
+                if (config.nodeEnv === 'production') {
+                    return res.redirect(buildOAuthFrontendRedirect('google', 'not_configured'))
+                }
                 return res.redirect(`${getFrontendUrl()}/auth/sandbox?provider=google`)
             }
             passport.authenticate('google', { scope: ['profile', 'email'], session: false })(req, res, next)
@@ -126,11 +132,16 @@ export class AuthController {
         router.get(
             '/google/callback',
             (req: Request, res: Response, next) => {
-                passport.authenticate('google', { session: false }, (error: Error | null, user?: AuthUserLike) => {
+                passport.authenticate('google', { session: false }, async (error: Error | null, user?: AuthUserLike) => {
                     if (error || !user) {
                         return res.redirect(buildOAuthFrontendRedirect('google', 'failed'))
                     }
-                    this.completeOAuthLogin('google', user, res)
+                    try {
+                        await this.completeOAuthLogin('google', user, req, res)
+                    } catch (loginError) {
+                        console.error('Google OAuth session failed:', loginError)
+                        res.redirect(buildOAuthFrontendRedirect('google', 'failed'))
+                    }
                 })(req, res, next)
             }
         )
@@ -144,11 +155,16 @@ export class AuthController {
         router.get(
             '/discord/callback',
             (req: Request, res: Response, next) => {
-                passport.authenticate('discord', { session: false }, (error: Error | null, user?: AuthUserLike) => {
+                passport.authenticate('discord', { session: false }, async (error: Error | null, user?: AuthUserLike) => {
                     if (error || !user) {
                         return res.redirect(buildOAuthFrontendRedirect('discord', 'failed'))
                     }
-                    this.completeOAuthLogin('discord', user, res)
+                    try {
+                        await this.completeOAuthLogin('discord', user, req, res)
+                    } catch (loginError) {
+                        console.error('Discord OAuth session failed:', loginError)
+                        res.redirect(buildOAuthFrontendRedirect('discord', 'failed'))
+                    }
                 })(req, res, next)
             }
         )
@@ -156,6 +172,9 @@ export class AuthController {
         // Apple OAuth routes
         router.get('/apple', (req: Request, res: Response) => {
             if (!isAppleOAuthConfigured()) {
+                if (config.nodeEnv === 'production') {
+                    return res.redirect(buildOAuthFrontendRedirect('apple', 'not_configured'))
+                }
                 return res.redirect(`${getFrontendUrl()}/auth/sandbox?provider=apple`)
             }
 
@@ -195,7 +214,7 @@ export class AuthController {
                     name: appleName,
                 })
 
-                this.completeOAuthLogin('apple', user, res)
+                await this.completeOAuthLogin('apple', user, req, res)
             } catch (error) {
                 console.error('Apple OAuth callback error:', error)
                 res.redirect(buildOAuthFrontendRedirect('apple', 'failed'))
@@ -352,6 +371,7 @@ export class AuthController {
                     email: user.email,
                     name: user.name || undefined,
                 })
+                await this.refreshSessions.create(user.id, tokens.refreshToken, req)
                 setRefreshTokenCookie(res, tokens.refreshToken)
 
                 res.json({
@@ -398,6 +418,11 @@ export class AuthController {
                 }
                 const newAccessToken = JwtService.generateAccessToken(tokenPayload)
                 const newRefreshToken = JwtService.generateRefreshToken(tokenPayload)
+                const rotated = await this.refreshSessions.rotate(user.id, refreshToken, newRefreshToken, req)
+                if (!rotated) {
+                    clearRefreshTokenCookie(res)
+                    return res.status(403).json({ error: 'Invalid or expired refresh token' })
+                }
                 setRefreshTokenCookie(res, newRefreshToken)
 
                 res.json({
@@ -439,10 +464,20 @@ export class AuthController {
             }
         })
 
-        // Logout clears the browser refresh cookie; client-side should delete access token state.
-        router.post('/logout', (req: Request, res: Response) => {
-            clearRefreshTokenCookie(res)
-            res.json({ success: true, message: 'Logged out successfully' })
+        // Logout revokes the current refresh session and clears the browser cookie.
+        router.post('/logout', async (req: Request, res: Response) => {
+            try {
+                const refreshToken = getRefreshTokenFromRequest(req)
+                if (refreshToken) {
+                    await this.refreshSessions.revoke(refreshToken)
+                }
+                clearRefreshTokenCookie(res)
+                res.json({ success: true, message: 'Logged out successfully' })
+            } catch (error) {
+                console.error('Logout failed:', error)
+                clearRefreshTokenCookie(res)
+                res.status(500).json({ error: 'Logout failed' })
+            }
         })
 
         // Failure redirect

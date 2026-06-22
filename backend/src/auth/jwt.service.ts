@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken'
+import crypto from 'node:crypto'
 import { config } from '../config/env.config'
 
 export interface JwtPayload {
@@ -21,7 +22,11 @@ export class JwtService {
      * Generate refresh token (long-lived)
      */
     static generateRefreshToken(payload: JwtPayload): string {
-        return jwt.sign(payload, config.refreshTokenSecret, {
+        return jwt.sign({
+            ...payload,
+            jti: crypto.randomUUID(),
+            tokenUse: 'refresh',
+        }, config.refreshTokenSecret, {
             expiresIn: config.refreshTokenExpiresIn as any,
         })
     }

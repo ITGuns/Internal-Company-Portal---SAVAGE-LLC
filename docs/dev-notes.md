@@ -1,5 +1,107 @@
 # Development Notes
 
+## 2026-06-22 - Commercial Security Hardening Follow-Through
+
+### Completed
+- Added persistent hashed refresh-session records, refresh rotation, logout revocation, and reused-token compromise handling.
+- Removed JavaScript-readable refresh-token fallback behavior from frontend and backend refresh flows.
+- Moved frontend access tokens to memory-only storage and purged legacy local-storage auth tokens on startup.
+- Replaced the inline theme bootstrap with a nonce-backed static script and dynamic Next CSP proxy.
+- Restricted File Directory routes to internal accounts, derived non-admin folder departments server-side, and ignored request-body direct links.
+- Changed approved employee review to generate a one-time setup link and email it, returning the raw link only when email delivery fails.
+- Updated API, database, architecture, feature, and deployment docs for the new security model.
+
+### Files Changed
+- `backend/prisma/schema.prisma`
+- `backend/prisma/migrations/202606220001_refresh_sessions/migration.sql`
+- `backend/src/auth/auth.controller.ts`
+- `backend/src/auth/auth.session.ts`
+- `backend/src/auth/jwt.service.ts`
+- `backend/src/auth/refresh-session.service.ts`
+- `backend/src/employees/employees.controller.ts`
+- `backend/src/employees/employees.service.ts`
+- `backend/src/file-directory/file-directory.controller.ts`
+- `frontend/src/lib/api.ts`
+- `frontend/src/lib/auth-session.ts`
+- `frontend/src/lib/types/auth.ts`
+- `frontend/src/app/layout.tsx`
+- `frontend/src/proxy.ts`
+- `frontend/public/theme-init.js`
+- `frontend/src/app/file-directory/page.tsx`
+- `docs/api.md`
+- `docs/architecture.md`
+- `docs/database.md`
+- `docs/deployment.md`
+- `docs/features.md`
+
+### Decisions Made
+- Treated refresh-session persistence as a commercial-readiness blocker because stolen refresh tokens must be revocable and replay-detectable.
+- Kept reset-password token fields for approved employee setup links to avoid adding a second setup-token table in this pass.
+- Kept internal File Directory separate from client storage so client users cannot browse or create internal department records.
+- Kept style CSP compatible with the current app styling while removing the inline script requirement from the theme bootstrap.
+
+### How to Test
+- `node -r ts-node/register tests/auth.routes.test.ts` from `backend`
+- `node -r ts-node/register tests/file-directory.routes.test.ts` from `backend`
+- `node -r ts-node/register tests/employees.routes.test.ts` from `backend`
+- `node --test tests/api-auth-storage.test.mjs` from `frontend`
+- `npm --prefix backend run build`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `git diff --check`
+
+### Next Steps
+- Run `prisma migrate deploy` against a clean staging database before release. The local dev database showed older migration-state drift around `Participant.archivedAt`, so `prisma db push` was used locally only to sync the test database.
+- Run focused browser smoke for login, refresh, logout, employee approval, file directory, and client route separation after backend/database access is available.
+
+## 2026-06-22 - Product Readiness Security And Cleanup
+
+### Completed
+- Hardened production OAuth behavior so sandbox OAuth cannot be used in production and missing provider credentials return a safe `not_configured` redirect.
+- Fixed client ticket update validation so non-management users can update allowed visible fields without being blocked by ignored workflow-only fields.
+- Stopped public employee verification requests from emailing generated passwords and removed raw 500 error details from that route.
+- Blocked wildcard `CORS_ORIGIN=*` in production when credentialed requests are enabled.
+- Added frontend security headers through Next `headers()`, including CSP, referrer policy, frame denial, MIME sniffing protection, and basic permissions policy.
+- Added client portal route guarding so client users are redirected back to `/client` when they directly open employee/admin routes.
+- Removed generated artifacts, an unused shadcn/Base UI button path, DaisyUI, and unused frontend/backend dependencies.
+
+### Files Changed
+- `backend/src/auth/auth.controller.ts`
+- `backend/src/clients/clients.validation.ts`
+- `backend/src/config/cors.config.ts`
+- `backend/src/employees/employees.controller.ts`
+- `backend/tests/auth.routes.test.ts`
+- `backend/tests/cors.config.test.ts`
+- `backend/tests/employees.routes.test.ts`
+- `frontend/next.config.ts`
+- `frontend/src/components/AuthGuard.tsx`
+- `frontend/src/components/ErrorBoundary.tsx`
+- `frontend/src/lib/role-access.ts`
+- `frontend/tests/role-access.test.mjs`
+- `frontend/package.json`
+- `backend/package.json`
+- `docs/superpowers/plans/2026-06-21-product-cleanup-release-hardening.md`
+
+### Decisions Made
+- Kept pending employee account creation for workflow compatibility, but no longer sends any generated credential to applicants.
+- Kept CSP compatible with the current inline theme bootstrap; future work can remove `'unsafe-inline'` after replacing that bootstrap with nonce or hash support.
+- Treated client route separation as route-level access behavior, not only sidebar visibility.
+
+### How to Test
+- `npm run check`
+- `npx prisma validate --schema=prisma/schema.prisma` from `backend`
+- `npx prisma generate --schema=prisma/schema.prisma` from `backend`
+- `docker compose config` with validation placeholder secrets.
+- `docker compose -f docker-compose.production.yml config` with validation placeholder secrets.
+- `git diff --check`
+- `npm --prefix frontend run test:visual` against the built frontend for full admin route smoke.
+- Focused client visual smoke for `/`, `/dashboard`, `/client/*`, `/operations*`, `/task-tracking`, and `/daily-logs`.
+
+### Next Steps
+- Replace the inline theme bootstrap with a nonce or hash-based approach if the CSP is tightened further.
+- Re-run visual smoke after the next deployed environment has live backend/database access.
+
 ## 2026-06-18 - QA Priority 6 Reports Admin Billing
 
 ### Completed
