@@ -197,7 +197,82 @@ async function runAuthRouteTests() {
   }
 }
 
-runAuthRouteTests()
+async function runMissingRefreshSessionMigrationFallbackTest() {
+  const email = uniqueEmail('auth-route-missing-refresh-session')
+  const password = 'Password123'
+  const passwordHash = await bcrypt.hash(password, 10)
+  const missingRefreshSessionTableError = {
+    code: 'P2021',
+    message: 'The table `public.RefreshSession` does not exist in the current database.',
+    meta: { table: 'public.RefreshSession' },
+  }
+  const originalCreate = prisma.refreshSession.create
+  const originalFindUnique = prisma.refreshSession.findUnique
+  const originalUpdateMany = prisma.refreshSession.updateMany
+
+  await prisma.user.create({
+    data: {
+      email,
+      name: 'Auth Missing Migration User',
+      password: passwordHash,
+      status: 'active',
+      isApproved: true,
+      roles: {
+        create: {
+          role: 'employee',
+        },
+      },
+    },
+  })
+
+  ;(prisma.refreshSession as any).create = async () => {
+    throw missingRefreshSessionTableError
+  }
+  ;(prisma.refreshSession as any).findUnique = async () => {
+    throw missingRefreshSessionTableError
+  }
+  ;(prisma.refreshSession as any).updateMany = async () => {
+    throw missingRefreshSessionTableError
+  }
+
+  try {
+    await withServer(async (baseUrl) => {
+      const login = await requestJson(baseUrl, '/auth/login', {
+        method: 'POST',
+        body: { email, password },
+      })
+      assert.equal(login.status, 200)
+      assert.equal(typeof login.body.tokens.accessToken, 'string')
+
+      const loginCookie = login.headers.get('set-cookie') || ''
+      const refreshCookiePair = getRefreshCookiePair(loginCookie)
+      const refresh = await requestJson(baseUrl, '/auth/refresh', {
+        method: 'POST',
+        cookie: refreshCookiePair,
+      })
+      assert.equal(refresh.status, 200)
+      assert.equal(typeof refresh.body.accessToken, 'string')
+
+      const logout = await requestJson(baseUrl, '/auth/logout', {
+        method: 'POST',
+        cookie: refreshCookiePair,
+      })
+      assert.equal(logout.status, 200)
+    })
+  } finally {
+    ;(prisma.refreshSession as any).create = originalCreate
+    ;(prisma.refreshSession as any).findUnique = originalFindUnique
+    ;(prisma.refreshSession as any).updateMany = originalUpdateMany
+    await prisma.user.deleteMany({ where: { email } })
+  }
+}
+
+async function runAllAuthRouteTests() {
+  await runAuthRouteTests()
+  await runMissingRefreshSessionMigrationFallbackTest()
+}
+
+runAllAuthRouteTests()
   .then(() => {
     console.log('auth.routes tests passed')
   })

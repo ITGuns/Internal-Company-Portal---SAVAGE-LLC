@@ -1,5 +1,26 @@
 # Development Notes
 
+## 2026-06-22 - Vercel Login Migration Compatibility Patch
+
+### Completed
+- Added a narrow refresh-session compatibility guard so login, refresh, and logout keep working if deployed code reaches Vercel before the `RefreshSession` migration is applied.
+- Added regression coverage for the missing-`RefreshSession` table path.
+
+### Files Changed
+- `backend/src/auth/refresh-session.service.ts`
+- `backend/tests/auth.routes.test.ts`
+
+### Decisions Made
+- Kept the fallback limited to Prisma missing-table/missing-column errors for `RefreshSession`; other auth/database errors still fail normally.
+- Treated this as a temporary availability guard, not a substitute for applying production migrations.
+
+### How to Test
+- `node -r ts-node/register tests/auth.routes.test.ts` from `backend`
+- `npm --prefix backend run build`
+
+### Next Steps
+- Apply `202606220001_refresh_sessions` to the production database so refresh-token revocation and reuse detection are fully enforced.
+
 ## 2026-06-22 - Commercial Security Hardening Follow-Through
 
 ### Completed

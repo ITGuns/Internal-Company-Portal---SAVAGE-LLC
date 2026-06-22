@@ -2,8 +2,46 @@ import crypto from 'node:crypto'
 import type { Request } from 'express'
 import { prisma } from '../database/prisma.service'
 import { config } from '../config/env.config'
+import { createLogger } from '../observability/logger'
 
 const DEFAULT_REFRESH_TOKEN_EXPIRES_MS = 30 * 24 * 60 * 60 * 1000
+const REFRESH_SESSION_SCHEMA_ERROR_CODES = new Set(['P2021', 'P2022'])
+const logger = createLogger('auth.refresh-session')
+let migrationWarningLogged = false
+
+function getErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object') return undefined
+  const code = (error as { code?: unknown }).code
+  return typeof code === 'string' ? code : undefined
+}
+
+function stringifyErrorMetadata(error: unknown): string {
+  if (!error || typeof error !== 'object') return ''
+
+  try {
+    return JSON.stringify((error as { meta?: unknown }).meta || {})
+  } catch {
+    return ''
+  }
+}
+
+export function isRefreshSessionSchemaError(error: unknown): boolean {
+  const code = getErrorCode(error)
+  if (!code || !REFRESH_SESSION_SCHEMA_ERROR_CODES.has(code)) return false
+
+  const detail = `${error instanceof Error ? error.message : ''} ${stringifyErrorMetadata(error)}`
+  return /RefreshSession|refreshSession/i.test(detail)
+}
+
+function warnMissingMigration(operation: string, error: unknown): void {
+  if (migrationWarningLogged) return
+
+  migrationWarningLogged = true
+  logger.warn('Refresh session persistence is unavailable until Prisma migrations are applied', {
+    operation,
+    code: getErrorCode(error),
+  })
+}
 
 function parseDurationMs(value: string): number | undefined {
   const match = value.trim().match(/^(\d+)([smhd])?$/i)
@@ -45,15 +83,24 @@ export function getRefreshSessionExpiresAt(): Date {
 
 export class RefreshSessionService {
   async create(userId: string, refreshToken: string, req?: Request) {
-    return prisma.refreshSession.create({
-      data: {
-        userId,
-        tokenHash: hashRefreshToken(refreshToken),
-        expiresAt: getRefreshSessionExpiresAt(),
-        userAgent: typeof req?.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined,
-        ipAddress: getClientIp(req),
-      },
-    })
+    try {
+      return await prisma.refreshSession.create({
+        data: {
+          userId,
+          tokenHash: hashRefreshToken(refreshToken),
+          expiresAt: getRefreshSessionExpiresAt(),
+          userAgent: typeof req?.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined,
+          ipAddress: getClientIp(req),
+        },
+      })
+    } catch (error) {
+      if (isRefreshSessionSchemaError(error)) {
+        warnMissingMigration('create', error)
+        return null
+      }
+
+      throw error
+    }
   }
 
   async rotate(
@@ -65,51 +112,69 @@ export class RefreshSessionService {
     const now = new Date()
     const currentTokenHash = hashRefreshToken(currentRefreshToken)
     const nextTokenHash = hashRefreshToken(nextRefreshToken)
-    const existing = await prisma.refreshSession.findUnique({
-      where: { tokenHash: currentTokenHash },
-    })
+    try {
+      const existing = await prisma.refreshSession.findUnique({
+        where: { tokenHash: currentTokenHash },
+      })
 
-    if (!existing || existing.userId !== userId) return false
+      if (!existing || existing.userId !== userId) return false
 
-    if (existing.revokedAt || existing.expiresAt <= now) {
-      if (existing.replacedByTokenHash) {
-        await prisma.refreshSession.updateMany({
-          where: { userId, revokedAt: null },
-          data: { revokedAt: now },
-        })
+      if (existing.revokedAt || existing.expiresAt <= now) {
+        if (existing.replacedByTokenHash) {
+          await prisma.refreshSession.updateMany({
+            where: { userId, revokedAt: null },
+            data: { revokedAt: now },
+          })
+        }
+        return false
       }
-      return false
+
+      await prisma.$transaction([
+        prisma.refreshSession.update({
+          where: { id: existing.id },
+          data: {
+            revokedAt: now,
+            replacedByTokenHash: nextTokenHash,
+          },
+        }),
+        prisma.refreshSession.create({
+          data: {
+            userId,
+            tokenHash: nextTokenHash,
+            expiresAt: getRefreshSessionExpiresAt(),
+            userAgent: typeof req?.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined,
+            ipAddress: getClientIp(req),
+          },
+        }),
+      ])
+
+      return true
+    } catch (error) {
+      if (isRefreshSessionSchemaError(error)) {
+        warnMissingMigration('rotate', error)
+        return true
+      }
+
+      throw error
     }
-
-    await prisma.$transaction([
-      prisma.refreshSession.update({
-        where: { id: existing.id },
-        data: {
-          revokedAt: now,
-          replacedByTokenHash: nextTokenHash,
-        },
-      }),
-      prisma.refreshSession.create({
-        data: {
-          userId,
-          tokenHash: nextTokenHash,
-          expiresAt: getRefreshSessionExpiresAt(),
-          userAgent: typeof req?.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined,
-          ipAddress: getClientIp(req),
-        },
-      }),
-    ])
-
-    return true
   }
 
   async revoke(refreshToken: string): Promise<void> {
-    await prisma.refreshSession.updateMany({
-      where: {
-        tokenHash: hashRefreshToken(refreshToken),
-        revokedAt: null,
-      },
-      data: { revokedAt: new Date() },
-    })
+    try {
+      await prisma.refreshSession.updateMany({
+        where: {
+          tokenHash: hashRefreshToken(refreshToken),
+          revokedAt: null,
+        },
+        data: { revokedAt: new Date() },
+      })
+    } catch (error) {
+      if (isRefreshSessionSchemaError(error)) {
+        warnMissingMigration('revoke', error)
+        return
+      }
+
+      throw error
+    }
   }
 }
