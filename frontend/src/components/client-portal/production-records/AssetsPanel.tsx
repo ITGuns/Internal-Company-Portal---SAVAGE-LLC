@@ -29,7 +29,17 @@ import {
   VisibilityCheckbox,
 } from "./shared";
 
-const emptyAsset = { label: "", url: "", type: "file", status: "received", notes: "", visibleToClient: true };
+type AssetCreateForm = {
+  label: string;
+  url: string;
+  type: string;
+  status: string;
+  notes: string;
+  visibleToClient: boolean;
+  uploadId?: string;
+};
+
+const emptyAsset: AssetCreateForm = { label: "", url: "", type: "file", status: "received", notes: "", visibleToClient: true };
 
 function toAssetForm(asset: ClientAsset): AssetEditForm {
   return {
@@ -162,6 +172,7 @@ export default function AssetsPanel({
           label: file.name,
           url: uploadResult.url,
           type: file.type.startsWith('image/') ? 'image' : 'file',
+          uploadId: uploadResult.id,
         }));
       } catch (err: any) {
         console.error(err);
@@ -210,7 +221,7 @@ export default function AssetsPanel({
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField id="asset-label" label="Label" value={assetForm.label} onChange={(label) => setAssetForm((form) => ({ ...form, label }))} required />
-          <FormField id="asset-url" label="URL" value={assetForm.url} onChange={(url) => setAssetForm((form) => ({ ...form, url }))} required />
+          <FormField id="asset-url" label="URL" value={assetForm.url} onChange={(url) => setAssetForm((form) => ({ ...form, url, uploadId: undefined }))} required />
           <FormField id="asset-type" label="Type" value={assetForm.type} onChange={(type) => setAssetForm((form) => ({ ...form, type }))} />
           <select className={selectClass} value={assetForm.status} onChange={(event) => setAssetForm((form) => ({ ...form, status: event.target.value }))} aria-label="Asset status">
             {CLIENT_ASSET_STATUSES.filter((status) => status.value !== "archived").map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}

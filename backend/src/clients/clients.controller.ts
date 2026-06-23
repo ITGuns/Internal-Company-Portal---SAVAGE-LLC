@@ -1151,7 +1151,11 @@ export class ClientsController {
         }
 
         const organizationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
-        const asset = await this.service.createAsset(organizationId, parseCreateClientAssetInput(req.body || {}))
+        const asset = await this.service.createAsset(
+          organizationId,
+          parseCreateClientAssetInput(req.body || {}),
+          access.requesterId,
+        )
         res.status(201).json(serializeClientAssetForManagement(asset))
       } catch (error) {
         if (error instanceof ClientValidationError) {

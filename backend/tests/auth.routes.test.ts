@@ -209,6 +209,7 @@ async function runMissingRefreshSessionMigrationFallbackTest() {
   const originalCreate = prisma.refreshSession.create
   const originalFindUnique = prisma.refreshSession.findUnique
   const originalUpdateMany = prisma.refreshSession.updateMany
+  const previousCommercialReadinessMode = config.commercialReadinessMode
 
   await prisma.user.create({
     data: {
@@ -236,6 +237,7 @@ async function runMissingRefreshSessionMigrationFallbackTest() {
   }
 
   try {
+    config.commercialReadinessMode = false
     await withServer(async (baseUrl) => {
       const login = await requestJson(baseUrl, '/auth/login', {
         method: 'POST',
@@ -258,8 +260,16 @@ async function runMissingRefreshSessionMigrationFallbackTest() {
         cookie: refreshCookiePair,
       })
       assert.equal(logout.status, 200)
+
+      config.commercialReadinessMode = true
+      const commercialLogin = await requestJson(baseUrl, '/auth/login', {
+        method: 'POST',
+        body: { email, password },
+      })
+      assert.equal(commercialLogin.status, 500)
     })
   } finally {
+    config.commercialReadinessMode = previousCommercialReadinessMode
     ;(prisma.refreshSession as any).create = originalCreate
     ;(prisma.refreshSession as any).findUnique = originalFindUnique
     ;(prisma.refreshSession as any).updateMany = originalUpdateMany

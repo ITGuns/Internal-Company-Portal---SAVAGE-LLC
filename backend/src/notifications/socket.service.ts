@@ -9,6 +9,8 @@ import {
     normalizeSocketConversationId,
 } from './socket.authorization'
 import { createLogger } from '../observability/logger'
+import { configureSocketRedisAdapter } from './socket.adapter'
+import { collectOnlineUserIds } from './socket.presence'
 
 const logger = createLogger('notifications.socket')
 
@@ -23,7 +25,6 @@ export interface NotificationPayload {
 
 class NotificationService {
     private io: SocketIOServer | null = null
-    private userSockets: Map<string, Set<string>> = new Map()
 
     private logDebug(message: string) {
         if (config.nodeEnv !== 'production' || config.logLevel.toLowerCase() === 'debug') {
@@ -31,7 +32,7 @@ class NotificationService {
         }
     }
 
-    initialize(httpServer: HttpServer) {
+    async initialize(httpServer: HttpServer): Promise<void> {
         logger.info('Initializing Socket.io')
         this.io = new SocketIOServer(httpServer, {
             path: '/api/socket',
@@ -43,6 +44,12 @@ class NotificationService {
                 allowedHeaders: ['Authorization', 'Content-Type'],
             },
             allowEIO3: true,
+        })
+
+        await configureSocketRedisAdapter(this.io, {
+            enabled: config.socketRedisAdapterEnabled,
+            redisUrl: config.redisUrl,
+            nodeEnv: config.nodeEnv,
         })
 
         this.io.use((socket, next) => {
@@ -75,11 +82,16 @@ class NotificationService {
             }
 
             this.logDebug(`Client connected: ${socket.id}`)
-
-            socket.on('authenticate', () => {
-                this.registerUserSocket(socketUser.userId, socket.id)
-                this.logDebug(`User authenticated on socket: ${socketUser.userId}`)
-            })
+            const userRoom = `user:${socketUser.userId}`
+            void Promise.resolve(socket.join(userRoom))
+                .then(() => {
+                    this.io?.emit('presence:online', { userId: socketUser.userId })
+                    this.logDebug(`User authenticated on socket: ${socketUser.userId}`)
+                })
+                .catch((error) => {
+                    logger.error('Socket user room join failed', error)
+                    socket.disconnect(true)
+                })
 
             socket.on('join:conversation', async (conversationId: string) => {
                 const normalizedConversationId = normalizeSocketConversationId(conversationId)
@@ -145,43 +157,28 @@ class NotificationService {
                 }
             })
 
-            socket.on('disconnect', () => {
+            socket.on('disconnecting', () => {
                 this.logDebug(`Client disconnected: ${socket.id}`)
-                this.removeSocket(socket.id)
+                setImmediate(() => {
+                    void this.broadcastOfflineWhenRoomIsEmpty(socketUser.userId)
+                })
             })
         })
 
         logger.info('Notification Service (Socket.io) initialized')
     }
 
-    private registerUserSocket(userId: string, socketId: string) {
-        const isNewUser = !this.userSockets.has(userId) || this.userSockets.get(userId)!.size === 0
-        if (!this.userSockets.has(userId)) {
-            this.userSockets.set(userId, new Set())
-        }
-        this.userSockets.get(userId)?.add(socketId)
-
-        this.io?.sockets.sockets.get(socketId)?.join(`user:${userId}`)
-
-        if (isNewUser) {
-            this.io?.emit('presence:online', { userId })
+    private async broadcastOfflineWhenRoomIsEmpty(userId: string): Promise<void> {
+        if (!this.io) return
+        const sockets = await this.io.in(`user:${userId}`).fetchSockets()
+        if (sockets.length === 0) {
+            this.io.emit('presence:offline', { userId })
         }
     }
 
-    private removeSocket(socketId: string) {
-        this.userSockets.forEach((sockets, userId) => {
-            if (sockets.has(socketId)) {
-                sockets.delete(socketId)
-                if (sockets.size === 0) {
-                    this.userSockets.delete(userId)
-                    this.io?.emit('presence:offline', { userId })
-                }
-            }
-        })
-    }
-
-    getOnlineUserIds(): string[] {
-        return Array.from(this.userSockets.keys())
+    async getOnlineUserIds(): Promise<string[]> {
+        if (!this.io) return []
+        return collectOnlineUserIds(await this.io.fetchSockets())
     }
 
     notifyUser(userId: string, payload: NotificationPayload) {
@@ -225,13 +222,7 @@ class NotificationService {
 
     joinRoom(userId: string, room: string) {
         if (!this.io) return
-
-        const sockets = this.userSockets.get(userId)
-        if (sockets) {
-            sockets.forEach(socketId => {
-                this.io?.sockets.sockets.get(socketId)?.join(room)
-            })
-        }
+        this.io.in(`user:${userId}`).socketsJoin(room)
     }
 }
 

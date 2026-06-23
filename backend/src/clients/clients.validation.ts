@@ -259,6 +259,7 @@ export interface CreateClientAssetInput {
   notes?: string
   projectId?: string
   visibleToClient: boolean
+  uploadId?: string
 }
 
 export interface UpdateClientAssetInput {
@@ -1092,6 +1093,7 @@ export function parseCreateClientAssetInput(input: InputRecord): CreateClientAss
     notes: readTrimmedString(input, 'notes'),
     projectId: readTrimmedString(input, 'projectId'),
     visibleToClient: readBoolean(input, 'visibleToClient', true),
+    ...(readTrimmedString(input, 'uploadId') ? { uploadId: readTrimmedString(input, 'uploadId') } : {}),
   }
 }
 

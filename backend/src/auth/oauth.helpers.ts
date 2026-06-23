@@ -1,5 +1,4 @@
 import crypto from 'crypto'
-import type { Request, Response } from 'express'
 import jwt, { type JwtPayload } from 'jsonwebtoken'
 import { config } from '../config/env.config'
 import { prisma } from '../database/prisma.service'
@@ -12,8 +11,6 @@ const APPLE_TOKEN_URL = 'https://appleid.apple.com/auth/token'
 const APPLE_KEYS_URL = 'https://appleid.apple.com/auth/keys'
 const APPLE_ISSUER = 'https://appleid.apple.com'
 const APPLE_AUDIENCE = 'https://appleid.apple.com'
-const APPLE_STATE_COOKIE = 'deskii_apple_oauth_state'
-const OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000
 
 type AppleTokenResponse = {
   access_token?: string
@@ -70,37 +67,6 @@ export function buildOAuthFrontendRedirect(
 
 export function createOAuthState(): string {
   return crypto.randomBytes(24).toString('hex')
-}
-
-export function setAppleOAuthStateCookie(res: Response, state: string): void {
-  res.cookie(APPLE_STATE_COOKIE, state, {
-    httpOnly: true,
-    maxAge: OAUTH_STATE_MAX_AGE_MS,
-    path: '/',
-    sameSite: 'lax',
-    secure: config.nodeEnv === 'production',
-  })
-}
-
-export function clearAppleOAuthStateCookie(res: Response): void {
-  res.clearCookie(APPLE_STATE_COOKIE, {
-    path: '/',
-    sameSite: 'lax',
-    secure: config.nodeEnv === 'production',
-  })
-}
-
-export function getAppleOAuthStateFromRequest(req: Request): string | null {
-  const cookieHeader = req.headers.cookie
-  if (!cookieHeader) return null
-
-  const cookie = cookieHeader
-    .split(';')
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${APPLE_STATE_COOKIE}=`))
-
-  if (!cookie) return null
-  return decodeURIComponent(cookie.slice(APPLE_STATE_COOKIE.length + 1))
 }
 
 export function isAppleOAuthConfigured(): boolean {

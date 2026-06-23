@@ -102,6 +102,15 @@ async function runFileDirectoryRouteTests() {
     email: clientUser.email,
     name: clientUser.name || undefined,
   })
+  const storedUpload = await prisma.storedUpload.create({
+    data: {
+      objectKey: `${suffix}.pdf`,
+      originalName: 'internal-file.pdf',
+      contentType: 'application/pdf',
+      sizeBytes: 128,
+      ownerId: internalUser.id,
+    },
+  })
 
   try {
     await withServer(async (baseUrl) => {
@@ -130,6 +139,19 @@ async function runFileDirectoryRouteTests() {
       assert.equal(internalCreate.body.department, operations.name)
       assert.equal(internalCreate.body.driveLink, null)
       assert.equal(internalCreate.body.createdById, internalUser.id)
+
+      const internalFileCreate = await requestJson(baseUrl, '/api/file-directory', {
+        method: 'POST',
+        token: internalToken,
+        body: {
+          name: `Internal File ${suffix}`,
+          type: 'file',
+          department: operations.name,
+          uploadId: storedUpload.id,
+        },
+      })
+      assert.equal(internalFileCreate.status, 201)
+      assert.equal(internalFileCreate.body.uploadId, storedUpload.id)
     })
   } finally {
     await prisma.fileFolder.deleteMany({
@@ -137,9 +159,11 @@ async function runFileDirectoryRouteTests() {
         OR: [
           { name: `Client Attempt ${suffix}` },
           { name: `Internal Folder ${suffix}` },
+          { name: `Internal File ${suffix}` },
         ],
       },
     })
+    await prisma.storedUpload.deleteMany({ where: { id: storedUpload.id } })
     await prisma.user.deleteMany({ where: { id: { in: [internalUser.id, clientUser.id] } } })
     await prisma.department.deleteMany({ where: { id: { in: [operations.id, finance.id] } } })
   }

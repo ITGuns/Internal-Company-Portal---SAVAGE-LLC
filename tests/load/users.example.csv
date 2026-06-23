@@ -1,0 +1,3 @@
+email,password
+load-user-0001@example.com,replace-with-seeded-password
+load-user-0002@example.com,replace-with-seeded-password

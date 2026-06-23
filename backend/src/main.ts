@@ -31,6 +31,10 @@ import { connectAuthRateLimitStoreFactory } from './security/redis-rate-limit.st
 import { configureJsonBodyParsers } from './security/json-body-limits'
 import { createSecurityHeadersMiddleware } from './security/security-headers'
 import { createLogger } from './observability/logger'
+import { createHealthRouter } from './health/health.routes'
+import { isRefreshSessionPersistenceAvailable } from './auth/refresh-session.service'
+import { createUploadStorage } from './uploads/upload.storage'
+import { validateCommercialRuntimeDependencies } from './config/production-readiness.config'
 
 const logger = createLogger('backend.main')
 
@@ -40,6 +44,18 @@ async function bootstrap() {
 
   // Connect to database
   await PrismaService.connect()
+
+  const uploadStorage = createUploadStorage()
+  if (config.commercialReadinessMode) {
+    const [refreshSessionPersistenceAvailable, uploadStorageAvailable] = await Promise.all([
+      isRefreshSessionPersistenceAvailable(),
+      uploadStorage.healthCheck(),
+    ])
+    validateCommercialRuntimeDependencies({
+      refreshSessionPersistenceAvailable,
+      uploadStorageAvailable,
+    })
+  }
 
   // Initialize Passport OAuth strategies
   initializePassport()
@@ -54,7 +70,7 @@ async function bootstrap() {
   app.use(createSecurityHeadersMiddleware({ nodeEnv: config.nodeEnv }))
 
   // Initialize Notification Service (Socket.io)
-  notificationService.initialize(httpServer)
+  await notificationService.initialize(httpServer)
 
   const authRateLimitStoreFactory = await connectAuthRateLimitStoreFactory({
     nodeEnv: config.nodeEnv,
@@ -93,15 +109,19 @@ async function bootstrap() {
     next()
   })
 
-  // Health check endpoint
-  app.get('/health', async (req: Request, res: Response) => {
-    const dbHealthy = await PrismaService.healthCheck()
-    res.json({
-      status: dbHealthy ? 'healthy' : 'unhealthy',
-      database: dbHealthy ? 'connected' : 'disconnected',
-      timestamp: new Date().toISOString(),
-    })
-  })
+  app.use(createHealthRouter({
+    checkDatabase: () => PrismaService.healthCheck(),
+    checkReadiness: async () => {
+      const databaseHealthy = await PrismaService.healthCheck()
+      if (!databaseHealthy) return false
+      if (!config.commercialReadinessMode) return true
+      const [refreshSessionsAvailable, storageAvailable] = await Promise.all([
+        isRefreshSessionPersistenceAvailable(),
+        uploadStorage.healthCheck(),
+      ])
+      return refreshSessionsAvailable && storageAvailable
+    },
+  }))
 
   // Authentication routes
   const authController = new AuthController({
@@ -142,7 +162,7 @@ async function bootstrap() {
   const chatController = new ChatController()
   app.use('/api/chat', chatController.router())
 
-  const uploadsController = new UploadsController()
+  const uploadsController = new UploadsController(uploadStorage)
   app.use('/api/uploads', uploadsController.router())
 
   const employeesController = new EmployeesController()

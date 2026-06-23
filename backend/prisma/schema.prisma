@@ -81,6 +81,7 @@ model User {
   ownedTaskProjects           TaskProject[]          @relation("TaskProjectOwner")
   createdTaskProjects         TaskProject[]          @relation("TaskProjectCreator")
   refreshSessions             RefreshSession[]
+  ownedUploads                StoredUpload[]          @relation("StoredUploadOwner")
 
   @@index([email])
   @@index([managerId])
@@ -103,6 +104,24 @@ model RefreshSession {
   @@index([userId])
   @@index([expiresAt])
   @@index([revokedAt])
+}
+
+model StoredUpload {
+  id           String   @id @default(cuid())
+  objectKey    String   @unique
+  originalName String
+  contentType  String
+  sizeBytes    Int
+  ownerId      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  owner       User?        @relation("StoredUploadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  clientAsset ClientAsset?
+  fileFolder  FileFolder?
+
+  @@index([ownerId])
+  @@index([createdAt])
 }
 
 model Department {
@@ -592,11 +611,13 @@ model ClientAsset {
   status          String   @default("received")
   notes           String?
   visibleToClient Boolean  @default(true)
+  uploadId        String?  @unique
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   organization ClientOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   project      ClientProject?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  upload       StoredUpload?      @relation(fields: [uploadId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([projectId])
@@ -1133,6 +1154,7 @@ model FileFolder {
   parentId    String?
   customColor String?
   createdById String?
+  uploadId    String? @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1141,6 +1163,7 @@ model FileFolder {
   parent            FileFolder?        @relation("FolderChildren", fields: [parentId], references: [id], onDelete: Cascade)
   children          FileFolder[]       @relation("FolderChildren")
   clientStorageRoot ClientStorageRoot?
+  upload            StoredUpload?       @relation(fields: [uploadId], references: [id], onDelete: SetNull)
 
   @@index([department])
   @@index([parentId])

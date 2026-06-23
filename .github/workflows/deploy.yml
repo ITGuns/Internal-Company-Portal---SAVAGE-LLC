@@ -68,6 +68,9 @@ jobs:
       POSTGRES_PASSWORD: local-compose-check-password
       NEXT_PUBLIC_API_URL: http://localhost:4000/api
       NEXT_PUBLIC_WS_URL: ws://localhost:4000
+      BACKEND_URL: http://localhost:4000
+      ENABLE_SOCKET_REDIS_ADAPTER: "false"
+      COMMERCIAL_READINESS_MODE: "false"
 
     steps:
       - uses: actions/checkout@v4
@@ -157,11 +160,14 @@ jobs:
       CORS_ORIGIN: ${{ secrets.CORS_ORIGIN || vars.CORS_ORIGIN }}
       NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || vars.NEXT_PUBLIC_API_URL }}
       NEXT_PUBLIC_WS_URL: ${{ secrets.NEXT_PUBLIC_WS_URL || vars.NEXT_PUBLIC_WS_URL }}
+      BACKEND_URL: ${{ secrets.BACKEND_URL || vars.BACKEND_URL }}
       REDIS_URL: ${{ secrets.REDIS_URL }}
       AUTH_RATE_LIMIT_STORE: ${{ vars.AUTH_RATE_LIMIT_STORE }}
       AUTH_RATE_LIMIT_REDIS_PREFIX: ${{ vars.AUTH_RATE_LIMIT_REDIS_PREFIX }}
+      ENABLE_SOCKET_REDIS_ADAPTER: ${{ vars.ENABLE_SOCKET_REDIS_ADAPTER }}
       TRUST_PROXY_HOPS: ${{ vars.TRUST_PROXY_HOPS }}
       LOG_LEVEL: ${{ vars.LOG_LEVEL }}
+      COMMERCIAL_READINESS_MODE: ${{ vars.COMMERCIAL_READINESS_MODE }}
       OPS_MANAGER_EMAIL: ${{ vars.OPS_MANAGER_EMAIL }}
       ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
       EMAIL_ENABLED: ${{ vars.EMAIL_ENABLED }}
@@ -177,6 +183,13 @@ jobs:
       BACKEND_PORT: ${{ vars.BACKEND_PORT }}
       FRONTEND_PORT: ${{ vars.FRONTEND_PORT }}
       NEXT_PUBLIC_ENABLE_DEBUG: ${{ vars.NEXT_PUBLIC_ENABLE_DEBUG }}
+      UPLOAD_STORAGE_DRIVER: ${{ vars.UPLOAD_STORAGE_DRIVER }}
+      UPLOAD_S3_BUCKET: ${{ secrets.UPLOAD_S3_BUCKET || vars.UPLOAD_S3_BUCKET }}
+      UPLOAD_S3_REGION: ${{ vars.UPLOAD_S3_REGION }}
+      UPLOAD_S3_ENDPOINT: ${{ secrets.UPLOAD_S3_ENDPOINT || vars.UPLOAD_S3_ENDPOINT }}
+      UPLOAD_S3_FORCE_PATH_STYLE: ${{ vars.UPLOAD_S3_FORCE_PATH_STYLE }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       PRODUCTION_BACKEND_URL: ${{ vars.PRODUCTION_BACKEND_URL }}
       PRODUCTION_FRONTEND_URL: ${{ vars.PRODUCTION_FRONTEND_URL }}
 
@@ -185,11 +198,31 @@ jobs:
         shell: bash
         run: |
           missing=()
-          for key in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_SSH_KEY DATABASE_URL JWT_SECRET REFRESH_TOKEN_SECRET FRONTEND_URL CORS_ORIGIN NEXT_PUBLIC_API_URL NEXT_PUBLIC_WS_URL; do
+          for key in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_SSH_KEY DATABASE_URL JWT_SECRET REFRESH_TOKEN_SECRET FRONTEND_URL CORS_ORIGIN NEXT_PUBLIC_API_URL NEXT_PUBLIC_WS_URL BACKEND_URL; do
             if [ -z "${!key}" ]; then
               missing+=("$key")
             fi
           done
+
+          if [ "${COMMERCIAL_READINESS_MODE:-true}" = "true" ]; then
+            for key in UPLOAD_S3_BUCKET AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
+              if [ -z "${!key}" ]; then
+                missing+=("$key")
+              fi
+            done
+
+            if [ "${EMAIL_ENABLED:-true}" != "true" ]; then
+              missing+=("EMAIL_ENABLED=true")
+            elif [ "${EMAIL_PROVIDER:-sendgrid}" = "sendgrid" ] && [ -z "$SENDGRID_API_KEY" ]; then
+              missing+=("SENDGRID_API_KEY")
+            elif [ "${EMAIL_PROVIDER:-sendgrid}" = "smtp" ]; then
+              for key in SMTP_HOST SMTP_USER SMTP_PASS; do
+                if [ -z "${!key}" ]; then
+                  missing+=("$key")
+                fi
+              done
+            fi
+          fi
 
           if [ "${#missing[@]}" -gt 0 ]; then
             printf 'Missing required deployment secrets: %s\n' "${missing[*]}" >&2
@@ -222,8 +255,10 @@ jobs:
               "REDIS_URL",
               "AUTH_RATE_LIMIT_STORE",
               "AUTH_RATE_LIMIT_REDIS_PREFIX",
+              "ENABLE_SOCKET_REDIS_ADAPTER",
               "TRUST_PROXY_HOPS",
               "LOG_LEVEL",
+              "COMMERCIAL_READINESS_MODE",
               "JWT_SECRET",
               "REFRESH_TOKEN_SECRET",
               "FRONTEND_URL",
@@ -240,11 +275,19 @@ jobs:
               "SMTP_SECURE",
               "SMTP_USER",
               "SMTP_PASS",
+              "UPLOAD_STORAGE_DRIVER",
+              "UPLOAD_S3_BUCKET",
+              "UPLOAD_S3_REGION",
+              "UPLOAD_S3_ENDPOINT",
+              "UPLOAD_S3_FORCE_PATH_STYLE",
+              "AWS_ACCESS_KEY_ID",
+              "AWS_SECRET_ACCESS_KEY",
           ]
           compose_only_keys = [
               "NEXT_PUBLIC_API_URL",
               "NEXT_PUBLIC_WS_URL",
               "NEXT_PUBLIC_ENABLE_DEBUG",
+              "BACKEND_URL",
               "BACKEND_PORT",
               "FRONTEND_PORT",
           ]
@@ -254,13 +297,19 @@ jobs:
               "PORT": "4000",
               "AUTH_RATE_LIMIT_STORE": "redis",
               "AUTH_RATE_LIMIT_REDIS_PREFIX": "portal:auth-rate-limit",
+              "ENABLE_SOCKET_REDIS_ADAPTER": "true",
               "REDIS_URL": "redis://redis:6379",
               "LOG_LEVEL": "info",
-              "EMAIL_ENABLED": "false",
+              "COMMERCIAL_READINESS_MODE": "true",
+              "EMAIL_ENABLED": "true",
               "EMAIL_PROVIDER": "sendgrid",
               "SMTP_PORT": "587",
               "SMTP_SECURE": "false",
               "NEXT_PUBLIC_ENABLE_DEBUG": "false",
+              "UPLOAD_STORAGE_DRIVER": "s3",
+              "UPLOAD_S3_REGION": "auto",
+              "UPLOAD_S3_FORCE_PATH_STYLE": "false",
+              "BACKEND_URL": "http://backend:4000",
           }
 
           def value_for(key):
@@ -316,6 +365,7 @@ jobs:
           docker compose --env-file .env.production -f docker-compose.production.yml up -d --build
           docker compose --env-file .env.production -f docker-compose.production.yml ps
           curl -fsS "http://localhost:${BACKEND_PORT:-4000}/health"
+          curl -fsS "http://localhost:${BACKEND_PORT:-4000}/ready"
           REMOTE
 
       - name: Public Smoke Checks
@@ -323,6 +373,7 @@ jobs:
         run: |
           if [ -n "$PRODUCTION_BACKEND_URL" ]; then
             curl -fsS "$PRODUCTION_BACKEND_URL/health"
+            curl -fsS "$PRODUCTION_BACKEND_URL/ready"
           fi
 
           if [ -n "$PRODUCTION_FRONTEND_URL" ]; then

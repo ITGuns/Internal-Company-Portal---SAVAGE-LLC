@@ -74,6 +74,8 @@ The field is nullable so existing client organizations are not backfilled into a
 
 `RefreshSession` stores hashed refresh-token sessions for approved login/OAuth sessions.
 
+`StoredUpload` stores randomized object keys, canonical content metadata, size, and the authenticated uploader. Optional one-to-one `uploadId` links on `ClientAsset` and `FileFolder` make existing client visibility and department policies authoritative for downloads. The additive `202606230001_stored_uploads` migration cannot infer ownership for legacy filename-only uploads; migrate or retire those files before commercial cutover.
+
 - Each login creates a refresh session tied to the user, optional request user agent, optional IP address, and expiry timestamp.
 - Refresh rotates the active session by revoking the previous hash and creating a replacement hash.
 - Logout revokes the active session.
@@ -234,5 +236,5 @@ Chat, announcements, notifications, uploads, and file-directory records are part
 - Chat performance indexes support conversation type lookup, recently updated conversation ordering, participant lookup by user, message pagination, and unread-count scans.
 - `MessageReaction` stores per-user emoji reactions with a unique `(messageId, userId, emoji)` constraint so toggling a reaction cannot create duplicates.
 - File-directory permissions are enforced in the controller/service layer; do not expose unsafe file tree mutations from unauthenticated routes.
-- Uploaded files are served through authenticated `/api/uploads/files/:filename` routes.
+- Uploaded files are served through ownership-aware authenticated `/api/uploads/files/:id` routes.
 - Uploaded file metadata and served files should be treated as authenticated portal data unless a route explicitly makes them public.

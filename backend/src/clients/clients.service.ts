@@ -1433,8 +1433,8 @@ export class ClientsService {
     return this.roadmapAssets.updateRoadmapRecommendation(id, data)
   }
 
-  async createAsset(organizationId: string, data: CreateClientAssetInput) {
-    return this.roadmapAssets.createAsset(organizationId, data)
+  async createAsset(organizationId: string, data: CreateClientAssetInput, ownerId?: string) {
+    return this.roadmapAssets.createAsset(organizationId, data, ownerId)
   }
 
   async findAssetById(id: string) {

@@ -3,6 +3,7 @@ import http from 'node:http'
 import type { AddressInfo } from 'node:net'
 import express from 'express'
 import {
+  hashLoginRateLimitAccount,
   createAuthRateLimiters,
   resolveAuthRateLimitStoreMode,
   type AuthRateLimitSettings,
@@ -80,6 +81,13 @@ const strictTestLimits: AuthRateLimitSettings = {
 }
 
 async function runSecurityMiddlewareTests() {
+  const firstAccountDigest = hashLoginRateLimitAccount('Employee@Example.com ')
+  const normalizedAccountDigest = hashLoginRateLimitAccount('employee@example.com')
+  const otherAccountDigest = hashLoginRateLimitAccount('another@example.com')
+  assert.equal(firstAccountDigest, normalizedAccountDigest)
+  assert.notEqual(firstAccountDigest, otherAccountDigest)
+  assert.equal(firstAccountDigest.includes('employee@example.com'), false)
+
   await withServer(buildTestAuthApp(strictTestLimits), async (baseUrl) => {
     const firstLogin = await requestJson(baseUrl, '/auth/login', {
       method: 'POST',
@@ -100,6 +108,12 @@ async function runSecurityMiddlewareTests() {
     })
     assert.equal(blockedLogin.status, 429)
     assert.equal(blockedLogin.body.error, 'Too many login attempts. Please try again later.')
+
+    const differentAccountLogin = await requestJson(baseUrl, '/auth/login', {
+      method: 'POST',
+      body: { email: 'another-employee@example.com', password: 'Password123' },
+    })
+    assert.equal(differentAccountLogin.status, 200)
 
     const signupStillAllowed = await requestJson(baseUrl, '/auth/signup', {
       method: 'POST',

@@ -18,6 +18,7 @@ COPY . .
 
 ARG NEXT_PUBLIC_API_URL=http://localhost:4000/api
 ARG NEXT_PUBLIC_WS_URL=ws://localhost:4000
+ARG BACKEND_URL=http://localhost:4000
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
@@ -25,6 +26,7 @@ ARG NEXT_PUBLIC_WS_URL=ws://localhost:4000
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
+ENV BACKEND_URL=$BACKEND_URL
 
 RUN npm run build
 
@@ -34,11 +36,13 @@ WORKDIR /app
 
 ARG NEXT_PUBLIC_API_URL=http://localhost:4000/api
 ARG NEXT_PUBLIC_WS_URL=ws://localhost:4000
+ARG BACKEND_URL=http://localhost:4000
 
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
+ENV BACKEND_URL=$BACKEND_URL
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs

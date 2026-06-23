@@ -16,4 +16,8 @@ node_modules/
 .env.*.local
 .env.production
 
+# Load-test credentials (the placeholder example remains tracked)
+tests/load/users*.csv
+!tests/load/users.example.csv
+
 .vercel

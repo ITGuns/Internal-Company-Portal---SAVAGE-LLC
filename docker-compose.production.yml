@@ -34,8 +34,10 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       AUTH_RATE_LIMIT_STORE: ${AUTH_RATE_LIMIT_STORE:-redis}
       AUTH_RATE_LIMIT_REDIS_PREFIX: ${AUTH_RATE_LIMIT_REDIS_PREFIX:-portal:auth-rate-limit}
+      ENABLE_SOCKET_REDIS_ADAPTER: ${ENABLE_SOCKET_REDIS_ADAPTER:-true}
       TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-0}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      COMMERCIAL_READINESS_MODE: ${COMMERCIAL_READINESS_MODE:-true}
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
@@ -44,7 +46,7 @@ services:
       REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-30d}
       OPS_MANAGER_EMAIL: ${OPS_MANAGER_EMAIL:-}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
-      EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-true}
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-sendgrid}
       EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-noreply@savage-llc.com}
       EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-SAVAGE LLC Internal Portal}
@@ -54,12 +56,19 @@ services:
       SMTP_SECURE: ${SMTP_SECURE:-false}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
+      UPLOAD_STORAGE_DRIVER: ${UPLOAD_STORAGE_DRIVER:-s3}
+      UPLOAD_S3_BUCKET: ${UPLOAD_S3_BUCKET:-}
+      UPLOAD_S3_REGION: ${UPLOAD_S3_REGION:-auto}
+      UPLOAD_S3_ENDPOINT: ${UPLOAD_S3_ENDPOINT:-}
+      UPLOAD_S3_FORCE_PATH_STYLE: ${UPLOAD_S3_FORCE_PATH_STYLE:-false}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
     ports:
       - "${BACKEND_PORT:-4000}:4000"
     volumes:
       - ./backend/uploads:/app/uploads
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:4000/health').then(async r => { const body = await r.json(); process.exit(r.ok && body.status === 'healthy' ? 0 : 1); }).catch(() => process.exit(1))\""]
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:4000/ready').then(async r => { const body = await r.json(); process.exit(r.ok && body.status === 'ready' ? 0 : 1); }).catch(() => process.exit(1))\""]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -74,6 +83,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
         NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:?NEXT_PUBLIC_WS_URL is required}
+        BACKEND_URL: ${BACKEND_URL:-http://backend:4000}
     container_name: portal_frontend
     restart: always
     depends_on:
@@ -84,6 +94,7 @@ services:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
       NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:?NEXT_PUBLIC_WS_URL is required}
       NEXT_PUBLIC_ENABLE_DEBUG: ${NEXT_PUBLIC_ENABLE_DEBUG:-false}
+      BACKEND_URL: ${BACKEND_URL:-http://backend:4000}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     healthcheck:

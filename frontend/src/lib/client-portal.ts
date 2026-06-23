@@ -755,6 +755,7 @@ export async function createClientAsset(organizationId: string, data: {
   notes?: string;
   projectId?: string;
   visibleToClient?: boolean;
+  uploadId?: string;
 }): Promise<ClientAsset> {
   const response = await apiFetch(`/clients/organizations/${organizationId}/assets`, {
     method: 'POST',

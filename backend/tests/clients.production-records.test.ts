@@ -192,6 +192,12 @@ assert.deepEqual(parseCreateClientAssetInput({
   visibleToClient: true,
 })
 
+assert.equal(parseCreateClientAssetInput({
+  label: 'Uploaded contract',
+  url: '/api/uploads/files/upload-1',
+  uploadId: 'upload-1',
+}).uploadId, 'upload-1')
+
 assert.deepEqual(parseUpsertClientBillingStatusInput({
   planName: ' Growth ',
   status: 'past due',

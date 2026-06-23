@@ -33,6 +33,10 @@ export function isRefreshSessionSchemaError(error: unknown): boolean {
   return /RefreshSession|refreshSession/i.test(detail)
 }
 
+function canUseRefreshSessionCompatibilityFallback(): boolean {
+  return !config.commercialReadinessMode
+}
+
 function warnMissingMigration(operation: string, error: unknown): void {
   if (migrationWarningLogged) return
 
@@ -95,6 +99,7 @@ export class RefreshSessionService {
       })
     } catch (error) {
       if (isRefreshSessionSchemaError(error)) {
+        if (!canUseRefreshSessionCompatibilityFallback()) throw error
         warnMissingMigration('create', error)
         return null
       }
@@ -151,6 +156,7 @@ export class RefreshSessionService {
       return true
     } catch (error) {
       if (isRefreshSessionSchemaError(error)) {
+        if (!canUseRefreshSessionCompatibilityFallback()) throw error
         warnMissingMigration('rotate', error)
         return true
       }
@@ -170,11 +176,22 @@ export class RefreshSessionService {
       })
     } catch (error) {
       if (isRefreshSessionSchemaError(error)) {
+        if (!canUseRefreshSessionCompatibilityFallback()) throw error
         warnMissingMigration('revoke', error)
         return
       }
 
       throw error
     }
+  }
+}
+
+export async function isRefreshSessionPersistenceAvailable(): Promise<boolean> {
+  try {
+    await prisma.refreshSession.findFirst({ select: { id: true } })
+    return true
+  } catch (error) {
+    if (isRefreshSessionSchemaError(error)) return false
+    throw error
   }
 }

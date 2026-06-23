@@ -1,58 +1,44 @@
 import express, { Request, Response, Router } from 'express'
-import fs from 'fs'
-import path from 'path'
-import { authenticateToken } from '../auth/auth.middleware'
+import { AuthRequest, authenticateToken } from '../auth/auth.middleware'
 import {
     buildStoredUploadMetadata,
     decodeBase64Payload,
     isGeneralUploadMimeType,
     normalizeMimeType,
-    validateStoredUploadFilename,
     validateAvatarContent,
     validateUploadContent,
 } from './upload.validation'
 import { createLogger } from '../observability/logger'
+import { createUploadStorage, type UploadStorage } from './upload.storage'
+import { UploadsService } from './uploads.service'
 
 const logger = createLogger('uploads.uploads.controller')
 
 
 export class UploadsController {
+    private readonly service: UploadsService
+
+    constructor(private readonly storage: UploadStorage = createUploadStorage()) {
+        this.service = new UploadsService(storage)
+    }
+
     router(): Router {
         const router = express.Router()
 
-        // Use /tmp for uploads on Vercel as the app directory is read-only
-        const isVercel = process.env.VERCEL === '1'
-        const uploadDir = isVercel
-            ? path.join('/tmp', 'uploads')
-            : path.join(__dirname, '../../uploads')
-
-        if (!fs.existsSync(uploadDir)) {
-            try {
-                fs.mkdirSync(uploadDir, { recursive: true })
-            } catch (err) {
-                logger.warn('Failed to create uploads directory:', err)
-            }
-        }
-
         router.get('/files/:filename', authenticateToken, async (req: Request, res: Response) => {
             try {
-                const fileValidation = validateStoredUploadFilename(req.params.filename)
-                if (!fileValidation.valid || !fileValidation.filename || !fileValidation.contentType) {
-                    return res.status(400).json({ error: fileValidation.error || 'Invalid filename' })
-                }
+                const uploadId = String(req.params.filename || '').trim()
+                const user = (req as AuthRequest).user
+                if (!uploadId || !user?.userId) return res.status(404).json({ error: 'File not found' })
 
-                const filename = fileValidation.filename
-                const filepath = path.join(uploadDir, filename)
-                const resolvedUploadDir = path.resolve(uploadDir)
-                const resolvedFilepath = path.resolve(filepath)
-
-                if (!resolvedFilepath.startsWith(resolvedUploadDir + path.sep) || !fs.existsSync(resolvedFilepath)) {
+                const storedFile = await this.service.readForUser(uploadId, user.userId, user.email)
+                if (!storedFile) {
                     return res.status(404).json({ error: 'File not found' })
                 }
 
                 res.setHeader('X-Content-Type-Options', 'nosniff')
-                res.type(fileValidation.contentType)
-                res.sendFile(resolvedFilepath)
+                res.type(storedFile.contentType)
+                res.send(storedFile.buffer)
             } catch (error) {
                 logger.error('File fetch error:', error)
                 res.status(500).json({ error: 'Failed to fetch file' })
@@ -97,14 +83,21 @@ export class UploadsController {
                     return res.status(400).json({ error: 'Invalid file name' })
                 }
 
-                const filepath = path.join(uploadDir, uploadMetadata.filename)
+                const user = (req as AuthRequest).user
+                if (!user?.userId) return res.status(401).json({ error: 'Authentication required' })
 
-                fs.writeFileSync(filepath, buffer)
+                const storedUpload = await this.service.create(
+                    user.userId,
+                    uploadMetadata.safeName,
+                    uploadMetadata.contentType,
+                    buffer,
+                )
 
-                const url = `/api/uploads/files/${uploadMetadata.filename}`
+                const url = `/api/uploads/files/${storedUpload.id}`
                 res.status(201).json({
+                    id: storedUpload.id,
                     url,
-                    filename: uploadMetadata.filename,
+                    filename: storedUpload.objectKey,
                     name: uploadMetadata.safeName,
                     type: uploadMetadata.contentType,
                     size: sizeInBytes,

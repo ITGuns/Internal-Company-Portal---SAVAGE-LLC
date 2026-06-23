@@ -53,6 +53,7 @@ export class FileDirectoryService {
         customColor?: string
         createdById?: string
         driveLink?: string | null
+        uploadId?: string
     }) {
         return prisma.fileFolder.create({
             data: {
@@ -63,6 +64,7 @@ export class FileDirectoryService {
                 parentId: data.parentId ?? null,
                 customColor: data.customColor ?? null,
                 createdById: data.createdById ?? null,
+                uploadId: data.uploadId ?? null,
             },
         })
     }

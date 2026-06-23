@@ -15,7 +15,7 @@ services:
     autoDeployTrigger: checksPass
     dockerContext: ./backend
     dockerfilePath: ./backend/Dockerfile
-    healthCheckPath: /health
+    healthCheckPath: /ready
     preDeployCommand: npm run prisma:deploy:render
     envVars:
       - key: NODE_ENV
@@ -24,6 +24,10 @@ services:
         value: redis
       - key: AUTH_RATE_LIMIT_REDIS_PREFIX
         value: portal:auth-rate-limit
+      - key: ENABLE_SOCKET_REDIS_ADAPTER
+        value: "true"
+      - key: COMMERCIAL_READINESS_MODE
+        value: "true"
       - key: REDIS_URL
         fromService:
           type: keyvalue
@@ -54,7 +58,7 @@ services:
       - key: ADMIN_EMAILS
         sync: false
       - key: EMAIL_ENABLED
-        value: "false"
+        value: "true"
       - key: EMAIL_PROVIDER
         value: sendgrid
       - key: EMAIL_FROM_ADDRESS
@@ -72,4 +76,18 @@ services:
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASS
+        sync: false
+      - key: UPLOAD_STORAGE_DRIVER
+        value: s3
+      - key: UPLOAD_S3_BUCKET
+        sync: false
+      - key: UPLOAD_S3_REGION
+        value: auto
+      - key: UPLOAD_S3_ENDPOINT
+        sync: false
+      - key: UPLOAD_S3_FORCE_PATH_STYLE
+        value: "false"
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
         sync: false

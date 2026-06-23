@@ -384,15 +384,16 @@ Scheduler endpoints require protection because they can create payroll periods, 
 ### Uploads And File Directory
 
 - Upload routes require authentication.
-- `POST /api/uploads` stores a file and returns an authenticated file URL under `/api/uploads/files/:filename`.
+- `POST /api/uploads` stores a file under a randomized object key, creates owner metadata, and returns `{ id, url, filename, name, type, size }`. Link the returned `id` when creating a file-directory item or uploaded client asset.
 - Upload payloads must be valid base64 and the decoded file signature must match the declared allowed content type. Supported generic uploads are PNG, JPEG, GIF, PDF, plain text, DOC, and DOCX.
-- Stored generic upload filenames use a server-generated timestamp plus a sanitized basename and canonical extension derived from the validated content type, not from the user-supplied extension.
-- `GET /api/uploads/files/:filename` requires authentication, only serves supported stored upload filenames, rejects path traversal or missing files, sets the response content type from the canonical extension, and sends `X-Content-Type-Options: nosniff`.
+- Stored generic upload object keys use a random UUID and canonical extension derived from the validated content type, not the user-supplied filename.
+- `GET /api/uploads/files/:id` returns `404` unless the requester is the uploader, an authorized internal user for the linked file-directory department, client operations, or an active client member reading a client-visible linked asset. Responses use stored canonical content types and `X-Content-Type-Options: nosniff`.
 - Avatar data URI uploads and stored user avatar updates are limited to JPEG, PNG, GIF, and WebP signatures and remain capped at 5 MB. Stored avatar references are restricted to short initials, safe relative paths, or `http(s)` URLs.
 - File-directory list, children, create, and delete routes require internal directory access; client-only accounts must use client portal storage/resource flows instead.
 - Non-full-access internal users create folders under their own department derived from active server-side roles. Full-access users may choose a department.
 - File-directory create ignores user-supplied direct link fields. New internal folder/file records do not expose Google Drive or arbitrary external links from request bodies.
 - Delete is allowed to the creator or full-access admins. Full-access users can view all department folders.
+- `GET /health` returns `200` only while PostgreSQL is reachable; `GET /ready` also verifies commercial session persistence and object storage and returns `503` when traffic should not be routed.
 
 ### Notifications
 

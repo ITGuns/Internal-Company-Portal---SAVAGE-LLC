@@ -47,8 +47,8 @@ Important backend conventions:
 - Pending or unapproved users cannot receive normal login or refresh tokens.
 - OAuth-created users are created as pending accounts and still require approval before normal access.
 - User and employee responses must stay sanitized and must not return password, reset-token, bank, or tax fields.
-- Socket.io connections verify JWTs and authorize conversation room joins server-side.
-- Uploaded files are served through authenticated `/api/uploads/files/:filename` routes, not unauthenticated static `/uploads` serving.
+- Socket.io connections verify JWTs and authorize conversation room joins server-side. Production enables the Redis adapter so room broadcasts can cross backend instances.
+- Uploaded files use randomized object keys and persisted owner metadata. Authenticated `/api/uploads/files/:id` reads are authorized through linked `FileFolder` department rules or `ClientAsset` visibility and membership; commercial deployments use S3-compatible storage behind that route.
 
 ## Frontend Structure
 
@@ -154,3 +154,5 @@ Security-related runtime notes:
 
 - Production auth rate limiting defaults to Redis-backed storage via `REDIS_URL`; local development and tests default to in-memory storage unless `AUTH_RATE_LIMIT_STORE=redis` is set.
 - Docker Compose includes Redis for distributed auth limits. Keep `TRUST_PROXY_HOPS=0` unless the backend is behind a trusted reverse proxy, then set the exact number of trusted hops.
+- Browser API calls should stay same-origin and flow through Next.js rewrites. Set `BACKEND_URL` on the frontend runtime/build so `/api` and `/backend-auth` proxy to the persistent backend without exposing refresh cookies to cross-site browser calls.
+- Set `COMMERCIAL_READINESS_MODE=true` only on the final paid runtime. It fails startup if email, Redis rate limits, Socket.io Redis adapter, S3 uploads, or persistent runtime requirements are not satisfied.

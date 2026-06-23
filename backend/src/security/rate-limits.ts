@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
-import { rateLimit, type RateLimitRequestHandler, type Store } from 'express-rate-limit'
+import crypto from 'node:crypto'
+import { ipKeyGenerator, rateLimit, type RateLimitRequestHandler, type Store } from 'express-rate-limit'
 import {
     DEFAULT_AUTH_RATE_LIMIT_SETTINGS,
     resolveAuthRateLimitStoreMode,
@@ -43,6 +44,13 @@ const AUTH_RATE_LIMIT_MESSAGES: Record<AuthRateLimitRoute, string> = {
     resetPassword: 'Too many password reset attempts. Please try again later.',
 }
 
+export function hashLoginRateLimitAccount(email: unknown): string {
+    const normalizedEmail = typeof email === 'string'
+        ? email.trim().toLowerCase()
+        : '<missing-email>'
+    return crypto.createHash('sha256').update(normalizedEmail).digest('hex')
+}
+
 function createLimiter(
     route: AuthRateLimitRoute,
     rule: RateLimitRule,
@@ -55,6 +63,9 @@ function createLimiter(
         legacyHeaders: false,
         store: storeFactory?.createStore(route),
         passOnStoreError: false,
+        keyGenerator: route === 'login'
+            ? (req) => `${ipKeyGenerator(req.ip || 'unknown')}:${hashLoginRateLimitAccount(req.body?.email)}`
+            : undefined,
         handler: (_req: Request, res: Response) => {
             res.status(429).json({ error: AUTH_RATE_LIMIT_MESSAGES[route] })
         },

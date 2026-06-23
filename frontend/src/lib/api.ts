@@ -12,6 +12,7 @@ export const BACKEND_CONNECTION_ERROR_MESSAGE = 'Could not reach the Deskii back
 export type OAuthProvider = 'google' | 'apple' | 'discord';
 
 let memoryAccessToken: string | null = null;
+let refreshAccessTokenInFlight: Promise<string | null> | null = null;
 
 export const getAuthToken = () => {
     return memoryAccessToken
@@ -87,25 +88,33 @@ export async function readJsonResponse<T>(response: Response, fallbackMessage: s
 /**
  * Attempt to refresh the access token using the httpOnly refresh cookie.
  */
-export const refreshAccessToken = async (): Promise<string | null> => {
-    getRefreshToken()
-    try {
-        const res = await fetch(buildAuthUrl('/refresh'), {
-            method: 'POST',
-            credentials: 'include',
-        })
-        if (res.ok) {
-            const data = await res.json()
-            if (data.accessToken) {
-                setAuthToken(data.accessToken)
-                setRefreshToken()
-                return data.accessToken
+export const refreshAccessToken = (): Promise<string | null> => {
+    if (refreshAccessTokenInFlight) return refreshAccessTokenInFlight
+
+    refreshAccessTokenInFlight = (async () => {
+        getRefreshToken()
+        try {
+            const res = await fetch(buildAuthUrl('/refresh'), {
+                method: 'POST',
+                credentials: 'include',
+            })
+            if (res.ok) {
+                const data = await res.json()
+                if (data.accessToken) {
+                    setAuthToken(data.accessToken)
+                    setRefreshToken()
+                    return data.accessToken
+                }
             }
+        } catch (err) {
+            console.error('Token refresh failed:', err)
         }
-    } catch (err) {
-        console.error('Token refresh failed:', err)
-    }
-    return null
+        return null
+    })().finally(() => {
+        refreshAccessTokenInFlight = null
+    })
+
+    return refreshAccessTokenInFlight
 }
 
 /**

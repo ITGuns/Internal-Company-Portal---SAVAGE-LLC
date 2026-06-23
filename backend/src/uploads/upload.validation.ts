@@ -152,6 +152,17 @@ export function buildStoredUploadMetadata(
     }
 }
 
+export function buildStoredUploadObjectKey(
+    contentType: unknown,
+    uniqueId: string = crypto.randomUUID(),
+): string | null {
+    const normalizedType = normalizeMimeType(contentType)
+    if (!isGeneralUploadMimeType(normalizedType)) return null
+
+    const extension = getUploadExtensionForMimeType(normalizedType)
+    return extension ? `${uniqueId}.${extension}` : null
+}
+
 export function validateStoredUploadFilename(filename: unknown): StoredUploadFilenameValidationResult {
     if (typeof filename !== 'string') {
         return { valid: false, error: 'Filename must be a string' }
@@ -333,3 +344,4 @@ function startsWith(buffer: Buffer, signature: number[]): boolean {
 function startsWithAscii(buffer: Buffer, signature: string): boolean {
     return buffer.subarray(0, signature.length).toString('ascii') === signature
 }
+import crypto from 'node:crypto'

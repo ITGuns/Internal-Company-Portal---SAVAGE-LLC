@@ -79,7 +79,7 @@ export class FileDirectoryController {
         router.post('/', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const user = (req as AuthRequest).user
-                const { name, type, department, parentId, customColor } = req.body
+                const { name, type, department, parentId, customColor, uploadId } = req.body
 
                 const details = await getUserDetails(user?.userId, user?.email)
                 if (!details.canReadInternalDirectory) {
@@ -99,6 +99,24 @@ export class FileDirectoryController {
                     return res.status(400).json({ error: 'File directory requires an assigned department' })
                 }
 
+                const normalizedUploadId = typeof uploadId === 'string' ? uploadId.trim() : ''
+                if (normalizedUploadId) {
+                    if (type !== 'file') {
+                        return res.status(400).json({ error: 'Only file entries can reference an upload' })
+                    }
+
+                    const ownedUpload = await prisma.storedUpload.findFirst({
+                        where: {
+                            id: normalizedUploadId,
+                            ownerId: user?.userId,
+                            clientAsset: null,
+                            fileFolder: null,
+                        },
+                        select: { id: true },
+                    })
+                    if (!ownedUpload) return res.status(404).json({ error: 'Upload not found' })
+                }
+
                 const folder = await this.service.create({
                     name: normalizedName,
                     type,
@@ -106,6 +124,7 @@ export class FileDirectoryController {
                     parentId,
                     customColor,
                     createdById: user?.userId,
+                    uploadId: normalizedUploadId || undefined,
                 })
 
                 res.status(201).json(folder)

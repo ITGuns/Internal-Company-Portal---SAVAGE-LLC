@@ -26,7 +26,9 @@ function createStorage(initial = {}) {
   };
 }
 
-function loadApiHelpers(localStorage) {
+function loadApiHelpers(localStorage, fetchImpl = async () => {
+  throw new Error('Unexpected fetch call');
+}) {
   const helperPath = path.resolve(__dirname, '../src/lib/api.ts');
   const source = fs.readFileSync(helperPath, 'utf8');
   const { outputText } = ts.transpileModule(source, {
@@ -44,6 +46,7 @@ function loadApiHelpers(localStorage) {
     console,
     window: { localStorage },
     localStorage,
+    fetch: fetchImpl,
     require: (specifier) => {
       if (specifier === './constants') {
         return {
@@ -111,4 +114,33 @@ test('purges legacy local storage refresh tokens instead of reusing them', () =>
 
   assert.equal(getRefreshToken(), null);
   assert.equal(localStorage.has('refreshToken'), false);
+});
+
+test('shares one refresh-token rotation across concurrent callers', async () => {
+  const localStorage = createStorage();
+  let fetchCalls = 0;
+  const { getAuthToken, refreshAccessToken } = loadApiHelpers(localStorage, async () => {
+    fetchCalls += 1;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    return {
+      ok: true,
+      async json() {
+        return { accessToken: 'rotated-access-token' };
+      },
+    };
+  });
+
+  const tokens = await Promise.all([
+    refreshAccessToken(),
+    refreshAccessToken(),
+    refreshAccessToken(),
+  ]);
+
+  assert.equal(fetchCalls, 1);
+  assert.deepEqual(tokens, [
+    'rotated-access-token',
+    'rotated-access-token',
+    'rotated-access-token',
+  ]);
+  assert.equal(getAuthToken(), 'rotated-access-token');
 });

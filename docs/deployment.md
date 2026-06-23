@@ -35,6 +35,7 @@ Required repository secrets or variables for the manual SSH Docker deploy:
 - `CORS_ORIGIN`, such as `https://mydeskii.com`
 - `NEXT_PUBLIC_API_URL`, such as `https://api.mydeskii.com/api`
 - `NEXT_PUBLIC_WS_URL`, such as `wss://api.mydeskii.com`
+- `BACKEND_URL`, such as `http://backend:4000` for Docker or `https://api.mydeskii.com` for a hosted backend rewrite target
 
 Recommended repository secrets or variables:
 
@@ -71,16 +72,19 @@ Recommended backend environment:
 - `REDIS_URL`
 - `AUTH_RATE_LIMIT_STORE=redis`
 - `AUTH_RATE_LIMIT_REDIS_PREFIX=portal:auth-rate-limit`
+- `ENABLE_SOCKET_REDIS_ADAPTER=true`
 - `TRUST_PROXY_HOPS` set to the exact trusted reverse-proxy hop count
 - `OPS_MANAGER_EMAIL`
+- `UPLOAD_STORAGE_DRIVER=s3`, `UPLOAD_S3_BUCKET`, and S3-compatible credentials for commercial uploads
 
 Frontend public build/runtime environment:
 
-- `NEXT_PUBLIC_API_URL`, such as `https://api.mydeskii.com/api`. If omitted, the frontend uses same-origin `/api` for local/Vercel proxy deployments.
+- `NEXT_PUBLIC_API_URL`, preferably `/api` or the same app origin for browser calls. The frontend normalizes cross-origin browser values back to same-origin `/api` so Next rewrites own CORS and cookies.
 - `NEXT_PUBLIC_WS_URL`
 - `NEXT_PUBLIC_ENABLE_REALTIME=true` when the websocket URL points at a persistent Node backend
+- `BACKEND_URL`, the server-side rewrite target for `/api/*` and `/backend-auth/*`
 
-For the monorepo Vercel deployment in `vercel.json`, prefer omitting `NEXT_PUBLIC_API_URL` or setting it to `/api` so browser auth and REST calls use same-origin `/backend-auth/*` and `/api/*` routes. Do not point `NEXT_PUBLIC_API_URL` at a separate Render backend unless that backend's `CORS_ORIGIN` includes the exact Vercel production domain; otherwise browser login fails before the API response is readable.
+For the monorepo Vercel deployment in `vercel.json`, prefer omitting `NEXT_PUBLIC_API_URL` or setting it to `/api` so browser auth and REST calls use same-origin `/backend-auth/*` and `/api/*` routes. If the backend is Render or another persistent host, set frontend `BACKEND_URL` to that backend origin so Next rewrites same-origin browser requests to the persistent backend. Do not rely on direct browser calls from a Vercel domain to a separate backend domain for refresh-cookie auth.
 
 For Docker deployments, `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` are passed as frontend image build args and runtime environment variables. Rebuild the frontend image when those public URLs change.
 
@@ -94,6 +98,7 @@ Before creating the Blueprint in Render:
 - Set `DIRECT_DATABASE_URL` to the Supabase session pooler or direct migration URL.
 - Set `ADMIN_EMAILS` if configured admin-email bypass is still needed.
 - Set `FRONTEND_URL` and `CORS_ORIGIN` to the final frontend domain, such as `https://mydeskii.com`.
+- Configure S3-compatible upload variables before enabling `COMMERCIAL_READINESS_MODE=true`.
 - Leave generated JWT secrets in Render unless rotating existing sessions intentionally.
 
 Render CLI preflight:
@@ -116,7 +121,8 @@ The Blueprint points at the GitHub repository with `repo: https://github.com/ITG
 
 After Render creates the backend service, set Vercel production variables:
 
-- `NEXT_PUBLIC_API_URL=https://<render-backend-host>/api`
+- `BACKEND_URL=https://<render-backend-host>`
+- `NEXT_PUBLIC_API_URL=/api`
 - `NEXT_PUBLIC_WS_URL=wss://<render-backend-host>`
 - `NEXT_PUBLIC_ENABLE_REALTIME=true`
 
@@ -140,6 +146,8 @@ Required Vercel environment variables:
 - `CORS_ORIGIN`
 - `FRONTEND_URL`
 - `AUTH_RATE_LIMIT_STORE=memory`
+- `ENABLE_SOCKET_REDIS_ADAPTER=false`
+- `COMMERCIAL_READINESS_MODE=false`
 
 Recommended Vercel environment variables:
 
@@ -154,6 +162,33 @@ Recommended Vercel environment variables:
 For Supabase, use the transaction pooler for `DATABASE_URL` and the session pooler or direct connection for `DIRECT_DATABASE_URL`.
 
 Vercel is suitable for a temporary preview of the portal UI and normal REST/auth routes. It is not a complete production runtime for this app because Vercel Functions do not provide a durable Socket.io WebSocket server, and file uploads written to local function storage are not persistent. Production builds only attempt Socket.io when realtime is explicitly enabled or `NEXT_PUBLIC_WS_URL` is configured; leave `NEXT_PUBLIC_ENABLE_REALTIME=false` on Vercel unless that websocket URL points to a persistent backend. For full chat realtime behavior, durable uploads, Redis-backed distributed rate limits, and long-running operational reliability, use the Docker/SSH deployment path or a server host that supports persistent Node processes.
+
+## Commercial Production Guard
+
+`COMMERCIAL_READINESS_MODE=true` is the default for paid deployment templates, not for local development or temporary previews. It requires Redis auth rate limits, Socket.io Redis adapter, production email, S3-compatible uploads, a reachable upload bucket, migrated refresh-session persistence, and a persistent non-Vercel backend runtime. See `docs/commercial-readiness.md` for the full launch checklist.
+
+## Commercial Load Test
+
+The repository includes a k6 script at `tests/load/deskii-commercial.js`.
+
+Run a staging smoke profile:
+
+```powershell
+$env:BASE_URL = "https://staging.mydeskii.com"
+$env:DESKII_LOAD_EMAIL = "load-test-admin@example.com"
+$env:DESKII_LOAD_PASSWORD = "<password>"
+npm run load:smoke
+```
+
+Run the 1000-active-user profile only against an approved staging or production-like target:
+
+```powershell
+$env:DESKII_LOAD_USERS_FILE = "tests/load/users.staging.csv"
+$env:LOAD_PROFILE = "commercial1000"
+npm run load:smoke
+```
+
+The CSV must contain at least 1,000 unique approved staging accounts using the `email,password` header shown in `tests/load/users.example.csv`. Keep the real CSV untracked. Each VU logs in once and reuses or refreshes its token; the script refuses to start when the user pool is too small.
 
 ### Supabase/Postgres Connection Mode
 
@@ -214,13 +249,14 @@ CI uses `npx prisma db push` only for disposable test databases because the curr
 
 After deployment, verify:
 
-- Backend `/health` returns `status: healthy`.
+- Backend `/health` returns `status: healthy` and `/ready` returns `status: ready`.
 - Login, refresh-token rotation, and logout revocation work.
 - The `RefreshSession` table exists and refresh tokens are not accepted from JavaScript-readable request bodies.
 - `/dashboard`, `/task-tracking`, and `/chat` render.
 - Chat WebSocket delivery works between two authorized users.
 - Uploads/file-directory still read and write files.
 - Client operations routes still hide internal-only data from client users.
+- If `COMMERCIAL_READINESS_MODE=true`, S3 uploads, SendGrid/SMTP email, Redis rate limits, and Socket.io Redis adapter are all configured before serving traffic.
 
 ## Rollback
 
@@ -228,5 +264,5 @@ Preferred rollback is a forward fix when migrations changed data or schema. If a
 
 1. Revert or reset the remote checkout to the last known good commit.
 2. Rebuild and restart with `docker compose --env-file .env.production -f docker-compose.production.yml up -d --build`.
-3. Run `/health` and the post-deploy smoke list.
+3. Run `/health`, `/ready`, and the post-deploy smoke list.
 4. Do not roll back database migrations destructively without a reviewed migration plan.

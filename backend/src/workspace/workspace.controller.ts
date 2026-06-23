@@ -4,8 +4,10 @@ import { authenticateToken } from '../auth/auth.middleware'
 import { hasManagementAccess, type OrgRoleLike } from '../org/org-access-policy'
 import fs from 'fs'
 import path from 'path'
+import { createLogger } from '../observability/logger'
 
 const BRANDING_FILE_PATH = path.resolve(__dirname, '../../../workspace-branding.json')
+const logger = createLogger('workspace.controller')
 
 export interface PublicWorkspaceConfig {
   name: string
@@ -52,7 +54,7 @@ function loadBrandingFromFile(): Partial<PublicWorkspaceConfig> {
       return JSON.parse(content)
     }
   } catch (error) {
-    console.error('Failed to load branding file:', error)
+    logger.error('Failed to load branding file', error)
   }
   return {}
 }
@@ -61,7 +63,7 @@ function saveBrandingToFile(data: Partial<PublicWorkspaceConfig>): void {
   try {
     fs.writeFileSync(BRANDING_FILE_PATH, JSON.stringify(data, null, 2), 'utf8')
   } catch (error) {
-    console.error('Failed to save branding file:', error)
+    logger.error('Failed to save branding file', error)
   }
 }
 
@@ -117,7 +119,7 @@ export class WorkspaceController {
         saveBrandingToFile(newConfig)
         res.json({ success: true, config: getPublicWorkspaceConfig() })
       } catch (error) {
-        console.error('Failed to update workspace branding:', error)
+        logger.error('Failed to update workspace branding', error)
         res.status(500).json({ error: 'Internal server error' })
       }
     })

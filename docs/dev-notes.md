@@ -1,5 +1,101 @@
 # Development Notes
 
+## 2026-06-23 - Commercial Security Hardening Review Fixes
+
+### Completed
+- Added persisted upload ownership, randomized object keys, and department/client authorization for downloads.
+- Added additive `StoredUpload`, `ClientAsset.uploadId`, and `FileFolder.uploadId` schema changes.
+- Made commercial refresh sessions fail closed and added dependency-aware `/health` and `/ready` endpoints.
+- Added S3 bucket and refresh-session startup probes for commercial mode.
+- Replaced node-local realtime presence with Socket.io adapter-aware room queries.
+- Changed login throttling to hashed-account-plus-IP keys so legitimate users behind one NAT do not share one ten-attempt bucket and raw email addresses are not stored in Redis keys.
+- Reworked the k6 profile to require unique staging users and reuse each VU session.
+- Enabled commercial guardrails by default in paid deployment templates and removed superseded OAuth helpers.
+- Serialized concurrent frontend access-token refreshes so a protected-route reload cannot race single-use refresh-token rotation and log the user out.
+
+### Files Changed
+- Backend auth, health, notifications, uploads, file-directory, client assets, Prisma schema/migration, tests, deployment configuration, load tests, frontend upload callers, and commercial documentation.
+
+### Decisions Made
+- Existing department and client-membership policies remain the source of truth for file authorization.
+- Legacy filename-only uploads are not served without ownership metadata; migrate or retire them before commercial cutover.
+- Production templates fail startup instead of silently degrading Redis, session persistence, email, or S3 requirements.
+
+### How to Test
+- Run `npm run check`, Prisma validate/generate, production Compose validation, and the clean-database migration test.
+- Run staging smoke with an approved credential CSV, then run the 1,000-user profile only on production-like staging.
+
+### Verification Completed
+- `npm run check` passed, followed by the auth-race fix and a clean rerun of 150 frontend tests, lint, production build, and frontend audit; backend tests/build/audit, load-script checks, and the root audit also passed.
+- Prisma validate/generate passed; migration `202606230001_stored_uploads` applied successfully to isolated PostgreSQL 16.
+- Production Compose, Render YAML, and GitHub Actions YAML validated with commercial-mode placeholders.
+- Official k6 container parsed both smoke and commercial profiles.
+- Production standalone browser audit passed login, File Directory, Client Assets, protected-route reload, `/health`, and `/ready` with no page errors or HTTP 5xx responses.
+
+### Next Steps
+- Provision vendor credentials, monitoring, managed backups, and a production-like staging environment before launch approval.
+
+## 2026-06-22 - Commercial Hardening Runtime Slice
+
+### Completed
+- Added commercial-readiness startup guardrails for Redis auth rate limits, Socket.io Redis adapter, production email, S3-compatible uploads, and persistent non-Vercel runtime.
+- Added OAuth state-cookie helpers and wired Google/Discord/Apple state validation through shared OAuth state handling.
+- Replaced remaining raw backend auth/workspace console errors with the redacting structured logger.
+- Added an upload storage abstraction with local, in-memory test, and S3-compatible storage drivers while keeping authenticated `/api/uploads/files/:filename` URLs stable.
+- Added optional Socket.io Redis adapter configuration for horizontally scaled backend instances.
+- Added `BACKEND_URL` support to the frontend Docker image and production Compose so same-origin `/api` and `/backend-auth` rewrites target the persistent backend.
+- Added a k6 commercial load-test script with smoke and 1000-active-user profiles.
+- Documented the commercial launch gate, hosting services, same-origin routing, object storage, realtime scaling, and load-test procedure.
+
+### Files Changed
+- `.env.production.example`
+- `.github/workflows/deploy.yml`
+- `backend/.env.example`
+- `backend/package.json`
+- `backend/package-lock.json`
+- `backend/src/auth/auth.controller.ts`
+- `backend/src/auth/oauth.state.ts`
+- `backend/src/config/env.config.ts`
+- `backend/src/config/production-readiness.config.ts`
+- `backend/src/main.ts`
+- `backend/src/notifications/socket.adapter.ts`
+- `backend/src/notifications/socket.service.ts`
+- `backend/src/uploads/upload.storage.ts`
+- `backend/src/uploads/uploads.controller.ts`
+- `backend/src/workspace/workspace.controller.ts`
+- `backend/tests/oauth.state.test.ts`
+- `backend/tests/production-readiness.config.test.ts`
+- `backend/tests/run-tests.ts`
+- `backend/tests/socket.adapter.test.ts`
+- `backend/tests/upload.storage.test.ts`
+- `docker-compose.production.yml`
+- `docs/architecture.md`
+- `docs/commercial-readiness.md`
+- `docs/deployment.md`
+- `frontend/Dockerfile`
+- `package.json`
+- `render.yaml`
+- `tests/load/deskii-commercial.js`
+
+### Decisions Made
+- Kept browser API/auth calls same-origin and used `BACKEND_URL` for server-side rewrites instead of relying on direct cross-site browser calls.
+- Kept local and Vercel preview paths unblocked by leaving `COMMERCIAL_READINESS_MODE=false` and defaulting the Socket.io Redis adapter off on Vercel unless explicitly enabled.
+- Required S3-compatible storage only when using the commercial guard so local development can still use disk storage.
+- Added k6 as an operator-installed load-test dependency instead of adding a Node package that would not run the k6 runtime.
+
+### How to Test
+- Run `npm --prefix backend test`.
+- Run `npm --prefix backend run build`.
+- Run `npm --prefix frontend test`.
+- Run `npm --prefix frontend run lint`.
+- Run `npm --prefix frontend run build`.
+- Run `docker compose -f docker-compose.production.yml config` with production placeholder env values.
+- On staging, set `BASE_URL`, `DESKII_LOAD_EMAIL`, and `DESKII_LOAD_PASSWORD`, then run `npm run load:smoke`.
+
+### Next Steps
+- Provision the real managed Postgres, Redis, object storage, email provider, log drain, uptime monitoring, and backup/restore process before turning `COMMERCIAL_READINESS_MODE=true`.
+- Run the `commercial1000` k6 profile against a production-like staging environment before selling a 1000-active-user deployment.
+
 ## 2026-06-22 - Section-Level Loading Skeleton Follow-Up
 
 ### Completed

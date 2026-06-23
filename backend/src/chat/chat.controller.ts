@@ -386,7 +386,7 @@ export class ChatController {
         // Get online users
         router.get('/online', authenticateToken, async (_req: Request, res: Response) => {
             try {
-                const onlineUserIds = notificationService.getOnlineUserIds()
+                const onlineUserIds = await notificationService.getOnlineUserIds()
                 res.json({ onlineUserIds })
             } catch (error) {
                 logger.error(error)

@@ -126,7 +126,7 @@ export default function FileDirectoryPage() {
           throw new Error(errData.error || 'Upload failed');
         }
 
-        await uploadRes.json().catch(() => null);
+        const uploadResult = await uploadRes.json() as { id: string };
 
         // 2. Add as a file item
         const dept = departmentFilter === 'All Departments' ? 'All Departments' : departmentFilter;
@@ -137,6 +137,7 @@ export default function FileDirectoryPage() {
             type: 'file',
             department: dept,
             parentId: currentFolderId || null,
+            uploadId: uploadResult.id,
           }),
         });
 

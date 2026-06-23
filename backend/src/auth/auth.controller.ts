@@ -27,20 +27,27 @@ import { createAuthRateLimiters, type AuthRateLimiters } from '../security/rate-
 import {
     buildAppleAuthorizationUrl,
     buildOAuthFrontendRedirect,
-    clearAppleOAuthStateCookie,
     createOAuthState,
     exchangeAppleAuthorizationCode,
     findOrCreateAppleOAuthUser,
-    getAppleOAuthStateFromRequest,
     getFrontendUrl,
     isAppleOAuthConfigured,
     parseAppleUserName,
-    setAppleOAuthStateCookie,
     verifyAppleIdentityToken,
     type OAuthProvider,
 } from './oauth.helpers'
+import {
+    clearOAuthStateCookie,
+    getOAuthCallbackState,
+    getOAuthStateFromRequest,
+    setOAuthStateCookie,
+    type OAuthStateProvider,
+} from './oauth.state'
 
 import { config } from '../config/env.config'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('auth.controller')
 
 interface AuthControllerOptions {
     rateLimiters?: AuthRateLimiters
@@ -73,6 +80,19 @@ export class AuthController {
         await this.refreshSessions.create(user.id, tokens.refreshToken, req)
         setRefreshTokenCookie(res, tokens.refreshToken)
         res.redirect(buildOAuthFrontendRedirect(provider))
+    }
+
+    private validateOAuthState(provider: OAuthStateProvider, req: Request, res: Response): boolean {
+        const callbackState = getOAuthCallbackState(req)
+        const storedState = getOAuthStateFromRequest(req, provider)
+        clearOAuthStateCookie(res, provider)
+
+        if (!callbackState || !storedState || callbackState !== storedState) {
+            res.redirect(buildOAuthFrontendRedirect(provider, 'state_mismatch'))
+            return false
+        }
+
+        return true
     }
 
     router(): Router {
@@ -113,7 +133,7 @@ export class AuthController {
 
                 await this.completeOAuthLogin(provider as any, user, req, res)
             } catch (error) {
-                console.error('Sandbox login failed:', error)
+                logger.error('Sandbox login failed', error)
                 res.redirect(buildOAuthFrontendRedirect(provider as any, 'failed'))
             }
         })
@@ -126,12 +146,15 @@ export class AuthController {
                 }
                 return res.redirect(`${getFrontendUrl()}/auth/sandbox?provider=google`)
             }
-            passport.authenticate('google', { scope: ['profile', 'email'], session: false })(req, res, next)
+            const state = createOAuthState()
+            setOAuthStateCookie(res, 'google', state)
+            passport.authenticate('google', { scope: ['profile', 'email'], session: false, state })(req, res, next)
         })
 
         router.get(
             '/google/callback',
             (req: Request, res: Response, next) => {
+                if (!this.validateOAuthState('google', req, res)) return
                 passport.authenticate('google', { session: false }, async (error: Error | null, user?: AuthUserLike) => {
                     if (error || !user) {
                         return res.redirect(buildOAuthFrontendRedirect('google', 'failed'))
@@ -139,7 +162,7 @@ export class AuthController {
                     try {
                         await this.completeOAuthLogin('google', user, req, res)
                     } catch (loginError) {
-                        console.error('Google OAuth session failed:', loginError)
+                        logger.error('Google OAuth session failed', loginError)
                         res.redirect(buildOAuthFrontendRedirect('google', 'failed'))
                     }
                 })(req, res, next)
@@ -147,14 +170,23 @@ export class AuthController {
         )
 
         // Discord OAuth routes
-        router.get(
-            '/discord',
-            passport.authenticate('discord', { session: false })
-        )
+        router.get('/discord', (req: Request, res: Response, next) => {
+            if (!config.discordClientId || !config.discordClientSecret) {
+                if (config.nodeEnv === 'production') {
+                    return res.redirect(buildOAuthFrontendRedirect('discord', 'not_configured'))
+                }
+                return res.redirect(`${getFrontendUrl()}/auth/sandbox?provider=discord`)
+            }
+
+            const state = createOAuthState()
+            setOAuthStateCookie(res, 'discord', state)
+            passport.authenticate('discord', { session: false, state })(req, res, next)
+        })
 
         router.get(
             '/discord/callback',
             (req: Request, res: Response, next) => {
+                if (!this.validateOAuthState('discord', req, res)) return
                 passport.authenticate('discord', { session: false }, async (error: Error | null, user?: AuthUserLike) => {
                     if (error || !user) {
                         return res.redirect(buildOAuthFrontendRedirect('discord', 'failed'))
@@ -162,7 +194,7 @@ export class AuthController {
                     try {
                         await this.completeOAuthLogin('discord', user, req, res)
                     } catch (loginError) {
-                        console.error('Discord OAuth session failed:', loginError)
+                        logger.error('Discord OAuth session failed', loginError)
                         res.redirect(buildOAuthFrontendRedirect('discord', 'failed'))
                     }
                 })(req, res, next)
@@ -179,7 +211,7 @@ export class AuthController {
             }
 
             const state = createOAuthState()
-            setAppleOAuthStateCookie(res, state)
+            setOAuthStateCookie(res, 'apple', state)
             res.redirect(buildAppleAuthorizationUrl(state))
         })
 
@@ -190,8 +222,8 @@ export class AuthController {
                     : typeof req.query.state === 'string'
                         ? req.query.state
                         : ''
-                const storedState = getAppleOAuthStateFromRequest(req)
-                clearAppleOAuthStateCookie(res)
+                const storedState = getOAuthStateFromRequest(req, 'apple')
+                clearOAuthStateCookie(res, 'apple')
 
                 if (!callbackState || !storedState || callbackState !== storedState) {
                     return res.redirect(buildOAuthFrontendRedirect('apple', 'state_mismatch'))
@@ -216,7 +248,7 @@ export class AuthController {
 
                 await this.completeOAuthLogin('apple', user, req, res)
             } catch (error) {
-                console.error('Apple OAuth callback error:', error)
+                logger.error('Apple OAuth callback error', error)
                 res.redirect(buildOAuthFrontendRedirect('apple', 'failed'))
             }
         }
@@ -325,7 +357,7 @@ export class AuthController {
                     user: { id: user.id, email: user.email, name: user.name }
                 })
             } catch (error) {
-                console.error('Signup failed:', error)
+                logger.error('Signup failed', error)
                 res.status(500).json({ error: 'Signup failed' })
             }
         })
@@ -380,7 +412,7 @@ export class AuthController {
                     tokens: { accessToken: tokens.accessToken },
                 })
             } catch (error) {
-                console.error('Login failed:', error)
+                logger.error('Login failed', error)
                 res.status(500).json({ error: 'Login failed' })
             }
         })
@@ -429,7 +461,7 @@ export class AuthController {
                     accessToken: newAccessToken,
                 })
             } catch (error) {
-                console.error('Refresh token rotation failed:', error)
+                logger.error('Refresh token rotation failed', error)
                 res.status(500).json({ error: 'Unable to refresh token' })
             }
         })
@@ -459,7 +491,7 @@ export class AuthController {
                     user: serializeAuthUser(user),
                 })
             } catch (error) {
-                console.error('Failed to fetch user in /me:', error)
+                logger.error('Failed to fetch user in /me', error)
                 res.status(500).json({ error: 'Internal server error' })
             }
         })
@@ -474,7 +506,7 @@ export class AuthController {
                 clearRefreshTokenCookie(res)
                 res.json({ success: true, message: 'Logged out successfully' })
             } catch (error) {
-                console.error('Logout failed:', error)
+                logger.error('Logout failed', error)
                 clearRefreshTokenCookie(res)
                 res.status(500).json({ error: 'Logout failed' })
             }
@@ -546,7 +578,7 @@ export class AuthController {
 
                 res.json({ success: true, message: 'If an account with that email exists, a reset link has been sent.' })
             } catch (error) {
-                console.error('Forgot password error:', error)
+                logger.error('Forgot password error', error)
                 res.status(500).json({ error: 'Failed to process password reset request' })
             }
         })
@@ -603,7 +635,7 @@ export class AuthController {
 
                 res.json({ success: true, message: 'Password has been reset successfully' })
             } catch (error) {
-                console.error('Reset password error:', error)
+                logger.error('Reset password error', error)
                 res.status(500).json({ error: 'Failed to reset password' })
             }
         })

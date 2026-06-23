@@ -37,16 +37,30 @@ export class ClientRoadmapAssetsService {
     })
   }
 
-  async createAsset(organizationId: string, data: CreateClientAssetInput) {
+  async createAsset(organizationId: string, data: CreateClientAssetInput, ownerId?: string) {
     await this.assertProjectBelongsToOrganization(organizationId, data.projectId)
 
     return this.prisma.$transaction(async (tx) => {
+      if (data.uploadId) {
+        const ownedUpload = await tx.storedUpload.findFirst({
+          where: {
+            id: data.uploadId,
+            ownerId,
+            clientAsset: null,
+            fileFolder: null,
+          },
+          select: { id: true },
+        })
+        if (!ownedUpload) throw new ClientValidationError('Upload not found')
+      }
+
+      const assetUrl = data.uploadId ? `/api/uploads/files/${data.uploadId}` : data.url
       const existingAsset = await tx.clientAsset.findFirst({
         where: {
           organizationId,
           projectId: data.projectId || null,
           label: data.label,
-          url: data.url,
+          url: assetUrl,
           type: data.type,
         },
         orderBy: { updatedAt: 'desc' },
@@ -68,11 +82,12 @@ export class ClientRoadmapAssetsService {
           organizationId,
           projectId: data.projectId,
           label: data.label,
-          url: data.url,
+          url: assetUrl,
           type: data.type,
           status: data.status,
           notes: data.notes,
           visibleToClient: data.visibleToClient,
+          ...(data.uploadId ? { uploadId: data.uploadId } : {}),
         },
       })
     })

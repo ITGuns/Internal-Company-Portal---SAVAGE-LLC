@@ -8,6 +8,15 @@ import {
     type AuthRateLimitStoreMode,
 } from '../security/rate-limit-config'
 import { createLogger } from '../observability/logger'
+import {
+    parseBooleanEnv,
+    validateCommercialReadinessConfig,
+} from './production-readiness.config'
+import {
+    shouldEnableSocketRedisAdapter,
+    validateSocketRedisAdapterConfig,
+} from '../notifications/socket.adapter'
+import { resolveUploadStorageConfig, type UploadStorageDriver } from '../uploads/upload.storage'
 
 const logger = createLogger('config.env')
 
@@ -68,6 +77,16 @@ interface EnvConfig {
     authRateLimitRedisPrefix: string
     authRateLimits: AuthRateLimitSettings
 
+    // Commercial production guardrails
+    commercialReadinessMode: boolean
+
+    // Upload storage
+    uploadStorageDriver: UploadStorageDriver
+    uploadS3Bucket?: string
+
+    // Socket scaling
+    socketRedisAdapterEnabled: boolean
+
     // Admin bypass emails (comma-separated in env)
     adminEmails: string[]
 
@@ -125,6 +144,11 @@ function getNonNegativeIntegerEnvVar(key: string, defaultValue: number): number 
 
 const nodeEnv = getEnvVar('NODE_ENV', 'development')
 const corsOrigin = getEnvVar('CORS_ORIGIN', 'http://localhost:3000')
+const uploadStorageConfig = resolveUploadStorageConfig(process.env)
+const socketRedisAdapterEnabled = shouldEnableSocketRedisAdapter(
+    nodeEnv,
+    getOptionalEnvVar('ENABLE_SOCKET_REDIS_ADAPTER') ?? (process.env.VERCEL === '1' ? 'false' : undefined),
+)
 
 export const config: EnvConfig = {
     // Application
@@ -195,6 +219,16 @@ export const config: EnvConfig = {
         },
     },
 
+    // Commercial production guardrails
+    commercialReadinessMode: parseBooleanEnv(getOptionalEnvVar('COMMERCIAL_READINESS_MODE'), false),
+
+    // Upload storage
+    uploadStorageDriver: uploadStorageConfig.driver,
+    uploadS3Bucket: uploadStorageConfig.bucket,
+
+    // Socket scaling
+    socketRedisAdapterEnabled,
+
     // Admin bypass emails
     adminEmails: (getOptionalEnvVar('ADMIN_EMAILS') || '')
         .split(',')
@@ -238,6 +272,29 @@ export function validateConfig(): void {
             `Missing required environment variables: ${missing.join(', ')}\n` +
             'Please copy .env.example to .env and fill in the required values.'
         )
+    }
+
+    validateSocketRedisAdapterConfig({
+        enabled: config.socketRedisAdapterEnabled,
+        redisUrl: config.redisUrl,
+    })
+
+    if (config.nodeEnv === 'production' && config.commercialReadinessMode) {
+        validateCommercialReadinessConfig({
+            nodeEnv: config.nodeEnv,
+            commercialReadinessMode: config.commercialReadinessMode,
+            authRateLimitStore: config.authRateLimitStore,
+            emailEnabled: parseBooleanEnv(getOptionalEnvVar('EMAIL_ENABLED'), false),
+            emailProvider: getEnvVar('EMAIL_PROVIDER', 'sendgrid'),
+            sendgridApiKey: getOptionalEnvVar('SENDGRID_API_KEY'),
+            smtpHost: getOptionalEnvVar('SMTP_HOST'),
+            smtpUser: getOptionalEnvVar('SMTP_USER'),
+            smtpPass: getOptionalEnvVar('SMTP_PASS'),
+            uploadStorageDriver: config.uploadStorageDriver,
+            uploadS3Bucket: config.uploadS3Bucket,
+            socketRedisAdapterEnabled: config.socketRedisAdapterEnabled,
+            vercel: process.env.VERCEL === '1',
+        })
     }
 
     logger.info('Environment configuration validated successfully')

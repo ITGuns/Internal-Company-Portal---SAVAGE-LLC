@@ -179,12 +179,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
         newSocket.on('connect', () => {
             setIsConnected(true)
-            newSocket.emit('authenticate', userId)
         })
 
         newSocket.on('reconnect', () => {
             setIsConnected(true)
-            newSocket.emit('authenticate', userId)
         })
 
         newSocket.on('disconnect', () => {
