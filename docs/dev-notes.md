@@ -1,6 +1,54 @@
 # Development Notes
 
-## 2026-06-23 - Commercial Security Hardening Review Fixes
+## 2026-06-25 - CEO Onboarding Bootstrap Script
+
+### Completed
+- Created `backend/scripts/setup-ceo.mjs` — a production-safe CLI bootstrap script that:
+  - Seeds all org departments and available roles from the canonical `ORG_DEPARTMENT_ROLE_CATALOG`.
+  - Seeds default client service tiers (idempotent).
+  - Creates (or refreshes a passwordless) Owner / Founder account for the CEO email.
+  - Assigns the `Owner / Founder` role in the `Owners / Founders` department.
+  - Generates a 7-day one-time setup link the CEO opens to set their password via the existing `/reset-password` flow.
+  - Prints a clear, formatted output with the setup URL, expiry, and post-setup instructions.
+- Added `ceo:setup` and `ceo:setup:production` npm scripts to `backend/package.json`.
+- Documented `CEO_EMAIL` and `CEO_NAME` env vars in `backend/.env.example` and `backend/.env.production.example`.
+
+### Files Changed
+- `backend/scripts/setup-ceo.mjs` — NEW
+- `backend/package.json`
+- `backend/.env.example`
+- `backend/.env.production.example`
+- `docs/dev-notes.md`
+
+### Decisions Made
+- No password is ever written by the script; the CEO sets their own via the reset-password flow.
+- The script reuses raw `pg` (already a dependency) instead of loading the full Prisma runtime to avoid schema/migration bootstrap order issues.
+- `ALLOW_EXISTING_CEO=true` allows regenerating a setup link for a CEO account that has no password yet (e.g. script ran before CEO opened the link); it refuses to overwrite an already-passworded account.
+- CEO env vars (`CEO_EMAIL`, `CEO_NAME`) should be removed from CI/CD secrets after the CEO confirms access.
+- The script is placed in `backend/scripts/` alongside the existing `bootstrap-production-database.mjs` so operators have one clear scripts directory.
+
+### How to Use
+```powershell
+# Set env vars and run (local dev)
+$env:CEO_EMAIL="mina@savage-llc.com"
+$env:CEO_NAME="Mina Savage"
+npm --prefix backend run ceo:setup
+
+# Production (reads backend/.env.production)
+CEO_EMAIL=mina@savage-llc.com CEO_NAME="Mina Savage" npm --prefix backend run ceo:setup:production
+```
+
+### How to Test
+- Set `CEO_EMAIL` and `DATABASE_URL` in `backend/.env` (local) and run `npm --prefix backend run ceo:setup`.
+- Verify the script prints a setup URL, the user row appears in `User` with `status=verified` and no password, and the `UserRole` row exists.
+- Open the printed URL in the browser; confirm the reset-password form accepts a new password and logs the CEO in.
+- Re-run with the same `CEO_EMAIL` and confirm it exits with the "already has a password" guard unless `ALLOW_EXISTING_CEO=true`.
+
+### Next Steps
+- Run `setup-ceo.mjs` as the first step after `prisma:bootstrap-production` on every new deployment target.
+- After CEO sets password and confirms access, they can use `/operations/onboarding` to invite the rest of the team.
+
+
 
 ### Completed
 - Added persisted upload ownership, randomized object keys, and department/client authorization for downloads.
