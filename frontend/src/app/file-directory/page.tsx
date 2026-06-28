@@ -33,6 +33,8 @@ import {
 import type { FileDirectory } from '@/lib/file-directory-types';
 import { hasFullAccess } from '@/lib/role-access';
 
+const DEFAULT_FILE_UPLOAD_DEPARTMENT = 'Operations';
+
 // ── API helpers ──────────────────────────────────────────────────────────────
 
 async function apiFolders(): Promise<FileDirectory[]> {
@@ -129,7 +131,12 @@ export default function FileDirectoryPage() {
         const uploadResult = await uploadRes.json() as { id: string };
 
         // 2. Add as a file item
-        const dept = departmentFilter === 'All Departments' ? 'All Departments' : departmentFilter;
+        const dept =
+          departmentFilter !== 'All Departments'
+            ? departmentFilter
+            : userDepartment && userDepartment !== 'All Departments'
+              ? userDepartment
+              : DEFAULT_FILE_UPLOAD_DEPARTMENT;
         const registerRes = await apiFetch('/file-directory', {
           method: 'POST',
           body: JSON.stringify({

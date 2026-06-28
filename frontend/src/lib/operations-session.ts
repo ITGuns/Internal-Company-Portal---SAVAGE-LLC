@@ -17,11 +17,30 @@ function getSessionStorage(): BrowserStorage | null {
   }
 }
 
+function getCurrentSearch(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    return window.location.search;
+  } catch {
+    return '';
+  }
+}
+
 export function isOperationsTab(value: unknown): value is OperationsTab {
   return typeof value === 'string' && OPERATIONS_TABS.includes(value as OperationsTab);
 }
 
-export function getInitialOperationsTab(storage: BrowserStorage | null = getSessionStorage()): OperationsTab {
+export function getInitialOperationsTab(
+  storage: BrowserStorage | null = getSessionStorage(),
+  search = getCurrentSearch(),
+): OperationsTab {
+  try {
+    const requestedTab = new URLSearchParams(search).get('tab');
+    if (isOperationsTab(requestedTab)) return requestedTab;
+  } catch {
+    // Ignore malformed search strings and fall back to the session tab.
+  }
+
   if (!storage) return 'departments';
   try {
     const cachedTab = storage.getItem(OPERATIONS_ACTIVE_TAB_KEY);

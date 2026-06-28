@@ -1,7 +1,7 @@
 import { Request, Response, Router } from 'express';
 import bcrypt from 'bcrypt';
 import { emailService } from '../email/email.service';
-import { EmployeesService } from './employees.service';
+import { EmployeeValidationError, EmployeesService } from './employees.service';
 import { authenticateToken, AuthRequest } from '../auth/auth.middleware';
 import * as crypto from 'crypto';
 import { isAdminEmail, config } from '../config/env.config';
@@ -192,6 +192,10 @@ export class EmployeesController {
 
         } catch (error) {
             logger.error('Employee verification request failed', error);
+
+            if (error instanceof EmployeeValidationError) {
+                return res.status(400).json({ error: error.message });
+            }
 
             // Handle Prisma unique constraint violated for email
             if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2002') {

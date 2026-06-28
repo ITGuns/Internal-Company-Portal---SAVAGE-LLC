@@ -5,7 +5,6 @@
 import React from "react";
 import { Edit2, Trash2 } from "lucide-react";
 import type { CalendarEvent } from "@/lib/payroll-calendar/types";
-import { bgForType, iconForType } from "@/lib/payroll-calendar/utils";
 
 interface EventCardProps {
   event: CalendarEvent;
@@ -17,18 +16,11 @@ export default function EventCard({ event, onEdit, onDelete }: EventCardProps) {
   return (
     <div className="p-3 bg-[var(--card-bg)] border border-[var(--border)] rounded mb-3">
       <div className="flex items-start gap-3">
-        <div
-          className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full text-white ${bgForType(
-            event.extendedProps?.type
-          )}`}
-        >
-          {iconForType(event.extendedProps?.type)}
-        </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <div className="font-medium truncate">{event.title}</div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <div className="text-xs px-2 py-1 rounded-full bg-[var(--card-surface)] text-[var(--muted)]">
+              <div className="text-xs px-2 py-1 rounded bg-[var(--card-surface)] text-[var(--muted)]">
                 {String(event.extendedProps?.type || "").replace(/^[a-z]/, (c) =>
                   c.toUpperCase()
                 )}

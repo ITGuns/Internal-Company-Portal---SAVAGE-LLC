@@ -155,6 +155,10 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
 
             const data = await res.json();
 
+            if (!res.ok) {
+                throw new Error(data.error || data.message || "Failed to submit application");
+            }
+
             if (data.success) {
                 toast.success(`Application submitted for ${newEmployeeData.name}!`);
                 fetchData();

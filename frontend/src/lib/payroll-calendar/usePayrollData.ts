@@ -3,6 +3,10 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+
+// Must match the key used in TimeClock.tsx so both surfaces stay in sync
+const ACTIVE_TIME_ENTRY_QUERY_KEY = ['time-entries', 'active'] as const;
 import {
   fetchTimeEntries,
   getActiveEntry,
@@ -22,6 +26,7 @@ import {
 } from "../payroll-events";
 
 export function usePayrollData(targetUserId?: string, startIso?: string, endIso?: string) {
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [clockedIn, setClockedIn] = useState(false);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
@@ -58,6 +63,8 @@ export function usePayrollData(targetUserId?: string, startIso?: string, endIso?
       if (entry) {
         setTimeEntries((prev) => [entry, ...prev]);
         setClockedIn(true);
+        // Keep Header's TimeClock widget in sync
+        queryClient.setQueryData(ACTIVE_TIME_ENTRY_QUERY_KEY, entry);
         return { success: true };
       }
       return { success: false };
@@ -73,6 +80,8 @@ export function usePayrollData(targetUserId?: string, startIso?: string, endIso?
         const updatedEntries = await fetchTimeEntries(startIso, endIso, targetUserId);
         setTimeEntries(updatedEntries);
         setClockedIn(false);
+        // Keep Header's TimeClock widget in sync
+        queryClient.setQueryData(ACTIVE_TIME_ENTRY_QUERY_KEY, null);
         return { success: true };
       }
       return { success: false };

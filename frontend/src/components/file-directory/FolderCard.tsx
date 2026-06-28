@@ -13,6 +13,15 @@ interface FolderCardProps {
   viewMode: 'grid' | 'list';
 }
 
+function formatBytes(bytes?: number | null) {
+  if (bytes === undefined || bytes === null) return 'Unknown size';
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
 export default function FolderCard({ folder, onClick, onDelete, viewMode }: FolderCardProps) {
   const defaultColor = DEPARTMENT_COLORS[folder.department as keyof typeof DEPARTMENT_COLORS] || 'var(--muted)';
   const defaultColorBg = DEPARTMENT_COLORS_BG[folder.department as keyof typeof DEPARTMENT_COLORS_BG] || 'var(--card-surface)';
@@ -59,9 +68,14 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
           <div className="text-sm text-[var(--muted)] mt-1 flex items-center gap-2">
             <span>{folder.department}</span>
             {folder.type === 'file' && (
-              <span className="inline-flex items-center rounded-md bg-blue-500/10 px-1.5 py-0.5 text-xs font-medium text-blue-500 ring-1 ring-inset ring-blue-500/20">
-                File
-              </span>
+              <>
+                <span className="inline-flex items-center rounded-md bg-blue-500/10 px-1.5 py-0.5 text-xs font-medium text-blue-500 ring-1 ring-inset ring-blue-500/20">
+                  File
+                </span>
+                <span className="text-xs text-[var(--muted)]">
+                  ({formatBytes(folder.upload?.sizeBytes)})
+                </span>
+              </>
             )}
           </div>
         </div>
@@ -157,14 +171,19 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
                 {folder.name}
               </h2>
             </div>
-            <p className="text-sm text-[var(--muted)] flex items-center justify-between">
+            <div className="text-sm text-[var(--muted)] flex items-center justify-between">
               <span>{folder.department}</span>
               {folder.type === 'file' && (
-                <span className="inline-flex items-center rounded-md bg-blue-500/10 px-1.5 py-0.5 text-xs font-medium text-blue-500 ring-1 ring-inset ring-blue-500/20">
-                  File
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="inline-flex items-center rounded-md bg-blue-500/10 px-1.5 py-0.5 text-xs font-medium text-blue-500 ring-1 ring-inset ring-blue-500/20">
+                    File
+                  </span>
+                  <span className="text-[10px] text-[var(--muted)] font-mono">
+                    {formatBytes(folder.upload?.sizeBytes)}
+                  </span>
+                </div>
               )}
-            </p>
+            </div>
           </div>
         </div>
 

@@ -12,8 +12,8 @@ export default function UserAvatar({ className, size = 32, ariaHidden = true }: 
       className={className}
       aria-hidden={ariaHidden}
     >
-      <circle cx="16" cy="12" r="6" fill="#F3F4F6" />
-      <path fill="#E5E7EB" d="M4 28c0-6.627 5.373-12 12-12s12 5.373 12 12" />
+      <circle cx="16" cy="12" r="6" fill="currentColor" opacity="0.8" />
+      <path fill="currentColor" opacity="0.6" d="M4 28c0-6.627 5.373-12 12-12s12 5.373 12 12" />
     </svg>
   )
 }

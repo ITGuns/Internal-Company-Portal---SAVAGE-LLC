@@ -3,15 +3,17 @@
 import React from "react";
 import Card from "@/components/Card";
 import {
-  Calendar,
-  Cake,
-  Heart,
-  MessageCircle,
-  Send,
-  MoreVertical,
-  Edit,
-  Trash2,
   AlertCircle,
+  Cake,
+  Calendar,
+  CheckCircle2,
+  Edit,
+  Heart,
+  MapPin,
+  MessageCircle,
+  MoreVertical,
+  Send,
+  Trash2,
 } from "lucide-react";
 import {
   getTimeAgo,
@@ -87,7 +89,7 @@ export default function AnnouncementCard({
           <div className="flex items-start justify-between gap-2 mb-1">
             <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
               <span className="font-medium">{announcement.author}</span>
-              <span>·</span>
+              <span>-</span>
               <span>{getTimeAgo(announcement.timestamp)}</span>
             </div>
 
@@ -102,6 +104,7 @@ export default function AnnouncementCard({
               {canManageActions && (
                 <div className="relative">
                   <button
+                    type="button"
                     onClick={onToggleMenu}
                     className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] hover:bg-[var(--card-surface)] transition"
                     aria-label="More options"
@@ -112,6 +115,7 @@ export default function AnnouncementCard({
                   {menuOpen && (
                     <div className="menu-container absolute right-0 top-8 z-10 w-48 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg shadow-lg py-1">
                       <button
+                        type="button"
                         onClick={onEdit}
                         className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--card-surface)] transition flex items-center gap-2"
                       >
@@ -119,6 +123,7 @@ export default function AnnouncementCard({
                         Edit
                       </button>
                       <button
+                        type="button"
                         onClick={onDelete}
                         className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--card-surface)] transition flex items-center gap-2 text-red-500"
                       >
@@ -148,19 +153,24 @@ export default function AnnouncementCard({
                 <Calendar className="w-4 h-4" />
                 {formatEventDateTime(announcement.eventDetails.date)}
               </div>
-              <div className="text-sm text-[var(--muted)] ml-6 mb-2">
-                📍 {announcement.eventDetails.location}
+              <div className="ml-6 mb-2 flex items-center gap-2 text-sm text-[var(--muted)]">
+                <MapPin className="h-4 w-4" aria-hidden="true" />
+                <span>{announcement.eventDetails.location}</span>
               </div>
               <div className="flex items-center gap-3 ml-6">
                 <button
+                  type="button"
                   onClick={onToggleGoing}
-                  className={`inline-flex min-h-10 items-center rounded px-3 text-sm transition ${
+                  aria-pressed={going}
+                  aria-label={going ? "Mark as not going" : "Mark as going"}
+                  className={`inline-flex min-h-10 items-center gap-2 rounded px-3 text-sm font-medium transition ${
                     going
-                      ? "bg-green-500/20 text-green-600 dark:text-green-400"
-                      : "bg-[var(--card-bg)] border border-[var(--border)] hover:bg-[var(--card-surface)]"
+                      ? "border border-green-500/30 bg-green-500/15 text-green-700 hover:bg-green-500/25 dark:text-green-300"
+                      : "border border-[var(--border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-green-500/40 hover:bg-green-500/10"
                   }`}
                 >
-                  {going ? "✅ Going" : "Mark as Going"}
+                  <CheckCircle2 className={`h-4 w-4 ${going ? "fill-current" : ""}`} aria-hidden="true" />
+                  {going ? "Mark Not Going" : "Mark as Going"}
                 </button>
                 <span className="text-sm text-[var(--muted)]">
                   {announcement.eventDetails.going.length}{" "}
@@ -169,7 +179,7 @@ export default function AnnouncementCard({
               </div>
               {announcement.eventDetails.goingNames.length > 0 && (
                 <div className="ml-6 mt-2 text-xs text-[var(--muted)]">
-                  {announcement.eventDetails.goingNames.slice(0, 5).join(', ')}
+                  {announcement.eventDetails.goingNames.slice(0, 5).join(", ")}
                   {announcement.eventDetails.goingNames.length > 5 && (
                     <> and {announcement.eventDetails.goingNames.length - 5} more</>
                   )}
@@ -182,13 +192,14 @@ export default function AnnouncementCard({
             <div className="mb-4 p-3 bg-[var(--card-surface)] rounded border border-[var(--border)]">
               <div className="flex items-center gap-2 text-sm text-[var(--foreground)]">
                 <Cake className="w-4 h-4" />
-                🎂 Birthday: {formatBirthdayDate(announcement.birthdayDate)}
+                Birthday: {formatBirthdayDate(announcement.birthdayDate)}
               </div>
             </div>
           )}
 
           <div className="flex items-center gap-4 text-sm text-[var(--muted)] mb-3">
             <button
+              type="button"
               onClick={onToggleLike}
               className={`inline-flex min-h-10 items-center gap-1 rounded-[var(--radius-md)] px-2 transition ${
                 liked ? "text-red-500" : "hover:text-[var(--foreground)]"
@@ -202,6 +213,7 @@ export default function AnnouncementCard({
               </span>
             </button>
             <button
+              type="button"
               onClick={onToggleComments}
               className="inline-flex min-h-10 items-center gap-1 rounded-[var(--radius-md)] px-2 hover:text-[var(--foreground)] transition"
               aria-label={`${announcement.comments.length} ${announcement.comments.length === 1 ? "comment" : "comments"}`}
@@ -230,7 +242,7 @@ export default function AnnouncementCard({
                       <div className="flex-1">
                         <div className="flex items-center gap-2 text-xs text-[var(--muted)] mb-1">
                           <span className="font-medium">{comment.author}</span>
-                          <span>·</span>
+                          <span>-</span>
                           <span>{getTimeAgo(comment.timestamp)}</span>
                         </div>
                         <p className="text-sm text-[var(--foreground)]">{comment.text}</p>
@@ -255,6 +267,7 @@ export default function AnnouncementCard({
                   className="min-h-10 flex-1 rounded border border-[var(--border)] bg-[var(--background)] p-2 text-sm text-[var(--foreground)]"
                 />
                 <button
+                  type="button"
                   onClick={onAddComment}
                   className="inline-flex h-10 w-10 items-center justify-center rounded bg-[var(--foreground)] text-[var(--background)] hover:opacity-90 transition"
                   aria-label="Post comment"

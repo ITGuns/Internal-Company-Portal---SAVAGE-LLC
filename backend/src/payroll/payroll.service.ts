@@ -484,6 +484,22 @@ export class PayrollService {
     }
 
     /**
+     * Lock/Finalize a Payroll Period (change status from draft to processed)
+     */
+    async lockPayrollPeriod(periodId: string) {
+        const period = await this.prisma.payrollPeriod.findUnique({ where: { id: periodId } })
+        if (!period) throw new Error('Period not found')
+        if (period.status !== 'draft') {
+            throw new Error(`Period is already ${period.status}`)
+        }
+
+        return this.prisma.payrollPeriod.update({
+            where: { id: periodId },
+            data: { status: 'processed' }
+        })
+    }
+
+    /**
      * Get Payroll Periods
      */
     async getPayrollPeriods() {
@@ -659,6 +675,9 @@ export class PayrollService {
     }) {
         const period = await this.prisma.payrollPeriod.findUnique({ where: { id: periodId } })
         if (!period) throw new Error('Period not found')
+        if (period.status !== 'draft') {
+            throw new Error(`Cannot run payroll for a ${period.status} cycle. Cycle must be draft.`);
+        }
 
         const profile = await this.getEmployeeProfile(userId)
 
@@ -802,6 +821,10 @@ export class PayrollService {
     async bulkGeneratePayslips(periodId: string) {
         const period = await this.prisma.payrollPeriod.findUnique({ where: { id: periodId } })
         if (!period) throw new Error('Period not found')
+
+        if (period.status !== 'draft') {
+            throw new Error(`Cannot run payroll for a ${period.status} cycle. Cycle must be draft.`);
+        }
 
         // Fetch active internal employees only; client-only accounts stay out of payroll generation.
         const employeeAccounts = await this.prisma.user.findMany({

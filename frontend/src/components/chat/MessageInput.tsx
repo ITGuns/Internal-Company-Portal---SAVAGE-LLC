@@ -51,6 +51,20 @@ export default function MessageInput({
         }
     }, [closeEmojiPicker, emojiPickerOpen])
 
+    const isSendingRef = useRef(false)
+
+    const handleSend = useCallback(
+        (e?: React.FormEvent) => {
+            if (isSendingRef.current || sending) return
+            if (!newMessage.trim() && !attachment) return
+            isSendingRef.current = true
+            onSend(e)
+            // Reset after a short guard window
+            setTimeout(() => { isSendingRef.current = false }, 600)
+        },
+        [newMessage, attachment, sending, onSend],
+    )
+
     return (
         <div className="p-4 bg-[var(--card-surface)] border-t border-[var(--border)] shadow-lg">
             {attachmentPreview && (
@@ -80,7 +94,7 @@ export default function MessageInput({
                     </div>
                 </div>
             )}
-            <form onSubmit={onSend} className="flex min-w-0 items-center gap-3">
+            <form onSubmit={handleSend} className="flex min-w-0 items-center gap-3">
                 <input
                     type="file"
                     ref={fileInputRef}
@@ -142,11 +156,11 @@ export default function MessageInput({
                         value={newMessage}
                         onChange={(e) => onMessageChange(e.target.value)}
                         placeholder={placeholder}
-                        className="w-full bg-[var(--background)] border border-[var(--border)] rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-all"
+                        className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-5 py-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus:border-transparent transition-all"
                         onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                                 e.preventDefault()
-                                onSend()
+                                handleSend()
                             }
                         }}
                     />

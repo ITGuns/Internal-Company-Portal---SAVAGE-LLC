@@ -5,6 +5,7 @@ import {
   getUploadContentTypeForFilename,
   getUploadExtensionForMimeType,
   normalizeMimeType,
+  resolveGeneralUploadContentType,
   validateStoredUploadFilename,
   validateStoredAvatarValue,
   validateAvatarValue,
@@ -50,6 +51,11 @@ assert.equal(getUploadExtensionForMimeType('application/pdf'), 'pdf')
 assert.equal(getUploadExtensionForMimeType('text/html'), null)
 assert.equal(getUploadContentTypeForFilename('1700000000000-report.jpg'), 'image/jpeg')
 assert.equal(getUploadContentTypeForFilename('1700000000000-report.exe'), null)
+assert.equal(resolveGeneralUploadContentType('report.pdf', 'application/octet-stream'), 'application/pdf')
+assert.equal(resolveGeneralUploadContentType('notes.txt', ''), 'text/plain')
+assert.equal(resolveGeneralUploadContentType('report.pdf', 'text/html'), null)
+assert.equal(resolveGeneralUploadContentType('report.pdf', 'application/pdf', 'image/png'), null)
+assert.equal(resolveGeneralUploadContentType('report.pdf', 'application/pdf', 'application/pdf'), 'application/pdf')
 
 assert.deepEqual(buildStoredUploadMetadata('Report.exe', 'application/pdf', 1700000000000), {
   filename: '1700000000000-report.pdf',

@@ -37,6 +37,35 @@ interface AnnouncementFormModalProps {
   onClose: () => void;
 }
 
+function getDateInputValue(value: string): string {
+  if (!value) return "";
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) return match[1];
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function getTimeInputValue(value: string): string {
+  if (!value) return "";
+  const match = value.match(/T(\d{2}:\d{2})/);
+  if (match) return match[1];
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return [
+    String(date.getHours()).padStart(2, "0"),
+    String(date.getMinutes()).padStart(2, "0"),
+  ].join(":");
+}
+
 export default function AnnouncementFormModal({
   isOpen,
   isEditing,
@@ -64,6 +93,27 @@ export default function AnnouncementFormModal({
   const isKnownCategory = KNOWN_ANNOUNCEMENT_CATEGORIES.includes(category as typeof KNOWN_ANNOUNCEMENT_CATEGORIES[number]);
   const isCustomCategory = !isKnownCategory;
   const canSubmit = Boolean(title.trim() && body.trim() && (!isCustomCategory || category.trim()));
+  const eventDateValue = getDateInputValue(eventDate);
+  const eventTimeValue = getTimeInputValue(eventDate);
+
+  const updateEventDatePart = (nextDate: string) => {
+    if (!nextDate) {
+      setEventDate("");
+      return;
+    }
+
+    setEventDate(`${nextDate}T${eventTimeValue || "09:00"}`);
+  };
+
+  const updateEventTimePart = (nextTime: string) => {
+    if (!nextTime) {
+      setEventDate(eventDateValue ? `${eventDateValue}T00:00` : "");
+      return;
+    }
+
+    const datePart = eventDateValue || getDateInputValue(new Date().toISOString());
+    setEventDate(`${datePart}T${nextTime}`);
+  };
 
   return (
     <Modal
@@ -151,15 +201,28 @@ export default function AnnouncementFormModal({
 
         {isEvent && (
           <>
-            <div>
-              <label className="block text-sm font-medium mb-2">Event Date & Time</label>
-              <input
-                type="datetime-local"
-                value={eventDate}
-                onChange={(e) => setEventDate(e.target.value)}
-                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer dark:[&::-webkit-calendar-picker-indicator]:filter dark:[&::-webkit-calendar-picker-indicator]:invert-[1] dark:[&::-webkit-calendar-picker-indicator]:brightness-[1.5]"
-                aria-label="Event date and time"
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="event-date" className="block text-sm font-medium mb-2">Event Date</label>
+                <input
+                  id="event-date"
+                  type="date"
+                  value={eventDateValue}
+                  onChange={(e) => updateEventDatePart(e.target.value)}
+                  className="w-full min-h-10 p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer dark:[&::-webkit-calendar-picker-indicator]:filter dark:[&::-webkit-calendar-picker-indicator]:invert-[1] dark:[&::-webkit-calendar-picker-indicator]:brightness-[1.5]"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="event-time" className="block text-sm font-medium mb-2">Event Time</label>
+                <input
+                  id="event-time"
+                  type="time"
+                  value={eventTimeValue}
+                  onChange={(e) => updateEventTimePart(e.target.value)}
+                  className="w-full min-h-10 p-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer dark:[&::-webkit-calendar-picker-indicator]:filter dark:[&::-webkit-calendar-picker-indicator]:invert-[1] dark:[&::-webkit-calendar-picker-indicator]:brightness-[1.5]"
+                />
+              </div>
             </div>
 
             <FormField
@@ -193,7 +256,7 @@ export default function AnnouncementFormModal({
           <Button
             onClick={onSubmit}
             disabled={!canSubmit}
-            variant="success"
+            variant="primary"
             icon={<Send className="w-4 h-4" />}
           >
             {isEditing ? "Update Announcement" : "Post Announcement"}

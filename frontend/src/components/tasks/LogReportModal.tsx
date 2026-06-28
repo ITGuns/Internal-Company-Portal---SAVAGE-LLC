@@ -140,29 +140,30 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
                 onKeyDown={handleDialogKeyDown}
                 className="w-full max-w-2xl"
             >
-            <Card className="max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
-                <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--card-surface)]">
+            <Card className="max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 text-[var(--foreground)]">
+                <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--card-bg)]">
                     <div className="flex items-center gap-2">
-                        <ClipboardCheck className="w-5 h-5 text-blue-500" />
+                        <ClipboardCheck className="w-5 h-5 text-blue-600 dark:text-blue-300" />
                         <h3 id={dialogTitleId} className="font-bold text-lg">Generate {modalTitle}</h3>
                         <p id={dialogDescriptionId} className="sr-only">
                             Generate a daily, weekly, or monthly work report from recent task activity.
                         </p>
                     </div>
-                    <button onClick={onClose} className="p-1 hover:bg-[var(--background)] rounded-full transition-colors" aria-label="Close modal">
+                    <button onClick={onClose} className="p-1 text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)] rounded-full transition-colors" aria-label="Close modal">
                         <X className="w-6 h-6" />
                     </button>
                 </div>
 
                 <div className="px-6 py-4 bg-[var(--card-bg)] border-b border-[var(--border)]">
-                    <div className="flex items-center gap-2 bg-[var(--background)] p-1 rounded-lg w-fit">
+                    <div className="flex items-center gap-2 bg-[var(--card-surface)] p-1 rounded-lg w-fit border border-[var(--border)]">
                         {(['daily', 'weekly', 'monthly'] as LogPeriod[]).map((type) => (
                             <button
+                                type="button"
                                 key={type}
                                 onClick={() => setLogType(type)}
-                                className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${logType === type
-                                    ? 'bg-[var(--accent)] text-white shadow-sm'
-                                    : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                                className={`min-h-8 px-4 py-1.5 text-xs font-medium rounded-md transition-all ${logType === type
+                                    ? 'bg-[var(--accent)] text-[var(--accent-foreground)] shadow-sm'
+                                    : 'text-[var(--foreground)] hover:bg-[var(--surface-hover)]'
                                     }`}
                             >
                                 {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -180,21 +181,21 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
                     className="flex-1 overflow-y-auto p-6 space-y-6 chat-scroll"
                 >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20">
-                            <div className="flex items-center gap-2 text-blue-500 mb-2">
+                        <div className="p-4 rounded-xl bg-[var(--card-surface)] border border-blue-500/30">
+                            <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 mb-2">
                                 <History className="w-4 h-4" />
                                 <span className="text-xs font-bold uppercase">Tasks ({logType})</span>
                             </div>
                             <div className="text-2xl font-bold">{periodTasks.length}</div>
-                            <div className="text-[10px] text-[var(--muted)]">Tasks updated during this {logType} period</div>
+                            <div className="text-xs text-[var(--muted)]">Tasks updated during this {logType} period</div>
                         </div>
-                        <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20">
-                            <div className="flex items-center gap-2 text-purple-500 mb-2">
+                        <div className="p-4 rounded-xl bg-[var(--card-surface)] border border-violet-500/30">
+                            <div className="flex items-center gap-2 text-violet-700 dark:text-violet-300 mb-2">
                                 <Clock className="w-4 h-4" />
                                 <span className="text-xs font-bold uppercase">Total Time</span>
                             </div>
                             <div className="text-2xl font-bold">{hoursLogged} hrs</div>
-                            <div className="text-[10px] text-[var(--muted)]">Cumulative task time for this period</div>
+                            <div className="text-xs text-[var(--muted)]">Cumulative task time for this period</div>
                         </div>
                     </div>
 
@@ -207,7 +208,7 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
                             required
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
-                            className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl p-4 text-sm min-h-[150px] focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                            className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl p-4 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] min-h-[150px] focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                             placeholder={`Summary of what you achieved this ${logType}...`}
                         />
                     </div>
@@ -220,7 +221,7 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
                             <textarea
                                 value={shiftNotes}
                                 onChange={(e) => setShiftNotes(e.target.value)}
-                                className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl p-4 text-sm min-h-[100px] focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl p-4 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] min-h-[100px] focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                                 placeholder="Optional roadblocks, handovers, or notes for the next shift..."
                             />
                         </div>
@@ -237,7 +238,7 @@ export default function LogReportModal({ isOpen, onClose, tasks }: EODReportModa
                                 step="0.1"
                                 value={hoursLogged}
                                 onChange={(e) => setHoursLogged(parseFloat(e.target.value) || 0)}
-                                className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                                className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-4 py-2 text-sm text-[var(--foreground)] focus:ring-2 focus:ring-blue-500"
                                 required
                                 min="0"
                             />

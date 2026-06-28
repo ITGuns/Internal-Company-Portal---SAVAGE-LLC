@@ -106,7 +106,11 @@ export default function OperationsClientsPanel({ clients }: OperationsClientsPan
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
           {filteredClients.map((client) => {
             const displayName = getMemberDisplayName(client);
-            const roleLabels = (client.roles || []).map(getMemberRoleLabel);
+            const roleLabels = (client.roles || []).map((role, index) => ({
+              key: role.id || `${role.role}-${role.departmentId || "global"}-${index}`,
+              label: getMemberRoleLabel(role),
+            }));
+            const displayedRoles = roleLabels.length ? roleLabels : [{ key: "no-role-assigned", label: "No role assigned" }];
 
             return (
               <article key={client.id} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-4">
@@ -125,9 +129,9 @@ export default function OperationsClientsPanel({ clients }: OperationsClientsPan
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {(roleLabels.length ? roleLabels : ["No role assigned"]).map((label) => (
-                    <span key={label} className="rounded-full border border-[var(--border)] bg-[var(--card-surface)] px-2 py-1 text-xs text-[var(--foreground)]">
-                      {label}
+                  {displayedRoles.map((role) => (
+                    <span key={role.key} className="rounded-full border border-[var(--border)] bg-[var(--card-surface)] px-2 py-1 text-xs text-[var(--foreground)]">
+                      {role.label}
                     </span>
                   ))}
                 </div>

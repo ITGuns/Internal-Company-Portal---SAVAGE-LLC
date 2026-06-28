@@ -622,7 +622,7 @@ export default function OperationsPage() {
                       </div>
                       <button
                         onClick={() => openDepartmentDelete(dept)}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded text-red-500 hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 dark:hover:bg-red-900/30"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded text-[var(--muted)] transition-colors hover:bg-red-100 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 dark:hover:bg-red-900/30 dark:hover:text-red-300"
                         aria-label={`Delete ${dept.name}`}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -662,7 +662,7 @@ export default function OperationsPage() {
                     <div className="flex justify-end">
                       <button
                         onClick={() => openRoleDelete(role)}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded text-red-500 hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 dark:hover:bg-red-900/30"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded text-[var(--muted)] transition-colors hover:bg-red-100 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 dark:hover:bg-red-900/30 dark:hover:text-red-300"
                         aria-label={`Delete role ${role.name}`}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -783,7 +783,7 @@ export default function OperationsPage() {
             required
           />
           <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
+            <Button type="button" variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
             <Button type="submit" variant="primary" loading={loading}>Create Department</Button>
           </div>
         </form>
@@ -802,17 +802,18 @@ export default function OperationsPage() {
             label="Role Name"
             value={roleName}
             onChange={(value) => setRoleName(value)}
-            placeholder="e.g., Manager, Developer"
+            placeholder="e.g., Marketplace QA Lead"
             required
           />
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label htmlFor="role-department" className="block text-sm font-medium mb-1">
               Department <span className="text-red-500">*</span>
             </label>
             <select
+              id="role-department"
               value={roleDeptId}
               onChange={(e) => setRoleDeptId(e.target.value)}
-              className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] dark:[color-scheme:dark]"
+              className="min-h-10 w-full rounded border border-[var(--border)] bg-[var(--background)] p-3 text-[var(--foreground)] [color-scheme:light] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] dark:[color-scheme:dark]"
               aria-label="Department Attachment"
               required
             >
@@ -821,11 +822,11 @@ export default function OperationsPage() {
                 <option key={dept.id} value={dept.id}>{dept.name}</option>
               ))}
             </select>
-            <p className="text-xs text-[var(--muted)] mt-1 italic">Associate this role with a specific department or leave empty for a global role.</p>
+            <p className="text-xs text-[var(--muted)] mt-1">Choose where this role appears in onboarding and employee payroll forms.</p>
           </div>
           <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={() => setShowRoleModal(false)}>Cancel</Button>
-            <Button type="submit" variant="primary" loading={loading}>Create Role</Button>
+            <Button type="button" variant="secondary" onClick={() => setShowRoleModal(false)}>Cancel</Button>
+            <Button type="submit" variant="primary" loading={loading} disabled={departments.length === 0}>Create Role</Button>
           </div>
         </form>
       </Modal>

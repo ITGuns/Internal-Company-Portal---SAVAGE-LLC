@@ -503,6 +503,23 @@ export class PayrollController {
             }
         )
 
+        // Lock / Finalize a Payroll Period
+        router.post(
+            '/periods/:periodId/lock',
+            authenticateToken,
+            requireRole(PAYROLL_MANAGEMENT_ROUTE_ROLES),
+            async (req: Request, res: Response) => {
+                try {
+                    const periodId = Array.isArray(req.params.periodId) ? req.params.periodId[0] : req.params.periodId
+                    const period = await this.service.lockPayrollPeriod(periodId)
+                    res.json(period)
+                } catch (e) {
+                    logger.error(e)
+                    res.status(500).json({ error: e instanceof Error ? e.message : 'Failed to lock period' })
+                }
+            }
+        )
+
         // Get Payslips (own, or any user if admin/manager)
         router.get('/my-payslips', authenticateToken, async (req: Request, res: Response) => {
             try {

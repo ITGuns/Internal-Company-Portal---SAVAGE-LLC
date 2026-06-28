@@ -351,7 +351,6 @@ export default function DashboardPage() {
         <div className="mt-5 grid grid-cols-1 items-start gap-4 xl:mt-8 xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="space-y-4">
             <Card padding="lg" className="relative overflow-hidden">
-              <div className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,var(--accent),var(--accent-secondary))]" aria-hidden="true" />
               <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                 <div className="max-w-2xl">
                   <div className="inline-flex rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card-surface)] px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--accent)]">

@@ -313,7 +313,7 @@ function PayslipArchive() {
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="text-sm border border-[var(--border)] rounded-lg px-3 py-2 bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+          className="min-h-10 text-sm border border-[var(--border)] rounded-lg px-3 py-2 bg-[var(--background)] text-[var(--foreground)] [color-scheme:light] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 dark:[color-scheme:dark]"
           aria-label="Filter by status"
         >
           <option value="all">All Statuses</option>
@@ -326,7 +326,7 @@ function PayslipArchive() {
         <select
           value={filterDepartment}
           onChange={(e) => setFilterDepartment(e.target.value)}
-          className="text-sm border border-[var(--border)] rounded-lg px-3 py-2 bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+          className="min-h-10 text-sm border border-[var(--border)] rounded-lg px-3 py-2 bg-[var(--background)] text-[var(--foreground)] [color-scheme:light] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 dark:[color-scheme:dark]"
           aria-label="Filter by department"
         >
           <option value="all">All Departments</option>
@@ -523,6 +523,7 @@ export default function ReportsTab() {
   const [activeTab, setActiveTab] = useState<SubTab>("summary");
   const [reportDepartment, setReportDepartment] = useState("");
   const [reportStatus, setReportStatus] = useState("all");
+  const [selectedReportIndex, setSelectedReportIndex] = useState(0);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -548,11 +549,20 @@ export default function ReportsTab() {
     fetchStats();
   }, [fetchStats]);
 
+  useEffect(() => {
+    setSelectedReportIndex((current) => (
+      stats.length === 0 ? 0 : Math.min(current, stats.length - 1)
+    ));
+  }, [stats.length]);
+
   if (loading && activeTab !== "my-reports")
     return <PayrollReportsSkeleton />;
 
-  const latest = stats[0] ?? null;
+  const latest = stats[selectedReportIndex] ?? null;
   const latestDepartmentSummary = latest?.departmentSummary || [];
+  const selectedPeriodLabel = latest?.label || "No period data";
+  const canSelectPreviousPeriod = selectedReportIndex < stats.length - 1;
+  const canSelectNextPeriod = selectedReportIndex > 0;
 
   const handleExportSummaryBatch = () => {
     const files = buildPayrollReportBatchFiles({
@@ -586,14 +596,32 @@ export default function ReportsTab() {
       <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--border)] bg-[var(--card-bg)] flex-shrink-0 gap-4">
         {/* Period navigator (left) */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <button className="p-1.5 rounded-lg hover:bg-[var(--card-surface)] transition-colors text-[var(--muted)]" aria-label="Previous period">
+          <button
+            type="button"
+            onClick={() => setSelectedReportIndex((current) => Math.min(current + 1, Math.max(stats.length - 1, 0)))}
+            disabled={!canSelectPreviousPeriod}
+            className="min-h-9 min-w-9 rounded-lg p-1.5 text-[var(--muted)] transition-colors hover:bg-[var(--card-surface)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Show previous payroll period"
+          >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-[var(--card-surface)] transition-colors text-sm font-medium text-[var(--foreground)]">
+          <button
+            type="button"
+            onClick={() => setSelectedReportIndex(0)}
+            disabled={stats.length === 0 || selectedReportIndex === 0}
+            className="flex min-h-9 min-w-0 max-w-[220px] items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--card-surface)] disabled:cursor-default disabled:opacity-100"
+            aria-label="Show latest payroll period"
+          >
             <Calendar className="w-3.5 h-3.5 text-[var(--muted)]" />
-            This week
+            <span className="truncate">{selectedPeriodLabel}</span>
           </button>
-          <button className="p-1.5 rounded-lg hover:bg-[var(--card-surface)] transition-colors text-[var(--muted)]" aria-label="Next period">
+          <button
+            type="button"
+            onClick={() => setSelectedReportIndex((current) => Math.max(current - 1, 0))}
+            disabled={!canSelectNextPeriod}
+            className="min-h-9 min-w-9 rounded-lg p-1.5 text-[var(--muted)] transition-colors hover:bg-[var(--card-surface)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Show next payroll period"
+          >
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -605,7 +633,7 @@ export default function ReportsTab() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${activeTab === tab.id
-                ? "bg-[var(--accent)] text-white shadow-sm"
+                ? "bg-[var(--accent)] text-[var(--accent-foreground)] shadow-sm"
                 : "text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-surface)]"
                 }`}
             >
@@ -646,7 +674,7 @@ export default function ReportsTab() {
                     id="payroll-report-status"
                     value={reportStatus}
                     onChange={(event) => setReportStatus(event.target.value)}
-                    className="min-h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+                    className="min-h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] [color-scheme:light] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 dark:[color-scheme:dark]"
                   >
                     <option value="all">All statuses</option>
                     <option value="draft">Draft</option>

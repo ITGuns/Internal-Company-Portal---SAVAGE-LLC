@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Copy, LinkIcon, ShieldCheck, UserPlus } from "lucide-react";
 import Button from "@/components/Button";
@@ -29,10 +29,6 @@ export default function OperationsOnboardingPage() {
   const [result, setResult] = useState<AdminOnboardingResult | null>(null);
   const [copyLabel, setCopyLabel] = useState("Copy link");
 
-  const selectedRole = useMemo(
-    () => roles.find((role) => role.id === roleId) || null,
-    [roleId, roles],
-  );
   const canSubmit = canSubmitOnboardingInvite({ email, roleId }) && !saving && !loadingRoles;
 
   useEffect(() => {
@@ -67,6 +63,7 @@ export default function OperationsOnboardingPage() {
     if (!canSubmit) return;
 
     setSaving(true);
+    setResult(null);
     try {
       const invitation = await createUserOnboardingInvitation({
         email: normalizeOnboardingEmail(email),
@@ -138,22 +135,19 @@ export default function OperationsOnboardingPage() {
                   className={selectClass}
                   value={roleId}
                   onChange={(event) => setRoleId(event.target.value)}
-                  disabled={saving || loadingRoles}
+                  disabled={saving || loadingRoles || roles.length === 0}
                   required
                 >
-                  <option value="">{loadingRoles ? "Loading roles..." : "Select a role"}</option>
+                  <option value="">
+                    {loadingRoles ? "Loading roles..." : roles.length === 0 ? "No roles available" : "Select a role"}
+                  </option>
                   {roles.map((role) => (
                     <option key={role.id} value={role.id}>
                       {getOnboardingRoleLabel(role)}
                     </option>
                   ))}
                 </select>
-                {selectedRole ? (
-                  <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
-                    This assigns {selectedRole.name}
-                    {selectedRole.department?.name ? ` in ${selectedRole.department.name}` : " as a global role"}.
-                  </p>
-                ) : null}
+
               </div>
 
               {roles.length === 0 && !loadingRoles ? (

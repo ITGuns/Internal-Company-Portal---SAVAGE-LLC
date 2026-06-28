@@ -21,6 +21,7 @@ import {
   addDailyLogComment,
   deleteDailyLogComment,
   updateDailyLog,
+  deleteDailyLog,
   toggleLogLike,
   getThisWeekLogs,
   getCompletedTasksCount,
@@ -110,6 +111,7 @@ export default function DailyLogsPage() {
   const [formTaskInput, setFormTaskInput] = useState('');
   const [formShiftNotes, setFormShiftNotes] = useState('');
   const [formLogType, setFormLogType] = useState<string>('daily');
+  const [formDepartment, setFormDepartment] = useState<string>('');
   const taskImportOptions = useMemo(
     () => getDailyLogTaskImportOptions(trackedTasks, {
       currentUserId,
@@ -133,13 +135,18 @@ export default function DailyLogsPage() {
 
   // Set default department when user loads
   useEffect(() => {
-    if (currentUserDepartment && !canReviewTeamLogs) {
-      setDepartmentFilter(previous => {
-        if (previous === DEPARTMENTS[0]) {
-          return currentUserDepartment;
-        }
-        return previous;
-      });
+    if (currentUserDepartment) {
+      setFormDepartment(currentUserDepartment);
+      if (!canReviewTeamLogs) {
+        setDepartmentFilter(previous => {
+          if (previous === DEPARTMENTS[0]) {
+            return currentUserDepartment;
+          }
+          return previous;
+        });
+      }
+    } else {
+      setFormDepartment(DEPARTMENTS[1]);
     }
   }, [canReviewTeamLogs, currentUserDepartment]);
 
@@ -270,6 +277,35 @@ export default function DailyLogsPage() {
     }
   };
 
+  const startEditLog = (log: DailyLog) => {
+    setEditingLog(log);
+    setFormDate(log.date);
+    setFormHours(formatDecimalHoursAsClock(log.hoursLogged));
+    setFormHoursError('');
+    setFormTasks(log.tasks);
+    setFormTaskInput('');
+    setFormShiftNotes(log.shiftNotes);
+    setFormLogType(log.logType || 'daily');
+    setFormDepartment(log.department);
+    setShowModal(true);
+  };
+
+  const handleDeleteLog = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this daily log?')) return;
+    try {
+      const ok = await deleteDailyLog(id);
+      if (ok) {
+        toast.success('Daily log deleted successfully');
+        queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
+      } else {
+        toast.error('Failed to delete daily log');
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Failed to delete daily log');
+    }
+  };
+
   const handleSubmit = async () => {
     if (formTasks.length === 0) return;
 
@@ -292,6 +328,7 @@ export default function DailyLogsPage() {
           status: derivedStatus,
           shiftNotes: formShiftNotes,
           logType: formLogType,
+          department: formDepartment,
         });
       } else {
         savedLog = await createDailyLog({
@@ -301,6 +338,7 @@ export default function DailyLogsPage() {
           status: derivedStatus,
           shiftNotes: formShiftNotes,
           logType: formLogType,
+          department: formDepartment,
         });
       }
 
@@ -312,9 +350,9 @@ export default function DailyLogsPage() {
       queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
       resetForm();
       setShowModal(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save log:', err);
-      toast.error('Failed to save log');
+      toast.error(err.message || 'Failed to save log');
     }
   };
 
@@ -326,6 +364,7 @@ export default function DailyLogsPage() {
     setFormTaskInput('');
     setFormShiftNotes('');
     setFormLogType('daily');
+    setFormDepartment(currentUserDepartment || DEPARTMENTS[1]);
     setEditingLog(null);
   };
 
@@ -508,7 +547,7 @@ export default function DailyLogsPage() {
                   aria-label="Log Type"
                 >
                   <option value="all">All Types</option>
-                  <option value="daily">Daily / EOD</option>
+                  <option value="daily">End of Day</option>
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
                 </select>
@@ -632,7 +671,28 @@ export default function DailyLogsPage() {
                               {log.department} • {formatLogDate(log.date)} • <span className="capitalize">{log.logType}</span>
                             </div>
                           </div>
-                          <button type="button" aria-label={`Open actions for ${log.author}'s log`} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--muted)] hover:bg-[var(--card-surface)] hover:text-[var(--foreground)]">⋮</button>
+                          <div className="flex items-center gap-2">
+                            {(log.authorId === currentUserId || canReviewTeamLogs) && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => startEditLog(log)}
+                                  className="text-xs font-semibold text-[var(--muted)] hover:text-[var(--accent)] transition-colors p-1"
+                                  title="Edit Log"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteLog(log.id)}
+                                  className="text-xs font-semibold text-red-500/80 hover:text-red-500 transition-colors p-1"
+                                  title="Delete Log"
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
 
                         {/* Tasks */}
@@ -881,18 +941,39 @@ export default function DailyLogsPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Log Type</label>
-              <select
-                value={formLogType}
-                onChange={(e) => setFormLogType(e.target.value)}
-                className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] dark:[color-scheme:dark]"
-                aria-label="Log Type"
-              >
-                <option value="daily">Daily / EOD</option>
-                <option value="weekly">End of Week</option>
-                <option value="monthly">End of Month</option>
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2" htmlFor="form-log-type">Log Type</label>
+                <select
+                  id="form-log-type"
+                  value={formLogType}
+                  onChange={(e) => setFormLogType(e.target.value)}
+                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] [color-scheme:light] dark:[color-scheme:dark]"
+                  aria-label="Log Type"
+                >
+                  <option value="daily">End of Day</option>
+                  <option value="weekly">End of Week</option>
+                  <option value="monthly">End of Month</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2" htmlFor="form-log-dept">Department</label>
+                <select
+                  id="form-log-dept"
+                  value={formDepartment}
+                  onChange={(e) => setFormDepartment(e.target.value)}
+                  disabled={!canReviewTeamLogs}
+                  className="w-full p-2 rounded border border-[var(--border)] bg-[var(--background)] disabled:opacity-60 [color-scheme:light] dark:[color-scheme:dark]"
+                  aria-label="Department"
+                >
+                  {DEPARTMENTS.filter(d => d !== 'All Departments').map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div>
@@ -1039,6 +1120,11 @@ export default function DailyLogsPage() {
                     </div>
                   );
                 })}
+                {formTasks.length === 0 && (
+                  <p className="text-xs text-[var(--muted)] py-1" role="note">
+                    Add at least one task to save this log.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1072,7 +1158,7 @@ export default function DailyLogsPage() {
                 Cancel
               </Button>
               <Button
-                variant="success"
+                variant="primary"
                 onClick={handleSubmit}
                 disabled={formTasks.length === 0}
                 icon={<Plus className="w-4 h-4" />}

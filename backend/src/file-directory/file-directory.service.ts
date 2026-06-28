@@ -21,6 +21,13 @@ export class FileDirectoryService {
                         ],
                     }),
             },
+            include: {
+                upload: {
+                    select: {
+                        sizeBytes: true,
+                    },
+                },
+            },
             orderBy: { createdAt: 'desc' },
         })
     }
@@ -40,6 +47,13 @@ export class FileDirectoryService {
                             ...(userDepartments && userDepartments.length > 0 ? [{ department: { in: userDepartments } }] : []),
                         ],
                     }),
+            },
+            include: {
+                upload: {
+                    select: {
+                        sizeBytes: true,
+                    },
+                },
             },
             orderBy: { name: 'asc' },
         })
@@ -66,6 +80,13 @@ export class FileDirectoryService {
                 createdById: data.createdById ?? null,
                 uploadId: data.uploadId ?? null,
             },
+            include: {
+                upload: {
+                    select: {
+                        sizeBytes: true,
+                    },
+                },
+            },
         })
     }
 
@@ -75,6 +96,15 @@ export class FileDirectoryService {
     }
 
     async findById(id: string) {
-        return prisma.fileFolder.findUnique({ where: { id } })
+        return prisma.fileFolder.findUnique({
+            where: { id },
+            include: {
+                upload: {
+                    select: {
+                        sizeBytes: true,
+                    },
+                },
+            },
+        })
     }
 }

@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt'
 import express from 'express'
 import { emailService } from '../src/email/email.service'
 import { EmployeesController } from '../src/employees/employees.controller'
+import { EmployeeValidationError } from '../src/employees/employees.service'
 import { JwtService } from '../src/auth/jwt.service'
 
 type JsonRecord = Record<string, any>
@@ -164,6 +165,38 @@ async function runApplicantPasswordEmailTest() {
   }
 }
 
+async function runEmployeeValidationErrorTest() {
+  const controller = new EmployeesController()
+  const originalVerificationEmail = emailService.sendEmployeeVerificationEmail
+
+  ;(emailService as any).sendEmployeeVerificationEmail = async () => ({ success: true })
+  ;(controller as any).employeesService = {
+    createPending: async () => {
+      throw new EmployeeValidationError('Select a valid employee department')
+    },
+  }
+
+  try {
+    await withServer(controller, async (baseUrl) => {
+      const response = await requestJson(baseUrl, '/api/employees/request-verification', {
+        method: 'POST',
+        body: {
+          email: `employee-route-invalid-${Date.now()}@example.com`,
+          name: 'Employee Route Test',
+          role: 'Developer',
+          department: 'All Departments',
+          salary: 50000,
+        },
+      })
+
+      assert.equal(response.status, 400)
+      assert.equal(response.body.error, 'Select a valid employee department')
+    })
+  } finally {
+    ;(emailService as any).sendEmployeeVerificationEmail = originalVerificationEmail
+  }
+}
+
 async function runApprovalSetupEmailTest() {
   const controller = new EmployeesController()
   const originalTemplateEmail = emailService.sendTemplateEmail
@@ -233,6 +266,7 @@ async function runApprovalSetupEmailTest() {
 async function runEmployeeRouteTests() {
   await runInvalidAvatarTest()
   await runApplicantPasswordEmailTest()
+  await runEmployeeValidationErrorTest()
   await runApprovalSetupEmailTest()
 }
 

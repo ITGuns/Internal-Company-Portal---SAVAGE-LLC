@@ -2,12 +2,24 @@
  * Add Employee Modal - form for adding new employees
  */
 
-import React, { useState, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { UserPlus, Save, Image as ImageIcon, X } from "lucide-react";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import type { Employee } from "@/lib/payroll-calendar/types";
-import { DEPARTMENTS, DEPARTMENT_ROLES } from "@/lib/departments";
+import {
+  buildEmployeeRoleCatalog,
+  getEmployeeDepartmentNames,
+  getEmployeeRolesForDepartment,
+} from "@/lib/payroll-calendar/employee-role-catalog";
+import {
+  fetchOperationsDepartments,
+  OPERATIONS_CACHE_GC_MS,
+  OPERATIONS_CORE_STALE_MS,
+  OPERATIONS_QUERY_KEYS,
+} from "@/lib/operations-data";
 
 interface AddEmployeeModalProps {
   isOpen: boolean;
@@ -33,14 +45,48 @@ export default function AddEmployeeModal({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
-  const [department, setDepartment] = useState<string>(DEPARTMENTS[0]);
+  const [department, setDepartment] = useState<string>("");
   const [salary, setSalary] = useState("");
   const [status, setStatus] = useState<"active" | "vacation" | "leave" | "pending" | "verified">("pending");
   const [avatarBase64, setAvatarBase64] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Get available roles for selected department
-  const availableRoles = DEPARTMENT_ROLES[department as keyof typeof DEPARTMENT_ROLES] || [];
+  const departmentsQuery = useQuery({
+    queryKey: OPERATIONS_QUERY_KEYS.departments,
+    queryFn: fetchOperationsDepartments,
+    enabled: isOpen,
+    staleTime: OPERATIONS_CORE_STALE_MS,
+    gcTime: OPERATIONS_CACHE_GC_MS,
+    placeholderData: keepPreviousData,
+  });
+
+  const roleCatalog = useMemo(
+    () => buildEmployeeRoleCatalog(departmentsQuery.data),
+    [departmentsQuery.data],
+  );
+  const employeeDepartments = useMemo(
+    () => getEmployeeDepartmentNames(roleCatalog),
+    [roleCatalog],
+  );
+  const availableRoles = useMemo(
+    () => getEmployeeRolesForDepartment(roleCatalog, department),
+    [department, roleCatalog],
+  );
+  const isRoleCatalogLoading = isOpen && departmentsQuery.isFetching && !departmentsQuery.data;
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (department && !employeeDepartments.includes(department)) {
+      setDepartment("");
+      setRole("");
+      return;
+    }
+
+    if (role && !availableRoles.includes(role)) {
+      setRole("");
+    }
+  }, [availableRoles, department, employeeDepartments, isOpen, role]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -61,9 +107,9 @@ export default function AddEmployeeModal({
     setName("");
     setEmail("");
     setRole("");
-    setDepartment(DEPARTMENTS[0]);
+    setDepartment("");
     setSalary("");
-    setStatus("active");
+    setStatus("pending");
     setAvatarBase64("");
   };
 
@@ -77,7 +123,10 @@ export default function AddEmployeeModal({
     if (!email.trim()) {
       return;
     }
-    if (!role.trim()) {
+    if (!employeeDepartments.includes(department)) {
+      return;
+    }
+    if (!role.trim() || !availableRoles.includes(role)) {
       return;
     }
     if (!salary || parseFloat(salary) <= 0) {
@@ -204,84 +253,68 @@ export default function AddEmployeeModal({
             <div className="flex flex-col gap-2">
               <select
                 id="emp-department"
-                value={DEPARTMENTS.includes(department as any) ? department : "Other"}
+                value={department}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "Other") {
-                    setDepartment("");
-                  } else {
-                    setDepartment(val);
-                  }
+                  setDepartment(e.target.value);
                   setRole("");
                 }}
                 className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
-                required={DEPARTMENTS.includes(department as any)}
+                required
               >
                 <option value="" disabled>Select a department...</option>
-                {DEPARTMENTS.map((dept) => (
+                {employeeDepartments.map((dept) => (
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
-                <option value="Other">Other (Type manually)</option>
               </select>
-              {!DEPARTMENTS.includes(department as any) && (
-                <input
-                  type="text"
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
-                  placeholder="Type custom department..."
-                  required
-                />
+              {departmentsQuery.isError && (
+                <p className="text-xs text-amber-600 dark:text-amber-300">
+                  Showing the default org chart. Custom roles may appear after the department catalog loads.
+                </p>
               )}
             </div>
           </div>
 
           <div>
-            <label htmlFor="emp-role" className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
-              Role / Position <span className="text-red-500">*</span>
-            </label>
-            {availableRoles.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                <select
-                  id="emp-role"
-                  value={availableRoles.includes(role) ? role : "Other"}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === "Other") {
-                      setRole("");
-                    } else {
-                      setRole(val);
-                    }
-                  }}
-                  className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
-                  required={availableRoles.includes(role)}
-                >
-                  <option value="" disabled>Select a role...</option>
-                  {availableRoles.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                  <option value="Other">Other (Type manually)</option>
-                </select>
-                {!availableRoles.includes(role) && (
-                  <input
-                    type="text"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
-                    placeholder="Type custom role..."
-                    required
-                  />
-                )}
-              </div>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <label htmlFor="emp-role" className="block text-sm font-semibold text-[var(--foreground)]">
+                Role / Position <span className="text-red-500">*</span>
+              </label>
+              <Link
+                href="/operations?tab=roles"
+                className="text-xs font-medium text-[var(--accent)] hover:underline"
+              >
+                Manage roles
+              </Link>
+            </div>
+            <select
+              id="emp-role"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all disabled:cursor-not-allowed disabled:opacity-60"
+              required
+              disabled={!department || availableRoles.length === 0 || isRoleCatalogLoading}
+            >
+              <option value="" disabled>
+                {!department
+                  ? "Select a department first"
+                  : isRoleCatalogLoading
+                    ? "Loading roles..."
+                    : availableRoles.length === 0
+                      ? "No roles available"
+                      : "Select a role..."}
+              </option>
+              {availableRoles.map((roleOption) => (
+                <option key={roleOption} value={roleOption}>{roleOption}</option>
+              ))}
+            </select>
+            {department && availableRoles.length === 0 && !isRoleCatalogLoading ? (
+              <p className="mt-2 text-xs text-[var(--muted)]">
+                Create a role for {department} in Operations before adding this employee.
+              </p>
             ) : (
-              <input
-                type="text"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
-                placeholder="e.g., Custom Role"
-                required
-              />
+              <p className="mt-2 text-xs text-[var(--muted)]">
+                Custom roles are managed in Operations and appear here after the catalog refreshes.
+              </p>
             )}
           </div>
 

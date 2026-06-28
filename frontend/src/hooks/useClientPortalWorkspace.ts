@@ -16,6 +16,7 @@ import {
   fetchClientOverview,
 } from "@/lib/client-portal";
 import { AUTH_SESSION_CLEARED_EVENT } from "@/lib/auth-session";
+import { getSettledClientLoadValue } from "@/lib/client-workspace-loading";
 
 export interface ClientPortalWorkspaceState {
   organizations: ClientOrganization[];
@@ -120,11 +121,16 @@ export function useClientPortalWorkspace(): ClientPortalWorkspaceState {
 
     setOverviewLoading(true);
     try {
-      const [nextOverview, nextActivities, nextQueueItems] = await Promise.all([
-        fetchClientOverview(organizationId),
+      const nextOverview = await fetchClientOverview(organizationId);
+      const [activitiesResult, queueItemsResult] = await Promise.allSettled([
         fetchClientActivity(organizationId, { limit: 30 }),
         fetchClientActionQueue(organizationId),
       ]);
+      const reportSecondaryLoadFailure = (error: unknown) => {
+        console.error("[Client Portal] Secondary client data failed to load:", error);
+      };
+      const nextActivities = getSettledClientLoadValue(activitiesResult, [], reportSecondaryLoadFailure);
+      const nextQueueItems = getSettledClientLoadValue(queueItemsResult, [], reportSecondaryLoadFailure);
       const cachedOrganizations = getCachedClientPortalWorkspace(userId)?.organizations ?? [];
       clientPortalWorkspaceCache = {
         userId,

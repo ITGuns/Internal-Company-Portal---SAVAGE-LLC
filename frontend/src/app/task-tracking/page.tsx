@@ -25,6 +25,7 @@ import {
   Play,
   FolderKanban,
   Maximize2,
+  RotateCcw,
 } from "lucide-react";
 import {
   TaskCalendarPanelSkeleton,
@@ -484,6 +485,17 @@ export default function TaskTrackingPage() {
 
     const nextUrl = getTaskUrlWithoutDeepLinkFilter(new URLSearchParams(window.location.search));
     window.history.replaceState(null, "", nextUrl);
+  }
+
+  function resetDisplayFilters() {
+    setFilterStatus([]);
+    setFilterPriority([]);
+    setFilterUserId(!canManageAssignments && currentUserId ? currentUserId : "");
+    setFilterDeptId("");
+    setFilterProjectId("");
+    setSortBy("dueDate");
+    setSortOrder("asc");
+    setGroupBy("status");
   }
 
   function openEditFromDetails(task: Task) {
@@ -1233,7 +1245,6 @@ export default function TaskTrackingPage() {
             <Button
               onClick={() => setShowEODModal(true)}
               variant="secondary"
-              className="border-red-700 bg-red-700 text-white hover:bg-red-800"
               icon={<ClipboardCheck className="w-4 h-4" />}
             >
               Generate EOD Report
@@ -1250,23 +1261,17 @@ export default function TaskTrackingPage() {
               </Button>
 
               {showDisplayMenu && (
-                <div className="motion-panel-in fixed bottom-6 left-4 right-4 top-28 z-30 flex min-h-0 flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4 shadow-xl dropdown-glass glass sm:left-auto sm:right-6 sm:w-80">
+                <div className="motion-panel-in fixed left-4 right-4 top-24 z-30 flex max-h-[calc(100dvh-7rem)] min-h-0 flex-col overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4 shadow-xl dropdown-glass glass sm:left-auto sm:right-6 sm:top-28 sm:w-80">
                   <div className="mb-4 flex shrink-0 items-center justify-between border-b border-[var(--border)] pb-2">
                     <span className="font-bold text-sm">Display & Filter</span>
                     <button
-                      className="text-[10px] text-[var(--accent)] hover:underline uppercase font-bold"
-                      onClick={() => {
-                        setFilterStatus([]);
-                        setFilterPriority([]);
-                        setFilterUserId(!canManageAssignments && currentUserId ? currentUserId : "");
-                        setFilterDeptId("");
-                        setFilterProjectId("");
-                        setSortBy("dueDate");
-                        setSortOrder("asc");
-                        setGroupBy("status");
-                      }}
+                      type="button"
+                      className="motion-interactive inline-flex min-h-8 items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card-surface)] px-2.5 text-[10px] font-bold uppercase text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--surface-hover)]"
+                      onClick={resetDisplayFilters}
+                      aria-label="Reset display and task filters"
                     >
-                      Reset All
+                      <RotateCcw className="h-3 w-3" aria-hidden="true" />
+                      Reset
                     </button>
                   </div>
 

@@ -26,6 +26,7 @@ interface EmployeeProfilePanelProps {
   payslips: Payslip[];
   onViewPayslip: (payslip: Payslip) => void;
   onDownloadPDF: (payslip: Payslip) => void;
+  isPeriodLocked?: boolean;
 }
 
 const PAYROLL_SCHEME_LABELS: Record<string, string> = {
@@ -41,6 +42,7 @@ export default function EmployeeProfilePanel({
   payslips,
   onViewPayslip,
   onDownloadPDF,
+  isPeriodLocked = false,
 }: EmployeeProfilePanelProps) {
   const [showPayrollSetup, setShowPayrollSetup] = useState(false);
   if (!employee) {
@@ -216,11 +218,13 @@ export default function EmployeeProfilePanel({
         </Button>
         <Button
           variant="primary"
-          className="w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-lg shadow-blue-500/20 group relative overflow-hidden"
+          className={`w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-lg shadow-blue-500/20 group relative overflow-hidden ${isPeriodLocked ? 'opacity-55 cursor-not-allowed' : ''}`}
           onClick={onGeneratePayslip}
+          disabled={isPeriodLocked}
+          title={isPeriodLocked ? "Payroll period is locked and finalized" : undefined}
         >
           <div className="relative z-10 flex items-center justify-center gap-2">
-            <span>Generate Payslip</span>
+            <span>{isPeriodLocked ? 'Locked / Finalized' : 'Generate Payslip'}</span>
           </div>
           <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
         </Button>

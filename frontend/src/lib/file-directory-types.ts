@@ -20,6 +20,9 @@ export interface FileDirectory {
   createdAt?: string;            // ISO date string
   updatedAt?: string;            // ISO date string
   isCustom?: boolean;            // Flag for user-added folders (frontend only)
+  upload?: {
+    sizeBytes: number;
+  } | null;
   metadata?: {
     description?: string;
     tags?: string[];

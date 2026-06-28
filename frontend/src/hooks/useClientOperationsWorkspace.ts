@@ -20,6 +20,7 @@ import {
 } from "@/lib/client-portal";
 import { getDefaultClientOrganizationId } from "@/lib/client-organization-history";
 import { buildClientPortalSummary } from "@/lib/client-portal-summary";
+import { getSettledClientLoadValue } from "@/lib/client-workspace-loading";
 import { hasClientOperationsAccess } from "@/lib/role-access";
 import { AUTH_SESSION_CLEARED_EVENT } from "@/lib/auth-session";
 import { fetchUsers, User } from "@/lib/users";
@@ -164,12 +165,18 @@ export function useClientOperationsWorkspace(): ClientOperationsWorkspace {
       return;
     }
 
-    const [nextOverview, nextMemberships, nextActivities, nextQueueItems] = await Promise.all([
-      fetchClientOverview(organizationId),
+    const nextOverview = await fetchClientOverview(organizationId);
+    const [membershipsResult, activitiesResult, queueItemsResult] = await Promise.allSettled([
       fetchClientMemberships(organizationId),
       fetchClientActivity(organizationId, { limit: 30 }),
       fetchClientActionQueue(organizationId),
     ]);
+    const reportSecondaryLoadFailure = (error: unknown) => {
+      console.error("[Client Operations] Secondary client data failed to load:", error);
+    };
+    const nextMemberships = getSettledClientLoadValue(membershipsResult, [], reportSecondaryLoadFailure);
+    const nextActivities = getSettledClientLoadValue(activitiesResult, [], reportSecondaryLoadFailure);
+    const nextQueueItems = getSettledClientLoadValue(queueItemsResult, [], reportSecondaryLoadFailure);
     const cached = getCachedClientOperationsWorkspace(userId);
     clientOperationsWorkspaceCache = {
       userId,

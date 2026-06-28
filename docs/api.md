@@ -91,6 +91,7 @@ User directory endpoints sanitize sensitive fields before returning data to the 
 ### Public Verification Requests
 
 - `POST /api/employees` and `POST /api/employees/request-verification` create pending employee verification requests.
+- Verification requests validate email, name, role, positive salary, and a real department before creating the pending user/profile. Placeholder or unknown departments return `400`.
 - The request flow creates pending employee data and sends the configured notification/welcome messages.
 - Public verification responses are serialized and do not return passwords, reset tokens, or payroll profile internals.
 
@@ -200,7 +201,7 @@ Configured admin bypass emails also receive privileged task assignment access.
 `GET /api/departments` returns active departments with backend-managed role options.
 
 - Each department includes `availableRoles` ordered by name, merging persisted role rows with any missing org-catalog defaults for that department.
-- Task role dropdowns should use these backend role options.
+- Task and payroll employee role dropdowns should use these backend role options.
 
 Department writes are full-access admin-only:
 
@@ -213,6 +214,7 @@ Department writes are full-access admin-only:
 
 - `GET /api/roles` returns persisted role options plus missing org-catalog default roles for existing departments. Default role IDs use the `default:<departmentId>:<role-slug>` format.
 - `POST /api/roles` and `DELETE /api/roles/:id` are full-access admin-only routes for backend role-option maintenance.
+- Custom employee roles should be created through `POST /api/roles` with a department before they are assigned in payroll employee forms.
 
 ## Client Portal
 
@@ -346,6 +348,7 @@ Scheduler endpoints require protection because they can create payroll periods, 
 - `POST /api/scheduler/cron` remains available for local/manual cron compatibility and uses the same bearer-secret check.
 - `POST /api/scheduler/run/:jobType` manually runs one scheduler job and requires an authenticated scheduler-management role. Valid job types are `period-advance`, `auto-payslip`, `dept-report`, `client-invoices`, and `all`.
 - `GET /api/scheduler/runs?limit=:limit` returns recent scheduler runs for scheduler-management users. `limit` is capped at 100.
+Scheduler-management access includes payroll-management roles, including owner/founder, contractor salary payments, payroll assistant, and payroll finance.
 - `period-advance` ensures a semi-monthly draft payroll period exists for the current half-month.
 - `auto-payslip` bulk-generates payslips for the most recent draft period when the period is within the generation window.
 - `dept-report` stores a payroll report summary for the latest available payroll period.
@@ -357,6 +360,7 @@ Scheduler endpoints require protection because they can create payroll periods, 
 
 - Announcement list, detail, like, comment, RSVP, update, and delete routes require authentication.
 - Omitted announcement pagination returns the legacy array shape but is capped to the first 100 records server-side.
+- Event RSVP accepts explicit `going` and `not-going` status transitions; posting the current status toggles/removes that RSVP.
 - Announcement create, update, and delete routes require management access.
 - Announcement categories are stored as strings. The frontend supports the built-in categories and normalized custom category slugs; backend notifications format unknown categories as readable labels instead of falling back to another built-in type.
 
@@ -386,6 +390,7 @@ Scheduler endpoints require protection because they can create payroll periods, 
 - Upload routes require authentication.
 - `POST /api/uploads` stores a file under a randomized object key, creates owner metadata, and returns `{ id, url, filename, name, type, size }`. Link the returned `id` when creating a file-directory item or uploaded client asset.
 - Upload payloads must be valid base64 and the decoded file signature must match the declared allowed content type. Supported generic uploads are PNG, JPEG, GIF, PDF, plain text, DOC, and DOCX.
+- When browsers submit an empty or generic upload MIME type such as `application/octet-stream`, general uploads may infer the canonical content type from a supported filename extension before signature validation. Explicit unsupported MIME types are still rejected.
 - Stored generic upload object keys use a random UUID and canonical extension derived from the validated content type, not the user-supplied filename.
 - `GET /api/uploads/files/:id` returns `404` unless the requester is the uploader, an authorized internal user for the linked file-directory department, client operations, or an active client member reading a client-visible linked asset. Responses use stored canonical content types and `X-Content-Type-Options: nosniff`.
 - Avatar data URI uploads and stored user avatar updates are limited to JPEG, PNG, GIF, and WebP signatures and remain capped at 5 MB. Stored avatar references are restricted to short initials, safe relative paths, or `http(s)` URLs.

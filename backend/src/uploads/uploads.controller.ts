@@ -5,6 +5,7 @@ import {
     decodeBase64Payload,
     isGeneralUploadMimeType,
     normalizeMimeType,
+    resolveGeneralUploadContentType,
     validateAvatarContent,
     validateUploadContent,
 } from './upload.validation'
@@ -49,13 +50,8 @@ export class UploadsController {
             try {
                 const { name, type, data } = req.body
 
-                if (!name || !type || !data) {
-                    return res.status(400).json({ error: 'Name, type, and data (base64) required' })
-                }
-
-                const normalizedType = normalizeMimeType(type)
-                if (!isGeneralUploadMimeType(normalizedType)) {
-                    return res.status(400).json({ error: 'Invalid file type' })
+                if (!name || !data) {
+                    return res.status(400).json({ error: 'Name and data (base64) are required' })
                 }
 
                 const decoded = decodeBase64Payload(data)
@@ -63,7 +59,17 @@ export class UploadsController {
                     return res.status(400).json({ error: 'Invalid base64 file data' })
                 }
 
-                if (decoded.mediaType && decoded.mediaType !== normalizedType) {
+                const resolvedType = resolveGeneralUploadContentType(name, type, decoded.mediaType)
+                if (!resolvedType) {
+                    return res.status(400).json({ error: 'Invalid file type' })
+                }
+
+                const normalizedPayloadType = normalizeMimeType(decoded.mediaType)
+                if (
+                    normalizedPayloadType
+                    && isGeneralUploadMimeType(normalizedPayloadType)
+                    && normalizedPayloadType !== resolvedType
+                ) {
                     return res.status(400).json({ error: 'File data type does not match declared file type' })
                 }
 
@@ -73,7 +79,7 @@ export class UploadsController {
                     return res.status(400).json({ error: 'File too large (max 10MB)' })
                 }
 
-                const validatedType = validateUploadContent(normalizedType, buffer)
+                const validatedType = validateUploadContent(resolvedType, buffer)
                 if (!validatedType) {
                     return res.status(400).json({ error: 'File content does not match declared file type' })
                 }

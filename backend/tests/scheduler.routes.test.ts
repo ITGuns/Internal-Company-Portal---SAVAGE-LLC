@@ -45,6 +45,7 @@ const migrationPath = path.join(
 )
 const migrationSql = fs.readFileSync(migrationPath, 'utf8')
 const envConfigSource = fs.readFileSync(path.join(repoRoot, 'backend', 'src', 'config', 'env.config.ts'), 'utf8')
+const schedulerControllerSource = fs.readFileSync(path.join(repoRoot, 'backend', 'src', 'scheduler', 'scheduler.controller.ts'), 'utf8')
 
 assert.ok(
   migrationSql.includes('CREATE TABLE "SchedulerJobRun"'),
@@ -74,5 +75,12 @@ assert.ok(
   envConfigSource.includes("getOptionalEnvVar('CRON_SECRET') || getOptionalEnvVar('SCHEDULER_SECRET')"),
   'Scheduler config prefers CRON_SECRET and falls back to SCHEDULER_SECRET',
 )
+
+for (const payrollRole of ['payroll_assistant', 'payroll_finance', 'contractor_salary_payments']) {
+  assert.ok(
+    schedulerControllerSource.includes(`'${payrollRole}'`),
+    `Scheduler manual routes allow payroll-management role ${payrollRole}`,
+  )
+}
 
 console.log('scheduler.routes tests passed')

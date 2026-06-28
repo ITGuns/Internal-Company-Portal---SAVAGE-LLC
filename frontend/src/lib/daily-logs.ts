@@ -210,11 +210,14 @@ export async function createDailyLog(input: CreateDailyLogInput): Promise<DailyL
       const mapped = mapApiLog(data);
       if (mapped.date.includes('T')) mapped.date = mapped.date.split('T')[0];
       return mapped;
+    } else {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || `Failed to create daily log: ${res.statusText}`);
     }
   } catch (error) {
     console.error('Failed to create daily log:', error);
+    throw error;
   }
-  return null;
 }
 
 /**
@@ -241,11 +244,14 @@ export async function updateDailyLog(id: string, updates: Partial<Omit<DailyLog,
       const mapped = mapApiLog(data);
       if (mapped.date.includes('T')) mapped.date = mapped.date.split('T')[0];
       return mapped;
+    } else {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || `Failed to update daily log: ${res.statusText}`);
     }
   } catch (error) {
     console.error('Failed to update daily log:', error);
+    throw error;
   }
-  return null;
 }
 
 /**

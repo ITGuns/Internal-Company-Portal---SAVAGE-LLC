@@ -180,7 +180,7 @@ export default function OperationsMembersPanel({
                           {canManageMembers ? (
                             <button
                               type="button"
-                              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-red-500 hover:bg-red-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[var(--muted)] transition-colors hover:bg-red-500/10 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-red-300"
                               aria-label={`Remove ${getMemberRoleLabel(role)} from ${displayName}`}
                               disabled={Boolean(savingKey)}
                               onClick={() => void removeRole(member, role)}

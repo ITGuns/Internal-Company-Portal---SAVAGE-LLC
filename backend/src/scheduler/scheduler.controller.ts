@@ -9,10 +9,17 @@ const logger = createLogger('scheduler.controller')
 const SCHEDULER_MANAGEMENT_ROLES = [
     'admin',
     'administrator',
+    'owner',
+    'founder',
+    'owner_founder',
+    'owners_founders',
     'operations_manager',
     'bookkeeper',
     'bookkeeping',
+    'contractor_salary_payments',
     'financial_controller',
+    'payroll_assistant',
+    'payroll_finance',
 ]
 
 /**

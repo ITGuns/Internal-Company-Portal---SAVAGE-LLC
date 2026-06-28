@@ -259,24 +259,18 @@ export async function deleteComment(announcementId: string, commentId: string): 
 }
 
 /**
- * Toggle "going" status for an event (RSVP)
+ * Set "going" status for an event (RSVP)
  */
-export async function toggleGoing(announcementId: string): Promise<boolean> {
+export async function toggleGoing(announcementId: string, nextGoing: boolean = true): Promise<boolean> {
   try {
-    // Determine current status. API expects 'going', 'maybe', 'not-going' or null.
-    // For simple toggle, we assume we want to toggle 'going'.
-    // However, the API endpoint is POST /rsvp with { status: 'going' }
-    // If already going, sending it again might toggle it or we might need logic.
-    // The previous backend implementation of toggleRSVP: if exists -> delete, else -> create.
-    // So sending 'going' acts as a toggle if we only support binary state in UI.
     const res = await apiFetch(`/announcements/${announcementId}/rsvp`, {
       method: 'POST',
-      body: JSON.stringify({ status: 'going' }),
+      body: JSON.stringify({ status: nextGoing ? 'going' : 'not-going' }),
     });
 
     if (res.status === 200) {
       const data = await res.json();
-      return !!data.rsvp;
+      return data.rsvp === 'going';
     }
   } catch (error) {
     console.error('Failed to toggle RSVP:', error);

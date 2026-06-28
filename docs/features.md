@@ -124,7 +124,7 @@ Signup creates a pending account and preserves the requested department/role wit
 Operations manages departments, role options, and client account administration.
 
 - The default onboarding org chart uses these departments: Owners / Founders, Project Management, Operations, Digital Marketing, Analytics / Data, Automation / Tech, Website Developers, and Payroll / Finance.
-- Default role options are maintained in the backend org catalog and mirrored in frontend static department helpers for payroll/file-directory forms.
+- Default role options are maintained in the backend org catalog. Payroll employee forms read live department `availableRoles` from the backend, with frontend static helpers used only as an offline fallback.
 - Role-option APIs preserve existing configured roles and add missing org-chart defaults for matching departments, so admin onboarding is not blocked by stale seed data.
 - Admin Operations syncs the default org chart into persisted department and role rows so `/operations` displays the planned structure even on databases that still contain older department records.
 - Department creation in Operations only asks for the department name; department cards do not expose Google Drive IDs, Drive link status, or internal department IDs.
@@ -179,6 +179,7 @@ Payroll Calendar tracks calendar events, employee time entries, and payroll revi
 - Time entries can be edited from today's entry list or from the selected day review panel.
 - Time entry deletion now opens a typed confirmation modal and stays disabled until `DELETE` is typed.
 - Payroll profile compensation and banking fields are protected by backend role checks.
+- Employee add/edit role selectors use Operations department role options. Custom roles must be created in Operations first, then appear in payroll employee forms after the catalog refreshes.
 - Employee payroll setup includes max billable hours per day and a salary divisor scheme: weekdays credited, flat 30 days, flat 20 days, or flat 160 hours.
 - Payslip previews and generation show tracked hours, billable hours, and pending overtime separately. Automatic gross pay excludes time beyond the daily billable cap until a manager manually overrides or approves it.
 - The Payroll Setup Wizard on the employee overview writes the same payroll profile fields used by backend payslip calculation.
@@ -188,6 +189,7 @@ Payroll Calendar tracks calendar events, employee time entries, and payroll revi
 ### Reporting Behavior
 
 - Payroll-management users can filter payroll report stats and the payslip archive by department, employee, and payslip status.
+- Report summary and detailed views include period navigation so payroll-management users can move between generated payroll periods without changing filters.
 - Reports include department cost summaries for gross pay, deductions, net pay, payslip count, and tracked hours.
 - The frontend Reports tab exposes CSV exports for filtered payslip archives and department cost summaries, plus batch ZIP downloads that bundle report CSVs with a manifest.
 - Payslip archive rows include employee email, department, role/title, tracked hours, gross pay, deductions, net pay, and period/status context.
@@ -199,8 +201,9 @@ Announcements centralize company updates, shoutouts, events, and birthdays for i
 - Category cards filter the feed by Company News, Shoutouts, Events, or Birthdays and show current post counts.
 - The category tab row uses the same filters, includes Birthdays, resets pagination on filter changes, and reflects the active filter in the `category` URL query parameter.
 - Management users can create custom announcement types; custom categories are normalized into URL-safe slugs, appear as filter cards/tabs, and keep the same management permissions as built-in announcement types.
+- Event announcements use separate date and time controls while storing the same event timestamp payload.
 - Empty filtered states let users return to all posts without losing the announcement page context.
-- Management users can create, edit, and delete announcements from the announcement feed; non-management users keep read, like, comment, and RSVP actions without seeing management-only controls.
+- Management users can create, edit, and delete announcements from the announcement feed; non-management users keep read, like, comment, and RSVP actions without seeing management-only controls. Event RSVP can be toggled between going and not going from the event card.
 
 ## Whiteboard
 

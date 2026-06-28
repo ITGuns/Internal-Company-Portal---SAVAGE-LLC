@@ -23,6 +23,7 @@ function loadOperationsSession() {
   vm.runInNewContext(outputText, {
     module: compiledModule,
     exports: compiledModule.exports,
+    URLSearchParams,
   }, { filename: helperPath });
 
   return compiledModule.exports;
@@ -50,6 +51,16 @@ test('persists the last operations tab for route returns', () => {
 
   storage.setItem('mydeskii.operations.activeTab', 'bad-tab');
   assert.equal(getInitialOperationsTab(storage), 'departments');
+});
+
+test('uses operations tab query parameter before cached tab', () => {
+  const { cacheOperationsTab, getInitialOperationsTab } = loadOperationsSession();
+  const storage = createStorage();
+
+  cacheOperationsTab('members', storage);
+
+  assert.equal(getInitialOperationsTab(storage, '?tab=roles'), 'roles');
+  assert.equal(getInitialOperationsTab(storage, '?tab=bad-tab'), 'members');
 });
 
 test('throttles automatic operations org sync per user session', () => {

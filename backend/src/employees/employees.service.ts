@@ -22,6 +22,8 @@ export interface CreateEmployeeDto {
     avatar?: string
 }
 
+export class EmployeeValidationError extends Error {}
+
 export class EmployeesService {
     private prisma: PrismaClient
 
@@ -119,44 +121,68 @@ export class EmployeesService {
      * Create a pending employee application
      */
     async createPending(data: CreateEmployeeDto): Promise<User> {
-        const department = data.department
+        const email = data.email?.trim().toLowerCase()
+        const name = data.name?.trim()
+        const role = data.role?.trim()
+        const departmentName = data.department?.trim()
+        const salary = Number(data.salary)
+
+        if (!email || !email.includes('@')) {
+            throw new EmployeeValidationError('A valid employee email is required')
+        }
+        if (!name) {
+            throw new EmployeeValidationError('Employee name is required')
+        }
+        if (!role) {
+            throw new EmployeeValidationError('Employee role is required')
+        }
+        if (!departmentName || departmentName === 'All Departments') {
+            throw new EmployeeValidationError('Select a valid employee department')
+        }
+        if (!Number.isFinite(salary) || salary <= 0) {
+            throw new EmployeeValidationError('Employee salary must be greater than zero')
+        }
+
+        const department = departmentName
             ? await this.prisma.department.findFirst({
                 where: {
                     name: {
-                        equals: data.department,
+                        equals: departmentName,
                         mode: 'insensitive',
                     },
                 },
             })
             : null
 
-        // Create user with pending status
-        const user = await this.prisma.user.create({
-            data: {
-                email: data.email,
-                name: data.name,
-                password: data.passwordHash,
-                status: 'pending',
-                appliedDate: new Date(),
-                avatar: data.avatar,
-                // Store role/department info
-            },
-        })
+        if (!department) {
+            throw new EmployeeValidationError('Select a valid employee department')
+        }
 
-        // Also create an EmployeeProfile if needed
-        await this.prisma.employeeProfile.create({
-            data: {
-                userId: user.id,
-                ...buildPendingSignupProfile({
-                    role: data.role,
-                    departmentId: department?.id || null,
-                }),
-                baseSalary: data.salary,
-                // We could map department too if we had the ID
-            },
-        })
+        return this.prisma.$transaction(async (tx) => {
+            const user = await tx.user.create({
+                data: {
+                    email,
+                    name,
+                    password: data.passwordHash,
+                    status: 'pending',
+                    appliedDate: new Date(),
+                    avatar: data.avatar,
+                },
+            })
 
-        return user
+            await tx.employeeProfile.create({
+                data: {
+                    userId: user.id,
+                    ...buildPendingSignupProfile({
+                        role,
+                        departmentId: department.id,
+                    }),
+                    baseSalary: salary,
+                },
+            })
+
+            return user
+        })
     }
 
     /**

@@ -17,7 +17,13 @@ export type AuthUserLike = {
   birthday?: Date | string | null
   isApproved?: boolean | null
   status?: string | null
-  roles?: RoleLike[]
+  roles?: {
+    role: string
+    departmentId?: string | null
+    department?: {
+      name?: string | null
+    } | null
+  }[]
   password?: string | null
   passwordResetToken?: string | null
   passwordResetExpiry?: Date | string | null
@@ -33,6 +39,12 @@ export const authUserSelect = {
   roles: {
     select: {
       role: true,
+      departmentId: true,
+      department: {
+        select: {
+          name: true,
+        },
+      },
     },
   },
 } satisfies Prisma.UserSelect
@@ -67,6 +79,9 @@ export function serializeAuthUser(user: AuthUserLike) {
   const roleList = getAuthRoleList(user)
   const primaryRole = roleList.includes('admin') ? 'admin' : roleList[0] || 'member'
 
+  const deptRole = user.roles?.find((r) => r.department?.name)
+  const primaryDepartment = deptRole?.department?.name || null
+
   return {
     id: user.id,
     email: user.email,
@@ -81,6 +96,7 @@ export function serializeAuthUser(user: AuthUserLike) {
     status: user.status ?? null,
     role: primaryRole,
     roles: roleList,
+    department: primaryDepartment,
   }
 }
 

@@ -36,6 +36,12 @@ const GENERAL_UPLOAD_TYPE_BY_EXTENSION: Record<string, GeneralUploadMimeType> = 
     docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 }
 
+const GENERIC_BROWSER_UPLOAD_MIME_TYPES = new Set([
+    '',
+    'application/octet-stream',
+    'binary/octet-stream',
+])
+
 interface DecodedBase64Payload {
     buffer: Buffer
     mediaType?: string
@@ -101,6 +107,49 @@ export function decodeBase64Payload(payload: unknown): DecodedBase64Payload | nu
 
 export function isGeneralUploadMimeType(type: unknown): type is GeneralUploadMimeType {
     return (GENERAL_UPLOAD_MIME_TYPES as readonly string[]).includes(normalizeMimeType(type))
+}
+
+export function isGenericBrowserUploadMimeType(type: unknown): boolean {
+    return GENERIC_BROWSER_UPLOAD_MIME_TYPES.has(normalizeMimeType(type))
+}
+
+export function resolveGeneralUploadContentType(
+    filename: unknown,
+    declaredType: unknown,
+    payloadMediaType?: unknown,
+): GeneralUploadMimeType | null {
+    const normalizedDeclaredType = normalizeMimeType(declaredType)
+    const normalizedPayloadType = normalizeMimeType(payloadMediaType)
+
+    if (
+        normalizedPayloadType
+        && !isGenericBrowserUploadMimeType(normalizedPayloadType)
+        && !isGeneralUploadMimeType(normalizedPayloadType)
+    ) {
+        return null
+    }
+
+    if (
+        isGeneralUploadMimeType(normalizedDeclaredType)
+        && isGeneralUploadMimeType(normalizedPayloadType)
+        && normalizedDeclaredType !== normalizedPayloadType
+    ) {
+        return null
+    }
+
+    if (isGeneralUploadMimeType(normalizedDeclaredType)) {
+        return normalizedDeclaredType
+    }
+
+    if (isGeneralUploadMimeType(normalizedPayloadType)) {
+        return normalizedPayloadType
+    }
+
+    if (!normalizedDeclaredType || isGenericBrowserUploadMimeType(normalizedDeclaredType)) {
+        return getUploadContentTypeForFilename(filename)
+    }
+
+    return null
 }
 
 export function validateUploadContent(type: unknown, buffer: Buffer): GeneralUploadMimeType | null {

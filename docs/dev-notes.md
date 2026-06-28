@@ -1,6 +1,228 @@
 # Development Notes
 
+## 2026-06-28 - Design QA Client Load Resilience
+
+### Completed
+- Made admin Client Operations load the selected client overview independently from secondary memberships, activity, and action-queue requests.
+- Made the client portal selected workspace load its overview independently from secondary activity and action-queue requests.
+- Added a shared settled-promise helper so failed secondary client panels fall back to empty lists instead of blocking the entire client workspace.
+- Fixed duplicate React keys in the Operations client-role chips when a client account has repeated role labels.
+- Added focused regression coverage for the secondary client-load fallback behavior.
+
+### Files Changed
+- `frontend/src/hooks/useClientOperationsWorkspace.ts`
+- `frontend/src/hooks/useClientPortalWorkspace.ts`
+- `frontend/src/components/operations/OperationsClientsPanel.tsx`
+- `frontend/src/lib/client-workspace-loading.ts`
+- `frontend/tests/client-workspace-loading.test.mjs`
+- `docs/dev-notes.md`
+
+### Decisions Made
+- Kept client overview as the critical request because route content depends on it.
+- Treated memberships, activity, and action queue as secondary panel data that should not make the selected client look unloaded when those requests fail.
+
+### How to Test
+- `node --test frontend/tests/client-workspace-loading.test.mjs`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run build`
+- Targeted Playwright failure simulation: `/operations/clients` rendered the selected client when memberships, activity, and queue endpoints returned `500`.
+- Focused visual smoke with mocked data:
+  `VISUAL_SMOKE_BASE_URL=http://127.0.0.1:3012 VISUAL_SMOKE_ROUTES=/operations/clients,/operations/clients/accounts,/client,/client/work VISUAL_SMOKE_THEMES=dark,light VISUAL_SMOKE_USER_ROLE=admin npm --prefix frontend run test:visual`
+- Focused route-control interaction smoke for `/operations/clients` and `/client` with `VISUAL_SMOKE_INTERACTIONS=1` and `VISUAL_SMOKE_ROUTE_CONTROLS_ONLY=1`.
+
+### Next Steps
+- Continue remaining QA items: profile/edit modal ambiguity and login/date-picker layout polish.
+
+## 2026-06-28 - Design QA Custom Role Catalog Follow-up
+
+### Completed
+- Wired payroll Add Employee and Edit Employee modals to the live Operations department role catalog from `/api/departments`, with static org-chart roles used only as a fallback when live data is unavailable.
+- Removed dead free-text custom role/department entry paths from payroll employee forms; custom roles now flow through Operations role creation first.
+- Preserved older employee assignments that are not yet in the catalog when editing unrelated fields, while prompting admins to add those assignments in Operations for future edits.
+- Added `/operations?tab=roles` deep-link support so payroll role-management links open the Roles tab directly.
+- Tightened Operations Add Role copy and form button semantics so department-scoped role creation is clear.
+
+### Files Changed
+- `frontend/src/lib/payroll-calendar/employee-role-catalog.ts`
+- `frontend/src/components/payroll/AddEmployeeModal.tsx`
+- `frontend/src/components/payroll/EmployeeEditModal.tsx`
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/lib/operations-session.ts`
+- `frontend/tests/employee-role-catalog.test.mjs`
+- `frontend/tests/operations-session.test.mjs`
+- `docs/features.md`
+- `docs/api.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+- Kept employee create/update payloads as department names and role names to preserve the existing backend contract.
+- Treated Operations as the single source for custom role creation instead of allowing payroll forms to create untracked free-text roles.
+- Allowed edit forms to preserve an existing uncataloged assignment without resubmitting it as a role update.
+
+### How to Test
+- `node --test frontend/tests/employee-role-catalog.test.mjs frontend/tests/operations-session.test.mjs`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run build`
+- Focused visual smoke with mocked admin data:
+  `VISUAL_SMOKE_BASE_URL=http://127.0.0.1:3012 VISUAL_SMOKE_ROUTES=/operations?tab=roles,/payroll-calendar?tab=employees&view=pending VISUAL_SMOKE_THEMES=dark,light VISUAL_SMOKE_USER_ROLE=admin npm --prefix frontend run test:visual`
+- Focused route-control interaction smoke with `VISUAL_SMOKE_INTERACTIONS=1` and `VISUAL_SMOKE_ROUTE_CONTROLS_ONLY=1` passed for the same routes.
+- Targeted mocked browser check verified Operations role creation payload, payroll custom role selector population, removal of the manual `Other` role path, and `/operations?tab=roles` Manage Roles link.
+
+### Next Steps
+- Continue remaining QA items: client-load failures, profile/edit modal ambiguity, and login/date-picker layout polish.
+
+## 2026-06-28 - Design QA Critical Follow-up
+
+### Completed
+- Aligned manual scheduler Run Now access with payroll-management users, including payroll assistant, payroll finance, contractor salary payments, and owner/founder roles.
+- Hardened general uploads so empty/generic browser MIME types can infer a safe supported content type from filename only before file-signature validation; explicit unsupported MIME types still fail.
+- Added pending employee validation for real departments, valid role/name/email, and positive salary before pending user/profile creation; invalid requests now return `400` instead of a generic failure.
+- Fixed file-directory upload registration to avoid saving the placeholder `All Departments` department.
+- Split announcement event date and time inputs while preserving the existing single timestamp payload; event cards now use explicit icons and support toggling RSVP from going to not going.
+- Improved task filters and EOD report UI: viewport-capped filter panel, icon reset action, non-destructive EOD trigger, and higher-contrast EOD modal fields/summary cards.
+- Made payroll Reports period arrows functional, using the selected generated payroll period for summary/detail headline data, and tightened report dropdown contrast.
+- Reduced default destructive emphasis for operations role/delete controls while preserving confirmation and destructive hover/focus states.
+- Prevented invalid payroll employee additions from showing success when the API returns an error.
+
+### Files Changed
+- `backend/src/scheduler/scheduler.controller.ts`
+- `backend/src/uploads/upload.validation.ts`
+- `backend/src/uploads/uploads.controller.ts`
+- `backend/src/employees/employees.service.ts`
+- `backend/src/employees/employees.controller.ts`
+- `backend/tests/upload.validation.test.ts`
+- `backend/tests/scheduler.routes.test.ts`
+- `backend/tests/employees.routes.test.ts`
+- `frontend/src/app/announcements/page.tsx`
+- `frontend/src/components/announcements/AnnouncementFormModal.tsx`
+- `frontend/src/components/announcements/AnnouncementCard.tsx`
+- `frontend/src/lib/announcements.ts`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/components/tasks/LogReportModal.tsx`
+- `frontend/src/components/payroll/AddEmployeeModal.tsx`
+- `frontend/src/components/payroll/EmployeeOverviewTab.tsx`
+- `frontend/src/components/payroll/ReportsTab.tsx`
+- `frontend/src/app/file-directory/page.tsx`
+- `frontend/src/app/operations/page.tsx`
+- `frontend/src/components/operations/OperationsMembersPanel.tsx`
+- `docs/api.md`
+- `docs/features.md`
+- `docs/dev-notes.md`
+
+### Decisions Made
+- Kept upload MIME inference narrow: only blank or generic browser MIME values can fall back to supported filename extensions, and payload/data URI mismatches remain rejected.
+- Kept employee department validation server-side so UI fixes cannot reintroduce placeholder departments.
+- Used `not-going` RSVP status from the event card to avoid relying on backend same-status toggle side effects.
+- Left ambiguous payroll calendar "This Week" employee detail work for a targeted pass; the confirmed broken payroll report arrows were fixed where the dead controls existed.
+
+### How to Test
+- `npx ts-node tests/upload.validation.test.ts`
+- `npx ts-node tests/scheduler.routes.test.ts`
+- `npx ts-node tests/employees.routes.test.ts`
+- `npm --prefix backend run build`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend test`
+- `npm --prefix frontend run build`
+- `git diff --check`
+
+### Next Steps
+- Run authenticated browser review for `/announcements`, `/task-tracking`, `/payroll-calendar?tab=reports`, `/payroll-calendar?tab=employees`, `/file-directory`, and `/operations` once a usable local auth/backend database session is available.
+- Continue the remaining larger QA items separately: client-load failures, profile edit modal split, custom role creation workflow, and login/date-picker layout polish.
+
+## 2026-06-28 - File Directory Sizes & Payroll Lock API wiring
+
+### Completed
+- Resolved File Size "Unknown" bug:
+  - Updated backend `FileDirectoryService` (`findAll`, `findChildren`, `create`, `findById`) to include the `upload` relation (specifically `sizeBytes`).
+  - Added the `upload` field to the frontend `FileDirectory` interface.
+  - Added a `formatBytes` utility to `FolderCard.tsx` and updated both the list and grid views to correctly parse and render the formatted file size (e.g. `14.5 KB` or `2.1 MB`) instead of showing "Unknown".
+- Implemented Payroll Period Lock & Finalize:
+  - Added a `lockPayrollPeriod` method in `PayrollService` to transition a `PayrollPeriod`'s status from `'draft'` to `'processed'`.
+  - Added a corresponding POST endpoint `/periods/:periodId/lock` in `PayrollController`.
+  - Integrated the Lock & Finalize Period flow into the frontend `PayslipsTab` with state, callbacks, and a confirmation step.
+  - Implemented conditional rendering on the "Run Automated Payroll" button (disabled when the period is locked).
+  - Added the "Lock & Finalize Period" button to the sidebar action panel when the active period is in draft status.
+  - Passed lock/finalized status to `EmployeeProfilePanel` to disable the "Generate Payslip" button when the payroll period has been locked.
+
+### Files Changed
+- `backend/src/file-directory/file-directory.service.ts`
+- `frontend/src/lib/file-directory-types.ts`
+- `frontend/src/components/file-directory/FolderCard.tsx`
+- `backend/src/payroll/payroll.service.ts`
+- `backend/src/payroll/payroll.controller.ts`
+- `frontend/src/components/payroll/PayslipsTab.tsx`
+- `frontend/src/components/payroll/EmployeeProfilePanel.tsx`
+
+### Decisions Made
+- Chose to fetch the latest period in `PayslipsTab.tsx` during page data initialization so that the lock status is automatically reactive to the active payroll cycle.
+- Kept the button styling in line with standard brand tokens without using destructive styling since finalized locking is a standard operational transition, not a deletion.
+
+### How to Test
+- Navigate to `/file-directory`, upload/view files, and check that file sizes format correctly.
+- Navigate to `/payroll-calendar`, go to the "Payslips Management" tab, click "Lock & Finalize Period", confirm, and verify that the active period transitions to "processed", disabling "Run Automated Payroll" and the "Generate Payslip" buttons.
+
+## 2026-06-28 - Deskii Design QA v2.0 Implementation Pass
+
+### Completed
+- Applied global CSS design system tokens to `globals.css`:
+  - Added `--icon-color`, `--icon-color-muted`, `--icon-color-active`, `--text-primary`, `--text-secondary` for both dark and light modes (QA #3,#4,#9,#17,#29,#44,#45,#47).
+  - Standardized focus rings to `2px solid var(--accent)` using `:focus-visible` only (QA #5,#6,#7).
+  - Added `.filter-chip` utility class for consistent chip/filter styling (QA #11).
+  - Added `.toggle-group` utility class for toggle button groups (QA #18).
+  - Extended input/textarea placeholder contrast rule (opacity 0.75 on `--muted`) and tightened focus glow to `3px`.
+- Fixed `UserAvatar.tsx` SVG fills from hardcoded `#F3F4F6/#E5E7EB` to `currentColor` with opacity (QA #3,#4) — icon now adapts to both dark and light themes.
+- Renamed "Daily / EOD" log type label to "End of Day" in daily-logs filter sidebar and modal (QA #26).
+- Removed hardcoded red styles from "Generate EOD Report" button in task-tracking (QA #14 — red is reserved for destructive actions).
+- Changed "Update Announcement" / "Post Announcement" button from `variant="success"` (pastel green) to `variant="primary"` (cyan accent) in AnnouncementFormModal (QA #15).
+- Added `isSendingRef` guard in `MessageInput.tsx` to prevent duplicate message sends on rapid Enter presses (QA #19,#21). Also switched form's `onSend` prop to `handleSend` and updated Enter key handler.
+- Removed redundant round icon container from payroll `EventCard.tsx` (QA #23). Removed now-unused `bgForType`/`iconForType` imports. Cleaned up `rounded-full` tag badge to `rounded`.
+- Removed redundant "This assigns X in Y" auto-description paragraph from onboarding role selector (QA #41).
+- Removed gradient separator line (`absolute inset-x-0 top-0 h-px`) from dashboard hero card (QA #46).
+- Added `html.light` selector alongside `html[data-theme="light"]` for theme compatibility.
+
+### Files Changed
+- `frontend/src/app/globals.css`
+- `frontend/src/assets/icons/UserAvatar.tsx`
+- `frontend/src/app/daily-logs/page.tsx`
+- `frontend/src/app/task-tracking/page.tsx`
+- `frontend/src/app/dashboard/page.tsx`
+- `frontend/src/app/operations/onboarding/page.tsx`
+- `frontend/src/components/announcements/AnnouncementFormModal.tsx`
+- `frontend/src/components/chat/MessageInput.tsx`
+- `frontend/src/components/payroll/EventCard.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+- `--icon-color` token uses `#CBD5E0` (dark mode) / `#4A5568` (light mode) — visible in both, contrasts with both backgrounds.
+- `UserAvatar` changed to `currentColor` with opacity (0.8 head, 0.6 body) rather than constant fills, so color inherits from the parent button's `text-[var(--muted)]` automatically.
+- EOD Report button downgraded to `secondary` (no red) — red was a semantic violation per the design system (red = destructive action only).
+- Announcement submit changed to `primary` because `success` (green) is a weaker contrast than the brand cyan accent, and it's a write action not a read-only confirmation.
+- `isSendingRef` 600ms guard timeout chosen to cover most network round-trips while feeling instant to the user.
+- Gradient separator removed from dashboard — it was applied to a card that already has a border/shadow, creating a redundant visual element that looked broken in light mode.
+
+### How to Test
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- Open `/dashboard`, `/daily-logs`, `/task-tracking`, `/announcements`, `/chat`, `/operations/onboarding`, `/payroll-calendar` in both dark and light mode.
+- Verify UserAvatar icon is visible in light mode (previously was near-invisible white on white).
+- Verify "End of Day" label appears in daily-logs filter and modal type selects.
+- Verify EOD Report button is styled as secondary (no red background).
+- Verify "Post Announcement" / "Update Announcement" button uses cyan accent (not green).
+- Verify rapid Enter in chat does not trigger multiple sends.
+- Verify Payroll EventCard no longer shows a redundant circular icon container.
+- Verify onboarding role selector no longer shows "This assigns X in Y" text.
+- Verify dashboard hero card has no gradient line artifact at the top.
+
+### Next Steps
+- Remaining QA issues to address in subsequent passes:
+  - Phase 1 Critical Bugs: Payroll Scheduler API wiring, Daily Logs save fix, File Uploads backend endpoint fix.
+  - Phase 3 UX: Empty states, form validation inline messages, modal focus traps.
+  - Phase 4 Polish: Typography scale audit, responsive layout breakpoints, scroll-locked modals.
+
 ## 2026-06-25 - CEO Onboarding Bootstrap Script
+
 
 ### Completed
 - Created `backend/scripts/setup-ceo.mjs` — a production-safe CLI bootstrap script that:

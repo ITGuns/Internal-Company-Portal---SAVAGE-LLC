@@ -239,8 +239,8 @@ export default function AnnouncementsPage() {
     toast.success('Comment added');
   };
 
-  const handleToggleGoing = async (id: string) => {
-    await toggleGoing(id);
+  const handleToggleGoing = async (announcement: Announcement) => {
+    await toggleGoing(announcement.id, !isGoing(announcement));
     queryClient.invalidateQueries({ queryKey: ['announcements'] });
   };
 
@@ -493,7 +493,7 @@ export default function AnnouncementsPage() {
                     onEdit={() => handleEditAnnouncement(announcement)}
                     onDelete={() => handleDeleteAnnouncement(announcement.id)}
                     onToggleLike={() => handleToggleLike(announcement.id)}
-                    onToggleGoing={() => handleToggleGoing(announcement.id)}
+                    onToggleGoing={() => handleToggleGoing(announcement)}
                     onToggleComments={() => setShowComments(showComments === announcement.id ? null : announcement.id)}
                     onCommentTextChange={setCommentText}
                     onAddComment={() => handleAddComment(announcement.id)}
