@@ -133,6 +133,60 @@ export default function LoginPage() {
           <li>Team chat &amp; announcements</li>
           <li>Projects &amp; file directory</li>
         </ul>
+
+        {/* 3D Isometric Dashboard Scene */}
+        <div className={styles.isometricScene} aria-hidden="true">
+          <div className={styles.isoContainer}>
+            {/* Base Layer: Project Workspace card */}
+            <div className={`${styles.isoCard} ${styles.card1}`}>
+              <div className={styles.isoCardHeader}>
+                <span className={styles.isoCardDot} />
+                <span className={styles.isoCardTitle}>PROJECT_WORKSPACE</span>
+              </div>
+              <div className={styles.isoCardBody}>
+                <div className={styles.isoTaskItem}>
+                  <span className={styles.isoCheckboxChecked} />
+                  <span className={styles.isoTaskLine} style={{ width: '65%' }} />
+                </div>
+                <div className={styles.isoTaskItem}>
+                  <span className={styles.isoCheckboxChecked} />
+                  <span className={styles.isoTaskLine} style={{ width: '45%' }} />
+                </div>
+                <div className={styles.isoTaskItem}>
+                  <span className={styles.isoCheckbox} />
+                  <span className={styles.isoTaskLine} style={{ width: '55%' }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Middle Layer: Metrics card */}
+            <div className={`${styles.isoCard} ${styles.card2}`}>
+              <div className={styles.isoCardHeader}>
+                <span className={`${styles.isoCardDot} ${styles.pink}`} />
+                <span className={styles.isoCardTitle}>METRICS_STREAM</span>
+              </div>
+              <div className={styles.isoChartContainer}>
+                <div className={styles.isoChartBar} style={{ height: '35px', background: 'linear-gradient(180deg, #f23bbf, #8b5cf6)' }} />
+                <div className={styles.isoChartBar} style={{ height: '55px', background: 'linear-gradient(180deg, #17d9f5, #0bb5cc)' }} />
+                <div className={styles.isoChartBar} style={{ height: '40px', background: 'linear-gradient(180deg, #f23bbf, #8b5cf6)' }} />
+                <div className={styles.isoChartBar} style={{ height: '65px', background: 'linear-gradient(180deg, #17d9f5, #0bb5cc)' }} />
+                <div className={styles.isoChartBar} style={{ height: '48px', background: 'linear-gradient(180deg, #17d9f5, #f23bbf)' }} />
+              </div>
+            </div>
+
+            {/* Top Layer: Alerts/Notifications card */}
+            <div className={`${styles.isoCard} ${styles.card3}`}>
+              <div className={styles.isoCardHeader}>
+                <span className={`${styles.isoCardDot} ${styles.cyan}`} />
+                <span className={styles.isoCardTitle}>SYSTEM_HEALTH</span>
+              </div>
+              <div className={styles.isoAlertBody}>
+                <div className={styles.isoAlertText}>99.8% Core Uptime</div>
+                <div className={styles.isoAlertStatus}>API Services Online</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Auth card */}
