@@ -78,10 +78,12 @@
 
 @media (min-width: 960px) {
   .loginWrapper {
-    grid-template-columns: 1fr minmax(440px, 520px);
-    gap: 48px;
+    grid-template-columns: 1.15fr 1fr;
+    max-width: 1160px;
+    margin: 0 auto;
+    gap: 80px;
     align-items: center;
-    padding: 40px clamp(24px, 5vw, 80px);
+    padding: 40px 24px;
   }
 }
 
@@ -154,6 +156,24 @@
   .heroSection {
     display: flex;
     grid-column: auto;
+  }
+
+  /* Elegant vertical divider centered in the grid gap */
+  .heroSection::after {
+    content: "";
+    position: absolute;
+    top: 15%;
+    bottom: 15%;
+    right: -40px; /* exactly in the middle of the 80px gap */
+    width: 1px;
+    background: linear-gradient(
+      180deg,
+      transparent,
+      rgba(23, 217, 245, 0.12) 20%,
+      rgba(242, 59, 191, 0.12) 80%,
+      transparent
+    );
+    pointer-events: none;
   }
 }
 

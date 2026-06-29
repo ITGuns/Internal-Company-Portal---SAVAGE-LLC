@@ -1,15 +1,17 @@
 # Development Notes
 
-## 2026-06-29 - Session Summary: Secret Developer Command Center & Bug Dashboard
+## 2026-06-29 - Session Summary: Secret Developer Command Center & Login Page Polish
 
 ### Completed
 - **Developer Command Center:** Created a high-fidelity secret developer dashboard at `/developer/bugs` featuring live diagnostics system health check widgets, local storage feature flags (mocking debug mode, API error rates, and cache bypass), and an interactive bug ticket logger.
 - **Stealth Access Control:** Configured the page to perform user email access checks. Unauthorized users are served a stealth "404 Not Found" view, ensuring the backdoor is hidden.
 - **Direct URL Access:** The dashboard is accessed only via direct browser navigation to `/developer/bugs` (no buttons or links exist in the sidebar).
+- **Login Page Spacing & Visuals:** Fixed wide layout stretching on large viewports by constraining `.loginWrapper` to a maximum width of `1160px` and centering it. Added a vertical glassmorphic gradient divider in the center gap to separate branding from the login card.
 
 ### Files Changed
 - `frontend/src/app/developer/bugs/page.tsx`
 - `frontend/src/components/Sidebar.tsx`
+- `frontend/src/app/login/login.module.css`
 - `docs/dev-notes.md`
 
 ### How to Test
