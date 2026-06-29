@@ -330,6 +330,30 @@ function hasDocxSignature(buffer: Buffer): boolean {
     return searchable.includes('[Content_Types].xml') && searchable.includes('word/')
 }
 
+function cleanUtf8Sample(buffer: Buffer): Buffer {
+    const len = buffer.length
+    if (len === 0) return buffer
+
+    for (let i = 1; i <= Math.min(len, 4); i++) {
+        const byte = buffer[len - i]
+        if ((byte & 0x80) === 0x00) {
+            break
+        }
+        if ((byte & 0xC0) === 0xC0) {
+            let expectedBytes = 0
+            if ((byte & 0xE0) === 0xC0) expectedBytes = 2
+            else if ((byte & 0xF0) === 0xE0) expectedBytes = 3
+            else if ((byte & 0xF8) === 0xF0) expectedBytes = 4
+
+            if (i < expectedBytes) {
+                return buffer.subarray(0, len - i)
+            }
+            break
+        }
+    }
+    return buffer
+}
+
 function isLikelyText(buffer: Buffer): boolean {
     if (buffer.length === 0) return false
 
@@ -346,7 +370,8 @@ function isLikelyText(buffer: Buffer): boolean {
 
     if (controlCharacters / sample.length > 0.01) return false
 
-    const decoded = sample.toString('utf8')
+    const cleanedSample = cleanUtf8Sample(sample)
+    const decoded = cleanedSample.toString('utf8')
     return !decoded.includes('\ufffd')
 }
 

@@ -7,7 +7,7 @@ import UserAvatar from "@/assets/icons/UserAvatar";
 import { useToast } from "@/components/ToastProvider";
 import { useUser } from "@/contexts/UserContext";
 import { updateUserProfile, uploadAvatar } from "@/lib/api";
-import { Camera, Calendar, Mail, MapPin, Phone, User } from "lucide-react";
+import { Camera, Calendar, Mail, MapPin, Phone, User, Shield } from "lucide-react";
 
 export interface EditableUserProfile {
   id?: string | number;
@@ -18,6 +18,8 @@ export interface EditableUserProfile {
   address?: string;
   city?: string;
   avatar?: string;
+  role?: string;
+  roles?: string[];
 }
 
 interface ProfileEditFormProps {
@@ -81,6 +83,7 @@ export default function ProfileEditForm({ user, onSave, onCancel }: ProfileEditF
   const [avatarPreview, setAvatarPreview] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const displayRoles = user?.roles?.length ? user.roles : user?.role ? [user.role] : [];
 
   useEffect(() => {
     setFormData(buildProfileFormData(user));
@@ -265,15 +268,41 @@ export default function ProfileEditForm({ user, onSave, onCancel }: ProfileEditF
         <p className="mt-2 text-xs text-[var(--muted)]">JPG, PNG or GIF. Max size 5MB.</p>
       </div>
 
-      {profileFieldConfigs.map((field) => (
-        <ProfileFormInput
-          key={field.id}
-          {...field}
-          value={formData[field.id]}
-          onChange={(value) => handleChange(field.id, value)}
-          error={errors[field.id]}
-        />
-      ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+        {profileFieldConfigs.map((field) => (
+          <ProfileFormInput
+            key={field.id}
+            {...field}
+            value={formData[field.id]}
+            onChange={(value) => handleChange(field.id, value)}
+            error={errors[field.id]}
+          />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 border-t border-[var(--border)] pt-5">
+        <div>
+          <label className="text-xs font-semibold uppercase text-[var(--muted)]">User ID</label>
+          <div className="mt-1 flex min-w-0 items-center gap-2 rounded bg-[var(--card-bg)] p-2.5 font-mono text-sm text-[var(--muted)] border border-[var(--border)]">
+            <Shield className="h-4 w-4 shrink-0" />
+            <span className="truncate">{String(user?.id)}</span>
+          </div>
+        </div>
+
+        {displayRoles.length > 0 && (
+          <div>
+            <label className="text-xs font-semibold uppercase text-[var(--muted)]">Primary Role / Department</label>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {displayRoles.map((roleName: string, index: number) => (
+                <div key={`${roleName}-${index}`} className="flex items-center gap-2 rounded-full bg-[var(--accent)] px-3 py-1 text-sm font-medium text-[var(--accent-foreground)] font-medium">
+                  <Shield className="h-3 w-3" />
+                  {roleName}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-col gap-3 pt-2 sm:flex-row">
         <Button type="button" variant="secondary" className="flex-1" onClick={resetForm} disabled={isSubmitting}>

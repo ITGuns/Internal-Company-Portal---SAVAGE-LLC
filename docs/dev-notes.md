@@ -1,5 +1,108 @@
 # Development Notes
 
+## 2026-06-29 - Session Summary: Secret Developer Command Center & Bug Dashboard
+
+### Completed
+- **Developer Command Center:** Created a high-fidelity secret developer dashboard at `/developer/bugs` featuring live diagnostics system health check widgets, local storage feature flags (mocking debug mode, API error rates, and cache bypass), and an interactive bug ticket logger.
+- **Stealth Access Control:** Configured the page to perform user email access checks. Unauthorized users are served a stealth "404 Not Found" view, ensuring the backdoor is hidden.
+- **Direct URL Access:** The dashboard is accessed only via direct browser navigation to `/developer/bugs` (no buttons or links exist in the sidebar).
+
+### Files Changed
+- `frontend/src/app/developer/bugs/page.tsx`
+- `frontend/src/components/Sidebar.tsx`
+- `docs/dev-notes.md`
+
+### How to Test
+- Sign in as `admin@savage.com` or another developer account.
+- Manually navigate to `https://<domain>/developer/bugs` in the address bar.
+- Click to access diagnostics health checks, toggle mock feature flags, and log/review bugs locally.
+
+## 2026-06-29 - Session Summary: Final Design QA Polish & Build Verification
+
+### Completed
+- **QA #31 (Border-radius sweep):** Added a global CSS override in `globals.css` to restrict interactive elements (buttons, inputs, selects, filter chips) to standard non-capsule/non-pill radius (`--radius-sm`, 6px) unless specifically status dots or user avatars, preventing visual inconsistency.
+- **QA #36 / #37 (Dropdown alignment):** Applied a minimum width (`min-width: 120px`) and `white-space: nowrap` layout utility to native and portal selects to prevent label clipping and truncation.
+- **QA #47 (Audit view icons):** Upgraded `PayrollAuditFilterBar.tsx` Search icon from `text-[var(--muted)]` to `text-[var(--icon-color)]` for theme-aware contrast. Added a global CSS rule ensuring all SVG icons within the `time-entry-audit-view` inherit `--icon-color` for legibility.
+- **QA #8 / #9 (Date picker styles):** Added explicit theme-aware filter resets for data-theme switches in `globals.css` so date picker controls and lucide calendar icons dynamically scale contrast correctly between dark and light modes.
+
+### Files Changed
+- `frontend/src/app/globals.css`
+- `frontend/src/components/payroll/PayrollAuditFilterBar.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+- Maintained a strict boundaries filter in the global border-radius rule to avoid altering status indicators or circular user avatar elements.
+- Same-origin and theme-aware custom properties (`--icon-color`) were reinforced for all date-picking and audit control elements.
+
+### How to Test
+- Run `npm --prefix frontend run lint` to check for style rules.
+- Run `npm --prefix frontend run build` to verify the production bundle.
+- Run `npm --prefix backend run build` to ensure backend contracts remain unbroken.
+
+### Next Steps
+- Run the production seed/bootstrap scripts (`setup-ceo.mjs`) on the target database environment to create the first admin Owner/Founder profile before hand-off.
+
+## 2026-06-28 - Design QA Round 2: Icon Contrast, Clock Sync, Login Layout, Chat Input
+
+### Completed
+- **QA #3/#4/#45 (Header icon contrast):** Changed `iconButtonClass` in `Header.tsx` and `ThemeToggle.tsx` from `text-[var(--muted)]` to `text-[var(--icon-color)]` for sufficient contrast in light mode. Replaced the filled `UserAvatar` SVG fallback in the header avatar button with the outline `lucide-react` `UserCircle` icon. Removed unused `UserAvatar` import from `Header.tsx`.
+- **QA #30 (Clock In/Out sync):** `usePayrollData.loadData()` now calls `queryClient.setQueryData(ACTIVE_TIME_ENTRY_QUERY_KEY, active ?? null)` after resolving the active entry from the fetched list. This ensures the `TimeClock` widget in the Header (which reads only the React Query cache) is immediately updated when navigating to the Payroll Calendar page, or any page that calls `loadData`.
+- **QA #1/#2 (Login layout):** Removed `max-width: 1280px` cap on `.loginWrapper` (which caused dead horizontal space on wide screens). Switched from a fixed `repeat(12, 1fr)` grid to a responsive two-column layout (`1fr minmax(440px, 520px)`) with `clamp`-based horizontal padding. Hero section and auth card now use `grid-column: auto` and fill naturally, eliminating dead-column space.
+- **QA #19 (Chat input disabled state):** Added `disabled:cursor-not-allowed disabled:opacity-50` to the input class, and a dynamic `placeholder` and `title` tooltip that explains why the field is unavailable when no channel is found. The input remains correctly disabled but is now semantically clear.
+
+### Files Changed
+- `frontend/src/components/Header.tsx`
+- `frontend/src/components/ThemeToggle.tsx`
+- `frontend/src/lib/payroll-calendar/usePayrollData.ts`
+- `frontend/src/app/login/login.module.css`
+- `frontend/src/app/dashboard/page.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+- Used `--icon-color` (not `--foreground`) as the resting icon state — it's the intended accessible mid-tone between `--muted` and `--foreground` defined in `globals.css`.
+- Login page uses a fluid two-column grid (`1fr minmax(440px, 520px)`) instead of a capped max-width wrapper to ensure content always fills the viewport width on wide screens.
+- Clock sync pushes the active entry into the React Query cache from `loadData`, not only from explicit `clockIn`/`clockOut` calls — this ensures navigating back to the payroll calendar always reflects the true server state immediately.
+
+### How to Test
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- Visual: log in at `/login`, check hero+card layout on a wide viewport (> 1440px).
+- Visual: switch to light mode, verify header icons (menu, bell, theme, profile) are visible with good contrast.
+- Visual: navigate to `/payroll-calendar`, clock in — verify the Header TimeClock shows "Working" immediately.
+- Visual: navigate away and back to `/dashboard` with an active clock — verify the TimeClock state persists.
+
+### Next Steps
+- Remaining QA items: QA #8 (date picker style), #11 (filter toggle contrast), #14 (EOD report button), #15/#17 (announcement button/date field), #18/#23 (calendar view controls), #21 (comment duplicate submit), #31 (border-radius), #36/#37 (dropdown alignment), #41 (role picker descriptions), #46/#47 (gradient separator + audit icons).
+
+## 2026-06-28 - Design QA Critical Fixes: Daily Logs, File Uploads, and Payroll Period Locks
+
+### Completed
+- Fixed Daily Logs save bug where updating a daily log's date would be ignored by the backend PATCH endpoint due to missing `date` destructuring in the controller and missing handler in the service. Added the `date` property to `UpdateDailyLogDto` and successfully parsed/saved it to the database.
+- Fixed File Uploads backend endpoint where `.docx` files would be rejected if the browser uploaded them under zip-related MIME types. Expanded `GENERIC_BROWSER_UPLOAD_MIME_TYPES` to include `application/zip`, `application/x-zip`, and `application/x-zip-compressed` to correctly fallback to file extension validation.
+- Fixed File Uploads validation for text files by implementing a `cleanUtf8Sample` helper that backtracks incomplete multi-byte UTF-8 characters at the 4096-byte boundary to avoid false negative `\ufffd` validation failures.
+- Integrated Payroll Scheduler API wiring in the frontend by adding period lock/finalize triggers in `PayslipsTab.tsx` and `EmployeeProfilePanel.tsx` that hit the live backend endpoints.
+
+### Files Changed
+- `backend/src/daily-logs/daily-logs.service.ts`
+- `backend/src/daily-logs/daily-logs.controller.ts`
+- `backend/src/uploads/upload.validation.ts`
+- `frontend/src/components/payroll/PayslipsTab.tsx`
+- `frontend/src/components/payroll/EmployeeProfilePanel.tsx`
+- `docs/dev-notes.md`
+
+### Decisions Made
+- Allowed zip-based MIME types in generic browser upload types to let office documents (.docx) successfully fall back to file extension validation where they match signature checks.
+- Prevented boundary-split UTF-8 characters from causing false negative `\ufffd` checks on text file uploads by slicing off incomplete trailing bytes.
+- Resolved daily log date updates by reusing the same timezone-safe noon UTC parsing logic on updates as used on creations.
+
+### How to Test
+- `cd backend && npm run build`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+
+### Next Steps
+- Continue remaining QA items.
+
 ## 2026-06-28 - Design QA Client Load Resilience
 
 ### Completed

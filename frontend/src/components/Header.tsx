@@ -3,9 +3,8 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Bell, Menu, Search } from 'lucide-react';
+import { Bell, Menu, Search, UserCircle } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
-import UserAvatar from '../assets/icons/UserAvatar';
 import NotificationSidebar from './NotificationSidebar';
 import ProfileSidebar from './ProfileSidebar';
 import { useSocket } from '@/context/SocketContext';
@@ -78,7 +77,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
   const resolvedSubtitle = subtitle ?? (isDashboard ? 'Your work status and next actions for today' : autoTitle?.subtitle);
 
   const iconButtonClass = cn(
-    'inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] text-[var(--muted)]',
+    'inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] text-[var(--icon-color)]',
     'transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-out)]',
     'hover:border-[var(--muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]',
     'active:translate-y-px active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]',
@@ -165,7 +164,7 @@ export default function Header({ title, subtitle }: { title?: string; subtitle?:
               className="h-full w-full object-cover"
             />
           ) : (
-            <UserAvatar className="h-full w-full" size={40} ariaHidden={true} />
+            <UserCircle className="h-6 w-6 text-[var(--icon-color)]" aria-hidden="true" />
           )}
         </button>
       </div>

@@ -496,8 +496,9 @@ export default function DashboardPage() {
                     aria-label="Type a message"
                     name="dashboard-chat-message"
                     autoComplete="off"
-                    className="flex-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-2 text-xs text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                    placeholder="Type a message…"
+                    className="flex-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-2 text-xs text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
+                    placeholder={activeConversation ? "Type a message…" : "No channel available"}
+                    title={activeConversation ? undefined : "No public channel found — open the Chat page to start a conversation"}
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     disabled={!activeConversation}

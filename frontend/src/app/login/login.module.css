@@ -49,8 +49,7 @@
    ============================================ */
 .loginContainer {
   min-height: 100dvh;
-  display: grid;
-  grid-template-columns: 1fr;
+  display: block;
   position: relative;
   overflow: hidden;
 
@@ -67,9 +66,22 @@
   color: #e2e8f0;
 }
 
+.loginWrapper {
+  width: 100%;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 1fr;
+  position: relative;
+  z-index: 1;
+  padding: 0;
+}
+
 @media (min-width: 960px) {
-  .loginContainer {
-    grid-template-columns: 1fr 480px;
+  .loginWrapper {
+    grid-template-columns: 1fr minmax(440px, 520px);
+    gap: 48px;
+    align-items: center;
+    padding: 40px clamp(24px, 5vw, 80px);
   }
 }
 
@@ -141,6 +153,7 @@
 @media (min-width: 960px) {
   .heroSection {
     display: flex;
+    grid-column: auto;
   }
 }
 
@@ -228,6 +241,16 @@
   background: rgba(15, 17, 23, 0.7);
   backdrop-filter: blur(24px);
   border-left: 1px solid rgba(23, 217, 245, 0.08);
+}
+
+@media (min-width: 960px) {
+  .card {
+    grid-column: auto;
+    min-height: auto;
+    border: 1px solid rgba(23, 217, 245, 0.08);
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  }
 }
 
 @media (max-width: 959px) {

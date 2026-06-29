@@ -108,7 +108,7 @@ export default function PayrollAuditFilterBar({
           </label>
           <div className="relative">
             <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--icon-color)]"
               aria-hidden="true"
             />
             <input

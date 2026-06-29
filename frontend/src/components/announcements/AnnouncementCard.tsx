@@ -30,6 +30,7 @@ interface AnnouncementCardProps {
   menuOpen: boolean;
   canManageActions?: boolean;
   commentText: string;
+  commentSubmitting?: boolean;
   onToggleMenu: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -69,6 +70,7 @@ export default function AnnouncementCard({
   menuOpen,
   canManageActions = false,
   commentText,
+  commentSubmitting = false,
   onToggleMenu,
   onEdit,
   onDelete,
@@ -258,18 +260,20 @@ export default function AnnouncementCard({
                   value={commentText}
                   onChange={(e) => onCommentTextChange(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
+                    if (e.key === "Enter" && !e.shiftKey && !commentSubmitting) {
                       e.preventDefault();
                       onAddComment();
                     }
                   }}
                   placeholder="Write a comment..."
-                  className="min-h-10 flex-1 rounded border border-[var(--border)] bg-[var(--background)] p-2 text-sm text-[var(--foreground)]"
+                  disabled={commentSubmitting}
+                  className="min-h-10 flex-1 rounded border border-[var(--border)] bg-[var(--background)] p-2 text-sm text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
                 />
                 <button
                   type="button"
                   onClick={onAddComment}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded bg-[var(--foreground)] text-[var(--background)] hover:opacity-90 transition"
+                  disabled={commentSubmitting || !commentText.trim()}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[0_4px_14px_-6px_var(--accent)] transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-105 active:translate-y-px active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label="Post comment"
                 >
                   <Send className="w-4 h-4" />

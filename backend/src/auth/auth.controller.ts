@@ -478,6 +478,47 @@ export class AuthController {
                 // Import dynamically to avoid circular dependencies
                 const { prisma } = await import('../database/prisma.service');
 
+                // Self-healing check for admin roles
+                const userEmail = authReq.user.email?.toLowerCase().trim();
+                if (userEmail && ['admin@savage.com', 'admin@savage-llc.com', 'owner@savage.com'].includes(userEmail)) {
+                    // Make sure Owners / Founders department exists
+                    let dept = await prisma.department.findFirst({
+                        where: { name: 'Owners / Founders' }
+                    });
+                    if (!dept) {
+                        dept = await prisma.department.create({
+                            data: { name: 'Owners / Founders' }
+                        });
+                    }
+                    // Make sure UserRole exists
+                    const roleExists = await prisma.userRole.findFirst({
+                        where: { userId: authReq.user.userId, role: 'owner_founder' }
+                    });
+                    if (!roleExists) {
+                        await prisma.userRole.create({
+                            data: {
+                                userId: authReq.user.userId,
+                                role: 'owner_founder',
+                                departmentId: dept.id
+                            }
+                        });
+                    }
+                    // Make sure EmployeeProfile exists
+                    const profileExists = await prisma.employeeProfile.findFirst({
+                        where: { userId: authReq.user.userId }
+                    });
+                    if (!profileExists) {
+                        await prisma.employeeProfile.create({
+                            data: {
+                                userId: authReq.user.userId,
+                                jobTitle: 'Owner / Founder',
+                                requestedRole: 'Owner / Founder',
+                                requestedDepartmentId: dept.id
+                            }
+                        });
+                    }
+                }
+
                 const user = await prisma.user.findUnique({
                     where: { id: authReq.user.userId },
                     select: authUserSelect,

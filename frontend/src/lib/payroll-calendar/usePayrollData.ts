@@ -43,15 +43,16 @@ export function usePayrollData(targetUserId?: string, startIso?: string, endIso?
       setTimeEntries(entries);
       setCustomEvents(events);
 
-      // Update clocked in state
+      // Update clocked in state and keep Header's TimeClock cache in sync
       const active = getActiveEntry(entries);
       setClockedIn(!!active);
+      queryClient.setQueryData(ACTIVE_TIME_ENTRY_QUERY_KEY, active ?? null);
     } catch (error) {
       console.error("Failed to load payroll data:", error);
     } finally {
       setLoading(false);
     }
-  }, [endIso, startIso, targetUserId]);
+  }, [endIso, queryClient, startIso, targetUserId]);
 
   useEffect(() => {
     loadData();

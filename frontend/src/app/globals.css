@@ -506,6 +506,26 @@ svg.icon,
   color: var(--accent);
 }
 
+/* QA #31 — Global border-radius sweep: no capsule borders on interactive elements */
+/* Buttons, inputs, selects use 6px; cards/modals use 8px (already via --radius-md) */
+/* Status indicator dots may keep border-radius: 50%; avatars keep rounded-full */
+.rounded-full:not(.status-dot):not([class*="avatar"]):not([class*="w-2"]):not([class*="h-2"]):not([class*="w-3"]):not([class*="h-3"]) {
+  border-radius: var(--radius-sm) !important;
+}
+
+/* QA #36/#37 — Portal select dropdowns must not clip label text */
+.portal-select,
+select {
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+/* QA #47 — Time Entry Audit view: ensure all SVG icons inherit --icon-color */
+[aria-labelledby="payroll-audit-filter-title"] svg,
+.payroll-audit-view svg {
+  color: var(--icon-color);
+}
+
 /* Toggle-group pattern — QA #18 */
 .toggle-group {
   display: inline-flex;
@@ -961,18 +981,24 @@ html.dark {
   --date-indicator-filter: invert(1) brightness(1.8) contrast(1.1);
 }
 
-/* If a calendar button uses a lucide SVG, ensure it inherits readable color */
+/* Reset for explicit light mode (runtime theme switch) */
+html[data-theme="light"],
+html.light {
+  --date-indicator-filter: none;
+}
+
+/* If a calendar button uses a lucide SVG, ensure it inherits readable color — QA #9/#44 */
 .date-picker-btn,
 .date-picker-btn svg,
 .date-picker-icon {
-  color: var(--muted);
+  color: var(--icon-color);
 }
 
 html[data-theme="dark"] .date-picker-btn,
 html.dark .date-picker-btn,
 html[data-theme="dark"] .date-picker-icon,
 html.dark .date-picker-icon {
-  color: var(--muted);
+  color: var(--icon-color);
 }
 
 /* When a control needs stronger contrast, use foreground color */
@@ -1255,12 +1281,27 @@ html[data-theme="dark"] .priority-dot.high {
 
 .fc .fc-button-group {
   display: inline-flex !important;
-  flex-wrap: wrap;
-  gap: 0.375rem;
+  border-radius: var(--radius-sm) !important;
+  overflow: hidden !important;
+  border: 1px solid var(--border) !important;
+  gap: 0 !important;
 }
 
-.fc .fc-button-group > * + * {
-  margin-left: 0 !important;
+.fc .fc-button-group > .fc-button {
+  border: none !important;
+  border-radius: 0 !important;
+  border-left: 1px solid var(--border) !important;
+}
+
+.fc .fc-button-group > .fc-button:first-child {
+  border-left: none !important;
+  border-top-left-radius: var(--radius-sm) !important;
+  border-bottom-left-radius: var(--radius-sm) !important;
+}
+
+.fc .fc-button-group > .fc-button:last-child {
+  border-top-right-radius: var(--radius-sm) !important;
+  border-bottom-right-radius: var(--radius-sm) !important;
 }
 
 .fc .fc-button:hover {

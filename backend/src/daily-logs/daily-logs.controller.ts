@@ -147,7 +147,7 @@ export class DailyLogsController {
         router.patch('/:id', authenticateToken, checkOwnership, async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
-                const { content, department, status, hoursLogged, tasks, shiftNotes, logType } = req.body
+                const { content, date, department, status, hoursLogged, tasks, shiftNotes, logType } = req.body
                 const user = (req as AuthRequest).user
                 let resolvedDepartment: string | undefined
 
@@ -172,6 +172,7 @@ export class DailyLogsController {
 
                 const item = await this.service.update(id, {
                     content,
+                    date,
                     department: resolvedDepartment,
                     status,
                     hoursLogged,

@@ -15,6 +15,7 @@ export interface CreateDailyLogDto {
 
 export interface UpdateDailyLogDto {
     content?: string
+    date?: string
     department?: string
     status?: string
     hoursLogged?: number
@@ -193,10 +194,17 @@ export class DailyLogsService {
     }
 
     async update(id: string, data: UpdateDailyLogDto) {
+        let logDate: Date | undefined
+        if (data.date) {
+            const datePart = data.date.split('T')[0]
+            logDate = new Date(`${datePart}T12:00:00.000Z`)
+        }
+
         return this.prisma.dailyLog.update({
             where: { id },
             data: {
                 ...(data.content && { content: data.content }),
+                ...(logDate && { date: logDate }),
                 ...(data.department && { department: data.department }),
                 ...(data.status && { status: data.status }),
                 ...(data.hoursLogged !== undefined && { hoursLogged: data.hoursLogged }),

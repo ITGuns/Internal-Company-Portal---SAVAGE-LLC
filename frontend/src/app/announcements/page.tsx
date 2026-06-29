@@ -83,6 +83,8 @@ export default function AnnouncementsPage() {
   const [showModal, setShowModal] = useState(false);
   const [showComments, setShowComments] = useState<string | null>(null);
   const [commentText, setCommentText] = useState('');
+  // QA #21: guard against duplicate comment submissions on rapid Enter / button presses
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [announcementToDelete, setAnnouncementToDelete] = useState<string | null>(null);
@@ -146,7 +148,6 @@ export default function AnnouncementsPage() {
 
     try {
       if (editingAnnouncement) {
-        // Update existing announcement
         await updateAnnouncement(editingAnnouncement.id, {
           category: newCategory,
           title: newTitle.trim(),
@@ -157,7 +158,6 @@ export default function AnnouncementsPage() {
         });
         toast.success('Announcement updated successfully');
       } else {
-        // Add new announcement
         await addAnnouncement(
           newCategory,
           newTitle.trim(),
@@ -226,17 +226,25 @@ export default function AnnouncementsPage() {
   };
 
   const handleToggleLike = async (id: string) => {
-    // Optimistic update could be added here
     await toggleLike(id);
     queryClient.invalidateQueries({ queryKey: ['announcements'] });
   };
 
+  // QA #21: submission guard prevents duplicate comments on rapid Enter / click
   const handleAddComment = async (announcementId: string) => {
-    if (!commentText.trim()) return;
-    await addComment(announcementId, commentText.trim(), currentUser?.name || 'User');
-    setCommentText('');
-    queryClient.invalidateQueries({ queryKey: ['announcements'] });
-    toast.success('Comment added');
+    if (!commentText.trim() || commentSubmitting) return;
+    try {
+      setCommentSubmitting(true);
+      await addComment(announcementId, commentText.trim(), currentUser?.name || 'User');
+      setCommentText('');
+      queryClient.invalidateQueries({ queryKey: ['announcements'] });
+      toast.success('Comment added');
+    } catch (err) {
+      console.error('Failed to add comment:', err);
+      toast.error('Failed to add comment');
+    } finally {
+      setCommentSubmitting(false);
+    }
   };
 
   const handleToggleGoing = async (announcement: Announcement) => {
@@ -432,6 +440,7 @@ export default function AnnouncementsPage() {
         </Modal>
 
         <div className="mt-6">
+          {/* QA #11: Filter tab contrast — inactive uses --icon-color, active underline uses --accent */}
           <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)]">
             {[
               { value: 'all' as const, label: 'All Posts', count: announcements.length },
@@ -449,8 +458,8 @@ export default function AnnouncementsPage() {
                 aria-pressed={activeFilter === option.value}
                 className={cn(
                   activeFilter === option.value
-                    ? 'rounded-b-none border-b-2 border-[var(--foreground)] text-[var(--foreground)]'
-                    : 'text-[var(--muted)] hover:text-[var(--foreground)]',
+                    ? 'rounded-b-none border-b-2 border-[var(--accent)] text-[var(--foreground)]'
+                    : 'text-[var(--icon-color)] hover:text-[var(--foreground)]',
                 )}
               >
                 {option.label}
@@ -489,6 +498,7 @@ export default function AnnouncementsPage() {
                     menuOpen={openMenu === announcement.id}
                     canManageActions={canManageAnnouncements}
                     commentText={commentText}
+                    commentSubmitting={commentSubmitting}
                     onToggleMenu={() => setOpenMenu(openMenu === announcement.id ? null : announcement.id)}
                     onEdit={() => handleEditAnnouncement(announcement)}
                     onDelete={() => handleDeleteAnnouncement(announcement.id)}

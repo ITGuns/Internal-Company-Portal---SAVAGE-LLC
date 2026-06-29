@@ -105,8 +105,9 @@ export default function LoginPage() {
       {/* Dot grid overlay */}
       <div className={styles.dotGrid} aria-hidden="true" />
 
-      {/* Hero branding - left side on desktop, top on mobile */}
-      <div className={styles.heroSection} aria-hidden="true">
+      <div className={styles.loginWrapper}>
+        {/* Hero branding - left side on desktop, top on mobile */}
+        <div className={styles.heroSection} aria-hidden="true">
         <div className={styles.logoMark}>
           {workspace.logoUrl ? (
             <img src={workspace.logoUrl} alt={workspace.logoAlt} className={styles.logoImage} />
@@ -253,6 +254,7 @@ export default function LoginPage() {
             </Link>
           </p>
         </div>
+      </div>
       </div>
     </main>
   );

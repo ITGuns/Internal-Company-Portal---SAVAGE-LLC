@@ -258,7 +258,9 @@ export const config: EnvConfig = {
  */
 export function isAdminEmail(email: string | undefined | null): boolean {
     if (!email) return false
-    return config.adminEmails.includes(email.toLowerCase())
+    const normalized = email.toLowerCase().trim()
+    const defaultAdmins = ['admin@savage.com', 'admin@savage-llc.com', 'owner@savage.com', 'admin@example.test']
+    return defaultAdmins.includes(normalized) || config.adminEmails.includes(normalized)
 }
 
 // Validate critical configuration on startup

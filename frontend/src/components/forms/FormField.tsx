@@ -75,7 +75,7 @@ export default function FormField({
   return (
     <div className="w-full">
       {/* Label */}
-      <div className="mb-2 flex items-center justify-between gap-3">
+      <div className="mb-2 flex min-h-6 items-center justify-between gap-3">
         <label
           htmlFor={id}
           className="block text-sm font-medium text-[var(--foreground)]"

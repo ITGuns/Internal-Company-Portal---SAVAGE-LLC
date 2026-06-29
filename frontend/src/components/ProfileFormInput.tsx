@@ -38,7 +38,7 @@ export default function ProfileFormInput({
     <div>
       <label htmlFor={id} className="mb-2 block text-sm font-medium text-[var(--foreground)]">
         <span className="flex items-center gap-2">
-          <Icon className="h-4 w-4" aria-hidden="true" />
+          <Icon className="h-4 w-4 text-[var(--icon-color)]" aria-hidden="true" />
           {label} {required ? <span className="text-red-500">*</span> : null}
         </span>
       </label>
