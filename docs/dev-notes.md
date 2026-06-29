@@ -7,7 +7,7 @@
 - **Stealth Access Control:** Configured the page to perform user email access checks. Unauthorized users are served a stealth "404 Not Found" view, ensuring the backdoor is hidden.
 - **Direct URL Access:** The dashboard is accessed only via direct browser navigation to `/developer/bugs` (no buttons or links exist in the sidebar).
 - **Login Page Spacing & Visuals:** Fixed wide layout stretching on large viewports by constraining `.loginWrapper` to a maximum width of `1160px` and centering it. Added a vertical glassmorphic gradient divider in the center gap to separate branding from the login card.
-- **3D Isometric Dashboard Illustration:** Created a gorgeous, floating 3D dashboard deck built entirely in CSS inside the left panel of the login screen. It features three stacked glassmorphic cards (Project Workspace, Metrics Stream chart, and Live System Health alert) floating on different Z-depths with hover animations and micro-interaction rotation.
+- **3D Isometric Dashboard Illustration:** Created a gorgeous, floating 3D dashboard deck built entirely in CSS inside the left panel of the login screen. Scaled down the elements (using a `scale(0.65)` transform and tighter margins/paddings) to ensure the entire page fits within the viewport height, preventing any page scrollbars on small screens.
 
 ### Files Changed
 - `frontend/src/app/developer/bugs/page.tsx`
