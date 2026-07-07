@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Card from "@/components/Card";
 import Button from "@/components/Button";
+import AccountControlPanel from "@/components/AccountControlPanel";
 import { useUser } from "@/contexts/UserContext";
 import { useRouter } from "next/navigation";
 import { 
@@ -15,7 +16,8 @@ import {
   RefreshCw, 
   ShieldAlert, 
   CheckCircle, 
-  FileText
+  FileText,
+  Users
 } from "lucide-react";
 
 interface SystemCheck {
@@ -473,6 +475,27 @@ export default function DeveloperBugsPage() {
         </div>
 
       </div>
+
+      {/* ── Account Control Panel ── */}
+      <div className="mt-6">
+        <Card variant="elevated">
+          <Card.Header className="pb-3 border-b border-[var(--border)]">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-[var(--accent)]" />
+              <div>
+                <h3 className="font-semibold text-sm">Account Control Panel</h3>
+                <p className="text-[10px] text-[var(--muted)] mt-0.5">
+                  Manage subscription tiers and manually enable features for each client account.
+                </p>
+              </div>
+            </div>
+          </Card.Header>
+          <Card.Content className="pt-4">
+            <AccountControlPanel onLog={addLog} />
+          </Card.Content>
+        </Card>
+      </div>
+
     </main>
   );
 }
