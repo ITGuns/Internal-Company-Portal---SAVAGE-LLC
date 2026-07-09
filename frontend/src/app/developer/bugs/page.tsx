@@ -35,6 +35,109 @@ interface LogEntry {
   message: string;
 }
 
+const DEFAULT_BUGS = [
+  {
+    id: "BUG-001",
+    title: "Payroll Scheduler Jobs Failing",
+    description: "All 4 scheduler jobs (Period Advance, Auto Payslip, Department Cost, Client Invoice) return 'Job run failed' when run manually or automatically.",
+    module: "payroll",
+    severity: "critical",
+    timestamp: "6/26/2026, 10:00:00 AM",
+    status: "open",
+    reportedBy: "admin@savage.com"
+  },
+  {
+    id: "BUG-002",
+    title: "Daily Logs Save Failure",
+    description: "Saving a daily log fails silently with 'Daily log save returned no data' error, and log history fails to fetch on page load.",
+    module: "logs",
+    severity: "critical",
+    timestamp: "6/26/2026, 10:15:00 AM",
+    status: "open",
+    reportedBy: "admin@savage.com"
+  },
+  {
+    id: "BUG-003",
+    title: "Payslips Management Tab Crash",
+    description: "Clicking the Payslips Management tab within the Payroll Calendar throws an 'Internal Server Error' toast and renders nothing.",
+    module: "payroll",
+    severity: "critical",
+    timestamp: "6/26/2026, 10:30:00 AM",
+    status: "open",
+    reportedBy: "admin@savage.com"
+  },
+  {
+    id: "BUG-004",
+    title: "File Directory Upload and Folder Failures",
+    description: "File upload fails silently, folder listing fails on load, and adding a folder returns 'Failed to add folder. Please try again.'",
+    module: "uploads",
+    severity: "critical",
+    timestamp: "6/26/2026, 10:45:00 AM",
+    status: "open",
+    reportedBy: "admin@savage.com"
+  },
+  {
+    id: "BUG-005",
+    title: "SSO Providers (Google/Apple) Not Configured",
+    description: "Clicking Google SSO or Apple SSO buttons returns 'Google/Apple sign-in is not configured yet' (not_configured oauth error).",
+    module: "auth",
+    severity: "high",
+    timestamp: "6/26/2026, 11:00:00 AM",
+    status: "open",
+    reportedBy: "admin@savage.com"
+  },
+  {
+    id: "BUG-006",
+    title: "Company Chat Conversations Failing to Load",
+    description: "Dashboard Company Chat widget fails to load conversations on every page load with console error 'Failed to fetch conversations'.",
+    module: "chat",
+    severity: "critical",
+    timestamp: "6/26/2026, 11:15:00 AM",
+    status: "open",
+    reportedBy: "admin@savage.com"
+  },
+  {
+    id: "BUG-007",
+    title: "Task Assignee Fetch Blocked",
+    description: "Assign To dropdown only shows 'Unassigned' due to 'Failed to fetch users' backend error. Blocks creation of tasks.",
+    module: "ui",
+    severity: "high",
+    timestamp: "6/26/2026, 11:30:00 AM",
+    status: "open",
+    reportedBy: "admin@savage.com"
+  },
+  {
+    id: "BUG-008",
+    title: "Client Detail Panel Inaccessible",
+    description: "Clicking a client shows toast 'Failed to load client details' and the right-hand details/delivery/billing panel stays empty.",
+    module: "ui",
+    severity: "high",
+    timestamp: "6/26/2026, 11:45:00 AM",
+    status: "open",
+    reportedBy: "admin@savage.com"
+  },
+  {
+    id: "BUG-009",
+    title: "Onboarding Link Generation Failure",
+    description: "Entering email + role and clicking Generate Link on Onboarding page shows a loading spinner but produces no output link.",
+    module: "auth",
+    severity: "high",
+    timestamp: "6/26/2026, 12:00:00 PM",
+    status: "open",
+    reportedBy: "admin@savage.com"
+  },
+  {
+    id: "BUG-010",
+    title: "Announcement Comment Enter Key Inconsistency",
+    description: "Pressing Enter in the comment field on announcements does not submit the comment; only the paper plane button works.",
+    module: "ui",
+    severity: "low",
+    timestamp: "6/26/2026, 12:15:00 PM",
+    status: "open",
+    reportedBy: "admin@savage.com"
+  }
+];
+
 export default function DeveloperBugsPage() {
   const { user, isLoading } = useUser();
   const router = useRouter();
@@ -79,6 +182,9 @@ export default function DeveloperBugsPage() {
       const savedBugs = localStorage.getItem("dev_submitted_bugs");
       if (savedBugs) {
         setSubmittedBugs(JSON.parse(savedBugs));
+      } else {
+        setSubmittedBugs(DEFAULT_BUGS);
+        localStorage.setItem("dev_submitted_bugs", JSON.stringify(DEFAULT_BUGS));
       }
     }
   }, []);
