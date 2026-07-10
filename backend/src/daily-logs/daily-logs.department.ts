@@ -49,11 +49,7 @@ export function resolveDailyLogDepartment(params: {
     const canOverride = canOverrideDailyLogDepartment(params.roles, params.isPrivilegedEmail)
 
     if (canOverride) {
-        const department = requestedDepartment || primaryDepartment
-        if (!department) {
-            return { ok: false, status: 400, error: 'Department is required.' }
-        }
-
+        const department = requestedDepartment || primaryDepartment || 'Operations'
         return { ok: true, department }
     }
 

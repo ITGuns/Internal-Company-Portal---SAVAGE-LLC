@@ -66,7 +66,13 @@ export const authPasswordResetUserSelect = {
 function serializeDate(value?: Date | string | null): string | null | undefined {
   if (value === undefined) return undefined
   if (value === null) return null
-  return value instanceof Date ? value.toISOString() : value
+  try {
+    const d = value instanceof Date ? value : new Date(value)
+    if (isNaN(d.getTime())) return null
+    return d.toISOString()
+  } catch {
+    return null
+  }
 }
 
 export function getAuthRoleList(user: AuthUserLike): string[] {

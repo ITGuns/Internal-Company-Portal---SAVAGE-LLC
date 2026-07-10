@@ -123,12 +123,16 @@ export class DailyLogsController {
                     return res.status(departmentResult.status).json({ error: departmentResult.error })
                 }
 
+                const parsedHours = hoursLogged !== undefined && hoursLogged !== null
+                    ? (typeof hoursLogged === 'number' ? hoursLogged : parseFloat(String(hoursLogged)))
+                    : undefined
+
                 const item = await this.service.create({
                     content,
                     date,
                     department: departmentResult.department,
                     status,
-                    hoursLogged,
+                    hoursLogged: parsedHours !== undefined && isNaN(parsedHours) ? 0 : parsedHours,
                     tasks,
                     shiftNotes,
                     logType,
@@ -170,12 +174,16 @@ export class DailyLogsController {
                     resolvedDepartment = departmentResult.department
                 }
 
+                const parsedHours = hoursLogged !== undefined && hoursLogged !== null
+                    ? (typeof hoursLogged === 'number' ? hoursLogged : parseFloat(String(hoursLogged)))
+                    : undefined
+
                 const item = await this.service.update(id, {
                     content,
                     date,
                     department: resolvedDepartment,
                     status,
-                    hoursLogged,
+                    hoursLogged: parsedHours !== undefined && isNaN(parsedHours) ? 0 : parsedHours,
                     tasks,
                     shiftNotes,
                     logType

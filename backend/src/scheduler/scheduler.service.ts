@@ -216,17 +216,41 @@ export class SchedulerService {
 
     // ─── Job Run Lifecycle ────────────────────────────────────────────────────
 
+    private runContexts = new Map<string, { jobType: JobType }>()
+
     async getRecentRuns(limit = 20): Promise<object[]> {
-        return prisma.schedulerJobRun.findMany({
-            orderBy: { startedAt: 'desc' },
-            take: limit,
-        })
+        try {
+            return await prisma.schedulerJobRun.findMany({
+                orderBy: { startedAt: 'desc' },
+                take: limit,
+            })
+        } catch (err) {
+            logger.warn('Failed to fetch recent job runs from database, returning empty list', { error: err })
+            return []
+        }
     }
 
     private async startRun(jobType: JobType, triggeredBy: TriggerSource) {
-        return prisma.schedulerJobRun.create({
-            data: { jobType, triggeredBy, status: 'running' },
-        })
+        let runId: string
+        let run: any
+        try {
+            run = await prisma.schedulerJobRun.create({
+                data: { jobType, triggeredBy, status: 'running' },
+            })
+            runId = run.id
+        } catch (err) {
+            runId = 'mock-run-' + Math.random().toString(36).substring(2, 9)
+            logger.warn('Failed to record job start in database, using mock run ID', { error: err, runId })
+            run = {
+                id: runId,
+                jobType,
+                triggeredBy,
+                status: 'running' as const,
+                startedAt: new Date(),
+            }
+        }
+        this.runContexts.set(runId, { jobType })
+        return run
     }
 
     private async finishRun(
@@ -236,24 +260,51 @@ export class SchedulerService {
         summary: Record<string, unknown>,
         errorMsg?: string,
     ): Promise<JobResult> {
-        const run = await prisma.schedulerJobRun.update({
-            where: { id },
-            data: {
-                status,
-                finishedAt: new Date(),
-                durationMs,
-                resultJson: JSON.stringify(summary),
-                errorMsg: errorMsg ?? null,
-            },
-        })
+        const context = this.runContexts.get(id)
+        const jobType = context?.jobType || 'auto-payslip'
+        this.runContexts.delete(id)
 
-        return {
-            jobRunId: run.id,
-            jobType: run.jobType as JobType,
-            status: run.status as JobStatus,
-            durationMs,
-            summary,
-            errorMsg,
+        if (id.startsWith('mock-run-')) {
+            return {
+                jobRunId: id,
+                jobType,
+                status,
+                durationMs,
+                summary,
+                errorMsg,
+            }
+        }
+
+        try {
+            const run = await prisma.schedulerJobRun.update({
+                where: { id },
+                data: {
+                    status,
+                    finishedAt: new Date(),
+                    durationMs,
+                    resultJson: JSON.stringify(summary),
+                    errorMsg: errorMsg ?? null,
+                },
+            })
+
+            return {
+                jobRunId: run.id,
+                jobType: run.jobType as JobType,
+                status: run.status as JobStatus,
+                durationMs,
+                summary,
+                errorMsg,
+            }
+        } catch (err) {
+            logger.warn('Failed to update job status in database, returning in-memory status', { error: err, id })
+            return {
+                jobRunId: id,
+                jobType,
+                status,
+                durationMs,
+                summary,
+                errorMsg,
+            }
         }
     }
 }

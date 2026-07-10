@@ -16,18 +16,19 @@ export interface AdminOnboardingForm {
 }
 
 export interface AdminOnboardingResult {
-  user: {
+  user?: {
     id: string;
     email: string;
     name?: string | null;
     status?: string;
     isApproved?: boolean;
   };
-  onboarding: {
+  onboarding?: {
     setupUrl: string;
     expiresAt: string;
     role: AdminOnboardingRole;
   };
+  error?: string;
 }
 
 export function normalizeOnboardingEmail(email: string): string {
@@ -45,13 +46,19 @@ export function canSubmitOnboardingInvite(form: AdminOnboardingForm): boolean {
 export async function createUserOnboardingInvitation(
   form: AdminOnboardingForm,
 ): Promise<AdminOnboardingResult> {
-  const response = await apiFetch("/users/onboarding-invitations", {
-    method: "POST",
-    body: JSON.stringify({
-      email: normalizeOnboardingEmail(form.email),
-      roleId: form.roleId,
-    }),
-  });
+  try {
+    const response = await apiFetch("/users/onboarding-invitations", {
+      method: "POST",
+      body: JSON.stringify({
+        email: normalizeOnboardingEmail(form.email),
+        roleId: form.roleId,
+      }),
+    });
 
-  return response.json();
+    return response.json();
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Failed to generate onboarding link",
+    };
+  }
 }

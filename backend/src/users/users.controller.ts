@@ -34,13 +34,20 @@ export class UsersController {
 
         if (!requesterId) return null
 
+        // Admin email bypass: configured admin emails always have directory access
+        // even if they have no role entry in userRole table yet
+        const isAdminByEmail = isAdminEmail(authReq.user?.email)
+        if (isAdminByEmail) {
+            return { requesterId, canReadInternalDirectory: true }
+        }
+
         const requesterRoles = await this.service.getUserRoles(requesterId)
 
         return {
             requesterId,
             canReadInternalDirectory: hasInternalDirectoryAccess(
                 requesterRoles,
-                isAdminEmail(authReq.user?.email),
+                false, // email bypass already handled above
             ),
         }
     }

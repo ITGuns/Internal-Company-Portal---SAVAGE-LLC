@@ -7,6 +7,7 @@ import * as crypto from 'crypto';
 import { isAdminEmail, config } from '../config/env.config';
 import { MissingSignupRoleAssignmentError } from '../auth/signup.requests';
 import { validateStoredAvatarValue } from '../uploads/upload.validation';
+import { hasPayrollManagementAccess } from '../org/org-access-policy';
 import {
     hasEmployeeManagementAccess,
     serializeDeployedEmployee,
@@ -79,7 +80,7 @@ export class EmployeesController {
 
         const { prisma } = await import('../database/prisma.service');
         const roles = await prisma.userRole.findMany({ where: { userId } });
-        return hasEmployeeManagementAccess(roles);
+        return hasEmployeeManagementAccess(roles) || hasPayrollManagementAccess(roles);
     }
 
     private approve = async (req: Request, res: Response) => {

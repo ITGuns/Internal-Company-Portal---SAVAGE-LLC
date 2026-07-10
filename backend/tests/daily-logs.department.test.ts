@@ -71,4 +71,13 @@ assert.deepEqual(
   },
 )
 
+assert.deepEqual(
+  resolveDailyLogDepartment({
+    requestedDepartment: undefined,
+    roles: [],
+    isPrivilegedEmail: true,
+  }),
+  { ok: true, department: 'Operations' },
+)
+
 console.log('daily-logs.department tests passed')

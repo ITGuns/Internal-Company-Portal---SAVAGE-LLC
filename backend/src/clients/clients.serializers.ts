@@ -364,8 +364,13 @@ interface ClientActivityLike {
 
 function serializeDate(value: SerializableDate): string | null {
   if (!value) return null
-  if (value instanceof Date) return value.toISOString()
-  return new Date(value).toISOString()
+  try {
+    const d = value instanceof Date ? value : new Date(value)
+    if (isNaN(d.getTime())) return null
+    return d.toISOString()
+  } catch {
+    return null
+  }
 }
 
 export function serializeClientServiceTierForClient(tier: ClientServiceTierLike) {
@@ -955,67 +960,91 @@ export function serializeClientActivities(activities: ClientActivityLike[], incl
 }
 
 export function serializeClientPortalOverview(organization: any, isPrivileged: boolean) {
-  const serializeNullable = <T>(items: T[], serializer: (item: T) => unknown) =>
-    items.map(serializer).filter(Boolean)
+  const safeMap = <T>(items: T[], serializer: (item: T) => unknown) => {
+    if (!Array.isArray(items)) return []
+    return items.map(item => {
+      try {
+        return serializer(item)
+      } catch {
+        return null
+      }
+    }).filter(Boolean)
+  }
 
   return {
-    organization: isPrivileged
-      ? serializeClientOrganizationForManagement(organization)
-      : serializeClientOrganizationForClient(organization),
-    projects: (organization.projects || []).map((project: ClientProjectLike) =>
+    organization: (() => {
+      try {
+        return isPrivileged
+          ? serializeClientOrganizationForManagement(organization)
+          : serializeClientOrganizationForClient(organization)
+      } catch {
+        return null
+      }
+    })(),
+    projects: safeMap(organization.projects || [], (project: ClientProjectLike) =>
       isPrivileged ? serializeClientProjectForManagement(project) : serializeClientProjectForClient(project),
     ),
-    tickets: (organization.tickets || []).map((ticket: ClientTicketLike) =>
+    tickets: safeMap(organization.tickets || [], (ticket: ClientTicketLike) =>
       isPrivileged ? serializeClientTicketForManagement(ticket) : serializeClientTicketForClient(ticket),
     ),
-    updates: isPrivileged
-      ? (organization.updates || []).map(serializeClientUpdateForManagement)
-      : serializeNullable(organization.updates || [], serializeClientUpdateForClient),
-    metrics: isPrivileged
-      ? (organization.metricSnapshots || []).map(serializeClientMetricSnapshotForManagement)
-      : serializeNullable(organization.metricSnapshots || [], serializeClientMetricSnapshotForClient),
-    resources: isPrivileged
-      ? (organization.resourceLinks || []).map(serializeClientResourceLinkForManagement)
-      : serializeNullable(organization.resourceLinks || [], serializeClientResourceLinkForClient),
-    memberships: isPrivileged
-      ? (organization.memberships || []).map(serializeClientMembershipForManagement)
-      : serializeNullable(organization.memberships || [], serializeClientMembershipForClient),
-    workItems: isPrivileged
-      ? (organization.workItems || []).map(serializeClientWorkItemForManagement)
-      : serializeNullable(organization.workItems || [], serializeClientWorkItemForClient),
-    approvals: isPrivileged
-      ? (organization.approvals || []).map(serializeClientApprovalForManagement)
-      : serializeNullable(organization.approvals || [], serializeClientApprovalForClient),
-    reports: isPrivileged
-      ? (organization.reports || []).map(serializeClientReportForManagement)
-      : serializeNullable(organization.reports || [], serializeClientReportForClient),
-    roadmapRecommendations: isPrivileged
-      ? (organization.roadmapRecommendations || []).map(serializeClientRoadmapRecommendationForManagement)
-      : serializeNullable(organization.roadmapRecommendations || [], serializeClientRoadmapRecommendationForClient),
-    assets: isPrivileged
-      ? (organization.assets || []).map(serializeClientAssetForManagement)
-      : serializeNullable(organization.assets || [], serializeClientAssetForClient),
-    billingStatus: organization.billingStatus
-      ? isPrivileged
-        ? serializeClientBillingStatusForManagement(organization.billingStatus)
-        : serializeClientBillingStatusForClient(organization.billingStatus)
-      : null,
-    storageRoot: organization.storageRoot
-      ? isPrivileged
-        ? serializeClientStorageRootForManagement(organization.storageRoot)
-        : serializeClientStorageRootForClient(organization.storageRoot)
-      : null,
-    bookingRequests: isPrivileged
-      ? (organization.bookingRequests || []).map(serializeClientBookingRequestForManagement)
-      : serializeNullable(organization.bookingRequests || [], serializeClientBookingRequestForClient),
-    paymentConnections: isPrivileged
-      ? (organization.paymentConnections || []).map(serializeClientPaymentConnectionForManagement)
-      : [],
-    invoices: isPrivileged
-      ? (organization.invoices || []).map(serializeClientInvoiceForManagement)
-      : serializeNullable(organization.invoices || [], serializeClientInvoiceForClient),
-    calendarItems: isPrivileged
-      ? (organization.calendarItems || []).map(serializeClientCalendarItemForManagement)
-      : serializeNullable(organization.calendarItems || [], serializeClientCalendarItemForClient),
+    updates: safeMap(organization.updates || [], (update: ClientUpdateLike) =>
+      isPrivileged ? serializeClientUpdateForManagement(update) : serializeClientUpdateForClient(update),
+    ),
+    metrics: safeMap(organization.metricSnapshots || [], (metric: ClientMetricSnapshotLike) =>
+      isPrivileged ? serializeClientMetricSnapshotForManagement(metric) : serializeClientMetricSnapshotForClient(metric),
+    ),
+    resources: safeMap(organization.resourceLinks || [], (resource: ClientResourceLinkLike) =>
+      isPrivileged ? serializeClientResourceLinkForManagement(resource) : serializeClientResourceLinkForClient(resource),
+    ),
+    memberships: safeMap(organization.memberships || [], (membership: ClientMembershipLike) =>
+      isPrivileged ? serializeClientMembershipForManagement(membership) : serializeClientMembershipForClient(membership),
+    ),
+    workItems: safeMap(organization.workItems || [], (workItem: ClientWorkItemLike) =>
+      isPrivileged ? serializeClientWorkItemForManagement(workItem) : serializeClientWorkItemForClient(workItem),
+    ),
+    approvals: safeMap(organization.approvals || [], (approval: ClientApprovalLike) =>
+      isPrivileged ? serializeClientApprovalForManagement(approval) : serializeClientApprovalForClient(approval),
+    ),
+    reports: safeMap(organization.reports || [], (report: ClientReportLike) =>
+      isPrivileged ? serializeClientReportForManagement(report) : serializeClientReportForClient(report),
+    ),
+    roadmapRecommendations: safeMap(organization.roadmapRecommendations || [], (roadmap: ClientRoadmapRecommendationLike) =>
+      isPrivileged ? serializeClientRoadmapRecommendationForManagement(roadmap) : serializeClientRoadmapRecommendationForClient(roadmap),
+    ),
+    assets: safeMap(organization.assets || [], (asset: ClientAssetLike) =>
+      isPrivileged ? serializeClientAssetForManagement(asset) : serializeClientAssetForClient(asset),
+    ),
+    billingStatus: (() => {
+      if (!organization.billingStatus) return null
+      try {
+        return isPrivileged
+          ? serializeClientBillingStatusForManagement(organization.billingStatus)
+          : serializeClientBillingStatusForClient(organization.billingStatus)
+      } catch {
+        return null
+      }
+    })(),
+    storageRoot: (() => {
+      if (!organization.storageRoot) return null
+      try {
+        return isPrivileged
+          ? serializeClientStorageRootForManagement(organization.storageRoot)
+          : serializeClientStorageRootForClient(organization.storageRoot)
+      } catch {
+        return null
+      }
+    })(),
+    bookingRequests: safeMap(organization.bookingRequests || [], (booking: ClientBookingRequestLike) =>
+      isPrivileged ? serializeClientBookingRequestForManagement(booking) : serializeClientBookingRequestForClient(booking),
+    ),
+    paymentConnections: safeMap(organization.paymentConnections || [], (connection: ClientPaymentConnectionLike) =>
+      isPrivileged ? serializeClientPaymentConnectionForManagement(connection) : null,
+    ),
+    invoices: safeMap(organization.invoices || [], (invoice: ClientInvoiceLike) =>
+      isPrivileged ? serializeClientInvoiceForManagement(invoice) : serializeClientInvoiceForClient(invoice),
+    ),
+    calendarItems: safeMap(organization.calendarItems || [], (item: ClientCalendarItemLike) =>
+      isPrivileged ? serializeClientCalendarItemForManagement(item) : serializeClientCalendarItemForClient(item),
+    ),
   }
 }

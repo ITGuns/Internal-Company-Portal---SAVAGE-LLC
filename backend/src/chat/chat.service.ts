@@ -486,7 +486,7 @@ export class ChatService {
     }
 
     private async getUnreadCountsByConversation(
-        conversations: Array<{ id: string; participants: Array<{ userId: string; lastReadAt: Date }> }>,
+        conversations: Array<{ id: string; participants: Array<{ userId: string; lastReadAt: Date | null | undefined }> }>,
         userId: string,
     ): Promise<Map<string, number>> {
         const participantReadState = conversations.flatMap((conversation) => {
@@ -500,25 +500,25 @@ export class ChatService {
     }
 
     private async getUnreadCountsByParticipantReadState(
-        participantReadState: Array<{ conversationId: string; lastReadAt: Date }>,
+        participantReadState: Array<{ conversationId: string; lastReadAt: Date | null | undefined }>,
         userId: string,
     ): Promise<Map<string, number>> {
         if (participantReadState.length === 0) return new Map()
 
         const unreadFilters = participantReadState.map((participant) => ({
             conversationId: participant.conversationId,
-            createdAt: { gt: participant.lastReadAt },
+            createdAt: { gt: participant.lastReadAt || new Date(0) },
             senderId: { not: userId },
         }))
 
         const unreadCounts = await this.prisma.message.groupBy({
             by: ['conversationId'],
             where: { OR: unreadFilters },
-            _count: { _all: true },
+            _count: { id: true },
         })
 
         return new Map(
-            unreadCounts.map((item) => [item.conversationId, item._count._all]),
+            unreadCounts.map((item) => [item.conversationId, item._count.id || 0]),
         )
     }
 }

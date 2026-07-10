@@ -56,7 +56,7 @@ export default function OperationsOnboardingPage() {
 
   useEffect(() => {
     setCopyLabel("Copy link");
-  }, [result?.onboarding.setupUrl]);
+  }, [result?.onboarding?.setupUrl]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -70,7 +70,11 @@ export default function OperationsOnboardingPage() {
         roleId,
       });
       setResult(invitation);
-      toast.success("Onboarding link generated");
+      if (invitation.error) {
+        toast.error(invitation.error);
+      } else {
+        toast.success("Onboarding link generated");
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to generate onboarding link");
     } finally {
@@ -79,7 +83,7 @@ export default function OperationsOnboardingPage() {
   }
 
   async function copySetupLink() {
-    if (!result?.onboarding.setupUrl) return;
+    if (!result?.onboarding?.setupUrl) return;
     if (!navigator.clipboard) {
       toast.warning("Clipboard is unavailable. Select the link and copy it manually.");
       return;
@@ -190,41 +194,52 @@ export default function OperationsOnboardingPage() {
             </div>
 
             {result ? (
-              <div className="mt-5 space-y-4">
-                <div className="rounded-[var(--radius-md)] border border-emerald-500/30 bg-emerald-500/10 p-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
-                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                    Link ready for {result.user.email}
+              result.error ? (
+                <div className="mt-5 rounded-[var(--radius-md)] border border-red-500/30 bg-red-500/10 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-red-700">
+                    Failed to generate link
                   </div>
                   <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                    Assigned {getOnboardingRoleLabel(result.onboarding.role)}.
+                    {result.error}
                   </p>
                 </div>
-
-                <div className="grid gap-2">
-                  <label htmlFor="onboarding-setup-link" className="text-sm font-medium">Setup link</label>
-                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-                    <input
-                      id="onboarding-setup-link"
-                      className={inputClass}
-                      readOnly
-                      value={result.onboarding.setupUrl}
-                      onFocus={(event) => event.currentTarget.select()}
-                    />
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      icon={<Copy className="h-4 w-4" />}
-                      onClick={() => void copySetupLink()}
-                    >
-                      {copyLabel}
-                    </Button>
+              ) : (
+                <div className="mt-5 space-y-4">
+                  <div className="rounded-[var(--radius-md)] border border-emerald-500/30 bg-emerald-500/10 p-4">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+                      <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                      Link ready for {result.user?.email}
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                      Assigned {result.onboarding?.role ? getOnboardingRoleLabel(result.onboarding.role) : ""}.
+                    </p>
                   </div>
-                  <p className="text-xs leading-5 text-[var(--muted)]">
-                    Expires {new Date(result.onboarding.expiresAt).toLocaleString()}.
-                  </p>
+
+                  <div className="grid gap-2">
+                    <label htmlFor="onboarding-setup-link" className="text-sm font-medium">Setup link</label>
+                    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                      <input
+                        id="onboarding-setup-link"
+                        className={inputClass}
+                        readOnly
+                        value={result.onboarding?.setupUrl}
+                        onFocus={(event) => event.currentTarget.select()}
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        icon={<Copy className="h-4 w-4" />}
+                        onClick={() => void copySetupLink()}
+                      >
+                        {copyLabel}
+                      </Button>
+                    </div>
+                    <p className="text-xs leading-5 text-[var(--muted)]">
+                      Expires {result.onboarding?.expiresAt ? new Date(result.onboarding.expiresAt).toLocaleString() : ""}.
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )
             ) : (
               <div className="mt-5 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-4 text-sm leading-6 text-[var(--muted)]">
                 Generated links will appear here. Nothing is sent until you copy and share the link.

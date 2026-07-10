@@ -69,13 +69,15 @@ const mapApiComment = (comment: ApiDailyLogComment): DailyLogComment => ({
 
 // Helper to map API data to Frontend interface
 const mapApiLog = (data: ApiDailyLog): DailyLog => {
+  // Guard against null/undefined date — fall back to createdAt or empty string
+  const rawDate = data.date || data.createdAt || '';
   return {
     id: data.id,
     author: data.author?.name || 'Unknown',
     authorId: data.authorId,
-    department: data.department,
-    date: data.date,
-    timestamp: data.createdAt,
+    department: data.department || 'Operations',
+    date: rawDate,
+    timestamp: data.createdAt || '',
     status: data.status as LogStatus,
     hoursLogged: data.hoursLogged || 0,
     tasks: (data.tasks as LogTask[]) || [],
@@ -90,59 +92,47 @@ const mapApiLog = (data: ApiDailyLog): DailyLog => {
  * Fetch all daily logs from API
  */
 export async function fetchDailyLogs(department?: string, status?: string, logType?: string): Promise<DailyLog[]> {
-  try {
-    const query = new URLSearchParams();
-    if (department) query.append('department', department);
-    if (status) query.append('status', status);
-    if (logType) query.append('logType', logType);
+  const query = new URLSearchParams();
+  if (department) query.append('department', department);
+  if (status) query.append('status', status);
+  if (logType) query.append('logType', logType);
 
-    const res = await apiFetch(`/daily-logs?${query.toString()}`);
-    if (res.status === 200) {
-      const data = await res.json();
-      if (!Array.isArray(data)) {
-        throw new Error(`Expected array but got ${typeof data}: ${JSON.stringify(data).slice(0, 100)}`);
-      }
-      return data.map((item: ApiDailyLog) => {
-        const mapped = mapApiLog(item);
-        if (mapped.date) {
-          const d = new Date(mapped.date);
-          mapped.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        }
-        return mapped;
-      });
-    } else {
-      throw new Error(`Invalid status: ${res.status}`);
-    }
-  } catch (error: unknown) {
-    console.error('Failed to fetch daily logs:', error);
+  const res = await apiFetch(`/daily-logs?${query.toString()}`);
+  const data = await res.json();
+  if (!Array.isArray(data)) {
+    throw new Error(`Daily logs response was not an array: ${JSON.stringify(data).slice(0, 100)}`);
   }
-  return [];
+  return data.map((item: ApiDailyLog) => {
+    const mapped = mapApiLog(item);
+    if (mapped.date) {
+      const d = new Date(mapped.date);
+      if (!isNaN(d.getTime())) {
+        mapped.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+    }
+    return mapped;
+  });
 }
 
 /**
  * Fetch daily logs owned by the current authenticated user.
  */
 export async function fetchMyDailyLogs(): Promise<DailyLog[]> {
-  try {
-    const res = await apiFetch('/daily-logs/my-logs');
-    if (res.status === 200) {
-      const data = await res.json();
-      if (!Array.isArray(data)) {
-        throw new Error(`Expected array but got ${typeof data}: ${JSON.stringify(data).slice(0, 100)}`);
-      }
-      return data.map((item: ApiDailyLog) => {
-        const mapped = mapApiLog(item);
-        if (mapped.date) {
-          const d = new Date(mapped.date);
-          mapped.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        }
-        return mapped;
-      });
-    }
-  } catch (error: unknown) {
-    console.error('Failed to fetch your daily logs:', error);
+  const res = await apiFetch('/daily-logs/my-logs');
+  const data = await res.json();
+  if (!Array.isArray(data)) {
+    throw new Error(`My daily logs response was not an array: ${JSON.stringify(data).slice(0, 100)}`);
   }
-  return [];
+  return data.map((item: ApiDailyLog) => {
+    const mapped = mapApiLog(item);
+    if (mapped.date) {
+      const d = new Date(mapped.date);
+      if (!isNaN(d.getTime())) {
+        mapped.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+    }
+    return mapped;
+  });
 }
 
 /**
@@ -208,7 +198,7 @@ export async function createDailyLog(input: CreateDailyLogInput): Promise<DailyL
     if (res.status === 201) {
       const data = await res.json();
       const mapped = mapApiLog(data);
-      if (mapped.date.includes('T')) mapped.date = mapped.date.split('T')[0];
+      if (mapped.date && mapped.date.includes('T')) mapped.date = mapped.date.split('T')[0];
       return mapped;
     } else {
       const errData = await res.json().catch(() => ({}));
@@ -242,7 +232,7 @@ export async function updateDailyLog(id: string, updates: Partial<Omit<DailyLog,
     if (res.status === 200) {
       const data = await res.json();
       const mapped = mapApiLog(data);
-      if (mapped.date.includes('T')) mapped.date = mapped.date.split('T')[0];
+      if (mapped.date && mapped.date.includes('T')) mapped.date = mapped.date.split('T')[0];
       return mapped;
     } else {
       const errData = await res.json().catch(() => ({}));
