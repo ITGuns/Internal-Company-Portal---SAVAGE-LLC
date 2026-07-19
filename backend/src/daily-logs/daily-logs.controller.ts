@@ -6,6 +6,7 @@ import { isAdminEmail } from '../config/env.config'
 import { prisma } from '../database/prisma.service'
 import {
     canOverrideDailyLogDepartment,
+    getPrimaryDailyLogDepartment,
     resolveDailyLogDepartment,
     type DailyLogDepartmentRole,
 } from './daily-logs.department'
@@ -68,10 +69,36 @@ export class DailyLogsController {
         // Get all logs (with optional filtering and pagination)
         router.get('/', authenticateToken, async (req: Request, res: Response) => {
             try {
-                const department = req.query.department as string | undefined
+                const user = (req as AuthRequest).user
+                if (!user) return res.sendStatus(401)
+
+                const requestedDepartment = req.query.department as string | undefined
                 const status = req.query.status as string | undefined
                 const logType = req.query.logType as string | undefined
                 const pagination = resolvePaginationQuery(req.query)
+
+                // Authorization scope: privileged reviewers (management or configured
+                // admin emails) may read across departments and honor the requested
+                // department filter. Everyone else is confined to their own department,
+                // regardless of any department query param, so this list cannot be used
+                // to read other teams' logs. Users with no department see nothing here
+                // and should use /my-logs.
+                const roles = await this.getUserDepartmentRoles(user.userId)
+                const canReviewAllDepartments = canOverrideDailyLogDepartment(
+                    roles,
+                    isAdminEmail(String(user.email || '')),
+                )
+
+                let department = requestedDepartment
+                if (!canReviewAllDepartments) {
+                    const ownDepartment = getPrimaryDailyLogDepartment(roles)
+                    if (!ownDepartment) {
+                        return res.json(pagination.hasExplicitPagination
+                            ? { data: [], total: 0, page: pagination.page, limit: pagination.limit, totalPages: 0 }
+                            : [])
+                    }
+                    department = ownDepartment
+                }
 
                 const items = await this.service.findAll(department, status, logType, pagination.page, pagination.limit)
                 if (Array.isArray(items)) {

@@ -80,6 +80,9 @@ interface EnvConfig {
     // Commercial production guardrails
     commercialReadinessMode: boolean
 
+    // Development-only auth sandbox bypass (must be explicitly enabled)
+    authSandboxEnabled: boolean
+
     // Upload storage
     uploadStorageDriver: UploadStorageDriver
     uploadS3Bucket?: string
@@ -222,6 +225,9 @@ export const config: EnvConfig = {
     // Commercial production guardrails
     commercialReadinessMode: parseBooleanEnv(getOptionalEnvVar('COMMERCIAL_READINESS_MODE'), false),
 
+    // Development-only auth sandbox bypass. Defaults off; must be explicitly enabled and never in production.
+    authSandboxEnabled: parseBooleanEnv(getOptionalEnvVar('ENABLE_AUTH_SANDBOX'), false),
+
     // Upload storage
     uploadStorageDriver: uploadStorageConfig.driver,
     uploadS3Bucket: uploadStorageConfig.bucket,
@@ -254,13 +260,18 @@ export const config: EnvConfig = {
 }
 
 /**
- * Check if an email is in the admin bypass list (from ADMIN_EMAILS env var).
+ * Check if an email is in the admin bypass list.
+ *
+ * The list is configured solely through the ADMIN_EMAILS env var. There are no
+ * hardcoded default admin addresses: shipping built-in privileged emails is a
+ * backdoor (any account that acquires such an email gets global full access with
+ * no role grant and cannot be de-privileged). Designate admins via ADMIN_EMAILS
+ * and/or proper UserRole assignments.
  */
 export function isAdminEmail(email: string | undefined | null): boolean {
     if (!email) return false
     const normalized = email.toLowerCase().trim()
-    const defaultAdmins = ['admin@savage.com', 'admin@savage-llc.com', 'owner@savage.com', 'admin@example.test']
-    return defaultAdmins.includes(normalized) || config.adminEmails.includes(normalized)
+    return config.adminEmails.includes(normalized)
 }
 
 // Validate critical configuration on startup

@@ -2,6 +2,7 @@ import { prisma } from '../database/prisma.service'
 import { PayrollService } from '../payroll/payroll.service'
 import { ClientProviderWorkflowsService } from '../clients/client-provider-workflows.service'
 import { createLogger } from '../observability/logger'
+import { computeExpectedPeriodWindow } from './scheduler.periods'
 
 const logger = createLogger('scheduler.service')
 
@@ -69,21 +70,8 @@ export class SchedulerService {
         const t0 = Date.now()
 
         try {
-            const now = new Date()
-            const year = now.getFullYear()
-            const month = now.getMonth()
-            const day = now.getDate()
-
-            // Determine the expected period window for today
-            let expectedStart: Date
-            let expectedEnd: Date
-            if (day <= 15) {
-                expectedStart = new Date(year, month, 1)
-                expectedEnd = new Date(year, month, 15, 23, 59, 59)
-            } else {
-                expectedStart = new Date(year, month, 16)
-                expectedEnd = new Date(year, month + 1, 0, 23, 59, 59)
-            }
+            // Determine the expected semi-monthly period window for today.
+            const { start: expectedStart, end: expectedEnd, payDate } = computeExpectedPeriodWindow(new Date())
 
             // Check whether a period already covering this window exists
             const existing = await prisma.payrollPeriod.findFirst({
@@ -99,8 +87,6 @@ export class SchedulerService {
                 return await this.finishRun(run.id, 'skipped', Date.now() - t0, summary)
             }
 
-            const payDate = new Date(expectedEnd)
-            payDate.setDate(payDate.getDate() + 5)
             const period = await prisma.payrollPeriod.create({
                 data: { startDate: expectedStart, endDate: expectedEnd, payDate, status: 'draft' },
             })
