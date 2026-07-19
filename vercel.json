@@ -40,10 +40,9 @@
       "src": "/backend-auth/(.*)",
       "dest": "backend/src/main.ts"
     },
-    {
-      "src": "/auth/(.*)",
-      "dest": "backend/src/main.ts"
-    },
+    { "src": "/auth/callback", "dest": "frontend/auth/callback" },
+    { "src": "/auth/callback/(.*)", "dest": "frontend/auth/callback/$1" },
+    { "src": "/auth/(.*)", "dest": "backend/src/main.ts" },
     {
       "src": "/(.*)",
       "dest": "frontend/$1"
