@@ -38,19 +38,19 @@ export function setupGoogleStrategy(): void {
                     })
 
                     if (!user) {
-                        // OAuth-created users still require manager approval before login.
+                        // OAuth-created users are auto-approved with free tier access.
                         user = await prisma.user.create({
                             data: {
                                 email,
                                 name,
                                 avatar,
-                                status: 'pending',
-                                isApproved: false,
+                                status: 'verified',
+                                isApproved: true,
                                 appliedDate: new Date(),
                             },
                             select: authUserSelect,
                         })
-                        logger.info('New user created via Google OAuth', { provider: 'google', email })
+                        logger.info('New user created via Google OAuth (free tier)', { provider: 'google', email })
                     } else {
                         // Update existing user info
                         user = await prisma.user.update({

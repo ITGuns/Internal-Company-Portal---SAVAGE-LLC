@@ -237,8 +237,8 @@ export async function findOrCreateAppleOAuthUser(
     data: {
       email,
       name: profile.name || fallbackName,
-      status: 'pending',
-      isApproved: false,
+      status: 'verified',
+      isApproved: true,
       appliedDate: new Date(),
     },
     select: authUserSelect,
