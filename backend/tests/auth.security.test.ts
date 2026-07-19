@@ -34,6 +34,7 @@ assert.deepEqual(serialized, {
   status: 'verified',
   role: 'manager',
   roles: ['manager', 'employee'],
+  department: null,
 })
 
 assert.equal(canIssueAuthTokens({ isApproved: true, status: 'verified' }), true)

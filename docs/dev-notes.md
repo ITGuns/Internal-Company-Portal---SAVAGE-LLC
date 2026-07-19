@@ -1,5 +1,41 @@
 # Development Notes
 
+## 2026-07-14 - QA Sweep: Bug Verification & Test Fix
+
+### Completed
+- Ran the full QA sweep requested for the seeded bug list (`/developer/bugs` BUG-001..BUG-010).
+- Frontend: 155/155 tests, lint, and production build all pass.
+- Backend: TypeScript build passes; all non-database unit tests pass after fixing one stale expectation.
+- Fixed `backend/tests/auth.security.test.ts`: `serializeAuthUser` now returns a `department` field (added in the "deski design QA" commit) but the test expectation was never updated, so `npm --prefix backend test` failed on the first assertion.
+- Verified BUG-010 (announcement comment Enter key) is fixed in `AnnouncementCard.tsx` (Enter submits with `preventDefault`).
+- Root-cause finding: nearly the entire bug list (BUG-001, 002, 003, 004, 006, 007, 008, 009) traces to the database being unreachable, not to application code. `https://deskibackend-1.onrender.com/health` returns `{"status":"unhealthy","database":"disconnected"}`; `https://mydeskii.com` returns Vercel `DEPLOYMENT_DISABLED` (402 Payment required); `api.mydeskii.com` returns `DEPLOYMENT_NOT_FOUND`. Locally there is no PostgreSQL/Docker/WSL available, so the app cannot run end-to-end on this machine either.
+
+### Findings (not changed, need decision)
+- `employees.controller.ts` `authorizeBypass` now also accepts `hasPayrollManagementAccess`, which lets payroll roles (bookkeeper, payroll_assistant, financial_controller, etc.) call `/employees/approve/:id` and `/employees/reject/:id` — contradicts the inline "strictly for Admins/Operations Managers" comment. If the intent was payroll read access to the deployed list, approve/reject should keep the stricter check.
+- `backend/tests/temp-unzip.ts` is a leftover scratch script (reads `Deskii_Design_QA.docx`) and is now compiled into `dist/` because `tsconfig.json` includes `tests/**/*`. Should be deleted or excluded from the build.
+- Scheduler/serializer fallbacks added in "new2" mask database outages (mock run IDs, empty recent-runs list, silently dropped portal sections) — features will look "quietly empty" instead of surfacing errors while the DB is down.
+
+### Wiring Audit (2026-07-15 follow-up)
+- Enumerated all 43 app-router pages; production build compiles every page.
+- Every sidebar/header/deep-link/command target resolves to an existing page; `/auth/sandbox` and `/auth/callback` are reached via backend OAuth redirects; `/developer/bugs` is intentionally direct-URL only.
+- Method-aware diff of all 161 frontend `apiFetch` calls against backend route registrations: every call maps to a mounted route (initial mismatches were script artifacts — query-string interpolation and Express `:param` literals like `/scheduler/run/all`).
+- Browser smoke on the production build (`npm --prefix frontend run start`): `/login`, `/signup`, `/forgot-password` render; `/dashboard` redirects unauthenticated users to login; signup shows the graceful "Could not reach the Deskii backend" fallback because the DB is down.
+- Known cosmetic issue: dev-mode hydration warning from the CSP `nonce` on the theme-init script (browser reads `nonce` back as empty). `next dev` (Turbopack) also panics intermittently on this machine ("Next.js package not found"); the production build serves fine.
+
+### Files Changed
+- `backend/tests/auth.security.test.ts`
+- `docs/dev-notes.md`
+
+### How to Test
+- `npm --prefix backend test` (requires a running PostgreSQL for the route tests; unit tests pass without it).
+- `npm --prefix frontend test && npm --prefix frontend run lint && npm --prefix frontend run build`.
+
+### Next Steps
+- Restore the database: re-enable/reprovision the production Postgres on Render (health probe reports `database: disconnected`) and set `DATABASE_URL`.
+- Re-enable the Vercel frontend deployment (currently `DEPLOYMENT_DISABLED` — billing).
+- For local development, install Docker Desktop (then `docker compose up`) or PostgreSQL 15+ matching `backend/.env`.
+- After the DB is back, re-verify BUG-001..BUG-009 in the browser and configure Google/Apple OAuth env vars in production for BUG-005.
+
 ## 2026-06-29 - Session Summary: Secret Developer Command Center, Login Spacing & 3D Visuals
 
 ### Completed
