@@ -81,7 +81,7 @@ model User {
   ownedTaskProjects           TaskProject[]          @relation("TaskProjectOwner")
   createdTaskProjects         TaskProject[]          @relation("TaskProjectCreator")
   refreshSessions             RefreshSession[]
-  ownedUploads                StoredUpload[]          @relation("StoredUploadOwner")
+  ownedUploads                StoredUpload[]         @relation("StoredUploadOwner")
 
   @@index([email])
   @@index([managerId])
@@ -116,9 +116,10 @@ model StoredUpload {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  owner       User?        @relation("StoredUploadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  clientAsset ClientAsset?
-  fileFolder  FileFolder?
+  owner            User?                   @relation("StoredUploadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  clientAsset      ClientAsset?
+  fileFolder       FileFolder?
+  ticketAttachment ClientTicketAttachment?
 
   @@index([ownerId])
   @@index([createdAt])
@@ -304,6 +305,8 @@ model ClientOrganization {
   websiteUrl      String?
   websiteWorkType String?
   notes           String?
+  gemfieldClient  Boolean  @default(false)
+  gemfieldCaseIds String[] @default([])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -329,6 +332,7 @@ model ClientOrganization {
 
   @@index([status])
   @@index([tierId])
+  @@index([gemfieldClient])
 }
 
 model ClientMembership {
@@ -361,20 +365,25 @@ model ClientProject {
   liveUrl        String?
   previewUrl     String?
   internalNotes  String?
+  gfId           String?
+  gemfieldPhase  String?
+  stagingUrl     String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  organization  ClientOrganization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  tickets       ClientTicket[]
-  updates       ClientUpdate[]
-  resourceLinks ClientResourceLink[]
-  workItems     ClientWorkItem[]
-  approvals     ClientApproval[]
-  assets        ClientAsset[]
-  calendarItems ClientCalendarItem[]
+  organization       ClientOrganization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tickets            ClientTicket[]
+  updates            ClientUpdate[]
+  resourceLinks      ClientResourceLink[]
+  workItems          ClientWorkItem[]
+  approvals          ClientApproval[]
+  assets             ClientAsset[]
+  calendarItems      ClientCalendarItem[]
+  gemfieldMilestones GemfieldMilestone[]
 
   @@index([organizationId])
   @@index([status])
+  @@index([gfId])
 }
 
 model ClientTicket {
@@ -393,11 +402,18 @@ model ClientTicket {
   updatedAt      DateTime  @updatedAt
   closedAt       DateTime?
 
-  organization ClientOrganization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  project      ClientProject?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  creator      User?                 @relation("ClientTicketCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  assignee     User?                 @relation("ClientTicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  // Gemfield Bridge: wizard provenance + triage classification (nullable → plain client tickets unaffected)
+  sourceWizardVersion String?
+  ticketKind          String? // standard | callback | dev_assist
+  wizardAnswers       Json?
+  changeClass         String? // in_scope | quoted
+
+  organization ClientOrganization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      ClientProject?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  creator      User?                    @relation("ClientTicketCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  assignee     User?                    @relation("ClientTicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
   comments     ClientTicketComment[]
+  attachments  ClientTicketAttachment[]
 
   @@index([organizationId])
   @@index([projectId])
@@ -405,6 +421,7 @@ model ClientTicket {
   @@index([assignedToId])
   @@index([status])
   @@index([priority])
+  @@index([ticketKind])
 }
 
 model ClientTicketComment {
@@ -422,6 +439,39 @@ model ClientTicketComment {
   @@index([ticketId])
   @@index([authorId])
   @@index([visibility])
+}
+
+// Gemfield Bridge: per-phase timeline entries for a ClientProject's build.
+// Idempotent per (projectId, phase) so the progress webhook can upsert safely.
+model GemfieldMilestone {
+  id        String   @id @default(cuid())
+  projectId String
+  phase     String
+  status    String   @default("pending") // pending | in_progress | complete
+  note      String?
+  at        DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project ClientProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, phase])
+  @@index([projectId])
+  @@index([phase])
+}
+
+// Gemfield Bridge: join linking a ClientTicket to a reused StoredUpload.
+// Access is enforced through canReadStoredUpload's ticket branch, never a raw URL.
+model ClientTicketAttachment {
+  id        String   @id @default(cuid())
+  ticketId  String
+  uploadId  String   @unique
+  createdAt DateTime @default(now())
+
+  ticket ClientTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  upload StoredUpload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
 }
 
 model ClientUpdate {
@@ -1163,7 +1213,7 @@ model FileFolder {
   parent            FileFolder?        @relation("FolderChildren", fields: [parentId], references: [id], onDelete: Cascade)
   children          FileFolder[]       @relation("FolderChildren")
   clientStorageRoot ClientStorageRoot?
-  upload            StoredUpload?       @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+  upload            StoredUpload?      @relation(fields: [uploadId], references: [id], onDelete: SetNull)
 
   @@index([department])
   @@index([parentId])

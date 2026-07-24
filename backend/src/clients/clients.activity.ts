@@ -32,6 +32,7 @@ export const CLIENT_ACTIVITY_TYPES = {
   organizationArchived: 'organization_archived',
   organizationRestored: 'organization_restored',
   membershipUpdated: 'membership_updated',
+  gemfieldPhaseAdvanced: 'gemfield_phase_advanced',
 } as const
 
 export type ClientActivityType = typeof CLIENT_ACTIVITY_TYPES[keyof typeof CLIENT_ACTIVITY_TYPES]

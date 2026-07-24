@@ -1,0 +1,196 @@
+import type { PrismaClient } from '@prisma/client'
+import { prisma } from '../../database/prisma.service'
+import { createClientActivity } from '../clients.activity'
+import type { GemfieldEntitledOrganization } from './gemfield.access'
+import {
+  GEMFIELD_PHASES,
+  GEMFIELD_STAGING_VISIBLE_FROM,
+  gemfieldPhaseLabel,
+  isPhaseAtOrAfter,
+} from './gemfield.phases'
+import {
+  GemfieldValidationError,
+  planGemfieldProgress,
+  validateGfId,
+  type GemfieldProgressInput,
+  type GemfieldProjectContext,
+} from './gemfield.progress'
+
+// Shape returned to the client timeline. The full ordered phase list is always included so the UI
+// can render the whole track; `milestones` marks which phases have been reached.
+export interface SerializedGemfieldProject {
+  id: string
+  name: string
+  gfId: string | null
+  currentPhase: string | null
+  currentPhaseLabel: string | null
+  stagingUrl: string | null
+  liveUrl: string | null
+  progress: number
+  status: string
+  phases: Array<{ phase: string; label: string }>
+  milestones: Array<{ phase: string; label: string; status: string; note: string | null; at: string | null }>
+}
+
+function serializeGemfieldProject(project: {
+  id: string
+  name: string
+  gfId: string | null
+  gemfieldPhase: string | null
+  stagingUrl: string | null
+  liveUrl: string | null
+  previewUrl: string | null
+  progress: number
+  status: string
+  gemfieldMilestones: Array<{ phase: string; status: string; note: string | null; at: Date }>
+}): SerializedGemfieldProject {
+  const currentPhase = project.gemfieldPhase ?? null
+  // The staging link is only exposed once the build reaches client_review - enforced here on the
+  // server, not merely hidden in the UI.
+  const stagingVisible = currentPhase ? isPhaseAtOrAfter(currentPhase, GEMFIELD_STAGING_VISIBLE_FROM) : false
+
+  return {
+    id: project.id,
+    name: project.name,
+    gfId: project.gfId ?? null,
+    currentPhase,
+    currentPhaseLabel: currentPhase ? gemfieldPhaseLabel(currentPhase) : null,
+    stagingUrl: stagingVisible ? project.stagingUrl ?? project.previewUrl ?? null : null,
+    liveUrl: project.liveUrl ?? null,
+    progress: project.progress,
+    status: project.status,
+    phases: GEMFIELD_PHASES.map((phase) => ({ phase, label: gemfieldPhaseLabel(phase) })),
+    milestones: project.gemfieldMilestones.map((milestone) => ({
+      phase: milestone.phase,
+      label: gemfieldPhaseLabel(milestone.phase),
+      status: milestone.status,
+      note: milestone.note ?? null,
+      at: milestone.at instanceof Date ? milestone.at.toISOString() : milestone.at ?? null,
+    })),
+  }
+}
+
+export interface GemfieldIngestResult {
+  organizationId: string
+  projectId: string
+  phase: string
+  currentPhase: string
+}
+
+export class GemfieldService {
+  constructor(private readonly db: PrismaClient = prisma) {}
+
+  /** Minimal org record for the entitlement guard's `loadOrganization`. */
+  async loadEntitledOrganization(organizationId: string): Promise<GemfieldEntitledOrganization | null> {
+    return this.db.clientOrganization.findUnique({
+      where: { id: organizationId },
+      select: { id: true, status: true, gemfieldClient: true },
+    })
+  }
+
+  /** All of an org's projects with their build timelines (org scoping is enforced by the caller's guard). */
+  async getProgressForOrganization(organizationId: string): Promise<SerializedGemfieldProject[]> {
+    const projects = await this.db.clientProject.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        gfId: true,
+        gemfieldPhase: true,
+        stagingUrl: true,
+        liveUrl: true,
+        previewUrl: true,
+        progress: true,
+        status: true,
+        gemfieldMilestones: {
+          orderBy: { at: 'asc' },
+          select: { phase: true, status: true, note: true, at: true },
+        },
+      },
+    })
+    return projects.map(serializeGemfieldProject)
+  }
+
+  /** Webhook path: resolve the project by GF-ID (org must be entitled), then apply. */
+  async ingestProgress(input: GemfieldProgressInput): Promise<GemfieldIngestResult> {
+    const gfId = validateGfId(input.gfId ?? '')
+    const project = await this.db.clientProject.findFirst({
+      where: { gfId, organization: { gemfieldClient: true } },
+      select: {
+        id: true,
+        organizationId: true,
+        gemfieldMilestones: { select: { phase: true } },
+      },
+    })
+    if (!project) throw new GemfieldValidationError('unknown_gfId', 404)
+    return this.applyProgress(
+      {
+        id: project.id,
+        organizationId: project.organizationId,
+        existingPhases: project.gemfieldMilestones.map((milestone) => milestone.phase),
+      },
+      { ...input, gfId },
+    )
+  }
+
+  /** Staff manual editor: project id is known; scoped to the guarded org to block cross-org targeting. */
+  async setProjectPhase(
+    organizationId: string,
+    projectId: string,
+    input: Omit<GemfieldProgressInput, 'gfId'>,
+  ): Promise<GemfieldIngestResult> {
+    const project = await this.db.clientProject.findFirst({
+      where: { id: projectId, organizationId },
+      select: {
+        id: true,
+        organizationId: true,
+        gemfieldMilestones: { select: { phase: true } },
+      },
+    })
+    if (!project) throw new GemfieldValidationError('unknown_project', 404)
+    return this.applyProgress(
+      {
+        id: project.id,
+        organizationId: project.organizationId,
+        existingPhases: project.gemfieldMilestones.map((milestone) => milestone.phase),
+      },
+      input,
+    )
+  }
+
+  private async applyProgress(
+    project: GemfieldProjectContext,
+    input: GemfieldProgressInput,
+  ): Promise<GemfieldIngestResult> {
+    const plan = planGemfieldProgress(project, input)
+
+    await this.db.$transaction(async (tx) => {
+      // Idempotent per (projectId, phase): a replayed webhook upserts the same row in place.
+      await tx.gemfieldMilestone.upsert({
+        where: { projectId_phase: plan.milestoneWhere },
+        create: {
+          projectId: plan.milestoneWhere.projectId,
+          phase: plan.milestoneWhere.phase,
+          status: plan.milestoneStatus,
+          note: plan.milestoneNote,
+          at: plan.milestoneAt,
+        },
+        update: {
+          status: plan.milestoneStatus,
+          note: plan.milestoneNote,
+          at: plan.milestoneAt,
+        },
+      })
+      await tx.clientProject.update({ where: { id: project.id }, data: plan.projectUpdates })
+      await createClientActivity(tx, plan.activity)
+    })
+
+    return {
+      organizationId: project.organizationId,
+      projectId: project.id,
+      phase: input.phase,
+      currentPhase: plan.currentPhase,
+    }
+  }
+}

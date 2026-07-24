@@ -18,6 +18,7 @@ import { EmployeesController } from './employees/employees.controller'
 import { FileDirectoryController } from './file-directory/file-directory.controller'
 import { NotificationsController } from './notifications/notifications.controller'
 import { ClientsController } from './clients/clients.controller'
+import { GemfieldController } from './clients/gemfield/gemfield.controller'
 import { SearchController } from './search/search.controller'
 import { WorkspaceController } from './workspace/workspace.controller'
 import { SchedulerController } from './scheduler/scheduler.controller'
@@ -176,6 +177,9 @@ async function bootstrap() {
 
   const clientsController = new ClientsController()
   app.use('/api/clients', clientsController.router())
+
+  const gemfieldController = new GemfieldController()
+  app.use('/api/gemfield', gemfieldController.router())
 
   const searchController = new SearchController()
   app.use('/api/search', searchController.router())

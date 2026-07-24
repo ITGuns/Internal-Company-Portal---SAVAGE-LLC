@@ -402,6 +402,8 @@ export function serializeClientOrganizationForClient(organization: ClientOrganiz
     createdAt: serializeDate(organization.createdAt),
     updatedAt: serializeDate(organization.updatedAt),
     tier: organization.tier ? serializeClientServiceTierForClient(organization.tier) : null,
+    // Entitlement flag so the client portal can render the Gemfield module (absent when false).
+    gemfieldClient: Boolean(organization.gemfieldClient),
   }
 }
 
@@ -412,6 +414,10 @@ export function serializeClientOrganizationForManagement(organization: ClientOrg
     notes: typeof organization.notes === 'string' ? organization.notes : null,
     tier: organization.tier ? serializeClientServiceTierForManagement(organization.tier) : null,
     counts: organization._count || undefined,
+    // Case IDs are staff-managed - exposed to management only.
+    gemfieldCaseIds: Array.isArray(organization.gemfieldCaseIds)
+      ? organization.gemfieldCaseIds.filter((value): value is string => typeof value === 'string')
+      : [],
   }
 }
 
@@ -449,6 +455,10 @@ export function serializeClientProjectForClient(project: ClientProjectLike) {
     previewUrl: project.previewUrl || null,
     createdAt: serializeDate(project.createdAt),
     updatedAt: serializeDate(project.updatedAt),
+    // Gemfield build tracking (null for non-Gemfield projects).
+    gfId: typeof project.gfId === 'string' ? project.gfId : null,
+    gemfieldPhase: typeof project.gemfieldPhase === 'string' ? project.gemfieldPhase : null,
+    stagingUrl: typeof project.stagingUrl === 'string' ? project.stagingUrl : null,
   }
 }
 

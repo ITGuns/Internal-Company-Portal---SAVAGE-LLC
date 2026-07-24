@@ -21,6 +21,8 @@ import {
 import Button from "@/components/Button";
 import ClientActionQueue from "@/components/client-portal/ClientActionQueue";
 import ClientActivityTimeline from "@/components/client-portal/ClientActivityTimeline";
+import GemfieldProgressCard from "@/components/client-portal/GemfieldProgressCard";
+import GemfieldRequestLauncher from "@/components/client-portal/gemfield/GemfieldRequestLauncher";
 import ChoiceGroup from "@/components/client-portal/ChoiceGroup";
 import TicketDetailPresets from "@/components/client-portal/TicketDetailPresets";
 import EmptyState from "@/components/ui/EmptyState";
@@ -212,6 +214,19 @@ export default function ClientPortalPage() {
               description="These numbers come from your current workspace data, so the page stays useful without fake executive metrics."
               metrics={stripMetrics}
             />
+
+            {(() => {
+              // Gemfield build timeline - rendered only for entitled organizations (absent otherwise).
+              const selectedOrganization = organizations.find((organization) => organization.id === selectedId);
+              return selectedOrganization?.gemfieldClient ? (
+                <div className="space-y-3">
+                  <div className="flex justify-end">
+                    <GemfieldRequestLauncher organizationId={selectedOrganization.id} />
+                  </div>
+                  <GemfieldProgressCard organizationId={selectedOrganization.id} />
+                </div>
+              ) : null;
+            })()}
 
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
               <div className="space-y-5">

@@ -41,6 +41,7 @@ import {
   serializeClientUpdateForManagement,
   serializeClientWorkItemForManagement,
 } from './clients.serializers'
+import { resolveClientAccessContext } from './client-access-context'
 import { ClientsService } from './clients.service'
 import {
   ClientValidationError,
@@ -158,36 +159,7 @@ export class ClientsController {
   private service = new ClientsService()
 
   private async getAccessContext(req: Request): Promise<ClientAccessContext | null> {
-    const authReq = req as AuthRequest
-    const requesterId = authReq.user?.userId
-    if (!requesterId) return null
-
-    const [roles, memberships] = await Promise.all([
-      prisma.userRole.findMany({
-        where: { userId: requesterId },
-        select: { role: true },
-      }),
-      prisma.clientMembership.findMany({
-        where: {
-          userId: requesterId,
-          status: 'active',
-          organization: {
-            status: 'active',
-          },
-        },
-        select: {
-          organizationId: true,
-          role: true,
-          status: true,
-        },
-      }),
-    ])
-
-    return {
-      requesterId,
-      isPrivileged: hasClientManagementAccess(roles, isAdminEmail(authReq.user?.email)),
-      memberships,
-    }
+    return resolveClientAccessContext(req)
   }
 
   router(): Router {
