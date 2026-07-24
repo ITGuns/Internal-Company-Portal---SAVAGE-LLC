@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@prisma/client'
 import { prisma } from '../../database/prisma.service'
 import { createClientActivity } from '../clients.activity'
-import type { GemfieldEntitledOrganization } from './gemfield.access'
+import { isValidGfId, normalizeGfId, type GemfieldEntitledOrganization } from './gemfield.access'
 import {
   GEMFIELD_PHASES,
   GEMFIELD_STAGING_VISIBLE_FROM,
@@ -85,6 +85,41 @@ export class GemfieldService {
     return this.db.clientOrganization.findUnique({
       where: { id: organizationId },
       select: { id: true, status: true, gemfieldClient: true },
+    })
+  }
+
+  /**
+   * Staff-only: set an org's Gemfield entitlement. This is the ONLY write that may target a
+   * not-yet-entitled org, so its route gates on management access rather than the entitlement guard.
+   * GF-IDs are validated + de-duplicated against the GF-YYYY-NNNN format.
+   */
+  async setEntitlement(
+    organizationId: string,
+    input: { gemfieldClient?: boolean; gemfieldCaseIds?: string[] },
+  ): Promise<{ id: string; gemfieldClient: boolean; gemfieldCaseIds: string[] }> {
+    const existing = await this.db.clientOrganization.findUnique({
+      where: { id: organizationId },
+      select: { id: true },
+    })
+    if (!existing) throw new GemfieldValidationError('Client organization not found', 404)
+
+    const data: { gemfieldClient?: boolean; gemfieldCaseIds?: string[] } = {}
+    if (typeof input.gemfieldClient === 'boolean') {
+      data.gemfieldClient = input.gemfieldClient
+    }
+    if (Array.isArray(input.gemfieldCaseIds)) {
+      const normalized = input.gemfieldCaseIds
+        .map((value) => normalizeGfId(String(value)))
+        .filter((value) => value.length > 0)
+      const invalid = normalized.find((id) => !isValidGfId(id))
+      if (invalid) throw new GemfieldValidationError(`Not a valid GF-ID: ${invalid}`)
+      data.gemfieldCaseIds = Array.from(new Set(normalized))
+    }
+
+    return this.db.clientOrganization.update({
+      where: { id: organizationId },
+      data,
+      select: { id: true, gemfieldClient: true, gemfieldCaseIds: true },
     })
   }
 

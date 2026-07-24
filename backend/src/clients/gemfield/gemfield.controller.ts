@@ -17,6 +17,8 @@ import {
   ticketReference,
   type WizardTicketAttachmentInput,
 } from './gemfield-ticket.service'
+import { GemfieldPipelineService } from './gemfield-pipeline.service'
+import type { ClientAccessContext } from '../clients.access'
 
 const SIGNATURE_HEADER = 'x-gemfield-signature'
 const logger = createLogger('clients.gemfield.controller')
@@ -97,6 +99,21 @@ function readWizardTicketBody(body: unknown): {
 export class GemfieldController {
   private service = new GemfieldService()
   private ticketService = new GemfieldTicketService(new UploadsService(createUploadStorage()))
+  private pipeline = new GemfieldPipelineService()
+
+  // Staff gate for the control panel (management + gemfield-dev, via client-ops privilege).
+  private async resolveStaff(req: Request, res: Response): Promise<ClientAccessContext | null> {
+    const access = await resolveClientAccessContext(req)
+    if (!access) {
+      res.status(401).json({ error: 'Authentication required' })
+      return null
+    }
+    if (!access.isPrivileged) {
+      res.status(403).json({ error: 'Staff access required' })
+      return null
+    }
+    return access
+  }
 
   private guard = requireGemfieldClient({
     resolveAccess: resolveClientAccessContext,
@@ -128,6 +145,88 @@ export class GemfieldController {
 
   router(): Router {
     const router = express.Router()
+
+    // Staff-only entitlement management. Gated on MANAGEMENT access, NOT the entitlement guard -
+    // its whole purpose is to flip a not-yet-entitled org on, so it must reach any client org.
+    router.patch(
+      '/admin/organizations/:organizationId/entitlement',
+      authenticateToken,
+      async (req: Request, res: Response) => {
+        try {
+          const access = await resolveClientAccessContext(req)
+          if (!access) return res.status(401).json({ error: 'Authentication required' })
+          if (!access.isPrivileged) {
+            return res.status(403).json({ error: 'Only staff can manage Gemfield entitlement' })
+          }
+          const organizationId = String(req.params.organizationId || '')
+          const body = (req.body ?? {}) as Record<string, unknown>
+          const result = await this.service.setEntitlement(organizationId, {
+            gemfieldClient: typeof body.gemfieldClient === 'boolean' ? body.gemfieldClient : undefined,
+            gemfieldCaseIds: Array.isArray(body.gemfieldCaseIds) ? (body.gemfieldCaseIds as string[]) : undefined,
+          })
+          res.json({ ok: true, ...result })
+        } catch (error) {
+          handleError(res, error, 'Error setting entitlement')
+        }
+      },
+    )
+
+    // --- Developer control panel (staff-only; all reads/writes Gemfield-scoped) ---
+    router.get('/admin/pipeline', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        if (!(await this.resolveStaff(req, res))) return
+        const query = req.query as Record<string, string | undefined>
+        const items = await this.pipeline.listPipeline({
+          status: query.status,
+          assigneeId: query.assigneeId,
+          priority: query.priority,
+          devAssistOnly: query.devAssist === 'true',
+          organizationId: query.organizationId,
+          search: query.search,
+        })
+        res.json({ items })
+      } catch (error) {
+        handleError(res, error, 'Error listing pipeline')
+      }
+    })
+
+    router.patch('/admin/tickets/:ticketId/status', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.resolveStaff(req, res)
+        if (!access) return
+        const status = String((req.body as Record<string, unknown>)?.status || '')
+        const result = await this.pipeline.moveTicket(String(req.params.ticketId || ''), status, access.requesterId)
+        notificationService.broadcastDataChange('client-overview')
+        res.json({ ok: true, ...result })
+      } catch (error) {
+        handleError(res, error, 'Error moving ticket')
+      }
+    })
+
+    router.patch('/admin/tickets/:ticketId/assignee', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.resolveStaff(req, res)
+        if (!access) return
+        const raw = (req.body as Record<string, unknown>)?.assigneeId
+        const assigneeId = typeof raw === 'string' && raw ? raw : null
+        const result = await this.pipeline.assignTicket(String(req.params.ticketId || ''), assigneeId, access.requesterId)
+        res.json({ ok: true, ...result })
+      } catch (error) {
+        handleError(res, error, 'Error assigning ticket')
+      }
+    })
+
+    router.patch('/admin/tickets/:ticketId/classification', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        const access = await this.resolveStaff(req, res)
+        if (!access) return
+        const changeClass = String((req.body as Record<string, unknown>)?.changeClass || '')
+        const result = await this.pipeline.setChangeClass(String(req.params.ticketId || ''), changeClass, access.requesterId)
+        res.json({ ok: true, ...result })
+      } catch (error) {
+        handleError(res, error, 'Error classifying ticket')
+      }
+    })
 
     // Client + staff read: the org's build progress. `requireGemfieldClient` enforces entitlement
     // (404 for non-entitled/cross-org) after authentication.

@@ -2,9 +2,9 @@
 
 **Date:** 2026-07-25
 **Model:** Opus 4.8 (orchestration + build). Flags expected: **zero**.
-**Current phase:** P3 complete → **awaiting #W** (human wizard walkthrough on a running app). Mock-mode seed + local bring-up run-book delivered (Option 1) so #W is ready the moment a local Postgres is up. **P4 is blocked on #W.** Cadence: backend-first verified. #B approved: extend-not-parallel, move-buttons board; D4 EXIF implemented zero-dep (deviation from sharp, documented).
+**Current phase:** P4 (control panel + admin toggle) backend verified, frontend typechecked. #W (wizard walkthrough) still outstanding — to be run on a **Supabase branch** (prod has real clients). P1-P3 committed + pushed (PR to `main`, user merges). P4 committed on the same branch. Remaining before launch: #W, P4 leftovers (digest, nav link, detail depth), P5 hardening, #Z flag.
 
-**Next action (user):** follow `RUNBOOK_local_bringup.md` — start Postgres, `prisma:deploy` + `prisma:seed` + `seed:gemfield`, run both servers, sign in as `client.gemfield@example.test`, click the wizard through. Report results here; then P4.
+**Next action (user):** (1) open the PR to `main` and confirm Render's `DIRECT_URL` = Supabase direct; (2) create a Supabase branch, apply migration + `seed:gemfield` (`ALLOW_GEMFIELD_SEED_NONLOCAL=true`), run #W per `RUNBOOK_local_bringup.md`.
 
 ## Three likeliest breakpoints (guide kickoff §7.1)
 
