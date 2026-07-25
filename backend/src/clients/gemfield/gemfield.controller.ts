@@ -54,10 +54,14 @@ const ticketCreateLimiter = rateLimit({
   limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  // Our keyGenerator keys on org+user (never raw IP), so the IPv6-fallback validation doesn't apply.
+  validate: { keyGeneratorIpFallback: false },
   keyGenerator: (req: Request) => {
+    // The route always runs after authenticateToken + the entitlement guard, so requesterId is
+    // present; we never fall back to req.ip (which would trip express-rate-limit's IPv6 validation).
     const gemfieldReq = req as GemfieldRequest
     const organizationId = gemfieldReq.gemfieldOrganization?.id ?? 'unknown'
-    const requesterId = gemfieldReq.gemfieldAccess?.requesterId ?? req.ip ?? 'anon'
+    const requesterId = gemfieldReq.gemfieldAccess?.requesterId ?? 'anon'
     return `gemfield-ticket:${organizationId}:${requesterId}`
   },
   message: { error: 'Too many requests just now. Please try again in a minute.' },
