@@ -84,6 +84,59 @@ export async function setGemfieldEntitlement(
   return response.json();
 }
 
+export interface GemfieldTicketComment {
+  id: string;
+  body: string;
+  visibility: string;
+  createdAt: string;
+  author: { id: string; name: string | null; email: string } | null;
+}
+
+export interface GemfieldTicketAttachment {
+  id: string;
+  uploadId: string;
+  name: string;
+  contentType: string | null;
+  url: string;
+}
+
+export interface GemfieldTicketDetail {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  priority: string;
+  status: string;
+  ticketKind: string | null;
+  changeClass: string | null;
+  wizardAnswers: Record<string, unknown> | null;
+  sourceWizardVersion: string | null;
+  assignedToId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  closedAt: string | null;
+  organization: { id: string; name: string };
+  project: { gfId: string | null; gemfieldPhase: string | null; name: string } | null;
+  creator: { id: string; name: string | null; email: string } | null;
+  assignee: { id: string; name: string | null; email: string } | null;
+  comments: GemfieldTicketComment[];
+  attachments: GemfieldTicketAttachment[];
+}
+
+export async function fetchGemfieldTicketDetail(ticketId: string): Promise<GemfieldTicketDetail> {
+  const response = await apiFetch(`/gemfield/admin/tickets/${encodeURIComponent(ticketId)}`);
+  return response.json();
+}
+
+// Attachments are auth-protected, so we fetch the bytes with the token and open a blob URL rather
+// than linking directly (a plain <a href> would 401 - the access token lives in memory, not a cookie).
+export async function openGemfieldAttachment(uploadId: string): Promise<void> {
+  const response = await apiFetch(`/uploads/files/${encodeURIComponent(uploadId)}`);
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank', 'noopener');
+}
+
 // Reply reuses the existing client ticket comment endpoint (extend, never parallel). The panel
 // defaults visibility to 'internal' so an internal note is never accidentally sent to the client.
 export async function replyToTicket(

@@ -220,6 +220,16 @@ export class GemfieldController {
       }
     })
 
+    router.get('/admin/tickets/:ticketId', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        if (!(await this.resolveStaff(req, res))) return
+        const detail = await this.pipeline.getTicketDetail(String(req.params.ticketId || ''))
+        res.json(detail)
+      } catch (error) {
+        handleError(res, error, 'Error reading ticket detail')
+      }
+    })
+
     router.patch('/admin/tickets/:ticketId/classification', authenticateToken, async (req: Request, res: Response) => {
       try {
         const access = await this.resolveStaff(req, res)

@@ -1,13 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, Lock, Phone, Wrench } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, Lock, Paperclip, Phone, Wrench } from "lucide-react";
 import {
   classifyGemfieldTicket,
   fetchGemfieldPipeline,
+  fetchGemfieldTicketDetail,
   moveGemfieldTicket,
+  openGemfieldAttachment,
   replyToTicket,
   type GemfieldPipelineItem,
+  type GemfieldTicketDetail,
   type SlaState,
 } from "@/lib/gemfield-admin";
 
@@ -109,6 +112,15 @@ function TicketDetail({ ticket, onClose, onChanged }: { ticket: GemfieldPipeline
   // Default to INTERNAL - leaking an internal note to a client is the worst bug in this feature.
   const [visibility, setVisibility] = useState<"internal" | "client">("internal");
   const [busy, setBusy] = useState(false);
+  const [detail, setDetail] = useState<GemfieldTicketDetail | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchGemfieldTicketDetail(ticket.id)
+      .then((data) => { if (active) setDetail(data); })
+      .catch(() => { if (active) setDetail(null); });
+    return () => { active = false; };
+  }, [ticket.id]);
 
   async function send() {
     if (!reply.trim()) return;
@@ -117,6 +129,7 @@ function TicketDetail({ ticket, onClose, onChanged }: { ticket: GemfieldPipeline
       await replyToTicket(ticket.id, reply.trim(), visibility);
       setReply("");
       onChanged();
+      fetchGemfieldTicketDetail(ticket.id).then(setDetail).catch(() => {});
     } finally {
       setBusy(false);
     }
@@ -127,6 +140,7 @@ function TicketDetail({ ticket, onClose, onChanged }: { ticket: GemfieldPipeline
     try {
       await classifyGemfieldTicket(ticket.id, changeClass);
       onChanged();
+      fetchGemfieldTicketDetail(ticket.id).then(setDetail).catch(() => {});
     } finally {
       setBusy(false);
     }
@@ -148,6 +162,42 @@ function TicketDetail({ ticket, onClose, onChanged }: { ticket: GemfieldPipeline
           <button onClick={onClose} className="rounded-md px-2 py-1 text-sm hover:bg-[var(--card-surface)]">Close</button>
         </div>
 
+        {detail?.description ? (
+          <p className="mt-3 whitespace-pre-wrap text-sm text-[var(--foreground)]">{detail.description}</p>
+        ) : null}
+
+        {detail?.wizardAnswers && Object.keys(detail.wizardAnswers).length ? (
+          <div className="mt-4">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Request details</p>
+            <dl className="space-y-1 text-sm">
+              {Object.entries(detail.wizardAnswers).map(([key, value]) => (
+                <div key={key} className="flex justify-between gap-3">
+                  <dt className="text-[var(--muted)]">{key}</dt>
+                  <dd className="text-right font-medium">{String(value)}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ) : null}
+
+        {detail?.attachments.length ? (
+          <div className="mt-4">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Attachments</p>
+            <ul className="space-y-1">
+              {detail.attachments.map((attachment) => (
+                <li key={attachment.id}>
+                  <button
+                    onClick={() => openGemfieldAttachment(attachment.uploadId)}
+                    className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
+                  >
+                    <Paperclip className="h-3.5 w-3.5" aria-hidden /> {attachment.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         {ticket.category === "website_change" ? (
           <div className="mt-4">
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Change classification</p>
@@ -159,6 +209,27 @@ function TicketDetail({ ticket, onClose, onChanged }: { ticket: GemfieldPipeline
         ) : null}
 
         <div className="mt-5 flex-1">
+          {detail && detail.comments.length ? (
+            <div className="mb-4 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Thread</p>
+              {detail.comments.map((comment) => (
+                <div
+                  key={comment.id}
+                  className={`rounded-md border p-2 text-sm ${
+                    comment.visibility === "internal" ? "border-amber-500/40 bg-amber-500/5" : "border-[var(--border)]"
+                  }`}
+                >
+                  <div className="mb-0.5 flex items-center justify-between text-xs text-[var(--muted)]">
+                    <span>{comment.author?.name ?? comment.author?.email ?? "Someone"}</span>
+                    <span className={comment.visibility === "internal" ? "font-semibold text-amber-600" : ""}>
+                      {comment.visibility === "internal" ? "Internal" : "Client-visible"}
+                    </span>
+                  </div>
+                  <p className="whitespace-pre-wrap">{comment.body}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div className="mb-2 flex items-center gap-2">
             <button
               onClick={() => setVisibility((value) => (value === "internal" ? "client" : "internal"))}

@@ -82,6 +82,85 @@ export class GemfieldPipelineService {
     }))
   }
 
+  /** Full staff-side ticket detail: wizard answers, attachments, and the complete comment thread
+   *  (internal + client). Gemfield-scoped. Staff serialization - the client-vs-management split is
+   *  the caller's guard; this endpoint is staff-only. */
+  async getTicketDetail(ticketId: string) {
+    const ticket = await this.db.clientTicket.findFirst({
+      where: { id: ticketId, organization: { gemfieldClient: true } },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        category: true,
+        priority: true,
+        status: true,
+        ticketKind: true,
+        changeClass: true,
+        wizardAnswers: true,
+        sourceWizardVersion: true,
+        assignedToId: true,
+        createdAt: true,
+        updatedAt: true,
+        closedAt: true,
+        organization: { select: { id: true, name: true } },
+        project: { select: { gfId: true, gemfieldPhase: true, name: true } },
+        creator: { select: { id: true, name: true, email: true } },
+        assignee: { select: { id: true, name: true, email: true } },
+        comments: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            body: true,
+            visibility: true,
+            createdAt: true,
+            author: { select: { id: true, name: true, email: true } },
+          },
+        },
+        attachments: {
+          select: { id: true, uploadId: true, upload: { select: { originalName: true, contentType: true } } },
+        },
+      },
+    })
+    if (!ticket) throw new GemfieldValidationError('Ticket not found', 404)
+
+    return {
+      id: ticket.id,
+      title: ticket.title,
+      description: ticket.description,
+      category: ticket.category,
+      priority: ticket.priority,
+      status: ticket.status,
+      ticketKind: ticket.ticketKind,
+      changeClass: ticket.changeClass,
+      wizardAnswers: (ticket.wizardAnswers ?? null) as Record<string, unknown> | null,
+      sourceWizardVersion: ticket.sourceWizardVersion,
+      assignedToId: ticket.assignedToId,
+      createdAt: ticket.createdAt.toISOString(),
+      updatedAt: ticket.updatedAt.toISOString(),
+      closedAt: ticket.closedAt ? ticket.closedAt.toISOString() : null,
+      organization: ticket.organization,
+      project: ticket.project,
+      creator: ticket.creator,
+      assignee: ticket.assignee,
+      comments: ticket.comments.map((comment) => ({
+        id: comment.id,
+        body: comment.body,
+        visibility: comment.visibility,
+        createdAt: comment.createdAt.toISOString(),
+        author: comment.author,
+      })),
+      attachments: ticket.attachments.map((attachment) => ({
+        id: attachment.id,
+        uploadId: attachment.uploadId,
+        name: attachment.upload?.originalName ?? 'attachment',
+        contentType: attachment.upload?.contentType ?? null,
+        // Served through the org-scoped, auth-checked uploads route.
+        url: `/api/uploads/files/${attachment.uploadId}`,
+      })),
+    }
+  }
+
   private async loadGemfieldTicket(ticketId: string) {
     const ticket = await this.db.clientTicket.findFirst({
       where: { id: ticketId, organization: { gemfieldClient: true } },
