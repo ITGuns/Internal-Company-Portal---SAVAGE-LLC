@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, Lock, Paperclip, Phone, Wrench } from "lucide-react";
 import {
+  assignGemfieldTicket,
   classifyGemfieldTicket,
   fetchGemfieldPipeline,
   fetchGemfieldTicketDetail,
@@ -13,6 +14,7 @@ import {
   type GemfieldTicketDetail,
   type SlaState,
 } from "@/lib/gemfield-admin";
+import { fetchUsers, type User } from "@/lib/users";
 
 const STATUS_ORDER = ["new", "triaged", "in_progress", "waiting_on_client", "resolved", "closed"] as const;
 const STATUS_LABEL: Record<string, string> = {
@@ -114,6 +116,8 @@ function TicketDetail({ ticket, onClose, onChanged }: { ticket: GemfieldPipeline
   const [busy, setBusy] = useState(false);
   const [detail, setDetail] = useState<GemfieldTicketDetail | null>(null);
 
+  const [staff, setStaff] = useState<User[]>([]);
+
   useEffect(() => {
     let active = true;
     fetchGemfieldTicketDetail(ticket.id)
@@ -121,6 +125,23 @@ function TicketDetail({ ticket, onClose, onChanged }: { ticket: GemfieldPipeline
       .catch(() => { if (active) setDetail(null); });
     return () => { active = false; };
   }, [ticket.id]);
+
+  useEffect(() => {
+    fetchUsers()
+      .then((users) => setStaff(users.filter((user) => (user.status ?? "active") === "active")))
+      .catch(() => setStaff([]));
+  }, []);
+
+  async function assign(userId: string | null) {
+    setBusy(true);
+    try {
+      await assignGemfieldTicket(ticket.id, userId);
+      onChanged();
+      fetchGemfieldTicketDetail(ticket.id).then(setDetail).catch(() => {});
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function send() {
     if (!reply.trim()) return;
@@ -197,6 +218,21 @@ function TicketDetail({ ticket, onClose, onChanged }: { ticket: GemfieldPipeline
             </ul>
           </div>
         ) : null}
+
+        <div className="mt-4">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Assigned to</p>
+          <select
+            value={detail?.assignee?.id ?? ""}
+            onChange={(event) => assign(event.target.value || null)}
+            disabled={busy}
+            className="w-full rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2 text-sm disabled:opacity-60"
+          >
+            <option value="">Unassigned</option>
+            {staff.map((member) => (
+              <option key={member.id} value={member.id}>{member.name ?? member.email}</option>
+            ))}
+          </select>
+        </div>
 
         {ticket.category === "website_change" ? (
           <div className="mt-4">
