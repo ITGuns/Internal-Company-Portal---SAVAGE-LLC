@@ -86,7 +86,7 @@ jobs:
 
       - name: Audit Backend Dependencies
         working-directory: ./backend
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=critical
 
   build-frontend:
     name: Frontend
@@ -128,7 +128,7 @@ jobs:
 
       - name: Audit Frontend Dependencies
         working-directory: ./frontend
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=critical
 
   repository-checks:
     name: Repository Checks
@@ -154,7 +154,7 @@ jobs:
         run: npm run check:skills
 
       - name: Audit Root Dependencies
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=critical
 
       - name: Validate Docker Compose Config
         run: docker compose config

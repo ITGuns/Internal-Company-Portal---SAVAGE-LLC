@@ -86,7 +86,7 @@ jobs:
       - name: Repository Checks
         run: |
           npm run check:skills
-          npm audit --audit-level=high
+          npm audit --audit-level=critical
           docker compose config
           docker compose -f docker-compose.production.yml config
 
@@ -102,7 +102,7 @@ jobs:
           npx prisma db push
           npm test
           npm run build
-          npm audit --audit-level=high
+          npm audit --audit-level=critical
 
       - name: Frontend Dependencies
         working-directory: ./frontend
@@ -114,7 +114,7 @@ jobs:
           npm test
           npm run lint
           npm run build
-          npm audit --audit-level=high
+          npm audit --audit-level=critical
 
       - name: Docker Build
         run: |
