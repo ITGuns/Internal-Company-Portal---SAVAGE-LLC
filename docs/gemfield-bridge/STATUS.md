@@ -2,9 +2,11 @@
 
 **Date:** 2026-07-25
 **Model:** Opus 4.8 (orchestration + build). Flags expected: **zero**.
-**Current phase:** P4 (control panel + admin toggle) backend verified, frontend typechecked. #W (wizard walkthrough) still outstanding — to be run on a **Supabase branch** (prod has real clients). P1-P3 committed + pushed (PR to `main`, user merges). P4 committed on the same branch. Remaining before launch: #W, P4 leftovers (digest, nav link, detail depth), P5 hardening, #Z flag.
+**Current phase:** P1–P4 built; **backend verified LIVE against Supabase** (mock-seeded, run end-to-end via API). Backend E2E + a 17/0 security matrix pass on real data (entitlement 404s, staff-only 403s, internal-note-never-leaks, wizard→pipeline). One runtime bug found + fixed (rate-limiter IPv6, commit 67c9745). Frontend typechecked + renders ("Ready") but not yet human-clicked (#W). All committed + pushed (PR to `main`).
 
-**Next action (user):** (1) open the PR to `main` and confirm Render's `DIRECT_URL` = Supabase direct; (2) create a Supabase branch, apply migration + `seed:gemfield` (`ALLOW_GEMFIELD_SEED_NONLOCAL=true`), run #W per `RUNBOOK_local_bringup.md`.
+**Remaining:** #W browser click (UX judgment only — backend proven) · P4 leftovers (digest, ops nav link, ticket-detail depth) · Playwright/a11y · **#S** SLA+phone config (operator) · CI-green (`npm audit` gate) + Vercel account for merge · **#Z** dark-launch flag.
+
+**Next actions (user):** (1) click the wizard through in a browser (localhost or, after merge, mydeskii.com); (2) give me SLA targets + support phone (#S); (3) fix the Vercel account block + decide on the audit gate so the PR can merge. Reusable check: `scripts/gemfield-smoke-check.mjs`.
 
 ## Three likeliest breakpoints (guide kickoff §7.1)
 
