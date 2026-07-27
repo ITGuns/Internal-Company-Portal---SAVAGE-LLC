@@ -171,7 +171,12 @@ function TicketDetail({ ticket, onClose, onChanged }: { ticket: GemfieldPipeline
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
-      <div className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-[var(--card-bg)] p-5 shadow-xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Ticket: ${ticket.title}`}
+        className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-[var(--card-bg)] p-5 shadow-xl"
+      >
         <div className="flex items-start justify-between">
           <div>
             <h3 className="text-base font-semibold">{ticket.title}</h3>
@@ -225,6 +230,7 @@ function TicketDetail({ ticket, onClose, onChanged }: { ticket: GemfieldPipeline
             value={detail?.assignee?.id ?? ""}
             onChange={(event) => assign(event.target.value || null)}
             disabled={busy}
+            aria-label="Assign to"
             className="w-full rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2 text-sm disabled:opacity-60"
           >
             <option value="">Unassigned</option>
@@ -281,6 +287,7 @@ function TicketDetail({ ticket, onClose, onChanged }: { ticket: GemfieldPipeline
           <textarea
             value={reply}
             onChange={(event) => setReply(event.target.value)}
+            aria-label={isClientReply ? "Client-visible reply" : "Internal note"}
             placeholder={isClientReply ? "Write a reply the client will see…" : "Write an internal note (not shown to the client)…"}
             className="min-h-32 w-full rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
           />

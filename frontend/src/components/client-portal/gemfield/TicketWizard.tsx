@@ -100,7 +100,12 @@ export default function TicketWizard({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
-      <div className="flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-t-2xl bg-[var(--card-bg)] shadow-xl sm:rounded-2xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="New request"
+        className="flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-t-2xl bg-[var(--card-bg)] shadow-xl sm:rounded-2xl"
+      >
         <header className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">New request</p>
