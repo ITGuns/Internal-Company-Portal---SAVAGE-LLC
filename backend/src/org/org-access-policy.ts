@@ -45,7 +45,7 @@ export const ORG_DEPARTMENT_ROLE_CATALOG: OrgRoleCatalogEntry[] = [
   },
   {
     department: 'Website Developers',
-    roles: ['Frontend Developer', 'Backend / Technical Developer'],
+    roles: ['Frontend Developer', 'Backend / Technical Developer', 'Gemfield Developer'],
   },
   {
     department: 'Payroll / Finance',
@@ -107,6 +107,14 @@ const CLIENT_OPERATIONS_ROLES = new Set([
   'ui_ux_designer',
   'app_developer',
   'web_development_assistant',
+  'gemfield_developer',
+])
+
+// Gemfield Bridge: staff who run the developer ticket control panel.
+// Management/admins inherit access; 'gemfield_developer' is the dedicated seed role.
+const GEMFIELD_DEV_ROLES = new Set([
+  ...MANAGEMENT_ACCESS_ROLES,
+  'gemfield_developer',
 ])
 
 export const CLIENT_DIRECTORY_ONLY_ROLES = new Set([
@@ -185,4 +193,15 @@ export function hasInternalDirectoryAccess(
     const normalizedRole = normalizeOrgRoleName(assignment.role)
     return Boolean(normalizedRole && !CLIENT_DIRECTORY_ONLY_ROLES.has(normalizedRole))
   })
+}
+
+export function isGemfieldDevRoleName(role?: string | null): boolean {
+  return GEMFIELD_DEV_ROLES.has(normalizeOrgRoleName(role))
+}
+
+export function hasGemfieldDevAccess(
+  roles: OrgRoleLike[] = [],
+  isConfiguredAdminEmail = false,
+): boolean {
+  return hasAccessRole(roles, GEMFIELD_DEV_ROLES, isConfiguredAdminEmail)
 }

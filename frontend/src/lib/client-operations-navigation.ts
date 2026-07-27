@@ -66,6 +66,12 @@ export const CLIENT_OPERATIONS_NAV_ITEMS: ClientOperationsNavItem[] = [
     title: "Client Calendar",
     subtitle: "Campaign, content, and scheduled client-facing work",
   },
+  {
+    href: "/operations/clients/gemfield",
+    label: "Gemfield",
+    title: "Gemfield Control Panel",
+    subtitle: "Developer ticket pipeline for Gemfield-client requests",
+  },
 ];
 
 export function getClientOperationsRouteTitle(pathname: string): Pick<ClientOperationsNavItem, "title" | "subtitle"> {

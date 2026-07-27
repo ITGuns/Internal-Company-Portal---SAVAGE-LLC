@@ -1,4 +1,5 @@
 {
+    "typescript.tsdk": "backend/node_modules/typescript/lib",
     "prisma.pinToPrisma6": true,
     "css.validate": false,
     "scss.validate": false,

@@ -28,6 +28,9 @@ export interface ClientOrganization {
     tickets?: number;
     updates?: number;
   };
+  // Gemfield Bridge entitlement flag. When true the client portal renders the Gemfield module;
+  // when false/absent the module is not rendered at all (absent, not grayed).
+  gemfieldClient?: boolean;
 }
 
 export interface ClientMembership {
@@ -77,6 +80,10 @@ export interface ClientProject {
   previewUrl?: string | null;
   internalNotes?: string | null;
   updatedAt?: string | null;
+  // Gemfield build tracking (null for non-Gemfield projects).
+  gfId?: string | null;
+  gemfieldPhase?: string | null;
+  stagingUrl?: string | null;
 }
 
 export interface ClientTicketComment {

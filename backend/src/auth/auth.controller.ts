@@ -108,7 +108,10 @@ export class AuthController {
                 return res.redirect(buildOAuthFrontendRedirect(provider as any, 'failed'))
             }
 
-            if (config.nodeEnv === 'production') {
+            // Hard gate: this endpoint mints an approved session for any email with no
+            // password/secret. It must never be reachable in production and stays off
+            // unless ENABLE_AUTH_SANDBOX is explicitly set for local development.
+            if (config.nodeEnv === 'production' || !config.authSandboxEnabled) {
                 return res.redirect(buildOAuthFrontendRedirect(provider as any, 'failed'))
             }
 
@@ -478,46 +481,11 @@ export class AuthController {
                 // Import dynamically to avoid circular dependencies
                 const { prisma } = await import('../database/prisma.service');
 
-                // Self-healing check for admin roles
-                const userEmail = authReq.user.email?.toLowerCase().trim();
-                if (userEmail && ['admin@savage.com', 'admin@savage-llc.com', 'owner@savage.com'].includes(userEmail)) {
-                    // Make sure Owners / Founders department exists
-                    let dept = await prisma.department.findFirst({
-                        where: { name: 'Owners / Founders' }
-                    });
-                    if (!dept) {
-                        dept = await prisma.department.create({
-                            data: { name: 'Owners / Founders' }
-                        });
-                    }
-                    // Make sure UserRole exists
-                    const roleExists = await prisma.userRole.findFirst({
-                        where: { userId: authReq.user.userId, role: 'owner_founder' }
-                    });
-                    if (!roleExists) {
-                        await prisma.userRole.create({
-                            data: {
-                                userId: authReq.user.userId,
-                                role: 'owner_founder',
-                                departmentId: dept.id
-                            }
-                        });
-                    }
-                    // Make sure EmployeeProfile exists
-                    const profileExists = await prisma.employeeProfile.findFirst({
-                        where: { userId: authReq.user.userId }
-                    });
-                    if (!profileExists) {
-                        await prisma.employeeProfile.create({
-                            data: {
-                                userId: authReq.user.userId,
-                                jobTitle: 'Owner / Founder',
-                                requestedRole: 'Owner / Founder',
-                                requestedDepartmentId: dept.id
-                            }
-                        });
-                    }
-                }
+                // NOTE: The previous "self-healing" block here auto-provisioned an
+                // owner_founder role, department, and profile for hardcoded admin
+                // emails on every /me call. That let anyone authenticating as one of
+                // those addresses silently escalate to owner. Grant admin access via
+                // explicit UserRole assignments (or ADMIN_EMAILS) instead.
 
                 const user = await prisma.user.findUnique({
                     where: { id: authReq.user.userId },

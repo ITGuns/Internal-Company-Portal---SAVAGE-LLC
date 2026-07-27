@@ -49,6 +49,13 @@ export class UploadsService {
                     fileFolder: {
                         select: { department: true },
                     },
+                    ticketAttachment: {
+                        select: {
+                            ticket: {
+                                select: { organizationId: true },
+                            },
+                        },
+                    },
                 },
             }),
             this.db.userRole.findMany({
@@ -77,7 +84,14 @@ export class UploadsService {
             departments: roles
                 .map((role) => role.department?.name)
                 .filter((department): department is string => Boolean(department)),
-        }, upload)
+        }, {
+            ownerId: upload.ownerId,
+            clientAsset: upload.clientAsset,
+            fileFolder: upload.fileFolder,
+            ticketAttachment: upload.ticketAttachment
+                ? { organizationId: upload.ticketAttachment.ticket.organizationId }
+                : null,
+        })
 
         if (!allowed) return null
 
