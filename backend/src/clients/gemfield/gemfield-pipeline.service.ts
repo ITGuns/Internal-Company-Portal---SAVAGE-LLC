@@ -1,7 +1,10 @@
 import { Prisma, type PrismaClient } from '@prisma/client'
 import { prisma } from '../../database/prisma.service'
+import { notificationService } from '../../notifications/socket.service'
 import { CLIENT_ACTIVITY_TYPES, createClientActivity } from '../clients.activity'
 import { GemfieldValidationError } from './gemfield.progress'
+import { buildGemfieldDigest, type GemfieldDigest } from './gemfield-digest'
+import { isGemfieldDigestEnabled } from './gemfield.config'
 import {
   buildSlaSummary,
   CLOSED_STATUSES,
@@ -80,6 +83,31 @@ export class GemfieldPipelineService {
         tierName: ticket.organization.tier?.name ?? null,
       }),
     }))
+  }
+
+  /** Daily digest: summarize the open pipeline and notify staff. Config-toggleable via GEMFIELD_DIGEST_ENABLED. */
+  async runGemfieldDigest(): Promise<{ enabled: boolean; notified: number; digest: GemfieldDigest }> {
+    const items = await this.listPipeline()
+    const digest = buildGemfieldDigest(items)
+    if (!isGemfieldDigestEnabled()) {
+      return { enabled: false, notified: 0, digest }
+    }
+    // Target staff who run the pipeline (dev channel). notifyUser is targeted - never a broadcast,
+    // so this never reaches clients.
+    const staff = await this.db.userRole.findMany({
+      where: { role: { in: ['gemfield_developer', 'admin', 'operations_manager'] } },
+      select: { userId: true },
+      distinct: ['userId'],
+    })
+    for (const member of staff) {
+      notificationService.notifyUser(member.userId, {
+        type: digest.breachedCount ? 'warning' : 'info',
+        title: digest.title,
+        message: digest.message,
+        link: '/operations/clients/gemfield',
+      })
+    }
+    return { enabled: true, notified: staff.length, digest }
   }
 
   /** Full staff-side ticket detail: wizard answers, attachments, and the complete comment thread

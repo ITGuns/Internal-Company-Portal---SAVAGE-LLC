@@ -79,6 +79,16 @@ export async function submitGemfieldTicket(
   return response.json();
 }
 
+export interface GemfieldSupportConfig {
+  supportPhone: string | null;
+  callbackHours: string | null;
+}
+
+export async function fetchGemfieldSupport(organizationId: string): Promise<GemfieldSupportConfig> {
+  const response = await apiFetch(`/gemfield/organizations/${encodeURIComponent(organizationId)}/support`);
+  return response.json();
+}
+
 /** Read a File into a base64 data URI (for wizard attachments). */
 export function fileToDataUri(file: File): Promise<string> {
   return new Promise((resolve, reject) => {

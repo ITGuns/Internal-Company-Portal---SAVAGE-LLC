@@ -1,12 +1,13 @@
 import { prisma } from '../database/prisma.service'
 import { PayrollService } from '../payroll/payroll.service'
 import { ClientProviderWorkflowsService } from '../clients/client-provider-workflows.service'
+import { GemfieldPipelineService } from '../clients/gemfield/gemfield-pipeline.service'
 import { createLogger } from '../observability/logger'
 import { computeExpectedPeriodWindow } from './scheduler.periods'
 
 const logger = createLogger('scheduler.service')
 
-export type JobType = 'auto-payslip' | 'dept-report' | 'period-advance' | 'client-invoices'
+export type JobType = 'auto-payslip' | 'dept-report' | 'period-advance' | 'client-invoices' | 'gemfield-digest'
 export type JobStatus = 'running' | 'success' | 'failed' | 'skipped'
 export type TriggerSource = 'cron' | 'manual'
 
@@ -22,6 +23,7 @@ export interface JobResult {
 export class SchedulerService {
     private payrollService = new PayrollService()
     private clientProviderWorkflows = new ClientProviderWorkflowsService(prisma)
+    private gemfieldPipeline = new GemfieldPipelineService()
 
     // ─── Run all scheduled jobs ──────────────────────────────────────────────
 
@@ -32,8 +34,30 @@ export class SchedulerService {
         results.push(await this.runAutoPayslip(triggeredBy))
         results.push(await this.runDeptReport(triggeredBy))
         results.push(await this.runClientInvoices(triggeredBy))
+        results.push(await this.runGemfieldDigest(triggeredBy))
 
         return results
+    }
+
+    async runGemfieldDigest(triggeredBy: TriggerSource = 'cron'): Promise<JobResult> {
+        const run = await this.startRun('gemfield-digest', triggeredBy)
+        const t0 = Date.now()
+
+        try {
+            const result = await this.gemfieldPipeline.runGemfieldDigest()
+            const summary = {
+                enabled: result.enabled,
+                notified: result.notified,
+                open: result.digest.openCount,
+                devAssist: result.digest.devAssistCount,
+                breached: result.digest.breachedCount,
+            }
+            return await this.finishRun(run.id, result.enabled ? 'success' : 'skipped', Date.now() - t0, summary)
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err)
+            logger.error('gemfield-digest job failed', { error: msg })
+            return await this.finishRun(run.id, 'failed', Date.now() - t0, {}, msg)
+        }
     }
 
     async runClientInvoices(triggeredBy: TriggerSource = 'cron'): Promise<JobResult> {

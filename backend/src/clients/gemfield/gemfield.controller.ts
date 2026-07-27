@@ -18,6 +18,7 @@ import {
   type WizardTicketAttachmentInput,
 } from './gemfield-ticket.service'
 import { GemfieldPipelineService } from './gemfield-pipeline.service'
+import { getGemfieldSupportConfig } from './gemfield.config'
 import type { ClientAccessContext } from '../clients.access'
 
 const SIGNATURE_HEADER = 'x-gemfield-signature'
@@ -241,6 +242,27 @@ export class GemfieldController {
         handleError(res, error, 'Error classifying ticket')
       }
     })
+
+    // Staff: run the daily digest on demand (also runs via the scheduler's cron).
+    router.post('/admin/digest', authenticateToken, async (req: Request, res: Response) => {
+      try {
+        if (!(await this.resolveStaff(req, res))) return
+        const result = await this.pipeline.runGemfieldDigest()
+        res.json(result)
+      } catch (error) {
+        handleError(res, error, 'Error running digest')
+      }
+    })
+
+    // Client + staff read: support config (phone + callback hours) for the wizard. Entitlement-guarded.
+    router.get(
+      '/organizations/:organizationId/support',
+      authenticateToken,
+      this.guard,
+      (_req: Request, res: Response) => {
+        res.json(getGemfieldSupportConfig())
+      },
+    )
 
     // Client + staff read: the org's build progress. `requireGemfieldClient` enforces entitlement
     // (404 for non-entitled/cross-org) after authentication.

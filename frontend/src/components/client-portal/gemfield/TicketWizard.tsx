@@ -20,6 +20,7 @@ interface TicketWizardProps {
   onClose: () => void;
   onSubmitted?: (reference: string) => void;
   supportPhone?: string | null;
+  callbackHours?: string | null;
   projectPages?: WizardOption[]; // optional real pages from the client's project
 }
 
@@ -33,6 +34,7 @@ export default function TicketWizard({
   onClose,
   onSubmitted,
   supportPhone,
+  callbackHours,
   projectPages,
 }: TicketWizardProps) {
   const [step, setStep] = useState(1);
@@ -252,6 +254,7 @@ export default function TicketWizard({
             {showCallback ? (
               <div className="space-y-2 rounded-[var(--radius-md)] border border-[var(--border)] p-3">
                 <p className="text-sm font-medium">Request a callback</p>
+                {callbackHours ? <p className="text-xs text-[var(--muted)]">We call back {callbackHours}.</p> : null}
                 <input
                   value={callbackNumber}
                   onChange={(event) => setCallbackNumber(event.target.value)}

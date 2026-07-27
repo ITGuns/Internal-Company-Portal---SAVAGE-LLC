@@ -1,19 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MessageSquarePlus } from "lucide-react";
 import TicketWizard from "./TicketWizard";
+import { fetchGemfieldSupport } from "@/lib/gemfield";
 
 // Entry point for the guided request wizard. Render only for entitled orgs (the parent gates on
-// organization.gemfieldClient). supportPhone/callback hours come from config (#S) when provisioned.
-export default function GemfieldRequestLauncher({
-  organizationId,
-  supportPhone,
-}: {
-  organizationId: string;
-  supportPhone?: string | null;
-}) {
+// organization.gemfieldClient). Support phone + callback hours come from config (#S) when provisioned.
+export default function GemfieldRequestLauncher({ organizationId }: { organizationId: string }) {
   const [open, setOpen] = useState(false);
+  const [supportPhone, setSupportPhone] = useState<string | null>(null);
+  const [callbackHours, setCallbackHours] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchGemfieldSupport(organizationId)
+      .then((config) => {
+        setSupportPhone(config.supportPhone);
+        setCallbackHours(config.callbackHours);
+      })
+      .catch(() => {});
+  }, [organizationId]);
 
   return (
     <>
@@ -27,6 +33,7 @@ export default function GemfieldRequestLauncher({
         <TicketWizard
           organizationId={organizationId}
           supportPhone={supportPhone}
+          callbackHours={callbackHours}
           onClose={() => setOpen(false)}
         />
       ) : null}
