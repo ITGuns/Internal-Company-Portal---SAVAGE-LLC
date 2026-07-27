@@ -42,6 +42,7 @@ test('defines focused client operations pages in admin workflow order', () => {
     '/operations/clients/billing',
     '/operations/clients/roadmap',
     '/operations/clients/calendar',
+    '/operations/clients/gemfield',
   ]);
 });
 

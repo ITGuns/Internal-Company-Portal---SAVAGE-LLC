@@ -64,6 +64,7 @@ assert.deepEqual(
   [
     'Frontend Developer',
     'Backend / Technical Developer',
+    'Gemfield Developer',
   ],
 )
 assert.deepEqual(
@@ -112,7 +113,7 @@ const mergedWebsiteRoles = mergeSignupRolesForDepartment({
 
 assert.deepEqual(
   mergedWebsiteRoles.map((role) => role.name),
-  ['Frontend Developer', 'Backend / Technical Developer'],
+  ['Frontend Developer', 'Backend / Technical Developer', 'Gemfield Developer'],
 )
 assert.equal(
   mergedWebsiteRoles[1].id,
