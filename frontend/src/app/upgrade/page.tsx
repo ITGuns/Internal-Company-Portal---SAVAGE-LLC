@@ -36,7 +36,7 @@ export default function UpgradePage() {
           </p>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+        <div className="mx-auto mt-8 grid max-w-6xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {PRICING_PLANS.map((plan) => (
             <Card
               key={plan.slug}
