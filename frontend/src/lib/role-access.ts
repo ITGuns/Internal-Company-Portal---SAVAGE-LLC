@@ -119,3 +119,16 @@ export function isClientPortalRouteAllowed(
   if (!hasClientPortalAccess(user)) return true;
   return isClientPortalPath(pathname);
 }
+
+// Roles a bare, auto-approved account carries by default (nothing assigned yet).
+const FREE_TIER_BASE_ROLES = new Set(["member", "user", "guest"]);
+
+// A "free tier" account is an auto-approved sign-up (e.g. first Google login)
+// with no role beyond the default member — not an employee, client, or manager.
+// Used to show the upsell CTA and hide internal-only features (File Directory,
+// Messages & Chat) that a bare account shouldn't have.
+export function isFreeTierUser(user?: RoleAccessUser | null): boolean {
+  if (!user) return false;
+  const roles = getUserRoleNames(user);
+  return roles.length === 0 || roles.every((role) => FREE_TIER_BASE_ROLES.has(role));
+}

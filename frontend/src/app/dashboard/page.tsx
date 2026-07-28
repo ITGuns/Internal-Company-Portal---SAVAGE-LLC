@@ -17,6 +17,7 @@ import {
   FileText,
   Megaphone,
   Send,
+  Sparkles,
   Star,
   TrendingUp,
   Trophy,
@@ -39,6 +40,7 @@ import {
   hasDashboardManagementAccess,
   type DashboardAttentionItem,
 } from '@/lib/dashboard-summary'
+import { isFreeTierUser } from '@/lib/role-access'
 
 const dashboardNumberFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 0,
@@ -159,6 +161,7 @@ export default function DashboardPage() {
   const today = useMemo(() => getTodayDateInput(), []);
   const todayRange = useMemo(() => getTodayDateRangeInput(), []);
   const isManagementDashboard = hasDashboardManagementAccess(user);
+  const isFreeTier = isFreeTierUser(user);
   const authReady = Boolean(user);
   const { data: allTasks = [], isLoading: tasksLoading } = useTasks(undefined, undefined, { enabled: authReady });
   const { data: announcementsPage, isLoading: announcementsLoading } = useAnnouncementsPaginated(1, 6, { enabled: authReady });
@@ -371,6 +374,31 @@ export default function DashboardPage() {
               </div>
             </Card>
 
+            {isFreeTier && (
+              <Card padding="lg" className="relative overflow-hidden">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-2 text-[var(--accent)]">
+                      <Sparkles className="h-5 w-5" aria-hidden="true" />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--accent)]">Free plan</div>
+                      <h3 className="mt-1 text-lg font-semibold text-[var(--foreground)]">Upgrade your account</h3>
+                      <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--muted)]">
+                        Unlock a professionally built website and managed growth — pick a plan that fits where your business is headed.
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/upgrade"
+                    className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--accent-foreground)] transition-[filter] duration-150 hover:brightness-95 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
+                  >
+                    View plans <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </div>
+              </Card>
+            )}
+
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 2xl:grid-cols-3">
               <DashboardMetric
                 label="Today's Time"
@@ -448,8 +476,8 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6">
-          <div className="space-y-4">
+        <div className={`mt-5 grid grid-cols-1 gap-5 lg:gap-6 ${isFreeTier ? '' : 'lg:grid-cols-3'}`}>
+          <div className={`space-y-4 ${isFreeTier ? 'hidden' : ''}`}>
             <Card variant="elevated" className="overflow-hidden flex flex-col h-[400px]">
               <Card.Header>
                 <div className="flex items-center justify-between w-full">
@@ -516,7 +544,7 @@ export default function DashboardPage() {
             </Card>
           </div>
 
-          <div className="lg:col-span-2 space-y-4">
+          <div className={`space-y-4 ${isFreeTier ? '' : 'lg:col-span-2'}`}>
             <Card variant="elevated" className="overflow-hidden">
               <Card.Header>
                 <h3 className="font-semibold text-sm">Company Announcements</h3>

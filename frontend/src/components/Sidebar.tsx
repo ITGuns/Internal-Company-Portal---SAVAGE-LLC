@@ -40,6 +40,7 @@ import {
   hasFullAccess,
   hasManagementAccess,
   hasPayrollManagementAccess,
+  isFreeTierUser,
 } from '@/lib/role-access';
 import { cn } from '@/lib/utils';
 
@@ -160,6 +161,7 @@ export default function Sidebar() {
   const canUseOperationsAdmin = useMemo(() => hasManagementAccess(user), [user]);
   const canUsePayrollManagement = useMemo(() => hasPayrollManagementAccess(user), [user]);
   const hasRoleBasedClientPortalAccess = useMemo(() => hasClientPortalAccess(user), [user]);
+  const isFreeTier = useMemo(() => isFreeTierUser(user), [user]);
   const usesClientShell = useMemo(
     () => hasClientWorkspaceShellAccess(user, hasClientWorkspace),
     [hasClientWorkspace, user],
@@ -240,8 +242,13 @@ export default function Sidebar() {
     ? []
     : [
         { href: '/announcements', icon: Megaphone, label: 'Announcements' },
-        { href: '/chat', icon: MessageSquare, label: 'Messages & Chat', badge: unreadChatCount },
-        { href: '/file-directory', icon: Folder, label: 'File Directory' },
+        // Free-tier accounts don't get internal messaging or the file directory.
+        ...(isFreeTier
+          ? []
+          : [
+              { href: '/chat', icon: MessageSquare, label: 'Messages & Chat', badge: unreadChatCount },
+              { href: '/file-directory', icon: Folder, label: 'File Directory' },
+            ]),
       ];
 
   const adminItems: NavItemConfig[] = usesClientShell || isResolvingClientWorkspace

@@ -113,3 +113,20 @@ test('separates payroll management from general management', () => {
   assert.equal(hasPayrollManagementAccess({ role: 'Frontend Developer' }), false);
   assert.equal(hasManagementAccess({ role: 'Bookkeeping' }), false);
 });
+
+test('detects free-tier accounts (bare sign-ups) but not assigned employees or clients', () => {
+  const { isFreeTierUser } = loadRoleAccessHelper();
+
+  assert.equal(typeof isFreeTierUser, 'function');
+  // Bare auto-approved sign-ups: no role beyond the default.
+  assert.equal(isFreeTierUser({ role: 'member', roles: [] }), true);
+  assert.equal(isFreeTierUser({ role: 'member' }), true);
+  assert.equal(isFreeTierUser({ role: null, roles: [] }), true);
+  assert.equal(isFreeTierUser({ role: 'user' }), true);
+  // Assigned employees, managers, and clients are NOT free tier.
+  assert.equal(isFreeTierUser({ role: 'member', roles: ['Frontend Developer'] }), false);
+  assert.equal(isFreeTierUser({ role: 'Operations Manager' }), false);
+  assert.equal(isFreeTierUser({ role: 'admin' }), false);
+  assert.equal(isFreeTierUser({ role: 'client' }), false);
+  assert.equal(isFreeTierUser(null), false);
+});
