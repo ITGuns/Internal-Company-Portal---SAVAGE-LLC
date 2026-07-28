@@ -351,7 +351,7 @@ export default function DashboardPage() {
     <main className="main-content-height bg-transparent text-[var(--foreground)]">
       <Header />
       <div className="motion-content-enter mx-auto max-w-[1480px] p-4 pt-3 md:p-6">
-        <div className="mt-5 grid grid-cols-1 items-start gap-4 xl:mt-8 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className={`mt-5 grid grid-cols-1 items-start gap-4 xl:mt-8 ${isFreeTier ? '' : 'xl:grid-cols-[minmax(0,1fr)_380px]'}`}>
           <div className="space-y-4">
             <Card padding="lg" className="relative overflow-hidden">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -399,7 +399,7 @@ export default function DashboardPage() {
               </Card>
             )}
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 2xl:grid-cols-3">
+            <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 ${isFreeTier ? 'lg:grid-cols-3' : '2xl:grid-cols-3'}`}>
               <DashboardMetric
                 label="Today's Time"
                 value={formatHours(dashboardSummary.metrics.todayMinutes)}
