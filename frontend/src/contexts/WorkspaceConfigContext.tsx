@@ -27,10 +27,8 @@ export function WorkspaceConfigProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    if (config.name && config.name !== "Deskii") {
-      document.title = `${config.name} | Internal Portal`;
-    }
-
+    // document.title is owned solely by the DocumentTitle component (route-aware,
+    // brand-aware). Only the favicon/logo is managed here.
     if (config.logoUrl) {
       const links = document.querySelectorAll("link[rel*='icon']");
       links.forEach((l) => l.remove());

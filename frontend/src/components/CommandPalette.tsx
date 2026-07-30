@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
-import { hasClientOperationsAccess, hasClientPortalAccess, hasFullAccess, hasPayrollManagementAccess } from "@/lib/role-access";
+import { hasClientOperationsAccess, hasClientPortalAccess, hasFullAccess, hasPayrollManagementAccess, isFreeTierUser } from "@/lib/role-access";
 import { searchGlobal, type GlobalSearchResult, type GlobalSearchResultType } from "@/lib/global-search";
 import {
   BarChart3,
@@ -59,6 +59,11 @@ const INTERNAL_COMMANDS: CommandItem[] = [
   { id: "payslips", label: "My Payslips", description: "Payslip history and downloads", icon: Wallet, href: "/my-payslips", keywords: ["pay", "salary", "history", "download"] },
   { id: "announcements", label: "Announcements", description: "Company news and updates", icon: Megaphone, href: "/announcements", keywords: ["news", "updates", "events"] },
   { id: "daily-logs", label: "Daily Logs", description: "Daily work activity reports", icon: Users, href: "/daily-logs", keywords: ["reports", "activity", "work"] },
+];
+
+// Chat + File Directory are restricted to internal staff accounts server-side.
+// Don't advertise them to bare free-tier members (matches the sidebar gating).
+const INTERNAL_COLLAB_COMMANDS: CommandItem[] = [
   { id: "chat", label: "Messages & Chat", description: "Team communication", icon: MessageSquare, href: "/chat", keywords: ["messages", "dm", "channel"] },
   { id: "files", label: "File Directory", description: "Shared documents and files", icon: Folder, href: "/file-directory", keywords: ["documents", "drive", "upload"] },
 ];
@@ -144,17 +149,19 @@ export default function CommandPalette() {
   const canAccessClientOperations = hasClientOperationsAccess(user);
   const canUseFullAccessAdmin = hasFullAccess(user);
   const canUsePayrollManagement = hasPayrollManagementAccess(user);
+  const isFreeTier = isFreeTierUser(user);
   const commands = useMemo(() => {
     if (isClientPortalUser) return CLIENT_COMMANDS;
 
     return [
       ...INTERNAL_COMMANDS,
+      ...(isFreeTier ? [] : INTERNAL_COLLAB_COMMANDS),
       ...(canUsePayrollManagement ? PAYROLL_MANAGEMENT_COMMANDS : []),
       ...(canAccessClientOperations ? CLIENT_OPERATIONS_COMMANDS : []),
       ...(canUseFullAccessAdmin ? ADMIN_COMMANDS : []),
       PROFILE_COMMAND,
     ];
-  }, [canAccessClientOperations, canUseFullAccessAdmin, canUsePayrollManagement, isClientPortalUser]);
+  }, [canAccessClientOperations, canUseFullAccessAdmin, canUsePayrollManagement, isClientPortalUser, isFreeTier]);
 
   const filteredCommands = query.trim()
     ? commands.filter((cmd) => {

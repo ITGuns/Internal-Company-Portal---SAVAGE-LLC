@@ -500,6 +500,10 @@ export function calculateWeeklyStats(allTasks: Task[]) {
 export async function fetchUsers(): Promise<TaskUser[]> {
   try {
     const res = await apiFetch('/users');
+    // The user directory is restricted to internal accounts. A 401/403 is an
+    // expected authorization outcome for member/free-tier roles, not an error —
+    // degrade quietly to an empty list without logging console noise.
+    if (res.status === 401 || res.status === 403) return [];
     if (!res.ok) throw new Error('Failed to fetch users');
     return await res.json();
   } catch (err) {

@@ -6,10 +6,12 @@ import Header from '@/components/Header'
 import Button from '@/components/Button'
 import { MessageSquare, Paperclip, Trash2, Pencil, Check, X, Search, SmilePlus } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { archiveConversation, fetchConversations, fetchMessages, sendMessage, createConversation, deleteMessage, editMessage, searchMessages, fetchOnlineUsers, markAsRead, toggleMessageReaction, unarchiveConversation, type ChatArchiveView, type Message, type Conversation, type SearchResult, type MessageReaction, type MessageReactionToggleResult } from '@/lib/chat'
 import { fetchUsers, type User as SystemUser } from '@/lib/users'
 import { useSocket } from '@/context/SocketContext'
 import { useUser } from '@/contexts/UserContext'
+import { isFreeTierUser } from '@/lib/role-access'
 import { ChatWorkspaceSkeleton } from '@/components/ui/FeatureSkeletons'
 import ChatSidebar from '@/components/chat/ChatSidebar'
 import MessageInput from '@/components/chat/MessageInput'
@@ -576,6 +578,30 @@ export default function UnifiedChatPage() {
     const channels = conversations.filter(c => c.type !== 'direct')
     const directMessages = conversations.filter(c => c.type === 'direct')
 
+    // Team messaging is restricted to internal staff accounts. Bare member/
+    // free-tier accounts can't reach the directory to start conversations, so
+    // render a clear access-denied state instead of a broken, disconnected chat.
+    if (isFreeTierUser(currentUser)) {
+        return (
+            <main className="flex h-[calc(100vh-112px)] flex-col overflow-hidden">
+                <Header title="Chat & Messages" subtitle="Team communication" />
+                <div className="mx-auto mt-12 max-w-md rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card-surface)] p-8 text-center">
+                    <MessageSquare className="mx-auto mb-4 h-12 w-12 text-[var(--muted)] opacity-60" aria-hidden="true" />
+                    <h2 className="text-lg font-semibold text-[var(--foreground)]">Access restricted</h2>
+                    <p className="mx-auto mt-2 max-w-sm text-sm text-[var(--muted)]">
+                        Team messaging is available to internal staff accounts. Your account doesn&apos;t have access to it.
+                    </p>
+                    <Link
+                        href="/dashboard"
+                        className="mt-6 inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] px-4 text-sm font-medium text-[var(--foreground)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                    >
+                        Back to dashboard
+                    </Link>
+                </div>
+            </main>
+        )
+    }
+
     if (loading) {
         return (
             <main className="flex h-[calc(100vh-112px)] flex-col overflow-hidden">
@@ -600,7 +626,7 @@ export default function UnifiedChatPage() {
         <main className="flex flex-col h-[calc(100vh-112px)] overflow-hidden">
             <Header
                 title="Chat & Messages"
-                subtitle={isDirect ? `Direct Message with ${otherUser?.name}` : `# ${selectedConv?.name || "Select a channel"}`}
+                subtitle={isDirect ? `Direct Message with ${otherUser?.name}` : selectedConv?.name ? `# ${selectedConv.name}` : "Select a channel"}
             />
 
             {/* Search Panel Toggle + Panel */}

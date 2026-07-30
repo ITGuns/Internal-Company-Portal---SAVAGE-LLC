@@ -233,10 +233,10 @@ export default function DashboardPage() {
       }
     }
 
-    if (user) {
+    if (user && !isFreeTier) {
       initChat();
     }
-  }, [user, socket]);
+  }, [user, socket, isFreeTier]);
 
   // Socket Listener
   useEffect(() => {
@@ -484,7 +484,7 @@ export default function DashboardPage() {
                   <h3 className="font-semibold text-sm">Company Chat</h3>
                   <div className="flex items-center gap-2">
                     <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-[var(--status-completed)]' : 'bg-[var(--status-blocked)]'}`} aria-hidden="true"></span>
-                    <span className="text-[10px] text-[var(--muted)]">{onlineCount > 0 ? `${onlineCount} online` : 'Active'}</span>
+                    <span className="text-[10px] text-[var(--muted)]">{!isConnected ? 'Disconnected' : onlineCount > 0 ? `${onlineCount} online` : 'Active'}</span>
                   </div>
                 </div>
               </Card.Header>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -95,7 +95,7 @@ function NavItem({
       aria-current={isActive ? 'page' : undefined}
       onClick={(event) => onNavigate(event, href)}
       className={cn(
-        'nav-animated relative flex min-h-10 w-full items-center gap-3 rounded-[var(--radius-md)] border px-3 py-2 text-sm',
+        'nav-animated relative flex min-h-11 w-full items-center gap-3 rounded-[var(--radius-md)] border px-3 py-2 text-sm',
         'transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-out)]',
         'focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--sidebar)]',
         collapsed && 'md:justify-center md:gap-0 md:px-2',
@@ -131,12 +131,15 @@ function NavSection({
 }) {
   return (
     <section className="space-y-2">
-      <h2 className={cn(
+      {/* Group label is presentational, not a heading (P3-3): keeping it out of
+          the document heading outline avoids an h2-before-h1 order. The sibling
+          <nav aria-label={title}> below preserves the grouping for screen readers. */}
+      <div role="presentation" className={cn(
         'px-3 text-[11px] font-semibold uppercase text-[var(--muted)]',
         collapsed && 'md:sr-only',
       )}>
         {title}
-      </h2>
+      </div>
       <nav className="space-y-1" aria-label={title}>
         {items.map((item) => (
           <NavItem key={item.href} {...item} collapsed={collapsed} onNavigate={onNavigate} />
@@ -182,6 +185,35 @@ export default function Sidebar() {
   }, [closeMobileSidebar, pathname, router]);
 
   useEscapeToClose({ isOpen: mobileOpen, onClose: closeMobileSidebar });
+
+  const asideRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  // Mobile drawer a11y (P1-4): when the off-canvas drawer is CLOSED on mobile,
+  // mark it inert + aria-hidden so its offscreen links are not tabbable and it's
+  // hidden from assistive tech. On desktop the same element is the always-visible
+  // sidebar, so it must never be inert there — hence the max-width media query.
+  useEffect(() => {
+    const el = asideRef.current;
+    if (!el) return;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const sync = () => {
+      const hide = mq.matches && !mobileOpen;
+      el.toggleAttribute('inert', hide);
+      if (hide) el.setAttribute('aria-hidden', 'true');
+      else el.removeAttribute('aria-hidden');
+    };
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, [mobileOpen]);
+
+  // Move focus into the drawer (to its close control) when it opens.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const id = requestAnimationFrame(() => closeButtonRef.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [mobileOpen]);
 
   useEffect(() => {
     closeMobileSidebar();
@@ -265,7 +297,7 @@ export default function Sidebar() {
       {usesClientShell && !mobileOpen ? (
         <button
           type="button"
-          className="nav-animated fixed left-4 top-4 z-40 inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] text-[var(--muted)] shadow-[var(--shadow-sm)] hover:border-[var(--muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] md:hidden"
+          className="nav-animated fixed left-4 top-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] text-[var(--muted)] shadow-[var(--shadow-sm)] hover:border-[var(--muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] md:hidden"
           onClick={toggleNavigation}
           aria-label="Open client navigation"
           aria-expanded={mobileOpen}
@@ -280,11 +312,13 @@ export default function Sidebar() {
           type="button"
           className="portal-form-backdrop fixed inset-0 z-40 md:hidden"
           onClick={closeMobileSidebar}
-          aria-label="Close navigation"
+          aria-hidden="true"
+          tabIndex={-1}
         />
       ) : null}
 
       <aside
+        ref={asideRef}
         id="primary-sidebar"
         className={cn(
           'fixed inset-y-0 left-0 z-50 w-72 border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] text-[var(--sidebar-foreground)] shadow-[var(--shadow-md)]',
@@ -310,8 +344,9 @@ export default function Sidebar() {
               </div>
             </div>
             <button
+              ref={closeButtonRef}
               type="button"
-              className="nav-animated inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)] md:hidden"
+              className="nav-animated inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-transparent text-[var(--muted)] hover:border-[var(--border)] hover:text-[var(--foreground)] md:hidden"
               onClick={closeMobileSidebar}
               aria-label="Close navigation"
             >

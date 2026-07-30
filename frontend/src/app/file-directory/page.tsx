@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import Header from '@/components/Header';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
@@ -31,21 +32,27 @@ import {
   DEPARTMENTS,
 } from '@/lib/file-directory';
 import type { FileDirectory } from '@/lib/file-directory-types';
-import { hasFullAccess } from '@/lib/role-access';
+import { hasFullAccess, isFreeTierUser } from '@/lib/role-access';
 
 const DEFAULT_FILE_UPLOAD_DEPARTMENT = 'Operations';
 
 // ── API helpers ──────────────────────────────────────────────────────────────
 
+function fetchError(message: string, status: number): Error & { status: number } {
+  const error = new Error(message) as Error & { status: number };
+  error.status = status;
+  return error;
+}
+
 async function apiFolders(): Promise<FileDirectory[]> {
   const res = await apiFetch('/file-directory');
-  if (!res.ok) throw new Error('Failed to fetch folders');
+  if (!res.ok) throw fetchError('Failed to fetch folders', res.status);
   return res.json();
 }
 
 async function apiChildren(parentId: string): Promise<FileDirectory[]> {
   const res = await apiFetch(`/file-directory/${parentId}/children`);
-  if (!res.ok) throw new Error('Failed to fetch children');
+  if (!res.ok) throw fetchError('Failed to fetch children', res.status);
   return res.json();
 }
 
@@ -74,6 +81,8 @@ export default function FileDirectoryPage() {
   const { user } = useUser();
   const userHasFullAccess = hasFullAccess(user);
   const userDepartment = user?.department;
+  const isFreeTier = isFreeTierUser(user);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   // Navigation state
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -189,6 +198,14 @@ export default function FileDirectoryPage() {
 
   // Load folders from backend
   const loadFolders = useCallback(async () => {
+    // The directory is restricted to internal staff server-side. Don't even
+    // request it for accounts without access — show a clear access-denied state
+    // instead of a misleading empty directory with upload/add controls.
+    if (isFreeTier) {
+      setAccessDenied(true);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = currentFolderId
@@ -205,13 +222,20 @@ export default function FileDirectoryPage() {
       const filtered = filterFolders(data, debouncedSearchQuery, departmentFilter);
       const sorted = sortFolders(filtered, sortBy);
       setFolders(sorted);
+      setAccessDenied(false);
     } catch (err) {
-      console.error(err);
-      toast.error('Failed to load folders');
+      const status = (err as { status?: number })?.status;
+      if (status === 401 || status === 403) {
+        // Server correctly blocked access — render access-denied, not an empty directory.
+        setAccessDenied(true);
+      } else {
+        console.error(err);
+        toast.error('Failed to load folders');
+      }
     } finally {
       setLoading(false);
     }
-  }, [currentFolderId, debouncedSearchQuery, departmentFilter, sortBy, toast]);
+  }, [currentFolderId, debouncedSearchQuery, departmentFilter, sortBy, toast, isFreeTier]);
 
   useEffect(() => {
     loadFolders();
@@ -259,6 +283,32 @@ export default function FileDirectoryPage() {
     toast.success(`"${newFolder.name}" added to directory`);
   };
 
+  if (accessDenied) {
+    return (
+      <main className="min-h-screen bg-[var(--background)]">
+        <div className="p-6">
+          <Header
+            title="Company File Directory"
+            subtitle="Organized structure of all company folders and resources"
+          />
+          <div className="mx-auto mt-12 max-w-md rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card-surface)] p-8 text-center">
+            <Folder className="mx-auto mb-4 h-12 w-12 text-[var(--muted)] opacity-60" aria-hidden="true" />
+            <h2 className="text-lg font-semibold text-[var(--foreground)]">Access restricted</h2>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-[var(--muted)]">
+              The company file directory is available to internal staff accounts. Your account doesn&apos;t have access to it.
+            </p>
+            <Link
+              href="/dashboard"
+              className="mt-6 inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] px-4 text-sm font-medium text-[var(--foreground)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            >
+              Back to dashboard
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-[var(--background)]">
       <div className="p-6">
@@ -301,6 +351,7 @@ export default function FileDirectoryPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
               <input
                 type="text"
+                aria-label="Search folders"
                 placeholder="Search folders..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}

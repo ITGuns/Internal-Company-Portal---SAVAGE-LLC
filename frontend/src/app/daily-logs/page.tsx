@@ -628,6 +628,7 @@ export default function DailyLogsPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
                 <input
                   type="text"
+                  aria-label="Search daily logs"
                   placeholder="Search logs by keyword, task, or person..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -1078,6 +1079,7 @@ export default function DailyLogsPage() {
               <div className="flex gap-2 mb-3">
                 <input
                   type="text"
+                  aria-label="Add a task"
                   value={formTaskInput}
                   onChange={(e) => setFormTaskInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTask())}

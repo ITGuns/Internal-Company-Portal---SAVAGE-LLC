@@ -155,6 +155,7 @@ export default function MessageInput({
                     <input
                         value={newMessage}
                         onChange={(e) => onMessageChange(e.target.value)}
+                        aria-label="Message"
                         placeholder={placeholder}
                         className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-5 py-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus:border-transparent transition-all"
                         onKeyDown={(e) => {

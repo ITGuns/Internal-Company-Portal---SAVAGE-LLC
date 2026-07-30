@@ -151,6 +151,29 @@ export default function TaskCalendarView({
             dateClick={(arg) => {
               onCreateTaskForDate?.(arg.dateStr);
             }}
+            dayCellDidMount={(arg) => {
+              // Make each date cell keyboard-operable (WCAG 2.1.1): focusable,
+              // labelled, and activatable with Enter/Space to create a task.
+              const el = arg.el as HTMLElement;
+              const d = arg.date;
+              const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+              const label = new Intl.DateTimeFormat(undefined, {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              }).format(d);
+              el.setAttribute("tabindex", "0");
+              el.setAttribute("aria-label", `Create a task due ${label}`);
+              el.style.cursor = "pointer";
+              el.addEventListener("keydown", (event) => {
+                const keyboardEvent = event as KeyboardEvent;
+                if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                  keyboardEvent.preventDefault();
+                  onCreateTaskForDate?.(dateStr);
+                }
+              });
+            }}
             dayMaxEvents={3}
             height={600}
           />

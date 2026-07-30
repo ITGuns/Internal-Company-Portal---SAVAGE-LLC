@@ -59,7 +59,7 @@ export default function ChatSidebar({
                         role="tab"
                         aria-selected={!showArchived}
                         onClick={() => onShowArchivedChange(false)}
-                        className={`min-h-10 rounded-md px-3 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${!showArchived ? 'bg-[var(--accent)] text-[var(--accent-foreground)]' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
+                        className={`min-h-11 rounded-md px-3 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${!showArchived ? 'bg-[var(--accent)] text-[var(--accent-foreground)]' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
                     >
                         Active
                     </button>
@@ -68,7 +68,7 @@ export default function ChatSidebar({
                         role="tab"
                         aria-selected={showArchived}
                         onClick={() => onShowArchivedChange(true)}
-                        className={`min-h-10 rounded-md px-3 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${showArchived ? 'bg-[var(--accent)] text-[var(--accent-foreground)]' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
+                        className={`min-h-11 rounded-md px-3 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${showArchived ? 'bg-[var(--accent)] text-[var(--accent-foreground)]' : 'text-[var(--muted)] hover:text-[var(--foreground)]'}`}
                     >
                         Archived
                     </button>
@@ -79,13 +79,18 @@ export default function ChatSidebar({
                 <div className="flex items-center justify-between mb-2">
                     <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] flex items-center gap-2">
                         <Hash className="w-3.5 h-3.5" aria-hidden="true" /> Channels
-                        <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} title={isConnected ? 'Connected' : 'Disconnected'} />
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} aria-hidden="true" />
+                            <span className={`text-[10px] font-semibold ${isConnected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                {isConnected ? 'Connected' : 'Disconnected'}
+                            </span>
+                        </span>
                     </h2>
                     <button
                         type="button"
                         onClick={onCreateChannel}
                         disabled={showArchived}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--muted)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-md text-[var(--muted)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                         title="Create Channel"
                         aria-label="Create Channel"
                     >
@@ -101,7 +106,7 @@ export default function ChatSidebar({
                                 <button
                                     type="button"
                                     onClick={() => onSelectConversation(c.id)}
-                                    className={`flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 pr-11 text-left text-sm transition-all ${isActive
+                                    className={`flex min-h-11 w-full items-center gap-2 rounded-md px-3 py-2 pr-11 text-left text-sm transition-all ${isActive
                                         ? 'bg-[var(--accent)] text-[var(--accent-foreground)] shadow-sm'
                                         : 'text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'
                                         }`}
@@ -144,7 +149,7 @@ export default function ChatSidebar({
                         type="button"
                         onClick={onNewChat}
                         disabled={showArchived}
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[var(--muted)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-md text-[var(--muted)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                         title="New Message"
                         aria-label="New Message"
                     >

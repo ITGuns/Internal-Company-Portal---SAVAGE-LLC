@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import AuthGuard from './AuthGuard';
 import CommandPalette from './CommandPalette';
+import DocumentTitle from './DocumentTitle';
 import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext';
 import { useUser } from '@/contexts/UserContext';
 import { cn } from '@/lib/utils';
@@ -31,6 +32,7 @@ function AuthenticatedShell({ children }: LayoutWrapperProps) {
 
   return (
     <>
+      <DocumentTitle />
       {showWorkspaceShell && <Sidebar />}
       {showWorkspaceShell && <CommandPalette />}
       <div
