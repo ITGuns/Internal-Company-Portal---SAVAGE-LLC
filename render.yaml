@@ -39,6 +39,9 @@ services:
         value: info
       - key: FRONTEND_URL
         sync: false
+      # Base URL used to build deep links in ticket receipt emails.
+      - key: APP_PUBLIC_URL
+        sync: false
       - key: CORS_ORIGIN
         sync: false
       - key: DATABASE_URL
@@ -49,6 +52,12 @@ services:
         generateValue: true
       - key: REFRESH_TOKEN_SECRET
         generateValue: true
+      # Shared secret for POST /api/gemfield/progress (HMAC-SHA256). The Gemfield
+      # progress sender must use the SAME value, so this is sync:false (operator sets
+      # it) rather than generateValue. Unset => the route returns 503 and the staff
+      # editor carries progress. See docs/gemfield-bridge/BLOCKERS.md (B3).
+      - key: GEMFIELD_WEBHOOK_SECRET
+        sync: false
       - key: JWT_EXPIRES_IN
         value: 15m
       - key: REFRESH_TOKEN_EXPIRES_IN
