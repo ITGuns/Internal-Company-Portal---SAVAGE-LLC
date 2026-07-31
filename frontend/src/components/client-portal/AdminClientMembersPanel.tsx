@@ -143,7 +143,10 @@ export default function AdminClientMembersPanel({
               event.preventDefault();
               submitInvite();
             }}
-            className="grid gap-3 sm:grid-cols-2"
+            /* Collapse to one column at xl, where the parent panel splits in two and
+               the container narrows even as the viewport widens; regain two columns at
+               2xl once there is room again. Mirrors the "Existing user" grid below. */
+            className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2"
           >
             <div>
               <label htmlFor="client-invite-email" className="mb-2 block text-sm font-medium">Email</label>
@@ -319,7 +322,7 @@ export default function AdminClientMembersPanel({
                   </div>
                 </div>
 
-                <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] sm:items-end">
+                <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] sm:items-end xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]">
                   <div>
                     <label htmlFor={`member-role-${membership.id}`} className="mb-2 block text-sm font-medium">Role</label>
                     <select
