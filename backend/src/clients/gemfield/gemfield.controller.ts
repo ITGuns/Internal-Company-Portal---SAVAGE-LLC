@@ -7,10 +7,16 @@ import { emailService } from '../../email/email.service'
 import { createUploadStorage } from '../../uploads/upload.storage'
 import { UploadsService } from '../../uploads/uploads.service'
 import { resolveClientAccessContext } from '../client-access-context'
+import { ClientsService } from '../clients.service'
 import { requireGemfieldClient, type GemfieldRequest } from './gemfield.access'
 import { GemfieldService } from './gemfield.service'
 import { GemfieldValidationError, type GemfieldProgressInput } from './gemfield.progress'
-import { verifyGemfieldSignature, type GemfieldProgressPayload } from './gemfield.webhook'
+import {
+  verifyGemfieldIntakeSignature,
+  verifyGemfieldSignature,
+  type GemfieldIntakePayload,
+  type GemfieldProgressPayload,
+} from './gemfield.webhook'
 import { GemfieldTicketValidationError, type GemfieldWizardTicketInput } from './gemfield-ticket'
 import {
   GemfieldTicketService,
@@ -101,8 +107,28 @@ function readWizardTicketBody(body: unknown): {
   }
 }
 
+function readIntakePayload(body: unknown): GemfieldIntakePayload {
+  const raw = (body ?? {}) as Record<string, unknown>
+  const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '')
+  const nullable = (v: unknown): string | null =>
+    typeof v === 'string' && v.trim() ? v.trim() : null
+  return {
+    gfId: str(raw.gfId),
+    businessName: str(raw.businessName),
+    contactName: str(raw.contactName),
+    contactEmail: str(raw.contactEmail),
+    contactPhone: nullable(raw.contactPhone),
+    websiteUrl: nullable(raw.websiteUrl),
+    tierLabel: nullable(raw.tierLabel),
+    at: nullable(raw.at),
+  }
+}
+
 export class GemfieldController {
   private service = new GemfieldService()
+  // Reused for the intake webhook's client invite, so provisioning goes through the
+  // same path (setup token, role assignment, invite email) as a staff-issued invite.
+  private clients = new ClientsService()
   private ticketService = new GemfieldTicketService(new UploadsService(createUploadStorage()))
   private pipeline = new GemfieldPipelineService()
 
@@ -365,6 +391,60 @@ export class GemfieldController {
         res.json({ ok: true, ...result })
       } catch (error) {
         handleError(res, error, 'Error ingesting progress webhook')
+      }
+    })
+
+    // Machine-to-machine intake provisioning webhook. Same HMAC scheme and shared secret as
+    // /progress, distinct canonical field order. Sent by the Gemfield site when a client
+    // completes the intake wizard: creates the organization, the project carrying the GF-ID,
+    // the intake_received milestone, and invites the client so they can sign in.
+    //
+    // Idempotent per gfId - a replay returns the existing ids and does not invite again.
+    router.post('/intake', async (req: Request, res: Response) => {
+      try {
+        const secret = process.env.GEMFIELD_WEBHOOK_SECRET
+        if (!secret) return res.status(503).json({ error: 'Gemfield webhook is not configured' })
+
+        const payload = readIntakePayload(req.body)
+        const signature = req.header(SIGNATURE_HEADER) || undefined
+        if (!verifyGemfieldIntakeSignature(secret, payload, signature)) {
+          return res.status(401).json({ error: 'Invalid signature' })
+        }
+
+        const result = await this.service.provisionIntake(payload)
+
+        // Invite outside the provisioning transaction: it sends mail, and a mail
+        // failure must not roll back an organization that was created correctly.
+        // Reported back so the caller can record whether the client can sign in.
+        let invited = false
+        if (result.created && result.contactEmail) {
+          try {
+            await this.clients.inviteClientUser(result.organizationId, {
+              email: result.contactEmail,
+              name: result.contactName,
+              role: 'client',
+              status: 'active',
+            })
+            invited = true
+          } catch (inviteError) {
+            logger.error('Gemfield intake provisioned but client invite failed', {
+              gfId: payload.gfId,
+              organizationId: result.organizationId,
+              error: inviteError instanceof Error ? inviteError.message : 'unknown',
+            })
+          }
+        }
+
+        notificationService.broadcastDataChange('client-overview')
+        res.json({
+          ok: true,
+          organizationId: result.organizationId,
+          projectId: result.projectId,
+          created: result.created,
+          invited,
+        })
+      } catch (error) {
+        handleError(res, error, 'Error provisioning intake webhook')
       }
     })
 
