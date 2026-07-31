@@ -322,50 +322,58 @@ export default function AdminClientMembersPanel({
                   </div>
                 </div>
 
-                <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] sm:items-end xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]">
-                  <div>
-                    <label htmlFor={`member-role-${membership.id}`} className="mb-2 block text-sm font-medium">Role</label>
-                    <select
-                      id={`member-role-${membership.id}`}
-                      className={selectClass}
-                      value={edit.role}
-                      onChange={(event) => updateMemberEdit(membership, { role: event.target.value })}
-                    >
-                      {CLIENT_MEMBER_ROLES.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
-                    </select>
+                {/* Controls and actions are separate rows. Previously both lived in one
+                    four-column grid, so in a narrow container the auto-width buttons were
+                    squeezed against the selects and overlapped. Buttons now wrap on their
+                    own line whenever they need to. */}
+                <div className="mt-3 space-y-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="min-w-0">
+                      <label htmlFor={`member-role-${membership.id}`} className="mb-2 block text-sm font-medium">Role</label>
+                      <select
+                        id={`member-role-${membership.id}`}
+                        className={selectClass}
+                        value={edit.role}
+                        onChange={(event) => updateMemberEdit(membership, { role: event.target.value })}
+                      >
+                        {CLIENT_MEMBER_ROLES.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
+                      </select>
+                    </div>
+                    <div className="min-w-0">
+                      <label htmlFor={`member-status-${membership.id}`} className="mb-2 block text-sm font-medium">Status</label>
+                      <select
+                        id={`member-status-${membership.id}`}
+                        className={selectClass}
+                        value={edit.status}
+                        onChange={(event) => updateMemberEdit(membership, { status: event.target.value })}
+                      >
+                        {CLIENT_MEMBER_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+                      </select>
+                    </div>
                   </div>
-                  <div>
-                    <label htmlFor={`member-status-${membership.id}`} className="mb-2 block text-sm font-medium">Status</label>
-                    <select
-                      id={`member-status-${membership.id}`}
-                      className={selectClass}
-                      value={edit.status}
-                      onChange={(event) => updateMemberEdit(membership, { status: event.target.value })}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      icon={<Save className="h-4 w-4" />}
+                      loading={saving && hasChanges}
+                      disabled={!hasChanges || saving}
+                      onClick={() => saveMember(membership, edit)}
                     >
-                      {CLIENT_MEMBER_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
-                    </select>
+                      Save
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={isInactive ? "outline" : "danger"}
+                      icon={isInactive ? <RefreshCw className="h-4 w-4" /> : <UserMinus className="h-4 w-4" />}
+                      disabled={saving}
+                      onClick={() => setMemberStatus(membership, isInactive ? "active" : "inactive")}
+                    >
+                      {isInactive ? "Reactivate" : "Deactivate"}
+                    </Button>
                   </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    icon={<Save className="h-4 w-4" />}
-                    loading={saving && hasChanges}
-                    disabled={!hasChanges || saving}
-                    onClick={() => saveMember(membership, edit)}
-                  >
-                    Save
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={isInactive ? "outline" : "danger"}
-                    icon={isInactive ? <RefreshCw className="h-4 w-4" /> : <UserMinus className="h-4 w-4" />}
-                    disabled={saving}
-                    onClick={() => setMemberStatus(membership, isInactive ? "active" : "inactive")}
-                  >
-                    {isInactive ? "Reactivate" : "Deactivate"}
-                  </Button>
                 </div>
               </div>
             );
