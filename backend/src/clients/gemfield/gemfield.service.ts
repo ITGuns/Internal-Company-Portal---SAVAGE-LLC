@@ -16,6 +16,28 @@ import {
   type GemfieldProjectContext,
 } from './gemfield.progress'
 
+/** Payload accepted by the intake provisioning webhook. */
+export interface GemfieldIntakeInput {
+  gfId: string
+  businessName: string
+  contactName: string
+  contactEmail: string
+  contactPhone?: string | null
+  websiteUrl?: string | null
+  tierLabel?: string | null
+  at?: string | null
+}
+
+export interface GemfieldProvisionResult {
+  organizationId: string
+  projectId: string
+  /** False when this gfId was already provisioned (replayed webhook). */
+  created: boolean
+  invited: boolean
+  contactEmail?: string
+  contactName?: string
+}
+
 // Shape returned to the client timeline. The full ordered phase list is always included so the UI
 // can render the whole track; `milestones` marks which phases have been reached.
 export interface SerializedGemfieldProject {
@@ -145,6 +167,116 @@ export class GemfieldService {
       },
     })
     return projects.map(serializeGemfieldProject)
+  }
+
+  /**
+   * Intake provisioning: create the portal side for a freshly completed intake.
+   *
+   * Idempotent per gfId. A replayed webhook returns the existing ids and
+   * invites nobody a second time, matching the progress webhook's contract.
+   * Everything except the invite happens in one transaction, so a partial
+   * failure cannot leave an organization without its project.
+   */
+  async provisionIntake(input: GemfieldIntakeInput): Promise<GemfieldProvisionResult> {
+    const gfId = validateGfId(input.gfId ?? '')
+    const contactEmail = (input.contactEmail ?? '').trim().toLowerCase()
+    if (!/.+@.+\..+/.test(contactEmail)) {
+      throw new GemfieldValidationError('invalid_contact_email', 400)
+    }
+    const businessName = (input.businessName ?? '').trim() || 'Unnamed business'
+    const contactName = (input.contactName ?? '').trim() || contactEmail
+
+    // Already provisioned? Return what exists; never invite twice.
+    const existing = await this.db.clientProject.findFirst({
+      where: { gfId },
+      select: { id: true, organizationId: true },
+    })
+    if (existing) {
+      return {
+        organizationId: existing.organizationId,
+        projectId: existing.id,
+        created: false,
+        invited: false,
+      }
+    }
+
+    // Best-effort tier match by label; an unmatched label leaves tier unset
+    // rather than failing provisioning over a cosmetic field.
+    const tier = input.tierLabel
+      ? await this.db.clientServiceTier.findFirst({
+          where: { name: { equals: input.tierLabel.trim(), mode: 'insensitive' } },
+          select: { id: true },
+        })
+      : null
+
+    const slug = await this.uniqueOrganizationSlug(businessName)
+
+    const provisioned = await this.db.$transaction(async (tx) => {
+      const organization = await tx.clientOrganization.create({
+        data: {
+          name: businessName,
+          slug,
+          status: 'active',
+          websiteUrl: input.websiteUrl?.trim() || null,
+          gemfieldClient: true,
+          gemfieldCaseIds: [gfId],
+          tierId: tier?.id ?? null,
+        },
+        select: { id: true },
+      })
+
+      const project = await tx.clientProject.create({
+        data: {
+          organizationId: organization.id,
+          name: `${businessName} website`,
+          status: 'planning',
+          gfId,
+          gemfieldPhase: GEMFIELD_PHASES[0],
+          startedAt: new Date(),
+        },
+        select: { id: true },
+      })
+
+      await tx.gemfieldMilestone.create({
+        data: {
+          projectId: project.id,
+          phase: GEMFIELD_PHASES[0],
+          status: 'complete',
+          note: 'Intake completed by the client.',
+          at: input.at ? new Date(input.at) : new Date(),
+        },
+      })
+
+      return { organizationId: organization.id, projectId: project.id }
+    })
+
+    return {
+      organizationId: provisioned.organizationId,
+      projectId: provisioned.projectId,
+      created: true,
+      invited: false,
+      contactEmail,
+      contactName,
+    }
+  }
+
+  /** Slugify the business name, suffixing until it is free. */
+  private async uniqueOrganizationSlug(name: string): Promise<string> {
+    const base =
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 48) || 'client'
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const candidate = attempt === 0 ? base : `${base}-${attempt + 1}`
+      const clash = await this.db.clientOrganization.findUnique({
+        where: { slug: candidate },
+        select: { id: true },
+      })
+      if (!clash) return candidate
+    }
+    return `${base}-${Date.now()}`
   }
 
   /** Webhook path: resolve the project by GF-ID (org must be entitled), then apply. */
