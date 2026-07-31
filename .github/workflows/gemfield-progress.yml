@@ -1,0 +1,159 @@
+name: Gemfield Progress Push
+
+# Manually push a Gemfield build-phase update into Deskii.
+#
+# This exists so ops can advance a client's build timeline without a local Node
+# setup and without the webhook secret sitting on anyone's laptop. It wraps
+# scripts/gemfield-progress-push.mjs, which signs the payload (HMAC-SHA256) and
+# POSTs it to /api/gemfield/progress.
+#
+# Required repository configuration:
+#   Variable  GEMFIELD_API_URL          Base URL of the Deskii backend (no trailing slash),
+#                                       e.g. https://mydeskii-backend.onrender.com
+#   Secret    GEMFIELD_WEBHOOK_SECRET   Must match the value set on the backend.
+#
+# Pushes are idempotent per (gfId, phase): re-running the same phase does not
+# create a duplicate milestone.
+#
+# Note: all workflow inputs are passed to shell via `env:` rather than `${{ }}`
+# interpolation, so a value containing shell metacharacters cannot be executed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      gf_id:
+        description: "Gemfield case ID (format GF-YYYY-NNNN, e.g. GF-2026-0147)."
+        required: true
+        type: string
+      phase:
+        description: Build phase to record.
+        required: true
+        type: choice
+        options:
+          - intake_received
+          - research
+          - blueprint
+          - design
+          - build
+          - qa
+          - client_review
+          - launch_prep
+          - live
+      status:
+        description: Status of that phase.
+        required: true
+        type: choice
+        default: complete
+        options:
+          - complete
+          - in_progress
+          - pending
+      note:
+        description: Optional note shown on the client timeline.
+        required: false
+        type: string
+      staging_url:
+        description: Optional staging URL (surfaced to the client from client_review onward).
+        required: false
+        type: string
+      live_url:
+        description: Optional live URL.
+        required: false
+        type: string
+      dry_run:
+        description: Print the signed payload without sending it.
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  # Serialise pushes per case so two runs cannot race the same timeline.
+  group: gemfield-progress-${{ inputs.gf_id }}
+  cancel-in-progress: false
+
+jobs:
+  push:
+    name: Push progress
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    env:
+      GEMFIELD_API_URL: ${{ vars.GEMFIELD_API_URL }}
+      GEMFIELD_WEBHOOK_SECRET: ${{ secrets.GEMFIELD_WEBHOOK_SECRET }}
+      GF_ID: ${{ inputs.gf_id }}
+      PHASE: ${{ inputs.phase }}
+      STATUS: ${{ inputs.status }}
+      NOTE: ${{ inputs.note }}
+      STAGING_URL: ${{ inputs.staging_url }}
+      LIVE_URL: ${{ inputs.live_url }}
+      DRY_RUN: ${{ inputs.dry_run }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Validate configuration
+        run: |
+          missing=0
+          if [ -z "$GEMFIELD_API_URL" ]; then
+            echo "::error::Repository variable GEMFIELD_API_URL is not set (Settings > Secrets and variables > Actions > Variables)."
+            missing=1
+          fi
+          if [ -z "$GEMFIELD_WEBHOOK_SECRET" ]; then
+            echo "::error::Repository secret GEMFIELD_WEBHOOK_SECRET is not set. Without it the backend returns 503 (see docs/gemfield-bridge/BLOCKERS.md B3)."
+            missing=1
+          fi
+          if ! printf '%s' "$GF_ID" | grep -Eq '^GF-[0-9]{4}-[0-9]+$'; then
+            echo "::error::gf_id is malformed. Expected GF-YYYY-NNNN, e.g. GF-2026-0147."
+            missing=1
+          fi
+          exit "$missing"
+
+      - name: Push progress
+        run: |
+          set -o pipefail
+          args=(--gf-id "$GF_ID" --phase "$PHASE" --status "$STATUS")
+          if [ -n "$NOTE" ]; then
+            args+=(--note "$NOTE")
+          fi
+          if [ -n "$STAGING_URL" ]; then
+            args+=(--staging-url "$STAGING_URL")
+          fi
+          if [ -n "$LIVE_URL" ]; then
+            args+=(--live-url "$LIVE_URL")
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            args+=(--dry-run)
+          fi
+
+          node scripts/gemfield-progress-push.mjs "${args[@]}" 2>&1 | tee push-output.txt
+
+      - name: Summary
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### Gemfield progress push"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Case | \`$GF_ID\` |"
+            echo "| Phase | \`$PHASE\` |"
+            echo "| Status | \`$STATUS\` |"
+            echo "| Dry run | \`$DRY_RUN\` |"
+            echo "| Result | \`$JOB_STATUS\` |"
+            echo
+            if [ -f push-output.txt ]; then
+              echo '```'
+              cat push-output.txt
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
