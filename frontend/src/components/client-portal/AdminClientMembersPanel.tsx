@@ -143,10 +143,11 @@ export default function AdminClientMembersPanel({
               event.preventDefault();
               submitInvite();
             }}
-            /* Collapse to one column at xl, where the parent panel splits in two and
-               the container narrows even as the viewport widens; regain two columns at
-               2xl once there is room again. Mirrors the "Existing user" grid below. */
-            className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2"
+            /* One column from xl up. The parent panel splits in two at xl, so this
+               container is a fraction of the page and stays narrow no matter how wide
+               the viewport gets — re-expanding at 2xl put two ~95px columns here and
+               the labels overflowed into each other. Mirrors the grid below. */
+            className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1"
           >
             <div>
               <label htmlFor="client-invite-email" className="mb-2 block text-sm font-medium">Email</label>
@@ -194,7 +195,11 @@ export default function AdminClientMembersPanel({
                 {CLIENT_MEMBER_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
               </select>
             </div>
-            <div className="sm:col-span-2">
+            {/* xl:col-span-1 is required: the grid is one column from xl up, and a
+                col-span-2 item there makes the grid create an implicit second column,
+                which lands two fields in the same visual cell. Same pairing as the
+                "Existing user" grid's sm:col-span-3 xl:col-span-1. */}
+            <div className="sm:col-span-2 xl:col-span-1">
               <Button
                 type="submit"
                 size="sm"
@@ -211,7 +216,7 @@ export default function AdminClientMembersPanel({
             <div role="status" className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-3 text-sm">
               <div className="font-medium">{inviteDeliveryLabel}</div>
               {inviteSetupUrl ? (
-                <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-1">
                   <input
                     className={inputClass}
                     readOnly
@@ -327,7 +332,7 @@ export default function AdminClientMembersPanel({
                     squeezed against the selects and overlapped. Buttons now wrap on their
                     own line whenever they need to. */}
                 <div className="mt-3 space-y-3">
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                     <div className="min-w-0">
                       <label htmlFor={`member-role-${membership.id}`} className="mb-2 block text-sm font-medium">Role</label>
                       <select
