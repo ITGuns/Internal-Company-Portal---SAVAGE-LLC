@@ -615,7 +615,9 @@ export class ClientsService {
     })
 
     const setupUrl = setupToken
-      ? `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${setupToken}&email=${encodeURIComponent(data.email)}`
+      // setup=1: this client has never had a password here, so the page says
+      // "set up" rather than "reset". Cosmetic only - the token is unchanged.
+      ? `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${setupToken}&email=${encodeURIComponent(data.email)}&setup=1`
       : undefined
     const emailResult = setupUrl && options.sendEmail !== false
       ? await emailService.sendTemplateEmail(

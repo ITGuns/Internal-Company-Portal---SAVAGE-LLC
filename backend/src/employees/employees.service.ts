@@ -295,7 +295,9 @@ export class EmployeesService {
             logger.error('Failed to auto-add user to General channel', err)
         }
 
-        const setupUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${setupToken}&email=${encodeURIComponent(user.email)}`
+        // setup=1: a newly created employee has no password yet, so the page
+        // words it as a first-time setup rather than a reset.
+        const setupUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${setupToken}&email=${encodeURIComponent(user.email)}&setup=1`
 
         return {
             user,

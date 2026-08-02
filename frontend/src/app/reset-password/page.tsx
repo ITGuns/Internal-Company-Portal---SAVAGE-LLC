@@ -18,6 +18,43 @@ function ResetPasswordForm() {
   const token = searchParams.get('token') || '';
   const email = searchParams.get('email') || '';
 
+  // ?setup=1 - this link came from an invite, not a forgot-password request, so
+  // the person has never had a password here. Telling them to "reset" one, or
+  // that theirs "has been reset", describes something that never happened; for a
+  // Gemfield client it lands moments after a warm welcome email and reads as a
+  // breach notice. Purely cosmetic: the token, the API call and the rules are
+  // identical either way. Emitted by the three invite/onboarding link builders
+  // (clients, users, employees); the forgot-password flow deliberately omits it.
+  const isSetup = ['1', 'true', 'yes'].includes(
+    (searchParams.get('setup') || '').toLowerCase()
+  );
+
+  const copy = isSetup
+    ? {
+      title: 'Set up your password',
+      subtitle: 'Choose a password and your portal is ready.',
+      successSubtitle: 'Your account is ready',
+      passwordLabel: 'Password',
+      submit: 'Create my password',
+      submitting: 'Setting up...',
+      successHeading: "You're all set!",
+      successBody: 'Sign in with your new password to open your portal.',
+      invalidLink: 'This setup link is invalid or has expired. Reply to the email it came from and we will send you a new one.',
+      failed: 'Could not set your password. This link may have expired - reply to the email it came from for a new one.',
+    }
+    : {
+      title: 'Set New Password',
+      subtitle: 'Enter your new password below',
+      successSubtitle: 'Your password has been reset successfully',
+      passwordLabel: 'New Password',
+      submit: 'Reset Password',
+      submitting: 'Resetting...',
+      successHeading: 'Password Reset!',
+      successBody: 'You can now sign in with your new password.',
+      invalidLink: 'Invalid reset link. Please request a new one.',
+      failed: 'Failed to reset password. The link may have expired.',
+    };
+
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,7 +72,7 @@ function ResetPasswordForm() {
     setError('');
 
     if (!token || !email) {
-      setError('Invalid reset link. Please request a new one.');
+      setError(copy.invalidLink);
       return;
     }
 
@@ -70,7 +107,7 @@ function ResetPasswordForm() {
       await resetPassword(token, email, password);
       setSuccess(true);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to reset password. The link may have expired.');
+      setError(err instanceof Error ? err.message : copy.failed);
     } finally {
       setLoading(false);
     }
@@ -82,12 +119,9 @@ function ResetPasswordForm() {
     <main className={styles.loginContainer}>
       <div className={styles.card}>
         <div className={styles.header}>
-          <h1 className={styles.title}>Set New Password</h1>
+          <h1 className={styles.title}>{copy.title}</h1>
           <p className={styles.subtitle}>
-            {success
-              ? 'Your password has been reset successfully'
-              : 'Enter your new password below'
-            }
+            {success ? copy.successSubtitle : copy.subtitle}
           </p>
         </div>
 
@@ -116,7 +150,7 @@ function ResetPasswordForm() {
               marginBottom: '8px',
               color: 'var(--login-text-primary)'
             }}>
-              Password Reset!
+              {copy.successHeading}
             </p>
             <p style={{
               fontSize: '1rem',
@@ -124,7 +158,7 @@ function ResetPasswordForm() {
               marginBottom: '16px',
               lineHeight: 1.5
             }}>
-              You can now sign in with your new password.
+              {copy.successBody}
             </p>
             <button
               className={styles.submitButton}
@@ -137,7 +171,7 @@ function ResetPasswordForm() {
           <form className={styles.form} onSubmit={handleResetPassword}>
             <LoginInput
               id="password"
-              label="New Password"
+              label={copy.passwordLabel}
               type="password"
               value={password}
               onChange={setPassword}
@@ -175,7 +209,7 @@ function ResetPasswordForm() {
               disabled={loading}
             >
               {loading && <span className={styles.spinner} />}
-              {loading ? 'Resetting...' : 'Reset Password'}
+              {loading ? copy.submitting : copy.submit}
             </button>
           </form>
         )}

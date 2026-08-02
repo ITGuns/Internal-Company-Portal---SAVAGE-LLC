@@ -56,5 +56,17 @@ Consequences: the Gemfield site must provision **before** it composes the confir
 `portal_provision_failed` in the event log is the cue for the manual fallback. The setup token crosses the
 webhook response — same trust boundary as the shared HMAC secret, and it is never written to a log or outbox.
 
+Follow-on: the link landed on `/reset-password`, which read *"Set New Password / Reset Password"* — still
+describing a reset to someone who never had a password. The page now takes **`?setup=1`** and words itself
+as a first-time setup. All three invite/onboarding link builders emit it (`clients.service.ts`,
+`users.service.ts`, `employees.service.ts` — each provably first-time: `users.service.ts` refuses a user who
+already has a password); the genuine forgot-password flow in `auth.controller.ts` deliberately does not, and
+its copy is unchanged. Cosmetic only — same token, same endpoint, same password rules.
+
+Still open: a **staff-issued** client invite (panel → invite, not the intake) still sends the
+`password_reset` template, so that client gets the same "Password Reset Request" mail this decision removed
+from the intake path. There is no Gemfield email to fold it into, so it needs a proper `client_invite`
+template rather than this fix. Not addressed here.
+
 ## D8 — Run-state & docs live under `docs/gemfield-bridge/`
 BLUEPRINT / STATUS / DECISIONS / BLOCKERS / GAPSWEEP_* here, matching the repo's existing `docs/*-build-plan.md` convention. No new top-level clutter.
