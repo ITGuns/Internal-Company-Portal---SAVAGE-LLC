@@ -505,7 +505,21 @@ export class ClientsService {
     })
   }
 
-  async inviteClientUser(organizationId: string, data: InviteClientUserInput) {
+  /**
+   * Create (or activate) a client user, put them in the organization, and mint a
+   * password-setup token.
+   *
+   * `options.sendEmail: false` provisions the access without mailing anybody and
+   * hands `invite.setupUrl` back to the caller instead. The Gemfield intake uses
+   * it: that client is mid-conversation with Gemfield and has never heard of
+   * Deskii, so the setup link belongs inside Gemfield's own confirmation email
+   * rather than in a second, unfamiliar-branded message.
+   */
+  async inviteClientUser(
+    organizationId: string,
+    data: InviteClientUserInput,
+    options: { sendEmail?: boolean } = {},
+  ) {
     const organization = await this.prisma.clientOrganization.findUnique({
       where: { id: organizationId },
       select: { id: true, name: true },
@@ -603,7 +617,7 @@ export class ClientsService {
     const setupUrl = setupToken
       ? `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${setupToken}&email=${encodeURIComponent(data.email)}`
       : undefined
-    const emailResult = setupUrl
+    const emailResult = setupUrl && options.sendEmail !== false
       ? await emailService.sendTemplateEmail(
         data.email,
         `Set up your ${organization.name} client portal access`,
@@ -621,7 +635,11 @@ export class ClientsService {
       invite: {
         setupRequired: Boolean(setupUrl),
         emailSent: Boolean(emailResult.success),
+        // Handed back whenever it was not delivered by mail — either because the
+        // caller opted out of sending, or because sending failed and staff need
+        // to pass the link on themselves.
         setupUrl: emailResult.success ? undefined : setupUrl,
+        expiresInMinutes: Math.round(CLIENT_INVITE_TOKEN_EXPIRY_MS / 60000),
       },
     }
   }

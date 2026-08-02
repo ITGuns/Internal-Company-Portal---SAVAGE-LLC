@@ -37,5 +37,24 @@ change that unblocks the merge/deploy without risking the build (`npm audit fix 
 and could break it). **Follow-up (separate task):** address the residual `high` advisories via dependency
 upgrades as part of the security-hardening effort, then consider restoring the `high` gate.
 
+## D10 — Intake provisioning sends no Deskii email; Gemfield carries the portal link ★ **(RESOLVED — defect found in the live flow)**
+The intake webhook invited the client through `inviteClientUser`, which mailed the **`password_reset`**
+template. A client who had just filled in a Gemfield form therefore received a second message headed
+**"🔑 Password Reset Request — we received a request to reset your password for the Deskii Workspace"**,
+from a brand they had never dealt with, for an account they never created, closing with *"if you didn't
+request a password reset, you can safely ignore this email"* — which tells them not to activate. It reads
+as phishing and the subject contradicts the body.
+
+Fix: `inviteClientUser(org, data, { sendEmail: false })` provisions silently and returns `invite.setupUrl`;
+`/api/gemfield/intake` passes that back as `portalSetupUrl` (+ `portalLoginUrl` for a client who already has
+a Deskii password) in the HMAC-authenticated response. The Gemfield site puts it in the confirmation email
+the client is already expecting — **one email, one sender, one brand**. Staff-issued invites are unchanged
+(`sendEmail` defaults to true).
+
+Consequences: the Gemfield site must provision **before** it composes the confirmation (it does — see its
+`submit` route). If provisioning fails, the confirmation still goes out, just without the portal block, and
+`portal_provision_failed` in the event log is the cue for the manual fallback. The setup token crosses the
+webhook response — same trust boundary as the shared HMAC secret, and it is never written to a log or outbox.
+
 ## D8 — Run-state & docs live under `docs/gemfield-bridge/`
 BLUEPRINT / STATUS / DECISIONS / BLOCKERS / GAPSWEEP_* here, matching the repo's existing `docs/*-build-plan.md` convention. No new top-level clutter.
