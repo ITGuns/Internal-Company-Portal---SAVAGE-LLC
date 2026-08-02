@@ -63,6 +63,8 @@ model User {
   taskProjectMemberships      TaskProjectMember[]    @relation("TaskProjectMemberUser")
   taskProjectMembershipsAdded TaskProjectMember[]    @relation("TaskProjectMemberAddedBy")
   clientMemberships           ClientMembership[]
+  upgradeRequests             UpgradeRequest[]       @relation("UpgradeRequester")
+  handledUpgradeRequests      UpgradeRequest[]       @relation("UpgradeHandler")
   clientTicketsCreated        ClientTicket[]         @relation("ClientTicketCreator")
   clientTicketsAssigned       ClientTicket[]         @relation("ClientTicketAssignee")
   clientTicketComments        ClientTicketComment[]  @relation("ClientTicketCommentAuthor")
@@ -329,6 +331,7 @@ model ClientOrganization {
   paymentConnections     ClientPaymentConnection[]
   invoices               ClientInvoice[]
   activities             ClientActivity[]
+  upgradeRequests        UpgradeRequest[]
 
   @@index([status])
   @@index([tierId])
@@ -741,6 +744,55 @@ model ClientBookingRequest {
   @@index([status])
   @@index([preferredStartAt])
   @@index([visibleToClient])
+}
+
+/// A request to buy or move up a plan.
+///
+/// Deliberately hangs off User, not ClientOrganization: the common case is a
+/// fresh Google sign-up with no roles and no organization yet, so there is
+/// nothing to attach a ClientTicket to. `organizationId` is filled in later,
+/// when staff create or link the client account that fulfils the request.
+///
+/// Payment is manual today - staff confirm money arrived and set `paidAt`. The
+/// provider/external/checkout fields exist so a real gateway can be dropped in
+/// without a second migration, matching how ClientPaymentConnection and
+/// ClientInvoice already model "gateway-ready, not yet connected".
+model UpgradeRequest {
+  id           String  @id @default(cuid())
+  userId       String
+  /// Stable plan key (see CLIENT_SERVICE_TIER_PRESETS.slug) - never the display
+  /// name, which differs between the pricing page and the seeded tiers.
+  planSlug     String
+  /// Name and price captured at request time, so a later price change does not
+  /// silently rewrite what the customer actually asked for.
+  planName     String
+  monthlyPrice Float
+  currency     String  @default("USD")
+
+  /// requested -> invoiced -> paid -> fulfilled, or declined at any point.
+  status String @default("requested")
+
+  provider          String    @default("manual")
+  externalPaymentId String?
+  hostedCheckoutUrl String?
+  paidAt            DateTime?
+
+  /// Set once staff create or link the client account for this request.
+  organizationId String?
+  note           String?
+  handledById    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User                @relation("UpgradeRequester", fields: [userId], references: [id], onDelete: Cascade)
+  handledBy    User?               @relation("UpgradeHandler", fields: [handledById], references: [id], onDelete: SetNull)
+  organization ClientOrganization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([organizationId])
+  @@index([createdAt])
 }
 
 model ClientPaymentConnection {
