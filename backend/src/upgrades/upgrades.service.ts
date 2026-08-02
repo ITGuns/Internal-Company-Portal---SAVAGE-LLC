@@ -197,6 +197,71 @@ export class UpgradesService {
       data.hostedCheckoutUrl = input.hostedCheckoutUrl || null
     }
 
+    // Fulfilment is the moment the purchase becomes real on the account, so the
+    // service tier and billing figures are written here rather than left as a
+    // second thing staff must remember. Everything lands in one transaction: a
+    // request marked fulfilled but carrying no tier is precisely the silent
+    // mismatch this whole area already suffered from once.
+    if (data.status === 'fulfilled') {
+      const targetOrganizationId = (data.organizationId as string | undefined) ?? existing.organizationId
+      if (!targetOrganizationId) throw new UpgradeRequestError('Link the client account before marking this fulfilled', 422)
+      return this.fulfil(id, data, targetOrganizationId, existing.planSlug, existing.monthlyPrice, existing.currency)
+    }
+
     return this.db.upgradeRequest.update({ where: { id }, data })
+  }
+
+  /**
+   * Apply the purchased plan to the client account and close the request.
+   *
+   * Refuses rather than half-applying: if the ClientServiceTier row for the
+   * purchased plan is missing, fulfilment fails with an actionable message
+   * instead of marking the request done and leaving the account tier-less.
+   */
+  private async fulfil(
+    id: string,
+    data: Record<string, unknown>,
+    organizationId: string,
+    planSlug: string,
+    monthlyPrice: number,
+    currency: string,
+  ): Promise<UpgradeRequest> {
+    const plan = findClientServiceTierPresetBySlug(planSlug)
+    if (!plan) {
+      throw new UpgradeRequestError(`Plan "${planSlug}" is no longer offered; decline this request instead`, 422)
+    }
+
+    const tier = await this.db.clientServiceTier.findFirst({
+      where: { name: { equals: plan.name, mode: 'insensitive' } },
+      select: { id: true },
+    })
+    if (!tier) {
+      throw new UpgradeRequestError(
+        `Service tier "${plan.name}" does not exist yet - seed the client service tiers, then fulfil this request`,
+        422,
+      )
+    }
+
+    return this.db.$transaction(async (tx) => {
+      await tx.clientOrganization.update({
+        where: { id: organizationId },
+        data: { tierId: tier.id },
+      })
+
+      // Keep the billing card telling the same story as the tier.
+      await tx.clientBillingStatus.upsert({
+        where: { organizationId },
+        update: { planName: plan.name, monthlyAmount: monthlyPrice, currency },
+        create: {
+          organizationId,
+          planName: plan.name,
+          monthlyAmount: monthlyPrice,
+          currency,
+          status: 'active',
+        },
+      })
+
+      return tx.upgradeRequest.update({ where: { id }, data })
+    })
   }
 }
