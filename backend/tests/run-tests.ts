@@ -49,6 +49,7 @@ const tests = [
   'gemfield-sla.test.ts',
   'gemfield-pipeline.test.ts',
   'gemfield-digest.test.ts',
+  'gemfield-intake-tier.test.ts',
   'gemfield.internal-note-leak.test.ts',
   'image-metadata.test.ts',
   'oauth.state.test.ts',
