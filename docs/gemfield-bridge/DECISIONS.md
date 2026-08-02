@@ -53,8 +53,25 @@ the client is already expecting — **one email, one sender, one brand**. Staff-
 
 Consequences: the Gemfield site must provision **before** it composes the confirmation (it does — see its
 `submit` route). If provisioning fails, the confirmation still goes out, just without the portal block, and
-`portal_provision_failed` in the event log is the cue for the manual fallback. The setup token crosses the
-webhook response — same trust boundary as the shared HMAC secret, and it is never written to a log or outbox.
+`portal_provision_failed` in the event log is the cue for the manual fallback. The token is never written to
+a log or outbox.
+
+**Correction — the token is NOT "just the HMAC trust boundary".** An earlier draft of this entry claimed
+returning the setup token was equivalent to trusting the shared secret. That was wrong, and an adversarial
+review of the change caught it. A setup token is a **full credential**: `POST /auth/reset-password` accepts
+it on `(email, tokenHash)` with no role or account-type check. `inviteClientUser` mints one whenever the
+account has **no local password** — true of every Google/Discord OAuth user, admins included — and the
+`created` guard on the webhook refers to the *organization*, not the *user*. A caller holding
+`GEMFIELD_WEBHOOK_SECRET` (which the public Gemfield site holds) could therefore POST a fresh `gfId` with an
+existing admin's address and be handed working credentials for that admin. Secret compromise would have
+escalated to Deskii admin.
+
+Closed by two rules, pinned by `clients.invite-token-disclosure.test.ts`:
+1. `restrictToNewUsers: true` on the intake path — an account that already exists is never modified: no token
+   minted, no `passwordResetToken` overwritten, no `status`/`isApproved` flipped. A staff address is refused
+   outright rather than quietly joined to a client org.
+2. Disclosure gates on `invite.userCreated`, not on a token merely existing — the URL may only leave the
+   webhook for an account that very call brought into existence. Everyone else gets `portalLoginUrl`.
 
 Follow-on: the link landed on `/reset-password`, which read *"Set New Password / Reset Password"* — still
 describing a reset to someone who never had a password. The page now takes **`?setup=1`** and words itself

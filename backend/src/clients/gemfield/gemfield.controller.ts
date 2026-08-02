@@ -434,13 +434,19 @@ export class GemfieldController {
                 role: 'client',
                 status: 'active',
               },
-              { sendEmail: false },
+              { sendEmail: false, restrictToNewUsers: true },
             )
             invited = true
-            // Absent when the client already has a Deskii password (an existing
-            // user joining a second organization) - they sign in as they always do.
-            portalSetupUrl = invite.invite.setupUrl
-            portalSetupExpiresInMinutes = invite.invite.expiresInMinutes
+            // Gated on userCreated, not merely on a token existing. A setup token
+            // is a full credential and this response is read by the caller, not by
+            // the address owner - so it may only ever leave here for an account
+            // this very call brought into existence. For anyone who already had a
+            // Deskii account (including a passwordless OAuth one) we disclose
+            // nothing and point them at the normal sign-in instead.
+            portalSetupUrl = invite.invite.userCreated ? invite.invite.setupUrl : undefined
+            portalSetupExpiresInMinutes = portalSetupUrl
+              ? invite.invite.expiresInMinutes
+              : undefined
           } catch (inviteError) {
             logger.error('Gemfield intake provisioned but client invite failed', {
               gfId: payload.gfId,
