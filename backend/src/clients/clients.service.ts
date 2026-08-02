@@ -505,7 +505,34 @@ export class ClientsService {
     })
   }
 
-  async inviteClientUser(organizationId: string, data: InviteClientUserInput) {
+  /**
+   * Create (or activate) a client user, put them in the organization, and mint a
+   * password-setup token.
+   *
+   * `options.sendEmail: false` provisions the access without mailing anybody and
+   * hands `invite.setupUrl` back to the caller instead. The Gemfield intake uses
+   * it: that client is mid-conversation with Gemfield and has never heard of
+   * Deskii, so the setup link belongs inside Gemfield's own confirmation email
+   * rather than in a second, unfamiliar-branded message.
+   *
+   * `options.restrictToNewUsers: true` refuses to modify an account that already
+   * exists. It exists solely for that intake webhook, and it is load-bearing:
+   * combined with sendEmail:false the setup token stops being something only the
+   * address owner can read and becomes a value returned to the caller. A setup
+   * token is a full credential - POST /auth/reset-password accepts it on
+   * (email, tokenHash) with no role check - and one is minted whenever the
+   * account has no local password, which is true of every Google/Discord OAuth
+   * user, admins included. Without this flag a caller holding the shared webhook
+   * secret could name any OAuth admin's address and be handed working
+   * credentials for it. Under the flag an existing account is never touched: no
+   * token minted, no passwordResetToken overwritten, no status or isApproved
+   * flipped - only the organization membership is added.
+   */
+  async inviteClientUser(
+    organizationId: string,
+    data: InviteClientUserInput,
+    options: { sendEmail?: boolean; restrictToNewUsers?: boolean } = {},
+  ) {
     const organization = await this.prisma.clientOrganization.findUnique({
       where: { id: organizationId },
       select: { id: true, name: true },
@@ -517,9 +544,26 @@ export class ClientsService {
 
     const existingUser = await this.prisma.user.findUnique({
       where: { email: data.email },
-      select: { id: true, email: true, name: true, password: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        password: true,
+        roles: { select: { role: true } },
+      },
     })
-    const shouldCreateSetupToken = !existingUser?.password
+
+    // A caller that cannot prove it speaks for this address must not reach an
+    // account that already exists. Staff accounts are refused outright rather
+    // than quietly joined to a client organization.
+    const protectExisting = Boolean(options.restrictToNewUsers && existingUser)
+    if (protectExisting && existingUser!.roles.some((r) => r.role !== 'client')) {
+      throw new ClientValidationError(
+        'That email already belongs to a staff account; invite this client manually',
+      )
+    }
+
+    const shouldCreateSetupToken = !existingUser?.password && !protectExisting
     const setupToken = shouldCreateSetupToken ? crypto.randomBytes(32).toString('hex') : undefined
     const hashedSetupToken = setupToken ? crypto.createHash('sha256').update(setupToken).digest('hex') : undefined
     const setupExpiresAt = setupToken ? new Date(Date.now() + CLIENT_INVITE_TOKEN_EXPIRY_MS) : undefined
@@ -528,17 +572,22 @@ export class ClientsService {
       const user = existingUser
         ? await tx.user.update({
           where: { id: existingUser.id },
-          data: {
-            ...(data.name ? { name: data.name } : {}),
-            status: 'active',
-            isApproved: true,
-            ...(hashedSetupToken && setupExpiresAt
-              ? {
-                passwordResetToken: hashedSetupToken,
-                passwordResetExpiry: setupExpiresAt,
-              }
-              : {}),
-          },
+          // Under restrictToNewUsers this is a deliberate no-op write: the caller
+          // gets the membership below, but nothing about the account itself -
+          // name, status, approval, reset token - is allowed to change.
+          data: protectExisting
+            ? {}
+            : {
+              ...(data.name ? { name: data.name } : {}),
+              status: 'active',
+              isApproved: true,
+              ...(hashedSetupToken && setupExpiresAt
+                ? {
+                  passwordResetToken: hashedSetupToken,
+                  passwordResetExpiry: setupExpiresAt,
+                }
+                : {}),
+            },
         })
         : await tx.user.create({
           data: {
@@ -601,9 +650,11 @@ export class ClientsService {
     })
 
     const setupUrl = setupToken
-      ? `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${setupToken}&email=${encodeURIComponent(data.email)}`
+      // setup=1: this client has never had a password here, so the page says
+      // "set up" rather than "reset". Cosmetic only - the token is unchanged.
+      ? `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${setupToken}&email=${encodeURIComponent(data.email)}&setup=1`
       : undefined
-    const emailResult = setupUrl
+    const emailResult = setupUrl && options.sendEmail !== false
       ? await emailService.sendTemplateEmail(
         data.email,
         `Set up your ${organization.name} client portal access`,
@@ -621,7 +672,16 @@ export class ClientsService {
       invite: {
         setupRequired: Boolean(setupUrl),
         emailSent: Boolean(emailResult.success),
+        // Handed back whenever it was not delivered by mail — either because the
+        // caller opted out of sending, or because sending failed and staff need
+        // to pass the link on themselves.
         setupUrl: emailResult.success ? undefined : setupUrl,
+        expiresInMinutes: Math.round(CLIENT_INVITE_TOKEN_EXPIRY_MS / 60000),
+        // True only when this call brought the account into existence. A caller
+        // that discloses setupUrl to anyone but the address owner must gate on
+        // this: for an account that already existed, the token would be a
+        // credential for somebody else.
+        userCreated: !existingUser,
       },
     }
   }

@@ -37,5 +37,53 @@ change that unblocks the merge/deploy without risking the build (`npm audit fix 
 and could break it). **Follow-up (separate task):** address the residual `high` advisories via dependency
 upgrades as part of the security-hardening effort, then consider restoring the `high` gate.
 
+## D10 — Intake provisioning sends no Deskii email; Gemfield carries the portal link ★ **(RESOLVED — defect found in the live flow)**
+The intake webhook invited the client through `inviteClientUser`, which mailed the **`password_reset`**
+template. A client who had just filled in a Gemfield form therefore received a second message headed
+**"🔑 Password Reset Request — we received a request to reset your password for the Deskii Workspace"**,
+from a brand they had never dealt with, for an account they never created, closing with *"if you didn't
+request a password reset, you can safely ignore this email"* — which tells them not to activate. It reads
+as phishing and the subject contradicts the body.
+
+Fix: `inviteClientUser(org, data, { sendEmail: false })` provisions silently and returns `invite.setupUrl`;
+`/api/gemfield/intake` passes that back as `portalSetupUrl` (+ `portalLoginUrl` for a client who already has
+a Deskii password) in the HMAC-authenticated response. The Gemfield site puts it in the confirmation email
+the client is already expecting — **one email, one sender, one brand**. Staff-issued invites are unchanged
+(`sendEmail` defaults to true).
+
+Consequences: the Gemfield site must provision **before** it composes the confirmation (it does — see its
+`submit` route). If provisioning fails, the confirmation still goes out, just without the portal block, and
+`portal_provision_failed` in the event log is the cue for the manual fallback. The token is never written to
+a log or outbox.
+
+**Correction — the token is NOT "just the HMAC trust boundary".** An earlier draft of this entry claimed
+returning the setup token was equivalent to trusting the shared secret. That was wrong, and an adversarial
+review of the change caught it. A setup token is a **full credential**: `POST /auth/reset-password` accepts
+it on `(email, tokenHash)` with no role or account-type check. `inviteClientUser` mints one whenever the
+account has **no local password** — true of every Google/Discord OAuth user, admins included — and the
+`created` guard on the webhook refers to the *organization*, not the *user*. A caller holding
+`GEMFIELD_WEBHOOK_SECRET` (which the public Gemfield site holds) could therefore POST a fresh `gfId` with an
+existing admin's address and be handed working credentials for that admin. Secret compromise would have
+escalated to Deskii admin.
+
+Closed by two rules, pinned by `clients.invite-token-disclosure.test.ts`:
+1. `restrictToNewUsers: true` on the intake path — an account that already exists is never modified: no token
+   minted, no `passwordResetToken` overwritten, no `status`/`isApproved` flipped. A staff address is refused
+   outright rather than quietly joined to a client org.
+2. Disclosure gates on `invite.userCreated`, not on a token merely existing — the URL may only leave the
+   webhook for an account that very call brought into existence. Everyone else gets `portalLoginUrl`.
+
+Follow-on: the link landed on `/reset-password`, which read *"Set New Password / Reset Password"* — still
+describing a reset to someone who never had a password. The page now takes **`?setup=1`** and words itself
+as a first-time setup. All three invite/onboarding link builders emit it (`clients.service.ts`,
+`users.service.ts`, `employees.service.ts` — each provably first-time: `users.service.ts` refuses a user who
+already has a password); the genuine forgot-password flow in `auth.controller.ts` deliberately does not, and
+its copy is unchanged. Cosmetic only — same token, same endpoint, same password rules.
+
+Still open: a **staff-issued** client invite (panel → invite, not the intake) still sends the
+`password_reset` template, so that client gets the same "Password Reset Request" mail this decision removed
+from the intake path. There is no Gemfield email to fold it into, so it needs a proper `client_invite`
+template rather than this fix. Not addressed here.
+
 ## D8 — Run-state & docs live under `docs/gemfield-bridge/`
 BLUEPRINT / STATUS / DECISIONS / BLOCKERS / GAPSWEEP_* here, matching the repo's existing `docs/*-build-plan.md` convention. No new top-level clutter.

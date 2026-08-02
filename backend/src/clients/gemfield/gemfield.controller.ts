@@ -413,19 +413,40 @@ export class GemfieldController {
 
         const result = await this.service.provisionIntake(payload)
 
-        // Invite outside the provisioning transaction: it sends mail, and a mail
-        // failure must not roll back an organization that was created correctly.
-        // Reported back so the caller can record whether the client can sign in.
+        // Invite outside the provisioning transaction: a failure here must not roll
+        // back an organization that was created correctly.
+        //
+        // Deliberately silent (sendEmail: false). This client has just filled in a
+        // Gemfield form and has never heard of Deskii - a separate Deskii-branded
+        // mail about a password they never had reads as phishing. The setup link
+        // goes back to Gemfield instead, which puts it in the confirmation email
+        // the client is already expecting. Nothing here mails the client.
         let invited = false
+        let portalSetupUrl: string | undefined
+        let portalSetupExpiresInMinutes: number | undefined
         if (result.created && result.contactEmail) {
           try {
-            await this.clients.inviteClientUser(result.organizationId, {
-              email: result.contactEmail,
-              name: result.contactName,
-              role: 'client',
-              status: 'active',
-            })
+            const invite = await this.clients.inviteClientUser(
+              result.organizationId,
+              {
+                email: result.contactEmail,
+                name: result.contactName,
+                role: 'client',
+                status: 'active',
+              },
+              { sendEmail: false, restrictToNewUsers: true },
+            )
             invited = true
+            // Gated on userCreated, not merely on a token existing. A setup token
+            // is a full credential and this response is read by the caller, not by
+            // the address owner - so it may only ever leave here for an account
+            // this very call brought into existence. For anyone who already had a
+            // Deskii account (including a passwordless OAuth one) we disclose
+            // nothing and point them at the normal sign-in instead.
+            portalSetupUrl = invite.invite.userCreated ? invite.invite.setupUrl : undefined
+            portalSetupExpiresInMinutes = portalSetupUrl
+              ? invite.invite.expiresInMinutes
+              : undefined
           } catch (inviteError) {
             logger.error('Gemfield intake provisioned but client invite failed', {
               gfId: payload.gfId,
@@ -442,6 +463,15 @@ export class GemfieldController {
           projectId: result.projectId,
           created: result.created,
           invited,
+          portalSetupUrl,
+          portalSetupExpiresInMinutes,
+          // Only for an invited client who needs no setup - an existing Deskii user
+          // signing in as they always do. Withheld on a replay or a failed invite,
+          // where promising a portal the client cannot reach is worse than silence.
+          portalLoginUrl:
+            invited && !portalSetupUrl
+              ? `${(process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '')}/login`
+              : undefined,
         })
       } catch (error) {
         handleError(res, error, 'Error provisioning intake webhook')
