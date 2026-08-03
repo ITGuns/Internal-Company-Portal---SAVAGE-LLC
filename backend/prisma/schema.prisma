@@ -81,6 +81,8 @@ model User {
   ownedTaskProjects           TaskProject[]          @relation("TaskProjectOwner")
   createdTaskProjects         TaskProject[]          @relation("TaskProjectCreator")
   refreshSessions             RefreshSession[]
+  timesheetAdjustments        TimesheetAdjustmentRequest[] @relation("TimesheetAdjustmentRequester")
+  timesheetAdjustmentsDecided TimesheetAdjustmentRequest[] @relation("TimesheetAdjustmentDecider")
   ownedUploads                StoredUpload[]         @relation("StoredUploadOwner")
 
   @@index([email])
@@ -1021,10 +1023,53 @@ model TimeEntry {
   createdAt DateTime @default(now())
 
   // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user               User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adjustmentRequests TimesheetAdjustmentRequest[]
 
   @@index([userId])
   @@index([start])
+}
+
+/// A request to correct a clock-in / clock-out, raised by the employee and
+/// decided by the person who manages them.
+///
+/// Exists because staff could previously edit their own times directly, with no
+/// reason recorded and nobody told. Corrections now leave a trail: what it was,
+/// what they want it to be, why, who decided, and when.
+///
+/// `timeEntryId` is null when the employee forgot to clock in at all - approving
+/// that creates the entry rather than editing one. The original times are
+/// snapshotted so the record still reads correctly after the entry moves.
+model TimesheetAdjustmentRequest {
+  id          String  @id @default(cuid())
+  userId      String
+  timeEntryId String?
+
+  requestedStart DateTime
+  requestedEnd   DateTime?
+  originalStart  DateTime?
+  originalEnd    DateTime?
+
+  /// Why the correction is needed. Required - it is the whole point.
+  reason String
+
+  /// pending -> approved | declined, or cancelled by the requester.
+  status       String    @default("pending")
+  decidedById  String?
+  decidedAt    DateTime?
+  decisionNote String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User       @relation("TimesheetAdjustmentRequester", fields: [userId], references: [id], onDelete: Cascade)
+  decidedBy User?      @relation("TimesheetAdjustmentDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+  timeEntry TimeEntry? @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([timeEntryId])
+  @@index([createdAt])
 }
 
 model PayrollEvent {
