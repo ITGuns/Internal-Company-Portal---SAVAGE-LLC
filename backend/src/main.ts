@@ -19,6 +19,7 @@ import { FileDirectoryController } from './file-directory/file-directory.control
 import { NotificationsController } from './notifications/notifications.controller'
 import { ClientsController } from './clients/clients.controller'
 import { GemfieldController } from './clients/gemfield/gemfield.controller'
+import { TourController } from './tour/tour.controller'
 import { SearchController } from './search/search.controller'
 import { WorkspaceController } from './workspace/workspace.controller'
 import { SchedulerController } from './scheduler/scheduler.controller'
@@ -180,6 +181,9 @@ async function bootstrap() {
 
   const gemfieldController = new GemfieldController()
   app.use('/api/gemfield', gemfieldController.router())
+
+  const tourController = new TourController()
+  app.use('/api/tour', tourController.router())
 
   const searchController = new SearchController()
   app.use('/api/search', searchController.router())
