@@ -1,0 +1,56 @@
+name: Keep Backend Warm
+
+# Ping the backend so it does not fall asleep.
+#
+# The host spins the service down after roughly 15 minutes of inactivity, and a
+# cold start measured 23.5s against 0.5-1.1s warm. That matters because the
+# Gemfield intake calls the backend while a client waits on the submit button,
+# with a 6s timeout: the first intake after a quiet spell would lose its portal
+# link and land in the manual fallback, for no reason other than the clock.
+#
+# This is a workaround, not a fix. A paid always-on instance removes the problem
+# properly; until then this keeps business hours covered.
+#
+# Required repository configuration:
+#   Variable  BACKEND_HEALTH_URL  e.g. https://deskibackend-1.onrender.com/health
+#                                 Unset -> the job no-ops instead of failing, so a
+#                                 fork or a fresh clone is not permanently red.
+
+on:
+  schedule:
+    # Every 10 minutes. GitHub's scheduler is best-effort and can run late under
+    # load, which is fine here - a missed ping costs one slow request, not data.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: keep-backend-warm
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    name: Ping /health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Ping the backend
+        env:
+          URL: ${{ vars.BACKEND_HEALTH_URL }}
+        run: |
+          if [ -z "$URL" ]; then
+            echo "BACKEND_HEALTH_URL is not set - nothing to ping."
+            exit 0
+          fi
+
+          # Generous timeout: a cold start is the case we are paying for here, so
+          # waiting through one is the point rather than a failure.
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 "$URL" || echo "000")
+          echo "$URL -> $code"
+
+          # Never fail the run on a bad response. This job's job is to keep the
+          # service awake; alerting on health belongs somewhere that can act on it,
+          # and a recurring red cron is noise people learn to ignore.
+          if [ "$code" != "200" ]; then
+            echo "::warning::Backend health check returned $code"
+          fi

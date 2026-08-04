@@ -1,0 +1,116 @@
+name: Mirror Backend To Deploy Repo
+
+# Keep ITGuns/deskibackend in step with this repo's backend/ folder.
+#
+# That repo is a flattened copy of backend/ and is what Render actually deploys.
+# It was previously synced by hand, and it drifted: POST /api/gemfield/intake was
+# missing from production long after it merged here, so every completed Gemfield
+# intake handed off to a 404 while every dashboard in this repo looked green.
+# Nothing surfaces that kind of drift, which is exactly why it must not be manual.
+#
+# Required repository configuration:
+#   Secret  DESKIBACKEND_TOKEN   A token with contents:write on ITGuns/deskibackend.
+#                                A fine-grained PAT scoped to that single repo is
+#                                enough - it needs no access to this one.
+#
+# Without the secret the job fails loudly rather than skipping quietly: a mirror
+# that silently stops mirroring returns us to the exact problem it exists to fix.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "backend/**"
+      - ".github/workflows/mirror-backend.yml"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report what would change without pushing"
+        type: boolean
+        default: false
+
+concurrency:
+  # Never let two mirrors race; a later main always wins.
+  group: mirror-backend
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    name: Mirror backend/
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out this repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify the deploy token is configured
+        env:
+          TOKEN: ${{ secrets.DESKIBACKEND_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::DESKIBACKEND_TOKEN is not set. The backend cannot reach production without it."
+            echo "Create a fine-grained PAT with contents:write on ITGuns/deskibackend and add it as a repository secret."
+            exit 1
+          fi
+
+      - name: Check out the deploy repository
+        env:
+          TOKEN: ${{ secrets.DESKIBACKEND_TOKEN }}
+        run: |
+          git clone --depth 1 "https://x-access-token:${TOKEN}@github.com/ITGuns/deskibackend.git" deploy-repo
+
+      - name: Copy backend/ over the deploy repo
+        run: |
+          # --delete so a file removed here is removed there: a stale copy that
+          # only ever gains files drifts just as badly, only more quietly.
+          # .git is preserved; runtime and local-only paths are never mirrored.
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='node_modules/' \
+            --exclude='dist/' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='uploads/' \
+            --exclude='tmp-*' \
+            backend/ deploy-repo/
+
+      - name: Show what changed
+        working-directory: deploy-repo
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "NOTHING_TO_DO=true" >> "$GITHUB_ENV"
+            echo "Deploy repo already matches backend/."
+          else
+            echo "NOTHING_TO_DO=false" >> "$GITHUB_ENV"
+            git diff --cached --stat
+          fi
+
+      - name: Push to the deploy repo
+        if: env.NOTHING_TO_DO == 'false' && inputs.dry_run != true
+        working-directory: deploy-repo
+        run: |
+          git config user.name "deskii-mirror[bot]"
+          git config user.email "deskii-mirror@users.noreply.github.com"
+          git commit -m "Mirror backend/ from ${GITHUB_REPOSITORY}@${GITHUB_SHA::7}
+
+          Source commit: ${GITHUB_SHA}
+          Pushed automatically by .github/workflows/mirror-backend.yml.
+          Do not edit this repository by hand - changes belong in the monorepo's
+          backend/ folder and arrive here on merge to main."
+          git push origin HEAD:main
+          echo "Pushed. Render deploys from main; watch its dashboard for the build."
+
+      - name: Dry run summary
+        if: inputs.dry_run == true
+        run: echo "Dry run - nothing was pushed."
+
+      - name: Remind about migrations
+        if: env.NOTHING_TO_DO == 'false' && inputs.dry_run != true
+        run: |
+          if git diff --name-only "${GITHUB_SHA}~1" "${GITHUB_SHA}" -- backend/prisma/migrations | grep -q .; then
+            echo "::warning::This change includes a Prisma migration. Render deploys the code but does NOT run migrations - run 'prisma migrate deploy' against production."
+          fi
