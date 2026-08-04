@@ -32,6 +32,7 @@ const tests = [
   'chat.permissions.test.ts',
   'socket.authorization.test.ts',
   'clients.access.test.ts',
+  'clients.invite-token-disclosure.test.ts',
   'clients.activity.test.ts',
   'clients.asset-dedupe.test.ts',
   'clients.production-records.test.ts',

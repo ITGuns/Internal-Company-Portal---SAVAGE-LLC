@@ -11,7 +11,7 @@
 
 import type { PrismaClient, UpgradeRequest } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
-import { findClientServiceTierPresetBySlug } from '../clients/client-service-tier-presets'
+import { findDeskiiPlan } from '../billing/deskii-plans'
 
 export class UpgradeRequestError extends Error {
   constructor(message: string, public readonly status = 422) {
@@ -68,8 +68,13 @@ export class UpgradesService {
    * rewrite what the customer actually asked for.
    */
   async createForUser(userId: string, input: CreateUpgradeRequestInput): Promise<UpgradeRequest> {
-    const plan = findClientServiceTierPresetBySlug(input.planSlug)
+    const plan = findDeskiiPlan(input.planSlug)
     if (!plan) throw new UpgradeRequestError('Unknown plan', 400)
+    // Enterprise is negotiated and carries no monthly figure, so it cannot be
+    // recorded as a priced request. Those come through sales, not this queue.
+    if (plan.monthlyPrice === null) {
+      throw new UpgradeRequestError('That plan is arranged with our sales team', 400)
+    }
 
     // One live request per user: clicking a second plan updates the existing
     // one rather than filling the staff queue with duplicates.
@@ -226,35 +231,38 @@ export class UpgradesService {
     monthlyPrice: number,
     currency: string,
   ): Promise<UpgradeRequest> {
-    const plan = findClientServiceTierPresetBySlug(planSlug)
+    const plan = findDeskiiPlan(planSlug)
     if (!plan) {
       throw new UpgradeRequestError(`Plan "${planSlug}" is no longer offered; decline this request instead`, 422)
     }
 
-    const tier = await this.db.clientServiceTier.findFirst({
-      where: { name: { equals: plan.name, mode: 'insensitive' } },
-      select: { id: true },
-    })
-    if (!tier) {
-      throw new UpgradeRequestError(
-        `Service tier "${plan.name}" does not exist yet - seed the client service tiers, then fulfil this request`,
-        422,
-      )
-    }
-
+    // Deliberately does NOT touch ClientOrganization.tierId.
+    //
+    // That field is the Gemfield website service level ($497-$9,997/mo) - what a
+    // client pays us to build their site. This request is for a Deskii
+    // subscription (Starter, Professional...). Writing one into the other would
+    // relabel a managed-growth client as being on a $29 plan. They are two
+    // ladders, and the whole point of separating the catalogs was to stop them
+    // being confused for each other.
+    //
+    // The billing record is still written, because it is where the money owed is
+    // read from, and it is stamped with the plan name so it cannot be mistaken
+    // for a website package.
     return this.db.$transaction(async (tx) => {
-      await tx.clientOrganization.update({
+      const organization = await tx.clientOrganization.findUnique({
         where: { id: organizationId },
-        data: { tierId: tier.id },
+        select: { id: true },
       })
+      if (!organization) {
+        throw new UpgradeRequestError('That client account no longer exists - decline this request instead', 409)
+      }
 
-      // Keep the billing card telling the same story as the tier.
       await tx.clientBillingStatus.upsert({
         where: { organizationId },
-        update: { planName: plan.name, monthlyAmount: monthlyPrice, currency },
+        update: { planName: `Deskii ${plan.name}`, monthlyAmount: monthlyPrice, currency },
         create: {
           organizationId,
-          planName: plan.name,
+          planName: `Deskii ${plan.name}`,
           monthlyAmount: monthlyPrice,
           currency,
           status: 'active',

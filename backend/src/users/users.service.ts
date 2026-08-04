@@ -208,7 +208,9 @@ export class UsersService {
         const setupToken = crypto.randomBytes(32).toString('hex')
         const hashedSetupToken = crypto.createHash('sha256').update(setupToken).digest('hex')
         const setupExpiresAt = new Date(Date.now() + ONBOARDING_SETUP_TOKEN_EXPIRY_MS)
-        const setupUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${setupToken}&email=${encodeURIComponent(normalizedEmail)}`
+        // setup=1: onboarding refuses a user who already has a password (above),
+        // so this is always a first-time setup - the page words it as one.
+        const setupUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${setupToken}&email=${encodeURIComponent(normalizedEmail)}&setup=1`
         const fallbackName = normalizedEmail.split('@')[0]?.replace(/[._-]+/g, ' ').trim() || normalizedEmail
 
         const user = await this.prisma.$transaction(async (tx) => {
