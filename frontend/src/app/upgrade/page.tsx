@@ -7,6 +7,7 @@ import Card from "@/components/Card";
 import {
   PRICING_PLANS,
   UPGRADE_CONTACT_EMAIL,
+  annualMonthlyPrice,
   formatPlanPrice,
   planInquiryMailto,
 } from "@/lib/pricing-plans";
@@ -31,8 +32,8 @@ export default function UpgradePage() {
             Choose the plan that grows your business
           </h1>
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-            Every plan includes a professionally built website. Move up as you grow — from a simple
-            online presence to a fully managed growth system.
+            Start free and move up as your team grows — from one person tracking their own work
+            to running payroll for the whole company.
           </p>
         </div>
 
@@ -55,8 +56,16 @@ export default function UpgradePage() {
                 <span className="text-3xl font-semibold tabular-nums">
                   {formatPlanPrice(plan.monthlyPrice)}
                 </span>
-                <span className="text-sm text-[var(--muted)]">/mo</span>
+                {/* Free and Enterprise have no monthly figure, so "/mo" would
+                    read as "Free/mo" and "Custom/mo". */}
+                {plan.monthlyPrice ? <span className="text-sm text-[var(--muted)]">/mo</span> : null}
               </div>
+
+              {annualMonthlyPrice(plan) !== null ? (
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  or ${annualMonthlyPrice(plan)}/mo billed yearly
+                </p>
+              ) : null}
 
               <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{plan.tagline}</p>
 
@@ -74,16 +83,26 @@ export default function UpgradePage() {
 
               <div className="flex-1" />
 
-              <a
-                href={planInquiryMailto(plan)}
-                className={`mt-6 inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] px-4 text-sm font-semibold transition-[filter,color,border-color] duration-150 focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
-                  plan.highlight
-                    ? "bg-[var(--accent)] text-[var(--accent-foreground)] hover:brightness-95"
-                    : "border border-[var(--border)] text-[var(--foreground)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                }`}
-              >
-                Get started
-              </a>
+              {/* This page is shown to free-tier accounts, so Free is the plan
+                  they are already on - offering to "get started" on it would be
+                  nonsense. Enterprise is sales-led, so it asks for a conversation
+                  rather than a plan change. */}
+              {plan.monthlyPrice === 0 ? (
+                <div className="mt-6 inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] border border-dashed border-[var(--border)] px-4 text-sm font-medium text-[var(--muted)]">
+                  Your current plan
+                </div>
+              ) : (
+                <a
+                  href={planInquiryMailto(plan)}
+                  className={`mt-6 inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] px-4 text-sm font-semibold transition-[filter,color,border-color] duration-150 focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                    plan.highlight
+                      ? "bg-[var(--accent)] text-[var(--accent-foreground)] hover:brightness-95"
+                      : "border border-[var(--border)] text-[var(--foreground)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                  }`}
+                >
+                  {plan.custom ? "Talk to sales" : "Choose " + plan.name}
+                </a>
+              )}
             </Card>
           ))}
         </div>
