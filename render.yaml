@@ -72,8 +72,14 @@ services:
         value: sendgrid
       - key: EMAIL_FROM_ADDRESS
         value: noreply@savage-llc.com
+      # Sender display name on all outbound mail. Kept in sync with the
+      # EMAIL_FROM_NAME fallback in backend/src/email/email.config.ts.
+      # NOTE: EMAIL_FROM_ADDRESS above still uses the savage-llc.com domain
+      # because that is what is authenticated in SendGrid. Do not change it
+      # until a mydeskii.com sender domain is verified there, or mail will
+      # start failing to send.
       - key: EMAIL_FROM_NAME
-        value: SAVAGE LLC Internal Portal
+        value: Deskii
       - key: SENDGRID_API_KEY
         sync: false
       - key: SMTP_HOST
