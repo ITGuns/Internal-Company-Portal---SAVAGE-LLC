@@ -102,6 +102,12 @@ export function ProductionPanel({
 
   return (
     <section
+      // Every panel is addressable by its title, so a guided tour can anchor to
+      // [data-tour-panel="Action Queue"] without each page having to opt in.
+      // Panel shells render even when their contents are empty, which is the
+      // normal state of a brand-new client's portal - anchoring to the shell
+      // rather than to a row is what keeps a tour pointing at something real.
+      data-tour-panel={title}
       className={cn(
         "min-w-0 overflow-hidden rounded-[var(--radius-md)] border shadow-[var(--shadow-sm)]",
         isDeep

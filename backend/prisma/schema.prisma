@@ -20,6 +20,11 @@ model User {
   avatar    String?
   managerId String?
 
+  /// Guided-tour keys this person has finished or skipped, e.g. ["client.overview"].
+  /// Per account rather than per browser so a client is never re-taught on their
+  /// phone. Additive and defaulted, so existing users simply start with none seen.
+  tourSeen String[] @default([])
+
   // Profile fields (added in migration 20260217105259)
   phone       String?
   address     String?
