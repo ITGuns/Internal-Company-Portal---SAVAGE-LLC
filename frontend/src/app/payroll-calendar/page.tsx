@@ -16,6 +16,8 @@ import PayslipsTab from "@/components/payroll/PayslipsTab";
 import ReportsTab from "@/components/payroll/ReportsTab";
 import SchedulerTab from "@/components/payroll/SchedulerTab";
 import PayrollAuditFilterBar from "@/components/payroll/PayrollAuditFilterBar";
+import TimesheetAdjustmentQueue from "@/components/payroll/TimesheetAdjustmentQueue";
+import RequestTimesheetAdjustment from "@/components/payroll/RequestTimesheetAdjustment";
 import { useUser } from "@/contexts/UserContext";
 import { fetchUsers, type TaskUser } from "@/lib/tasks";
 import {
@@ -408,6 +410,16 @@ export default function PayrollCalendarPage() {
               onDateChange={handleAuditDateChange}
               onReset={handleResetAuditFilters}
             />
+          )}
+
+          {/* Clock-in/out corrections. The queue renders only for someone with
+              requests to review, and the request form is for everyone - staff can
+              no longer edit their own times directly. */}
+          {activeTab === "calendar" && (
+            <div className="mb-5 grid gap-5 xl:grid-cols-2">
+              <TimesheetAdjustmentQueue />
+              <RequestTimesheetAdjustment />
+            </div>
           )}
 
           {/* Tab Content */}

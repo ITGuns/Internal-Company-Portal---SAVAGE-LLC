@@ -16,6 +16,10 @@ import {
     PayrollAccess,
 } from './payroll.permissions'
 import { createLogger } from '../observability/logger'
+import {
+    TimesheetAdjustmentError,
+    TimesheetAdjustmentsService,
+} from './timesheet-adjustments.service'
 
 const logger = createLogger('payroll.payroll.controller')
 
@@ -62,6 +66,17 @@ export class PayrollController {
                 isAdminEmail(authReq.user?.email),
             ),
         }
+    }
+
+    private readonly adjustments = new TimesheetAdjustmentsService()
+
+    private sendAdjustmentError(res: Response, error: unknown, fallback: string): void {
+        if (error instanceof TimesheetAdjustmentError) {
+            res.status(error.status).json({ error: error.message })
+            return
+        }
+        logger.error(`${fallback}:`, error)
+        res.status(500).json({ error: fallback })
     }
 
     private parseDate(value: unknown): Date | null {
@@ -258,6 +273,14 @@ export class PayrollController {
                 if (!canAccessPayrollTarget(access, targetUserId)) {
                     return res.status(403).json({ error: 'Unauthorized to add manual entry for another user' })
                 }
+                // Staff no longer write their own hours directly. Adding an entry by
+                // hand is the same trust question as editing one - without this the
+                // lockdown below is bypassed by simply creating a second entry.
+                if (!access.isPrivileged) {
+                    return res.status(403).json({
+                        error: 'Submit a timesheet adjustment request instead - your manager approves the change',
+                    })
+                }
 
                 const startDate = this.parseDate(start)
                 const endDate = end ? this.parseDate(end) : null
@@ -287,6 +310,17 @@ export class PayrollController {
                 const id = this.getParam(req.params.id)
                 const { start, end, notes, userId } = req.body
                 const updates: UpdateTimeEntryDto = {}
+
+                // The change this whole feature exists for: staff could previously
+                // move their own clock-in with no reason recorded and nobody told.
+                // Times are now corrected through an approved request. Notes stay
+                // self-editable - they change no hours and no pay.
+                const changesTimes = start !== undefined || end !== undefined
+                if (changesTimes && !access.isPrivileged) {
+                    return res.status(403).json({
+                        error: 'Submit a timesheet adjustment request instead - your manager approves the change',
+                    })
+                }
 
                 if (start !== undefined) {
                     const startDate = this.parseDate(start)
@@ -563,6 +597,112 @@ export class PayrollController {
             } catch (e) {
                 logger.error('Error fetching all payslips:', e)
                 res.status(500).json({ error: 'Failed to fetch payslip archive' })
+            }
+        })
+
+        // --- Timesheet adjustment requests -------------------------------------
+        // Staff ask for a clock-in/out correction; the person who manages them
+        // decides. Every route derives the actor from the token, never the body.
+
+        router.get('/adjustments/mine', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const access = await this.getPayrollAccess(req)
+                if (!access) return res.sendStatus(401)
+                res.json({ requests: await this.adjustments.listForUser(access.requesterId) })
+            } catch (e) {
+                this.sendAdjustmentError(res, e, 'Failed to list your adjustment requests')
+            }
+        })
+
+        router.post('/adjustments', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const access = await this.getPayrollAccess(req)
+                if (!access) return res.sendStatus(401)
+
+                const body = (req.body ?? {}) as Record<string, unknown>
+                const requestedStart = this.parseDate(body.requestedStart)
+                if (!requestedStart) return res.status(400).json({ error: 'A requested start time is required' })
+
+                const request = await this.adjustments.createForUser(access.requesterId, {
+                    timeEntryId: typeof body.timeEntryId === 'string' ? body.timeEntryId : null,
+                    requestedStart,
+                    requestedEnd: this.parseDate(body.requestedEnd),
+                    reason: typeof body.reason === 'string' ? body.reason : '',
+                })
+
+                // Tell the reviewers something is waiting; the queue re-fetches.
+                notificationService.broadcastDataChange('timesheet-adjustments')
+                res.status(201).json({ ok: true, request })
+            } catch (e) {
+                this.sendAdjustmentError(res, e, 'Failed to submit the adjustment request')
+            }
+        })
+
+        router.post('/adjustments/:id/cancel', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const access = await this.getPayrollAccess(req)
+                if (!access) return res.sendStatus(401)
+                const request = await this.adjustments.cancelOwn(this.getParam(req.params.id), access.requesterId)
+                notificationService.broadcastDataChange('timesheet-adjustments')
+                res.json({ ok: true, request })
+            } catch (e) {
+                this.sendAdjustmentError(res, e, 'Failed to cancel the request')
+            }
+        })
+
+        // Reviewer queue. A payroll-privileged reviewer sees everything; anyone
+        // else sees only their own direct reports.
+        router.get('/adjustments', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const access = await this.getPayrollAccess(req)
+                if (!access) return res.sendStatus(401)
+                const status = typeof req.query.status === 'string' ? req.query.status : undefined
+                const requests = await this.adjustments.listForApprover(access.requesterId, {
+                    canReviewAll: access.isPrivileged,
+                    status,
+                })
+                res.json({ requests })
+            } catch (e) {
+                this.sendAdjustmentError(res, e, 'Failed to list adjustment requests')
+            }
+        })
+
+        router.get('/adjustments/pending-count', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const access = await this.getPayrollAccess(req)
+                if (!access) return res.sendStatus(401)
+                const count = await this.adjustments.pendingCountFor(access.requesterId, access.isPrivileged)
+                res.json({ count })
+            } catch (e) {
+                this.sendAdjustmentError(res, e, 'Failed to count adjustment requests')
+            }
+        })
+
+        router.post('/adjustments/:id/decide', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const access = await this.getPayrollAccess(req)
+                if (!access) return res.sendStatus(401)
+
+                const id = this.getParam(req.params.id)
+                const allowed = await this.adjustments.canDecide(access.requesterId, id, access.isPrivileged)
+                // 404 rather than 403: a lead should not learn that another team's
+                // request exists by being told they may not touch it.
+                if (!allowed) return res.status(404).json({ error: 'Request not found' })
+
+                const body = (req.body ?? {}) as Record<string, unknown>
+                const status = body.status === 'approved' ? 'approved' : body.status === 'declined' ? 'declined' : null
+                if (!status) return res.status(400).json({ error: 'status must be approved or declined' })
+
+                const request = await this.adjustments.decide(id, access.requesterId, {
+                    status,
+                    decisionNote: typeof body.decisionNote === 'string' ? body.decisionNote : null,
+                })
+
+                notificationService.broadcastDataChange('timesheet-adjustments')
+                notificationService.broadcastDataChange('time-entries')
+                res.json({ ok: true, request })
+            } catch (e) {
+                this.sendAdjustmentError(res, e, 'Failed to decide the request')
             }
         })
 
