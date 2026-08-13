@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client'
 import { prisma } from '../../database/prisma.service'
 import { createClientActivity } from '../clients.activity'
 import { isValidGfId, normalizeGfId, type GemfieldEntitledOrganization } from './gemfield.access'
+import { getGemfieldPortalTierName } from './gemfield.config'
 import {
   GEMFIELD_PHASES,
   GEMFIELD_STAGING_VISIBLE_FROM,
@@ -200,14 +201,35 @@ export class GemfieldService {
       }
     }
 
-    // Best-effort tier match by label; an unmatched label leaves tier unset
-    // rather than failing provisioning over a cosmetic field.
-    const tier = input.tierLabel
-      ? await this.db.clientServiceTier.findFirst({
-          where: { name: { equals: input.tierLabel.trim(), mode: 'insensitive' } },
-          select: { id: true },
-        })
-      : null
+    // Every intake client lands on one portal service tier.
+    //
+    // This used to match a ClientServiceTier whose name equalled the Gemfield
+    // plan label. Those two naming schemes never overlapped - Gemfield sends
+    // "Foundation"/"Growth"/"Scale"/"Strategic", the seeded tiers are named
+    // "Managed Growth Website System" and friends - so the lookup missed on
+    // every single intake and every org was created with tierId null, showing
+    // no service level anywhere. It failed silently because an unmatched label
+    // was treated as an acceptable miss rather than the certainty it was.
+    const portalTierName = getGemfieldPortalTierName()
+    const tier = await this.db.clientServiceTier.findFirst({
+      where: { name: { equals: portalTierName, mode: 'insensitive' } },
+      select: { id: true },
+    })
+    if (!tier) {
+      // Loud, not silent: the org is still worth creating, but somebody has to
+      // know the tier row is missing (unseeded database, or a renamed preset).
+      console.warn(
+        `[gemfield] portal tier "${portalTierName}" not found - provisioning ${gfId} without a service tier. ` +
+          'Seed client service tiers or set GEMFIELD_PORTAL_TIER to an existing name.',
+      )
+    }
+
+    // The plan they actually bought is not a ClientServiceTier, so it would
+    // otherwise be dropped on the floor here. Record it on the intake milestone
+    // so staff can still see it on the timeline without a schema change.
+    const planNote = input.tierLabel?.trim()
+      ? `Intake completed by the client. Gemfield plan: ${input.tierLabel.trim()}.`
+      : 'Intake completed by the client.'
 
     const slug = await this.uniqueOrganizationSlug(businessName)
 
@@ -242,7 +264,7 @@ export class GemfieldService {
           projectId: project.id,
           phase: GEMFIELD_PHASES[0],
           status: 'complete',
-          note: 'Intake completed by the client.',
+          note: planNote,
           at: input.at ? new Date(input.at) : new Date(),
         },
       })
