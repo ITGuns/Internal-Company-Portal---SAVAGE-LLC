@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   BarChart3,
   BriefcaseBusiness,
+  CreditCard,
   CalendarDays,
   CheckCircle2,
   DollarSign,
@@ -289,6 +290,7 @@ export default function Sidebar() {
         ...(canUseOperationsAdmin ? [{ href: '/operations', icon: ShieldCheck, label: 'Operations', activeMode: 'exact' as SidebarNavActiveMode }] : []),
         ...(canUseFullAccessAdmin ? [{ href: '/operations/onboarding', icon: UserPlus, label: 'Onboarding' }] : []),
         ...(canAccessClientOperations ? [{ href: '/operations/clients', icon: BriefcaseBusiness, label: 'Clients' }] : []),
+        ...(canAccessClientOperations ? [{ href: '/operations/upgrades', icon: CreditCard, label: 'Upgrades' }] : []),
         ...(canUseFullAccessAdmin ? [{ href: '/whiteboard', icon: Grid, label: 'Whiteboard' }] : []),
       ];
 
