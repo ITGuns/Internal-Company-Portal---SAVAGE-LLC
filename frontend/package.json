@@ -37,7 +37,7 @@
     "autoprefixer": "^10.4.23",
     "axe-core": "^4.11.1",
     "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9",
+    "eslint": "^10",
     "eslint-config-next": "^16.2.6",
     "playwright": "^1.58.1",
     "postcss": "8.5.15",
