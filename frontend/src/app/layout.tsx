@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import Script from "next/script";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import LayoutWrapper from "../components/LayoutWrapper";
 import { SocketProvider } from "../context/SocketContext";
@@ -63,6 +64,9 @@ export default async function RootLayout({
             </WorkspaceConfigProvider>
           </QueryProvider>
         </ErrorBoundary>
+        {/* Vercel Web Analytics: page views only. Loaded by the nonced bundle, so
+            'strict-dynamic' in the CSP (src/proxy.ts) trusts the injected script. */}
+        <Analytics />
       </body>
     </html>
   );
