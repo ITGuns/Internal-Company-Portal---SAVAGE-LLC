@@ -1,66 +1,77 @@
 import assert from 'node:assert/strict'
-import { computeExpectedPeriodWindow } from '../src/scheduler/scheduler.periods'
+import { computeExpectedPeriodWindow, isAutoPayslipDue, periodOverlapsWindow } from '../src/scheduler/scheduler.periods'
 
 /**
  * Unit tests for the semi-monthly payroll period boundaries used by the
  * period-advance scheduler job. This is the money-adjacent logic that decides
  * which pay window each auto-run creates, so the boundaries (15th/16th split,
  * month-end handling, leap February, year rollover, pay date) are pinned here.
- * Dates are asserted by local component (year/month/day) since the function
- * builds them in local time.
+ * Periods are built in calendar days of the payroll timezone (Asia/Manila),
+ * whatever the server timezone is, so the assertions use UTC instants.
  */
-function ymd(date: Date): [number, number, number] {
-    return [date.getFullYear(), date.getMonth(), date.getDate()]
+const MANILA = 'Asia/Manila'
+
+function window(nowIso: string) {
+    const w = computeExpectedPeriodWindow(new Date(nowIso), MANILA)
+    return { start: w.start.toISOString(), end: w.end.toISOString(), payDate: w.payDate.toISOString() }
 }
 
-// First half of the month (day <= 15): 1st → 15th, pay date +5 days.
-{
-    const w = computeExpectedPeriodWindow(new Date(2026, 0, 10)) // Jan 10 2026
-    assert.deepEqual(ymd(w.start), [2026, 0, 1])
-    assert.deepEqual(ymd(w.end), [2026, 0, 15])
-    assert.equal(w.end.getHours(), 23)
-    assert.equal(w.end.getMinutes(), 59)
-    assert.equal(w.end.getSeconds(), 59)
-    assert.deepEqual(ymd(w.payDate), [2026, 0, 20]) // Jan 15 + 5
-}
+// First half of the month (day <= 15): Manila Jan 1 00:00 to Jan 15 23:59:59, pay date +5 days.
+assert.deepEqual(window('2026-01-10T04:00:00Z'), {
+    start: '2025-12-31T16:00:00.000Z',
+    end: '2026-01-15T15:59:59.000Z',
+    payDate: '2026-01-20T15:59:59.000Z',
+})
 
 // Boundary: the 15th is still the first half.
-{
-    const w = computeExpectedPeriodWindow(new Date(2026, 0, 15))
-    assert.deepEqual(ymd(w.start), [2026, 0, 1])
-    assert.deepEqual(ymd(w.end), [2026, 0, 15])
-}
+assert.equal(window('2026-01-15T10:00:00Z').end, '2026-01-15T15:59:59.000Z')
 
-// Boundary: the 16th flips to the second half.
-{
-    const w = computeExpectedPeriodWindow(new Date(2026, 0, 16))
-    assert.deepEqual(ymd(w.start), [2026, 0, 16])
-    assert.deepEqual(ymd(w.end), [2026, 0, 31]) // Jan has 31 days
-    assert.deepEqual(ymd(w.payDate), [2026, 1, 5]) // Jan 31 + 5 = Feb 5
-}
+// Boundary: 01:00 on the 16th in Manila is still the 15th in UTC, and already the second half.
+assert.deepEqual(window('2026-01-15T17:00:00Z'), {
+    start: '2026-01-15T16:00:00.000Z',
+    end: '2026-01-31T15:59:59.000Z',
+    payDate: '2026-02-05T15:59:59.000Z',
+})
 
-// Second half, non-leap February → ends on the 28th.
-{
-    const w = computeExpectedPeriodWindow(new Date(2026, 1, 20)) // Feb 20 2026
-    assert.deepEqual(ymd(w.start), [2026, 1, 16])
-    assert.deepEqual(ymd(w.end), [2026, 1, 28])
-    assert.deepEqual(ymd(w.payDate), [2026, 2, 5]) // Feb 28 + 5 = Mar 5
-}
+// Second half, non-leap February ends on the 28th.
+assert.equal(window('2026-02-20T04:00:00Z').end, '2026-02-28T15:59:59.000Z')
+assert.equal(window('2026-02-20T04:00:00Z').payDate, '2026-03-05T15:59:59.000Z')
 
-// Second half, leap February → ends on the 29th.
-{
-    const w = computeExpectedPeriodWindow(new Date(2024, 1, 20)) // Feb 20 2024 (leap)
-    assert.deepEqual(ymd(w.start), [2024, 1, 16])
-    assert.deepEqual(ymd(w.end), [2024, 1, 29])
-    assert.deepEqual(ymd(w.payDate), [2024, 2, 5]) // Feb 29 + 5 = Mar 5
-}
+// Second half, leap February ends on the 29th.
+assert.equal(window('2024-02-20T04:00:00Z').end, '2024-02-29T15:59:59.000Z')
 
 // Year rollover: late December pay date lands in the next January.
+assert.deepEqual(window('2026-12-20T04:00:00Z'), {
+    start: '2026-12-15T16:00:00.000Z',
+    end: '2026-12-31T15:59:59.000Z',
+    payDate: '2027-01-05T15:59:59.000Z',
+})
+
+// A period stored before 2026-10-09 at UTC midnight covers the same calendar days
+// as the Manila-midnight window, so period-advance does not create a duplicate.
 {
-    const w = computeExpectedPeriodWindow(new Date(2026, 11, 20)) // Dec 20 2026
-    assert.deepEqual(ymd(w.start), [2026, 11, 16])
-    assert.deepEqual(ymd(w.end), [2026, 11, 31])
-    assert.deepEqual(ymd(w.payDate), [2027, 0, 5]) // Dec 31 + 5 = Jan 5 2027
+    const expected = computeExpectedPeriodWindow(new Date('2026-10-05T04:00:00Z'), MANILA)
+    const legacyUtc = { startDate: new Date('2026-10-01T00:00:00Z'), endDate: new Date('2026-10-15T23:59:59Z') }
+    const previousHalf = { startDate: new Date('2026-09-16T00:00:00Z'), endDate: new Date('2026-09-30T23:59:59Z') }
+    const nextHalfManila = computeExpectedPeriodWindow(new Date('2026-10-20T04:00:00Z'), MANILA)
+    assert.equal(periodOverlapsWindow(legacyUtc, expected), true)
+    assert.equal(periodOverlapsWindow(previousHalf, expected), false)
+    assert.equal(
+        periodOverlapsWindow(legacyUtc, nextHalfManila),
+        false,
+        'a UTC-stored first half does not block the Manila second half',
+    )
+}
+
+// Auto-payslip gate: an ended period generates immediately even though its pay
+// date is 5 days out; a period still open waits until 2 days before pay date.
+{
+    const ended = { endDate: new Date('2026-10-15T23:59:59Z'), payDate: new Date('2026-10-20T23:59:59Z') }
+    assert.equal(isAutoPayslipDue(ended, new Date('2026-10-16T00:30:00Z')), true, 'ended period is due right away')
+    const open = { endDate: new Date('2026-10-31T23:59:59Z'), payDate: new Date('2026-11-05T23:59:59Z') }
+    assert.equal(isAutoPayslipDue(open, new Date('2026-10-20T00:00:00Z')), false, 'open period keeps the gate')
+    const openNoPayDate = { endDate: new Date('2026-10-31T23:59:59Z'), payDate: null }
+    assert.equal(isAutoPayslipDue(openNoPayDate, new Date('2026-10-31T23:59:59Z')), true, 'no pay date: due from the end')
 }
 
 console.log('scheduler.periods tests passed')

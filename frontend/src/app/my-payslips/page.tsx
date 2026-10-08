@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Header from "@/components/Header";
 import Card from "@/components/Card";
 import Button from "@/components/Button";
@@ -18,6 +18,10 @@ import {
 } from "@/lib/payroll-calendar/payslip-utils";
 import type { Payslip } from "@/lib/payroll-calendar/types";
 import type { ApiPayslip, ApiPayslipItem } from "@/lib/types/api";
+import { getPayBasisLabel } from "@/lib/pay-basis";
+import { getPayrollItemTypeLabel } from "@/lib/payslip-edit";
+import { formatPayrollDate, payrollPeriodDayKey } from "@/lib/payroll-dates";
+import { getPayrollDayKey } from "@/lib/time-requests";
 import {
     FileText,
     Download,
@@ -29,6 +33,7 @@ import {
     CheckCircle2,
     Clock,
     AlertCircle,
+    RefreshCw,
 } from "lucide-react";
 
 // ─── helper: map raw API response to Payslip shape ──────────────────────────
@@ -37,9 +42,10 @@ function mapApiPayslip(raw: ApiPayslip): Payslip {
         id: raw.id,
         employeeId: raw.userId,
         employeeName: raw.user?.name || "Me",
-        payPeriodStart: raw.period?.startDate?.split("T")[0] ?? "",
-        payPeriodEnd: raw.period?.endDate?.split("T")[0] ?? "",
-        issueDate: raw.generatedAt?.split("T")[0] ?? "",
+        // Manila calendar days (period rows may be stored at UTC or Manila midnight).
+        payPeriodStart: payrollPeriodDayKey(raw.period?.startDate, "start") ?? "",
+        payPeriodEnd: payrollPeriodDayKey(raw.period?.endDate, "end") ?? "",
+        issueDate: (raw.generatedAt && getPayrollDayKey(raw.generatedAt)) || "",
         status: (raw.status as Payslip["status"]) || "issued",
         hoursWorked: 0, // not stored on payslip
         grossPay: raw.grossPay ?? 0,
@@ -54,7 +60,13 @@ function mapApiPayslip(raw: ApiPayslip): Payslip {
                     amount: Math.abs(i.amount),
                 })) ?? [],
         notes: undefined,
+        items: raw.items ?? [],
+        periodStatus: raw.period?.status,
     };
+}
+
+function isOvertimeItem(type?: string): boolean {
+    return type === "overtime_approved" || type === "overtime_pending";
 }
 
 // ─── stat card ───────────────────────────────────────────────────────────────
@@ -99,13 +111,18 @@ function StatusIcon({ status }: { status: Payslip["status"] }) {
 // ─── detail modal ────────────────────────────────────────────────────────────
 function PayslipModal({
     payslip,
+    payBasisLabel,
     onClose,
     onDownload,
 }: {
     payslip: Payslip;
+    payBasisLabel: string | null;
     onClose: () => void;
     onDownload: () => void;
 }) {
+    const earningItems = (payslip.items ?? []).filter(
+        (item) => item.type !== "deduction" && item.amount >= 0,
+    );
     const dialogTitleId = React.useId();
     const dialogDescriptionId = React.useId();
     const { dialogRef, handleDialogKeyDown } = useDialogA11y({ onClose });
@@ -147,7 +164,7 @@ function PayslipModal({
                 </div>
 
                 {/* Body */}
-                <div className="px-6 py-5 space-y-5">
+                <div className="px-6 py-5 space-y-5 max-h-[calc(100vh-14rem)] overflow-y-auto">
                     {/* Status */}
                     <div className="flex items-center justify-between">
                         <span className="text-sm text-[var(--muted)]">Status</span>
@@ -157,18 +174,53 @@ function PayslipModal({
                             {payslip.status}
                         </span>
                     </div>
+                    {payBasisLabel && (
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                            <span className="text-[var(--muted)]">Pay basis</span>
+                            <span className="text-right font-medium text-[var(--foreground)]">{payBasisLabel}</span>
+                        </div>
+                    )}
 
                     {/* Earnings */}
                     <div className="bg-[var(--card-surface)] rounded-xl p-4 space-y-3">
                         <h3 className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">
                             Earnings
                         </h3>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-[var(--foreground)]">Base / Hourly Pay</span>
-                            <span className="font-semibold text-[var(--foreground)]">
-                                {formatCurrency(payslip.grossPay)}
-                            </span>
-                        </div>
+                        {earningItems.length === 0 ? (
+                            <div className="flex justify-between text-sm">
+                                <span className="text-[var(--foreground)]">Gross pay</span>
+                                <span className="font-semibold text-[var(--foreground)]">
+                                    {formatCurrency(payslip.grossPay)}
+                                </span>
+                            </div>
+                        ) : (
+                            earningItems.map((item) => {
+                                const pending = item.type === "overtime_pending";
+                                return (
+                                    <div key={item.id} className="flex justify-between gap-3 text-sm">
+                                        <span className="min-w-0 text-[var(--foreground)]">
+                                            {item.description || getPayrollItemTypeLabel(item.type)}
+                                            {isOvertimeItem(item.type) && (
+                                                <span className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${pending ? "bg-amber-500/10 text-amber-700 dark:text-amber-300" : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"}`}>
+                                                    {pending ? "Unapproved overtime, not paid" : "Approved overtime"}
+                                                </span>
+                                            )}
+                                        </span>
+                                        <span className={`shrink-0 font-semibold tabular-nums ${pending ? "text-[var(--muted)]" : "text-[var(--foreground)]"}`}>
+                                            {formatCurrency(item.amount)}
+                                        </span>
+                                    </div>
+                                );
+                            })
+                        )}
+                        {earningItems.length > 0 && (
+                            <div className="flex justify-between border-t border-[var(--border)] pt-2 text-sm">
+                                <span className="text-[var(--muted)]">Gross pay</span>
+                                <span className="font-semibold tabular-nums text-[var(--foreground)]">
+                                    {formatCurrency(payslip.grossPay)}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     {/* Deductions */}
@@ -199,7 +251,7 @@ function PayslipModal({
                     {/* Issue date */}
                     <div className="flex items-center justify-between text-sm text-[var(--muted)]">
                         <span>Issue Date</span>
-                        <span>{new Date(payslip.issueDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</span>
+                        <span>{formatPayrollDate(payslip.issueDate, { format: { year: "numeric", month: "long", day: "numeric" } })}</span>
                     </div>
                 </div>
 
@@ -227,26 +279,45 @@ export default function MyPayslipsPage() {
     const toast = useToast();
     const [payslips, setPayslips] = useState<Payslip[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const [payBasisLabel, setPayBasisLabel] = useState<string | null>(null);
     const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
+    const userId = user?.id != null ? String(user.id) : null;
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        setLoadError(null);
+        try {
+            const res = await apiFetch("/payroll/my-payslips");
+            const data = await res.json();
+            setPayslips(Array.isArray(data) ? data.map(mapApiPayslip) : []);
+        } catch (error) {
+            setLoadError(error instanceof Error ? error.message : "Could not load payslips.");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        const load = async () => {
-            try {
-                const res = await apiFetch("/payroll/my-payslips");
-                if (res.ok) {
-                    const data = await res.json();
-                    setPayslips(data.map(mapApiPayslip));
-                } else {
-                    toast.error("Failed to load payslips");
-                }
-            } catch {
-                toast.error("Connection error — could not load payslips");
-            } finally {
-                setLoading(false);
-            }
+        void load();
+    }, [load]);
+
+    // Pay basis comes from the payroll profile. Leave it hidden if it cannot be read.
+    useEffect(() => {
+        if (!userId) return;
+        let mounted = true;
+        apiFetch(`/payroll/config/${encodeURIComponent(userId)}`)
+            .then((res) => res.json())
+            .then((profile: { payBasis?: string } | null) => {
+                if (mounted && profile) setPayBasisLabel(getPayBasisLabel(profile.payBasis));
+            })
+            .catch(() => {
+                if (mounted) setPayBasisLabel(null);
+            });
+        return () => {
+            mounted = false;
         };
-        load();
-    }, [toast]);
+    }, [userId]);
 
     // YTD stats
     const currentYear = new Date().getFullYear();
@@ -301,6 +372,25 @@ export default function MyPayslipsPage() {
                 <section className="pt-6 pb-10">
                 {loading ? (
                     <PayslipSkeleton />
+                ) : loadError ? (
+                    <div role="alert" className="mx-auto mt-12 max-w-2xl rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm">
+                        <div className="flex items-start gap-2">
+                            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" aria-hidden="true" />
+                            <div className="min-w-0">
+                                <div className="font-semibold">Could not load your payslips.</div>
+                                <div className="mt-1 break-words text-[var(--muted)]">{loadError}</div>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="mt-3"
+                                    icon={<RefreshCw className="h-4 w-4" aria-hidden="true" />}
+                                    onClick={() => void load()}
+                                >
+                                    Try again
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
                 ) : payslips.length === 0 ? (
                     <div className="max-w-2xl mx-auto mt-12">
                         <EmptyState
@@ -311,6 +401,11 @@ export default function MyPayslipsPage() {
                     </div>
                 ) : (
                     <div className="max-w-4xl mx-auto space-y-8">
+                        {payBasisLabel && (
+                            <p className="text-sm text-[var(--muted)]">
+                                Pay basis: <span className="font-medium text-[var(--foreground)]">{payBasisLabel}</span>. Overtime is paid only after it is approved.
+                            </p>
+                        )}
                         {/* Stats strip */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <StatCard
@@ -336,11 +431,8 @@ export default function MyPayslipsPage() {
                                 label="Last Pay Date"
                                 value={
                                     lastPay
-                                        ? new Date(lastPay.issueDate).toLocaleDateString("en-US", {
-                                            month: "short",
-                                            day: "numeric",
-                                        })
-                                        : "—"
+                                        ? formatPayrollDate(lastPay.issueDate, { format: { month: "short", day: "numeric" } })
+                                        : "None"
                                 }
                                 accent="bg-amber-500"
                             />
@@ -376,11 +468,7 @@ export default function MyPayslipsPage() {
                                                 </div>
                                                 <p className="text-xs text-[var(--muted)]">
                                                     Issued:{" "}
-                                                    {new Date(ps.issueDate).toLocaleDateString("en-US", {
-                                                        year: "numeric",
-                                                        month: "long",
-                                                        day: "numeric",
-                                                    })}
+                                                    {formatPayrollDate(ps.issueDate, { format: { year: "numeric", month: "long", day: "numeric" } })}
                                                 </p>
                                             </div>
 
@@ -427,6 +515,7 @@ export default function MyPayslipsPage() {
             {selectedPayslip && (
                 <PayslipModal
                     payslip={selectedPayslip}
+                    payBasisLabel={payBasisLabel}
                     onClose={() => setSelectedPayslip(null)}
                     onDownload={() => {
                         handleDownload(selectedPayslip);
