@@ -1,29 +1,21 @@
 import express, { Request, Response, Router } from 'express'
 import {
-    PayrollConflictError,
     PayrollForbiddenError,
     PayrollNotFoundError,
     PayrollService,
-    PayrollValidationError,
     UpdateTimeEntryDto,
 } from './payroll.service'
 import { authenticateToken, requireRole } from '../auth/auth.middleware'
 import { notificationService } from '../notifications/socket.service'
-import { config, isAdminEmail } from '../config/env.config'
-import { periodBoundsFromInput } from './payroll.calculations'
+import { isAdminEmail } from '../config/env.config'
 import { prisma } from '../database/prisma.service'
 import {
     canAccessPayrollTarget,
-    canReviewTimeRequests,
     filterPayrollProfileUpdate,
     hasPayrollManagementAccess,
     PayrollAccess,
-    PAYROLL_MANAGEMENT_ROUTE_ROLES as PAYROLL_ROUTE_ROLE_LIST,
 } from './payroll.permissions'
 import { createLogger } from '../observability/logger'
-import { registerTimeRequestRoutes } from './time-requests.routes'
-import { PayslipEditService } from './payslip-edit.service'
-import { TimeRequestsService } from './time-requests.service'
 
 const logger = createLogger('payroll.payroll.controller')
 
@@ -35,15 +27,19 @@ interface AuthRequest extends Request {
     }
 }
 
-// Shared list lives in payroll.permissions.ts (now includes payroll_finance, which
-// org-access-policy already treated as payroll management).
-const PAYROLL_MANAGEMENT_ROUTE_ROLES = [...PAYROLL_ROUTE_ROLE_LIST]
-const DIRECT_ENTRY_EDIT_DENIED = 'Submit an adjustment request'
+const PAYROLL_MANAGEMENT_ROUTE_ROLES = [
+    'admin',
+    'administrator',
+    'operations_manager',
+    'bookkeeper',
+    'bookkeeping',
+    'contractor_salary_payments',
+    'financial_controller',
+    'payroll_assistant',
+]
 
 export class PayrollController {
     private service = new PayrollService()
-    private payslipEdits = new PayslipEditService()
-    private timeRequests = new TimeRequestsService()
 
     private getParam(value: string | string[]): string {
         return Array.isArray(value) ? value[0] : value
@@ -59,26 +55,13 @@ export class PayrollController {
             select: { role: true },
         })
 
-        const isConfiguredAdmin = isAdminEmail(authReq.user?.email)
         return {
             requesterId,
-            isPrivileged: hasPayrollManagementAccess(roles, isConfiguredAdmin),
-            canReviewTime: canReviewTimeRequests(roles, isConfiguredAdmin),
+            isPrivileged: hasPayrollManagementAccess(
+                roles,
+                isAdminEmail(authReq.user?.email),
+            ),
         }
-    }
-
-    private denyDirectEntryEdit(res: Response) {
-        return res.status(403).json({ error: DIRECT_ENTRY_EDIT_DENIED, message: DIRECT_ENTRY_EDIT_DENIED })
-    }
-
-    /**
-     * Reviewers without payroll access may not touch their own time (self-review rule):
-     * they go through an adjustment request like everyone else.
-     */
-    private async isOwnEntryForNonPayroll(access: PayrollAccess, entryId: string): Promise<boolean> {
-        if (access.isPrivileged) return false
-        const entry = await prisma.timeEntry.findUnique({ where: { id: entryId }, select: { userId: true } })
-        return entry?.userId === access.requesterId
     }
 
     private parseDate(value: unknown): Date | null {
@@ -107,12 +90,6 @@ export class PayrollController {
         }
         if (error instanceof PayrollNotFoundError) {
             return res.status(404).json({ error: error.message })
-        }
-        if (error instanceof PayrollValidationError) {
-            return res.status(400).json({ error: error.message })
-        }
-        if (error instanceof PayrollConflictError) {
-            return res.status(409).json({ error: error.message })
         }
         if (error instanceof Error && (
             error.message === 'Invalid start time' ||
@@ -223,8 +200,7 @@ export class PayrollController {
 
                 if (req.query.userId) {
                     const queriedUserId = req.query.userId as string
-                    // Time reviewers (management or payroll roles) can read anyone's entries.
-                    if (!canAccessPayrollTarget(access, queriedUserId) && !access.canReviewTime) {
+                    if (!canAccessPayrollTarget(access, queriedUserId)) {
                         return res.status(403).json({ error: 'Unauthorized to view another user\'s time entries' })
                     }
                     targetUserId = queriedUserId
@@ -275,13 +251,13 @@ export class PayrollController {
                 const access = await this.getPayrollAccess(req)
                 if (!access) return res.sendStatus(401)
 
-                if (!access.canReviewTime) return this.denyDirectEntryEdit(res)
-
                 const { start, end, notes, userId } = req.body
                 if (!start) return res.status(400).json({ error: 'Start time required' })
 
                 const targetUserId = userId || access.requesterId
-                if (targetUserId === access.requesterId && !access.isPrivileged) return this.denyDirectEntryEdit(res)
+                if (!canAccessPayrollTarget(access, targetUserId)) {
+                    return res.status(403).json({ error: 'Unauthorized to add manual entry for another user' })
+                }
 
                 const startDate = this.parseDate(start)
                 const endDate = end ? this.parseDate(end) : null
@@ -308,14 +284,8 @@ export class PayrollController {
                 const access = await this.getPayrollAccess(req)
                 if (!access) return res.sendStatus(401)
 
-                if (!access.canReviewTime) return this.denyDirectEntryEdit(res)
-
                 const id = this.getParam(req.params.id)
                 const { start, end, notes, userId } = req.body
-                if (userId !== undefined && !access.isPrivileged) {
-                    return res.status(403).json({ error: 'Only payroll managers can move a time entry to another person' })
-                }
-                if (await this.isOwnEntryForNonPayroll(access, id)) return this.denyDirectEntryEdit(res)
                 const updates: UpdateTimeEntryDto = {}
 
                 if (start !== undefined) {
@@ -333,7 +303,12 @@ export class PayrollController {
                     }
                 }
                 if (notes !== undefined) updates.notes = notes
-                if (userId !== undefined) updates.userId = userId
+                if (userId !== undefined) {
+                    if (!access.isPrivileged && userId !== access.requesterId) {
+                        return res.status(403).json({ error: 'Only payroll managers can reassign time entries' })
+                    }
+                    updates.userId = userId
+                }
 
                 if (Object.keys(updates).length === 0) {
                     return res.status(400).json({ error: 'No time entry updates provided' })
@@ -341,7 +316,7 @@ export class PayrollController {
 
                 const entry = await this.service.updateTimeEntry(id, updates, {
                     requesterId: access.requesterId,
-                    canManageAny: true,
+                    canManageAny: access.isPrivileged,
                 })
                 res.json(entry)
                 notificationService.broadcastDataChange('time-entries')
@@ -356,12 +331,9 @@ export class PayrollController {
                 const access = await this.getPayrollAccess(req)
                 if (!access) return res.sendStatus(401)
 
-                if (!access.canReviewTime) return this.denyDirectEntryEdit(res)
-
                 const id = this.getParam(req.params.id)
-                if (await this.isOwnEntryForNonPayroll(access, id)) return this.denyDirectEntryEdit(res)
                 await this.service.deleteTimeEntry(id, access.requesterId, {
-                    canManageAny: true,
+                    canManageAny: access.isPrivileged,
                 })
                 res.json({ success: true })
                 notificationService.broadcastDataChange('time-entries')
@@ -389,13 +361,13 @@ export class PayrollController {
                     return res.status(403).json({ error: 'Forbidden' })
                 }
 
-                // Whole payroll-timezone days, whether the client sent YYYY-MM-DD or instants.
-                const bounds = periodBoundsFromInput({ startDate, endDate }, config.payrollTimezone)
-                const preview = await this.service.previewPayslip(userId, bounds.start, bounds.end)
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                const preview = await this.service.previewPayslip(userId, new Date(startDate), end)
                 res.status(200).json(preview)
             } catch (e) {
                 logger.error('Preview error:', e)
-                this.sendPayrollError(res, e, 'Failed to preview calculation')
+                res.status(500).json({ error: e instanceof Error ? e.message : 'Failed to preview calculation' })
             }
         })
 
@@ -467,7 +439,7 @@ export class PayrollController {
         })
 
         // Auto-ensure a current period exists (first-time / convenience setup)
-        // Any authenticated user can trigger this (the service is idempotent)
+        // Any authenticated user can trigger this — service is idempotent
         router.post('/periods/ensure', authenticateToken, async (req: Request, res: Response) => {
             try {
                 const periodId = await this.service.ensureCurrentPeriodExists()
@@ -481,12 +453,17 @@ export class PayrollController {
         // Create Payroll Period (payroll management only)
         router.post('/periods', authenticateToken, requireRole(PAYROLL_MANAGEMENT_ROUTE_ROLES), async (req: Request, res: Response) => {
             try {
-                const { startDate, endDate, payDate } = req.body || {}
-                const bounds = periodBoundsFromInput({ startDate, endDate, payDate }, config.payrollTimezone)
-                const period = await this.service.createPayrollPeriod(bounds)
+                const { startDate, endDate, payDate } = req.body
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                const period = await this.service.createPayrollPeriod(
+                    new Date(startDate),
+                    end,
+                    new Date(payDate)
+                )
                 res.json(period)
             } catch (e) {
-                this.sendPayrollError(res, e, 'Failed to create period')
+                res.status(500).json({ error: 'Failed to create period' })
             }
         })
 
@@ -500,16 +477,10 @@ export class PayrollController {
                     const periodId = Array.isArray(req.params.periodId) ? req.params.periodId[0] : req.params.periodId
                     const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId
 
-                    // A hand-edited payslip answers 409 unless the caller confirms with force: true.
-                    const payslip = await this.service.generatePayslip(periodId, userId, req.body, {
-                        force: req.body?.force === true,
-                    })
+                    const payslip = await this.service.generatePayslip(periodId, userId, req.body)
                     res.json(payslip)
                 } catch (e) {
                     logger.error(e)
-                    if (e instanceof PayrollConflictError || e instanceof PayrollValidationError) {
-                        return this.sendPayrollError(res, e, 'Failed to generate payslip')
-                    }
                     res.status(500).json({ error: e instanceof Error ? e.message : 'Failed to generate payslip' })
                 }
             }
@@ -593,42 +564,6 @@ export class PayrollController {
                 logger.error('Error fetching all payslips:', e)
                 res.status(500).json({ error: 'Failed to fetch payslip archive' })
             }
-        })
-
-        // Edit a draft payslip: replace line items, recompute totals, record the editor (payroll v2)
-        router.patch('/payslips/:id', authenticateToken, requireRole(PAYROLL_MANAGEMENT_ROUTE_ROLES), async (req: Request, res: Response) => {
-            try {
-                const access = await this.getPayrollAccess(req)
-                if (!access) return res.sendStatus(401)
-
-                // Payroll staff never edit their own payslip (the service refuses with 403).
-                const payslip = await this.payslipEdits.editPayslip(this.getParam(req.params.id), access.requesterId, req.body || {})
-                res.json(payslip)
-                notificationService.broadcastDataChange('payslips')
-            } catch (e) {
-                logger.error('Error editing payslip:', e)
-                this.sendPayrollError(res, e, 'Failed to edit payslip')
-            }
-        })
-
-        router.delete('/payslips/:id', authenticateToken, requireRole(PAYROLL_MANAGEMENT_ROUTE_ROLES), async (req: Request, res: Response) => {
-            try {
-                const access = await this.getPayrollAccess(req)
-                if (!access) return res.sendStatus(401)
-
-                await this.payslipEdits.deletePayslip(this.getParam(req.params.id), access.requesterId)
-                res.json({ success: true })
-                notificationService.broadcastDataChange('payslips')
-            } catch (e) {
-                logger.error('Error deleting payslip:', e)
-                this.sendPayrollError(res, e, 'Failed to delete payslip')
-            }
-        })
-
-        registerTimeRequestRoutes(router, {
-            service: this.timeRequests,
-            getAccess: (req) => this.getPayrollAccess(req),
-            sendError: (res, error, fallback) => this.sendPayrollError(res, error, fallback),
         })
 
         return router

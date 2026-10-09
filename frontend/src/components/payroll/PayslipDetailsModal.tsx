@@ -6,43 +6,31 @@ import React from "react";
 import { FileText, Download, Printer } from "lucide-react";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
-import type { Payslip, PayslipLineItem } from "@/lib/payroll-calendar/types";
-import { formatPayrollDate } from "@/lib/payroll-dates";
-import { getPayrollItemTypeLabel, inferPayrollItemType } from "@/lib/payslip-edit";
-import { getPayBasisLabel } from "@/lib/pay-basis";
+import type { Payslip } from "@/lib/payroll-calendar/types";
+
 
 interface PayslipDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   payslip: Payslip | null;
-  /** The employee's pay basis, shown above the line items. */
-  payBasis?: string;
   onDownloadPDF: (payslip: Payslip) => void;
-}
-
-const peso = (value: number) =>
-  `₱${value.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-/** Earning lines (everything but deductions), typed so legacy rows still read correctly. */
-function earningLines(payslip: Payslip): Array<PayslipLineItem & { typeLabel: string }> {
-  return (payslip.items ?? [])
-    .map((item) => ({ ...item, resolvedType: inferPayrollItemType(item.type, item.amount) }))
-    .filter((item) => item.resolvedType !== "deduction")
-    .map(({ resolvedType, ...item }) => ({ ...item, typeLabel: getPayrollItemTypeLabel(resolvedType) }));
 }
 
 export default function PayslipDetailsModal({
   isOpen,
   onClose,
   payslip,
-  payBasis,
   onDownloadPDF,
 }: PayslipDetailsModalProps) {
   if (!payslip) return null;
 
-  const formatDate = (dateStr: string) =>
-    formatPayrollDate(dateStr, { format: { year: "numeric", month: "long", day: "numeric" } });
-  const earnings = earningLines(payslip);
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Payslip Details" size="lg">
@@ -74,7 +62,7 @@ export default function PayslipDetailsModal({
           <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
             <div className="text-xs text-[var(--muted)] mb-1">Pay Period</div>
             <div className="text-sm font-medium text-[var(--foreground)]">
-              {formatDate(payslip.payPeriodStart)} to {formatDate(payslip.payPeriodEnd)}
+              {formatDate(payslip.payPeriodStart)} - {formatDate(payslip.payPeriodEnd)}
             </div>
           </div>
           <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
@@ -87,14 +75,9 @@ export default function PayslipDetailsModal({
 
         {/* Earnings Section */}
         <div className="mb-6">
-          <div className="flex items-baseline justify-between gap-3 mb-3">
-            <h3 className="text-sm font-semibold text-[var(--foreground)]">Earnings</h3>
-            {payBasis && (
-              <span className="text-xs text-[var(--muted)]">
-                Pay basis: <span className="font-medium text-[var(--foreground)]">{getPayBasisLabel(payBasis)}</span>
-              </span>
-            )}
-          </div>
+          <h3 className="text-sm font-semibold text-[var(--foreground)] mb-3">
+            Earnings
+          </h3>
           <div className="border border-[var(--border)] rounded-lg overflow-hidden">
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-800/50">
@@ -108,28 +91,28 @@ export default function PayslipDetailsModal({
                 </tr>
               </thead>
               <tbody>
-                {earnings.map((item) => (
-                  <tr key={item.id} className="border-t border-[var(--border)]">
-                    <td className="px-4 py-3 text-sm text-[var(--foreground)]">
-                      <div className="font-medium">{item.typeLabel}</div>
-                      <div className="text-xs text-[var(--muted)]">{item.description}</div>
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium text-right text-[var(--foreground)] whitespace-nowrap">
-                      {peso(item.amount)}
-                    </td>
-                  </tr>
-                ))}
-                {earnings.length === 0 && (
-                  <tr className="border-t border-[var(--border)]">
-                    <td colSpan={2} className="px-4 py-3 text-sm text-[var(--muted)]">This payslip has no line items.</td>
-                  </tr>
-                )}
+                <tr className="border-t border-[var(--border)]">
+                  <td className="px-4 py-3 text-sm text-[var(--foreground)]">
+                    Base Salary
+                  </td>
+                  <td className="px-4 py-3 text-sm font-medium text-right text-[var(--foreground)]">
+                    ₱{payslip.grossPay.toLocaleString()}
+                  </td>
+                </tr>
+                <tr className="border-t border-[var(--border)]">
+                  <td className="px-4 py-3 text-sm text-[var(--foreground)]">
+                    Hours Worked
+                  </td>
+                  <td className="px-4 py-3 text-sm font-medium text-right text-[var(--foreground)]">
+                    {payslip.hoursWorked} hrs
+                  </td>
+                </tr>
                 <tr className="border-t border-[var(--border)] bg-emerald-50 dark:bg-emerald-900/20">
                   <td className="px-4 py-3 text-sm font-semibold text-[var(--foreground)]">
                     Total Gross Pay
                   </td>
                   <td className="px-4 py-3 text-sm font-bold text-right text-emerald-600 dark:text-emerald-400">
-                    {peso(payslip.grossPay)}
+                    ₱{payslip.grossPay.toLocaleString()}
                   </td>
                 </tr>
               </tbody>
@@ -201,15 +184,6 @@ export default function PayslipDetailsModal({
             <FileText className="w-12 h-12 opacity-50" />
           </div>
         </div>
-
-        {payslip.editedAt && (
-          <div className="mb-6 p-3 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
-            <div className="text-xs font-semibold text-amber-800 dark:text-amber-300 mb-1">
-              Edited by hand on {formatDate(payslip.editedAt)}
-            </div>
-            <div className="text-sm text-[var(--foreground)]">{payslip.editNote || "No note was left."}</div>
-          </div>
-        )}
 
         {/* Notes */}
         {payslip.notes && (

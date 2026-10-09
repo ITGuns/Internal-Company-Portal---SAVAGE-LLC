@@ -11,7 +11,6 @@ import {
 import { createLogger } from '../observability/logger'
 import { configureSocketRedisAdapter } from './socket.adapter'
 import { collectOnlineUserIds } from './socket.presence'
-import { checkAccountStatus } from '../auth/account-status'
 
 const logger = createLogger('notifications.socket')
 
@@ -66,28 +65,12 @@ class NotificationService {
                 return
             }
 
-            let user: JwtPayload
             try {
-                user = JwtService.verifyAccessToken(token)
+                socket.data.user = JwtService.verifyAccessToken(token)
+                next()
             } catch {
                 next(new Error('Invalid socket token'))
-                return
             }
-
-            // Deactivated, unapproved or deleted accounts may not open a socket (payroll v2, Rule 6).
-            checkAccountStatus(user.userId)
-                .then((account) => {
-                    if (!account.ok && 'message' in account) {
-                        next(new Error(account.message))
-                        return
-                    }
-                    socket.data.user = user
-                    next()
-                })
-                .catch((error) => {
-                    logger.error('Socket account status check failed', error)
-                    next(new Error('Unable to verify account'))
-                })
         })
 
         this.io.on('connection', (socket: Socket) => {
@@ -240,12 +223,6 @@ class NotificationService {
     joinRoom(userId: string, room: string) {
         if (!this.io) return
         this.io.in(`user:${userId}`).socketsJoin(room)
-    }
-
-    /** Drops every live socket of a user, e.g. right after deactivation. */
-    disconnectUser(userId: string) {
-        if (!this.io) return
-        this.io.in(`user:${userId}`).disconnectSockets(true)
     }
 }
 

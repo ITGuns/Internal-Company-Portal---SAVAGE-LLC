@@ -207,7 +207,7 @@ export function buildDashboardSummary({
     attentionItems.push({
       id: 'clock-in-reminder',
       title: 'No tracked time today',
-      description: 'Clock in, or request a correction from the payroll calendar.',
+      description: 'Clock in or add a manual entry before payroll review.',
       href: DASHBOARD_DEEP_LINKS.reviewPayroll,
       severity: 'info',
     });

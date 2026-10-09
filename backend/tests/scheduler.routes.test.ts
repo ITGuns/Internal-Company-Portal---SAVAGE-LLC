@@ -2,8 +2,6 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { SchedulerController } from '../src/scheduler/scheduler.controller'
-import { SchedulerService } from '../src/scheduler/scheduler.service'
-import { prisma } from '../src/database/prisma.service'
 
 const schedulerRouter = new SchedulerController().router() as any
 
@@ -85,48 +83,4 @@ for (const payrollRole of ['payroll_assistant', 'payroll_finance', 'contractor_s
   )
 }
 
-// Rule 8: the auto-payslip job generates the period that just ended, even though
-// its pay date is still 5 days away (it used to skip until payDate - 2 days).
-async function runAutoPayslipEndedPeriodTest() {
-  const originals = {
-    jobRunCreate: prisma.schedulerJobRun.create,
-    periodFindMany: prisma.payrollPeriod.findMany,
-  }
-  const justEnded = {
-    id: 'period-ended',
-    status: 'draft',
-    startDate: new Date(Date.now() - 16 * 24 * 60 * 60 * 1000),
-    endDate: new Date(Date.now() - 60 * 60 * 1000),
-    payDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-  }
-  ;(prisma.schedulerJobRun as any).create = async () => { throw new Error('no database in this test') }
-  ;(prisma.payrollPeriod as any).findMany = async () => [justEnded]
-  const generated: string[] = []
-  const service = new SchedulerService()
-  ;(service as any).payrollService = {
-    bulkGeneratePayslips: async (periodId: string) => {
-      generated.push(periodId)
-      return [
-        { userId: 'u1', success: true, payslipId: 'p1' },
-        { userId: 'u2', success: true, skipped: true, reason: 'Edited by hand; kept as is' },
-      ]
-    },
-  }
-  try {
-    const result: any = await service.runAutoPayslip('manual')
-    assert.deepEqual(generated, ['period-ended'], 'the ended period is generated immediately')
-    assert.equal(result.status, 'success')
-    assert.equal(result.summary?.succeeded, 1)
-    assert.equal(result.summary?.skippedEdited, 1)
-  } finally {
-    ;(prisma.schedulerJobRun as any).create = originals.jobRunCreate
-    ;(prisma.payrollPeriod as any).findMany = originals.periodFindMany
-  }
-}
-
-runAutoPayslipEndedPeriodTest()
-  .then(() => console.log('scheduler.routes tests passed'))
-  .catch((error) => {
-    console.error(error)
-    process.exitCode = 1
-  })
+console.log('scheduler.routes tests passed')

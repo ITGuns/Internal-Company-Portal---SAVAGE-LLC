@@ -5,7 +5,6 @@ import { fetchTimeEntries, type TimeEntry } from "@/lib/time-entries";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 import type { DayTask } from "@/lib/types/api";
-import { PAYROLL_TIME_ZONE, getPayrollDayKey } from "@/lib/time-requests";
 
 import DayDetailsModal, { type DayTimeEntry } from "./DayDetailsModal";
 
@@ -42,13 +41,6 @@ const formatDate = (year: number, month: number, day: number) => {
 };
 
 const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-/** Clock time in the payroll timezone (Manila), whatever the browser zone is. */
-const formatClockTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: PAYROLL_TIME_ZONE });
-
-/** Manila midnight of a YYYY-MM-DD day (Manila has no daylight saving). */
-const manilaMidnightIso = (dateKey: string) => new Date(`${dateKey}T00:00:00+08:00`).toISOString();
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
@@ -76,10 +68,8 @@ export default function TimeTrackingCalendar({
       if (!employee) return;
       setIsFetching(true);
       try {
-        // Whole Manila days of the month; entries are bucketed by Manila day below.
-        const startOfMonth = manilaMidnightIso(formatDate(year, month, 1));
-        const nextMonth = new Date(year, month + 1, 1);
-        const endOfMonth = manilaMidnightIso(formatDate(nextMonth.getFullYear(), nextMonth.getMonth(), 1));
+        const startOfMonth = new Date(year, month, 1).toISOString();
+        const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
 
         // 1. Fetch Time Entries
         const entries = await fetchTimeEntries(startOfMonth, endOfMonth, String(employee.id));
@@ -144,8 +134,7 @@ export default function TimeTrackingCalendar({
 
   // Get aggregated time entry for a specific date (sums all sessions that day)
   const getTimeEntry = (dateStr: string): DayTimeEntry | null => {
-    // Bucket by the Manila day of the entry start, like the server does.
-    const dayEntries = timeEntries.filter((e) => getPayrollDayKey(e.start) === dateStr);
+    const dayEntries = timeEntries.filter((e) => e.start.startsWith(dateStr));
     if (dayEntries.length === 0) return null;
 
     const totalMinutes = dayEntries.reduce((sum, e) => sum + (e.durationMin || 0), 0);
@@ -209,7 +198,7 @@ export default function TimeTrackingCalendar({
       const timeEntry = getTimeEntry(dateStr);
       const leaveRecord = getLeaveForDate(dateStr);
       const tasksForDay = getTasksForDate(dateStr);
-      const isToday = getPayrollDayKey(new Date()) === dateStr;
+      const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
       const hasBirthday = isBirthday(day);
 
       // Determine cell background
@@ -250,8 +239,14 @@ export default function TimeTrackingCalendar({
           {timeEntry?.sessions && timeEntry.sessions.length > 0 && (
             <div className="flex flex-col gap-[2px] flex-1 overflow-hidden">
               {timeEntry.sessions.map((session, idx) => {
-                const inTime = formatClockTime(session.start);
-                const outTime = session.end ? formatClockTime(session.end) : null;
+                const inTime = new Date(session.start).toLocaleTimeString([], {
+                  hour: "2-digit", minute: "2-digit", hour12: false,
+                });
+                const outTime = session.end
+                  ? new Date(session.end).toLocaleTimeString([], {
+                    hour: "2-digit", minute: "2-digit", hour12: false,
+                  })
+                  : null;
 
                 return (
                   <React.Fragment key={session.id}>

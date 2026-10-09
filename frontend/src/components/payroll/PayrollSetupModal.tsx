@@ -27,15 +27,6 @@ import Button from "@/components/Button";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 import type { Employee } from "@/lib/payroll-calendar/types";
-import {
-  DEFAULT_OVERTIME_MULTIPLIER,
-  DEFAULT_PAY_BASIS,
-  PAY_BASIS_OPTIONS,
-  getEffectiveHourlyRate,
-  getPayBasisLabel,
-  isPayBasis,
-  validatePayBasisConfig,
-} from "@/lib/pay-basis";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -63,12 +54,12 @@ const PAYROLL_SCHEMES = [
 ];
 
 const CURRENCIES = [
-  { value: "PHP", label: "PHP, Philippine Peso (₱)" },
-  { value: "USD", label: "USD, US Dollar ($)" },
-  { value: "EUR", label: "EUR, Euro (€)" },
-  { value: "SGD", label: "SGD, Singapore Dollar (S$)" },
-  { value: "AUD", label: "AUD, Australian Dollar (A$)" },
-  { value: "GBP", label: "GBP, British Pound (£)" },
+  { value: "PHP", label: "PHP — Philippine Peso (₱)" },
+  { value: "USD", label: "USD — US Dollar ($)" },
+  { value: "EUR", label: "EUR — Euro (€)" },
+  { value: "SGD", label: "SGD — Singapore Dollar (S$)" },
+  { value: "AUD", label: "AUD — Australian Dollar (A$)" },
+  { value: "GBP", label: "GBP — British Pound (£)" },
 ];
 
 const PAYMENT_FREQUENCIES = [
@@ -104,9 +95,6 @@ interface PayrollConfig {
   maxBillableHoursPerDay: string;
   bankAccount: string;
   taxId: string;
-  payBasis: string;
-  hourlyRate: string;
-  overtimeMultiplier: string;
 }
 
 // ─── Rate Calculator ──────────────────────────────────────────────────────────
@@ -185,9 +173,6 @@ export default function PayrollSetupModal({
     maxBillableHoursPerDay: "8",
     bankAccount: "",
     taxId: "",
-    payBasis: DEFAULT_PAY_BASIS,
-    hourlyRate: "",
-    overtimeMultiplier: String(DEFAULT_OVERTIME_MULTIPLIER),
   });
 
   // Load existing payroll config when employee changes
@@ -208,11 +193,6 @@ export default function PayrollSetupModal({
           maxBillableHoursPerDay: data.maxBillableHoursPerDay != null ? String(data.maxBillableHoursPerDay) : "8",
           bankAccount: data.bankAccount || "",
           taxId: data.taxId || "",
-          payBasis: isPayBasis(data.payBasis) ? data.payBasis : DEFAULT_PAY_BASIS,
-          hourlyRate: data.hourlyRate != null ? String(data.hourlyRate) : "",
-          overtimeMultiplier: data.overtimeMultiplier != null
-            ? String(data.overtimeMultiplier)
-            : String(DEFAULT_OVERTIME_MULTIPLIER),
         });
       }
     } catch {
@@ -247,9 +227,6 @@ export default function PayrollSetupModal({
         maxBillableHoursPerDay: parseFloat(config.maxBillableHoursPerDay) || 8,
         bankAccount: config.bankAccount || undefined,
         taxId: config.taxId || undefined,
-        payBasis: config.payBasis,
-        hourlyRate: config.payBasis === "hourly_rate" ? parseFloat(config.hourlyRate) : undefined,
-        overtimeMultiplier: parseFloat(config.overtimeMultiplier),
       };
 
       const res = await apiFetch(`/payroll/config/${employee.id}`, {
@@ -276,13 +253,6 @@ export default function PayrollSetupModal({
   const salary = parseFloat(config.baseSalary) || 0;
   const hours = parseFloat(config.maxBillableHoursPerDay) || 8;
   const rates = calculateRates(salary, config.payrollScheme, hours);
-  const payBasisValidation = validatePayBasisConfig(config);
-  const otMultiplier = parseFloat(config.overtimeMultiplier) || DEFAULT_OVERTIME_MULTIPLIER;
-  const effectiveHourlyRate = getEffectiveHourlyRate(
-    config.payBasis,
-    parseFloat(config.hourlyRate),
-    rates?.hourlyRate ?? 0,
-  );
   const currencySymbol =
     config.currency === "PHP" ? "₱"
       : config.currency === "USD" ? "$"
@@ -292,14 +262,7 @@ export default function PayrollSetupModal({
               : config.currency === "GBP" ? "£"
                 : config.currency;
 
-  const step1Errors = {
-    baseSalary: payBasisValidation.errors.baseSalary,
-    hourlyRate: payBasisValidation.errors.hourlyRate,
-    payBasis: payBasisValidation.errors.payBasis,
-  };
-  const canProceedStep1 = !step1Errors.baseSalary && !step1Errors.hourlyRate && !step1Errors.payBasis;
-  const canSave = payBasisValidation.valid;
-  const usesHourlyRate = config.payBasis === "hourly_rate";
+  const canProceedStep1 = config.baseSalary.trim() !== "" && parseFloat(config.baseSalary) > 0;
 
   const inputClass =
     "w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all";
@@ -372,65 +335,6 @@ export default function PayrollSetupModal({
             {/* ── Step 1: Employment & Salary ── */}
             {step === 1 && (
               <div className="space-y-4">
-                <fieldset>
-                  <legend className={labelClass}>
-                    Pay basis <span className="text-red-500">*</span>
-                  </legend>
-                  <div className="space-y-2">
-                    {PAY_BASIS_OPTIONS.map((option) => (
-                      <label
-                        key={option.value}
-                        className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 p-3 transition-colors ${config.payBasis === option.value
-                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                          : "border-[var(--border)] bg-[var(--background)] hover:border-blue-300"
-                          }`}
-                      >
-                        <input
-                          type="radio"
-                          name="payroll-pay-basis"
-                          value={option.value}
-                          checked={config.payBasis === option.value}
-                          onChange={() => updateConfig("payBasis", option.value)}
-                          className="mt-1 accent-blue-600"
-                        />
-                        <span className="min-w-0">
-                          <span className="block text-sm font-semibold text-[var(--foreground)]">{option.label}</span>
-                          <span className="block text-xs text-[var(--muted)]">{option.help}</span>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-
-                {usesHourlyRate && (
-                  <div>
-                    <label htmlFor="payroll-hourly-rate" className={labelClass}>
-                      Hourly rate <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      id="payroll-hourly-rate"
-                      type="number"
-                      inputMode="decimal"
-                      value={config.hourlyRate}
-                      onChange={(e) => updateConfig("hourlyRate", e.target.value)}
-                      className={inputClass}
-                      placeholder="0.00"
-                      min="0"
-                      step="any"
-                      aria-invalid={Boolean(step1Errors.hourlyRate)}
-                      aria-describedby="payroll-hourly-rate-help"
-                    />
-                    {/* Empty or 0 says why Next is disabled instead of failing silently. */}
-                    <p
-                      id="payroll-hourly-rate-help"
-                      className={`text-xs mt-1.5 ${step1Errors.hourlyRate ? "text-red-600 dark:text-red-400" : "text-[var(--muted)]"}`}
-                      aria-live="polite"
-                    >
-                      {step1Errors.hourlyRate ?? `Paid per billable hour in ${config.currency}.`}
-                    </p>
-                  </div>
-                )}
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className={labelClass}>Job Title</label>
@@ -459,8 +363,8 @@ export default function PayrollSetupModal({
                 </div>
 
                 <div>
-                  <label htmlFor="payroll-base-salary" className={labelClass}>
-                    Monthly Base Salary {!usesHourlyRate && <span className="text-red-500">*</span>}
+                  <label className={labelClass}>
+                    Monthly Base Salary <span className="text-red-500">*</span>
                   </label>
                   <div className="flex gap-2">
                     <select
@@ -475,7 +379,6 @@ export default function PayrollSetupModal({
                       ))}
                     </select>
                     <input
-                      id="payroll-base-salary"
                       type="number"
                       value={config.baseSalary}
                       onChange={(e) => updateConfig("baseSalary", e.target.value)}
@@ -486,9 +389,7 @@ export default function PayrollSetupModal({
                     />
                   </div>
                   <p className="text-xs text-[var(--muted)] mt-1.5">
-                    {usesHourlyRate
-                      ? "Not used for pay on an hourly rate. Kept for records."
-                      : `Full currency list: ${CURRENCIES.find((c) => c.value === config.currency)?.label}`}
+                    Full currency list: {CURRENCIES.find((c) => c.value === config.currency)?.label}
                   </p>
                 </div>
 
@@ -554,29 +455,6 @@ export default function PayrollSetupModal({
                 </div>
 
                 <div>
-                  <label htmlFor="payroll-ot-multiplier" className={labelClass}>
-                    Overtime multiplier <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="payroll-ot-multiplier"
-                    type="number"
-                    inputMode="decimal"
-                    value={config.overtimeMultiplier}
-                    onChange={(e) => updateConfig("overtimeMultiplier", e.target.value)}
-                    className={inputClass}
-                    min="1"
-                    max="5"
-                    step="0.05"
-                    aria-invalid={Boolean(payBasisValidation.errors.overtimeMultiplier)}
-                    aria-describedby="payroll-ot-multiplier-help"
-                  />
-                  <p id="payroll-ot-multiplier-help" className="text-xs text-[var(--muted)] mt-1.5">
-                    {payBasisValidation.errors.overtimeMultiplier
-                      ?? "Approved overtime pays the hourly rate times this number. 1.25 is common."}
-                  </p>
-                </div>
-
-                <div>
                   <label className={labelClass}>
                     Salary Divisor Scheme <span className="text-red-500">*</span>
                   </label>
@@ -636,22 +514,6 @@ export default function PayrollSetupModal({
                     <span className="text-[var(--muted)]">Employment Type</span>
                     <span className="font-semibold text-[var(--foreground)]">{config.employmentType}</span>
                   </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-[var(--muted)]">Pay basis</span>
-                    <span className="font-semibold text-[var(--foreground)] text-right">{getPayBasisLabel(config.payBasis)}</span>
-                  </div>
-                  {usesHourlyRate && (
-                    <div className="flex justify-between">
-                      <span className="text-[var(--muted)]">Hourly rate</span>
-                      <span className="font-semibold text-[var(--foreground)]">
-                        {currencySymbol}{(parseFloat(config.hourlyRate) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-[var(--muted)]">Overtime multiplier</span>
-                    <span className="font-semibold text-[var(--foreground)]">{otMultiplier}x</span>
-                  </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--muted)]">Monthly Salary</span>
                     <span className="font-semibold text-[var(--foreground)]">
@@ -679,16 +541,7 @@ export default function PayrollSetupModal({
                 </div>
 
                 {/* Rate preview cards */}
-                {effectiveHourlyRate > 0 && (
-                  <div className="rounded-xl border border-[var(--border)] bg-[var(--card-surface)] p-3 text-sm flex justify-between gap-3">
-                    <span className="text-[var(--muted)]">Overtime rate (when approved)</span>
-                    <span className="font-semibold text-[var(--foreground)] text-right">
-                      {currencySymbol}{(effectiveHourlyRate * otMultiplier).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / hour
-                    </span>
-                  </div>
-                )}
-
-                {usesHourlyRate ? null : rates ? (
+                {rates ? (
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 p-4 text-center">
                       <p className="text-xs text-[var(--muted)] mb-1">Daily Rate</p>
@@ -748,7 +601,7 @@ export default function PayrollSetupModal({
               variant="primary"
               icon={isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               onClick={handleSave}
-              disabled={isSaving || isLoadingConfig || !canSave}
+              disabled={isSaving || isLoadingConfig}
             >
               {isSaving ? "Saving…" : "Save Payroll Setup"}
             </Button>

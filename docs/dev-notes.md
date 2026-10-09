@@ -1,49 +1,5 @@
 # Development Notes
 
-## 2026-10-08 - Payroll and time v2 (backend)
-
-Contract: `docs/payroll-time-v2-spec.md`. Backend only; the frontend half was built in parallel against the same spec.
-
-### Completed
-- Schema + migration `202610080001_payroll_time_v2`: `EmployeeProfile.payBasis / hourlyRate / overtimeMultiplier`, `OvertimeRequest`, `TimeEntryAdjustmentRequest`, `Payslip.editedById / editedAt / editNote`. Additive only.
-- Pure math in `backend/src/payroll/payroll.calculations.ts` (pay basis, periodFraction, paid OT cap, Intl day bucketing in `PAYROLL_TIMEZONE`). `PayrollService` private helpers now delegate to it.
-- Overtime and correction request routes (`time-requests.service.ts`, `time-requests.routes.ts`), payslip edit/delete (`payslip-edit.service.ts`), direct entry edits limited to management or payroll roles.
-- Deactivate/reactivate members, refresh sessions revoked on deactivate, hard delete admin-only behind `?confirm=hard` and refused while payslips exist. `authenticateToken` now checks account status (30 s per-process cache).
-- OAuth sign-up for unknown emails (Google, Apple) now creates `pending` users; only `ADMIN_EMAILS` are approved on sight.
-- Scheduler auto-payslip targets the most recently ended draft period.
-
-### Decisions a future session cannot re-derive
-- `DAILY_DIGEST_TIMEZONE` was only in `.env.example`, not in `env.config.ts`. `config.payrollTimezone` reads `PAYROLL_TIMEZONE`, then `DAILY_DIGEST_TIMEZONE`, then `Asia/Manila`, skipping invalid zone names.
-- Reviewers cannot approve or reject their own overtime or correction requests (403). Not in the spec; added because it is money. Admins can still edit their own time directly.
-- An overtime request may not exceed the over-cap hours of that day minus hours already pending or approved for that day.
-- Reactivate restores `status: "active"` but never sets `isApproved`, so a never-approved account cannot be approved through reactivation.
-- `PAYROLL_MANAGEMENT_ROUTE_ROLES` moved to `payroll.permissions.ts` and now includes `payroll_finance` (org policy already treated it as payroll management; the route list did not).
-- Generated payslip amounts are rounded to cents. Legacy item type `earning` is replaced by `regular_hours` for new payslips.
-- Operations managers cannot deactivate a full-access account.
-
-### Review fixes (2026-10-09)
-- `PATCH /users/:id` ignores `status`; deactivate/reactivate own it. Deactivate also guards `ADMIN_EMAILS` admins without a role row and disconnects the member's sockets; the socket handshake runs `checkAccountStatus`. `optionalAuth` runs it too (refused accounts are treated as anonymous).
-- `account-status.ts` did not need `ADMIN_EMAILS` awareness: admin emails are approved on first OAuth sign-in, and with PATCH status stripped plus the deactivate guard, nothing can set such an admin inactive or pending.
-- Reviewers without payroll access cannot create, edit or delete their own time entries (403 "Submit an adjustment request"); moving an entry to another person is payroll-only again.
-- Period pay windows are whole Manila days, half-open (`payrollPeriodWindow`), for time entries, daily logs and approved OT. The old +/-1 day OT padding and the 999 ms end gap are gone. Period boundaries are read with server-local calendar components, the same way they are created.
-- Hand-edited payslips are skipped by bulk generation and need `force: true` for a single regenerate.
-- Overtime approval, adjustment approval and adjustment filing return 409 for days in a processed period. Adjustment times: not future, max 60 days back, max 24 h span (frontend mirrors it).
-- `hourly_rate` without a positive `hourlyRate` is a 400 on profile update and on generation/preview (no silent 0 pay).
-- Bulk generation includes deactivated members with time or approved OT in the period.
-- Payroll staff cannot edit or delete their own payslip. Lock and self checks are conditional writes inside the transaction.
-- Auto-payslip generates an ended period immediately.
-- Money rounding is half away from zero on both sides; reason/note limits are 500 on both sides.
-- Inactive OAuth users land on `/login?oauthError=inactive` ("This account is deactivated. Contact an administrator.").
-
-### Known gaps
-- Locked-day checks compare Manila day keys with period boundaries read as server-local calendar days. Correct while the server runs in UTC (Vercel) or Manila; a server in a negative-offset zone would shift period day keys.
-- `GET /api/users` still hides inactive users; the employee overview uses `GET /api/employees/deployed?includeInactive=true`.
-
-### How to Test
-- `node -r ts-node/register tests/payroll.v2.calculations.test.ts` and `tests/payroll.v2.routes.test.ts` run without a database.
-- `npm --prefix backend test` stops at the first database-backed test (`tasks.projects.test.ts`) when no Postgres is reachable.
-- Deploy: run `npm --prefix backend run prisma:deploy:production` in the same sitting as the merge; the new code fails on missing columns until then.
-
 ## 2026-07-14 - QA Sweep: Bug Verification & Test Fix
 
 ### Completed

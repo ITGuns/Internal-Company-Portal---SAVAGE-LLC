@@ -57,7 +57,6 @@ export default function LoginPage() {
     const providerName = provider === 'apple' ? 'Apple' : provider === 'google' ? 'Google' : 'OAuth';
     const messageByError: Record<string, string> = {
       pending: `${providerName} sign-in worked, but this account is waiting for manager approval.`,
-      inactive: 'This account is deactivated. Contact an administrator.',
       failed: `${providerName} sign-in could not be completed. Please try again or use email.`,
       not_configured: `${providerName} sign-in is not configured yet.`,
       state_mismatch: `${providerName} sign-in expired. Please start again.`,

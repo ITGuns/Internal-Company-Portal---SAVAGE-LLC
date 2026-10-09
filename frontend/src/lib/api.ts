@@ -268,7 +268,7 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
     }
 
     if (!response.ok) {
-        let errorData: { details?: unknown; error?: unknown; message?: unknown } = {};
+        let errorData: { details?: unknown; error?: unknown } = {};
         try {
             errorData = await readJsonResponse(response, `Request failed with status ${response.status}`);
         } catch (err) {
@@ -277,8 +277,7 @@ export const apiFetch = async (endpoint: string, options: APIOptions = {}): Prom
 
         const details = typeof errorData.details === 'string' ? errorData.details : undefined;
         const error = typeof errorData.error === 'string' ? errorData.error : undefined;
-        const serverMessage = typeof errorData.message === 'string' ? errorData.message : undefined;
-        const message = details || error || serverMessage || `Request failed with status ${response.status}`;
+        const message = details || error || `Request failed with status ${response.status}`;
         throw new Error(message);
     }
 

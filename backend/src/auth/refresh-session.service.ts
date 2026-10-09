@@ -186,25 +186,6 @@ export class RefreshSessionService {
   }
 }
 
-/** Revoke every live refresh session of a user (deactivation, payroll v2 Rule 6). */
-export async function revokeAllRefreshSessionsForUser(userId: string): Promise<number> {
-  try {
-    const result = await prisma.refreshSession.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    })
-    return result.count
-  } catch (error) {
-    if (isRefreshSessionSchemaError(error)) {
-      if (!canUseRefreshSessionCompatibilityFallback()) throw error
-      warnMissingMigration('revokeAll', error)
-      return 0
-    }
-
-    throw error
-  }
-}
-
 export async function isRefreshSessionPersistenceAvailable(): Promise<boolean> {
   try {
     await prisma.refreshSession.findFirst({ select: { id: true } })
