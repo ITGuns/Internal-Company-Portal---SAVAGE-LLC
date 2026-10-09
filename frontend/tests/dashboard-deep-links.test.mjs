@@ -62,3 +62,15 @@ test('resolves payroll tab deep links with management guardrails', () => {
   assert.equal(getEmployeeOverviewViewFromSearch(new URLSearchParams('view=pending')), 'pending');
   assert.equal(getEmployeeOverviewViewFromSearch(new URLSearchParams('view=anything')), 'deployed');
 });
+
+test('approvals tab deep link is gated by the time-request review permission', () => {
+  const { getPayrollTabFromSearch } = loadDeepLinkHelper();
+  const search = new URLSearchParams('tab=approvals');
+
+  assert.equal(getPayrollTabFromSearch(search, true), 'approvals');
+  assert.equal(getPayrollTabFromSearch(search, false, true), 'approvals');
+  assert.equal(getPayrollTabFromSearch(search, false, false), 'calendar');
+  assert.equal(getPayrollTabFromSearch(search, false), 'calendar');
+  // A manager who can review but lacks payroll access still cannot open payroll-only tabs.
+  assert.equal(getPayrollTabFromSearch(new URLSearchParams('tab=payslips'), false, true), 'calendar');
+});

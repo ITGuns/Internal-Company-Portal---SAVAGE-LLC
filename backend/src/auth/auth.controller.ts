@@ -3,7 +3,7 @@ import passport from 'passport'
 import crypto from 'crypto'
 import { JwtService, JwtPayload } from './jwt.service'
 import { authenticateToken, AuthRequest } from './auth.middleware'
-import { buildPendingSignupProfile, canLoginApprovedUser } from './signup.requests'
+import { buildPendingSignupProfile, canLoginApprovedUser, getLoginRefusalMessage, isInactiveUser } from './signup.requests'
 import {
     authPasswordResetUserSelect,
     authTokenUserSelect,
@@ -68,7 +68,8 @@ export class AuthController {
         res: Response,
     ): Promise<void> {
         if (!canIssueAuthTokens(user)) {
-            res.redirect(buildOAuthFrontendRedirect(provider, 'pending'))
+            // Deactivated accounts get their own state so the login page does not say "waiting for approval".
+            res.redirect(buildOAuthFrontendRedirect(provider, isInactiveUser(user) ? 'inactive' : 'pending'))
             return
         }
 
@@ -398,7 +399,7 @@ export class AuthController {
                 }
 
                 if (!canLoginApprovedUser(user)) {
-                    return res.status(403).json({ error: 'Account pending approval' })
+                    return res.status(403).json({ error: getLoginRefusalMessage(user) })
                 }
 
                 const tokens = JwtService.generateTokenPair({
@@ -443,7 +444,8 @@ export class AuthController {
                 })
 
                 if (!user || !canIssueAuthTokens(user)) {
-                    return res.status(403).json({ error: 'Account pending approval' })
+                    clearRefreshTokenCookie(res)
+                    return res.status(403).json({ error: user ? getLoginRefusalMessage(user) : 'Account pending approval' })
                 }
 
                 const tokenPayload: JwtPayload = {

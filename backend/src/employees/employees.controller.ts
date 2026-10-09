@@ -60,7 +60,9 @@ export class EmployeesController {
             if (!(await this.authorizeBypass(req))) {
                 return res.status(403).json({ error: 'Unauthorized to view deployed employees' });
             }
-            const deployed = await this.employeesService.getDeployed();
+            // ?includeInactive=true also returns deactivated members so they can be reactivated (payroll v2).
+            const includeInactive = req.query.includeInactive === 'true';
+            const deployed = await this.employeesService.getDeployed({ includeInactive });
             res.status(200).json(serializeEmployeesForManagement(deployed));
         } catch (error) {
             logger.error('Error fetching deployed employees', error);

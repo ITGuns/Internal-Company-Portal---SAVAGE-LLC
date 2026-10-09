@@ -18,8 +18,21 @@ import {
   LogOut,
   BarChart3,
   LockKeyhole,
+  PenLine,
+  FilePlus2,
 } from "lucide-react";
 import AddTimeEntryModal from "./AddTimeEntryModal";
+import AdjustmentRequestModal from "./AdjustmentRequestModal";
+import OvertimeRequestModal from "./OvertimeRequestModal";
+import {
+  DEFAULT_BILLABLE_CAP_HOURS,
+  claimedOvertimeHours,
+  getOvertimeHoursForDay,
+  getPayrollDayMinutes,
+  requestsForDay,
+} from "@/lib/time-requests";
+import type { OvertimeRequest } from "@/lib/overtime-requests";
+import type { AdjustmentRequest } from "@/lib/adjustment-requests";
 import PayrollDayDetailPanel from "./PayrollDayDetailPanel";
 import TimeEntryDeleteModal from "./TimeEntryDeleteModal";
 import type { CalendarEvent, PayrollStats } from "@/lib/payroll-calendar/types";
@@ -46,6 +59,15 @@ interface CalendarTabProps {
   onDeleteTimeEntry: (id: string) => Promise<void> | void;
   isOwnTimeView?: boolean;
   auditEmployeeLabel?: string;
+  /** False for employees: no direct edits, corrections and overtime go through requests. */
+  canEditEntries?: boolean;
+  /** Daily billable cap in hours for the person whose time is shown. */
+  capHours?: number;
+  /** Requests of the person whose time is shown, for the day panel. */
+  overtimeRequests?: OvertimeRequest[];
+  correctionRequests?: AdjustmentRequest[];
+  /** Called after a request is filed so the lists refresh. */
+  onRequestsChanged?: () => void;
 }
 
 /** Format total seconds into "Xh XXm XXs" or "Xm XXs" */
@@ -83,11 +105,21 @@ export default function CalendarTab({
   onDeleteTimeEntry,
   isOwnTimeView = true,
   auditEmployeeLabel,
+  canEditEntries = true,
+  capHours = DEFAULT_BILLABLE_CAP_HOURS,
+  overtimeRequests = [],
+  correctionRequests = [],
+  onRequestsChanged,
 }: CalendarTabProps) {
   const calendarRef = useRef<FullCalendar>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [editingEntry, setEditingEntry] = useState<PayrollAuditEntry | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PayrollAuditEntry | null>(null);
+  const [correctionRequest, setCorrectionRequest] = useState<{
+    entry: PayrollAuditEntry | null;
+    date: string | null;
+  } | null>(null);
+  const [overtimeDate, setOvertimeDate] = useState<string | null>(null);
   // Ticks every second so active timers update live
   const [now, setNow] = useState(() => new Date());
 
@@ -106,6 +138,18 @@ export default function CalendarTab({
     [selectedDate, timeEntries, now],
   );
   const todayEntries = todayAudit.entries;
+  // Overtime is claimed per payroll day (Asia/Manila), the same day the server checks.
+  const selectedDayOvertimeHours = selectedDate
+    ? getOvertimeHoursForDay(getPayrollDayMinutes(timeEntries, selectedDate), capHours)
+    : 0;
+  const selectedDayRequests = useMemo(
+    () => selectedDate
+      ? requestsForDay(overtimeRequests, correctionRequests, selectedDate)
+      : { overtime: [], corrections: [] },
+    [selectedDate, overtimeRequests, correctionRequests],
+  );
+  // Over-cap hours no pending or approved request already claims.
+  const selectedDayUnclaimedHours = Math.max(0, selectedDayOvertimeHours - claimedOvertimeHours(selectedDayRequests.overtime));
   const upcomingEvents = useMemo(
     () => events
       .filter((event: CalendarEvent) => event.extendedProps.type !== "time" && event.start >= today)
@@ -322,14 +366,25 @@ export default function CalendarTab({
                   Viewing {auditEmployeeLabel || "selected employee"}. Clock in/out controls are only available on your own time view.
                 </div>
               )}
-              <button
-                type="button"
-                onClick={onAddManualEntry}
-                className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm font-medium transition-colors hover:bg-[var(--card-surface)]"
-              >
-                <Plus className="w-4 h-4" aria-hidden="true" />
-                Manual
-              </button>
+              {canEditEntries ? (
+                <button
+                  type="button"
+                  onClick={onAddManualEntry}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm font-medium transition-colors hover:bg-[var(--card-surface)]"
+                >
+                  <Plus className="w-4 h-4" aria-hidden="true" />
+                  Manual
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setCorrectionRequest({ entry: null, date: today })}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm font-medium transition-colors hover:bg-[var(--card-surface)]"
+                >
+                  <FilePlus2 className="w-4 h-4" aria-hidden="true" />
+                  Report missing time
+                </button>
+              )}
             </div>
 
             {/* Live today's total */}
@@ -398,8 +453,20 @@ export default function CalendarTab({
                           ? formatElapsed(elapsedSecs)
                           : completedMins !== null
                             ? formatMinutes(completedMins)
-                            : "—"}
+                            : "-"}
                       </span>
+                      {!canEditEntries ? (
+                        <button
+                          type="button"
+                          aria-label="Request a correction for this entry"
+                          title="Request a correction"
+                          onClick={() => setCorrectionRequest({ entry: e, date: null })}
+                          className="inline-flex min-h-8 min-w-8 items-center justify-center rounded border border-transparent bg-transparent p-1.5 text-[var(--muted)] transition-colors hover:bg-sky-600 hover:text-white"
+                        >
+                          <PenLine className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                      ) : (
+                      <>
                       <button
                         type="button"
                         aria-label="Edit entry"
@@ -418,6 +485,8 @@ export default function CalendarTab({
                       >
                         <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                       </button>
+                      </>
+                      )}
                     </div>
                   </li>
                 );
@@ -434,6 +503,14 @@ export default function CalendarTab({
             onDeleteEvent={onDeleteEvent}
             onRequestEditEntry={setEditingEntry}
             onRequestDeleteEntry={setDeleteTarget}
+            canEditEntries={canEditEntries}
+            onRequestCorrection={(entry) => setCorrectionRequest({ entry, date: null })}
+            onReportMissingEntry={(date) => setCorrectionRequest({ entry: null, date })}
+            overtimeHours={selectedDayOvertimeHours}
+            onRequestOvertime={setOvertimeDate}
+            capHours={capHours}
+            dayOvertimeRequests={selectedDayRequests.overtime}
+            dayCorrectionRequests={selectedDayRequests.corrections}
           />
 
           <div className="rounded-lg border border-[var(--border)] bg-[var(--card-surface)] p-4">
@@ -468,6 +545,25 @@ export default function CalendarTab({
           </div>
         </div>
       </div>
+      {!canEditEntries && (
+        <>
+          <AdjustmentRequestModal
+            isOpen={Boolean(correctionRequest)}
+            onClose={() => setCorrectionRequest(null)}
+            entry={correctionRequest?.entry ?? null}
+            defaultDate={correctionRequest?.date ?? null}
+            onSubmitted={onRequestsChanged}
+          />
+          <OvertimeRequestModal
+            isOpen={Boolean(overtimeDate)}
+            onClose={() => setOvertimeDate(null)}
+            workDate={overtimeDate}
+            maxHours={overtimeDate === selectedDate ? selectedDayUnclaimedHours : 0}
+            capHours={capHours}
+            onSubmitted={onRequestsChanged}
+          />
+        </>
+      )}
       <TimeEntryDeleteModal
         entry={deleteTarget}
         onClose={() => setDeleteTarget(null)}

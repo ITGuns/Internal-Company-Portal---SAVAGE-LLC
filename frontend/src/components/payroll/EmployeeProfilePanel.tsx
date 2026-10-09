@@ -13,7 +13,11 @@ import {
   Clock,
   WalletCards,
   Settings2,
+  LockKeyhole,
+  PenLine,
 } from "lucide-react";
+import { isPayrollPeriodLocked } from "@/lib/payslip-edit";
+import { formatPayrollDate } from "@/lib/payroll-dates";
 import Button from "@/components/Button";
 import dynamic from "next/dynamic";
 const PayrollSetupModal = dynamic(() => import("./PayrollSetupModal"), { ssr: false });
@@ -26,6 +30,7 @@ interface EmployeeProfilePanelProps {
   payslips: Payslip[];
   onViewPayslip: (payslip: Payslip) => void;
   onDownloadPDF: (payslip: Payslip) => void;
+  onEditPayslip?: (payslip: Payslip) => void;
   isPeriodLocked?: boolean;
 }
 
@@ -42,6 +47,7 @@ export default function EmployeeProfilePanel({
   payslips,
   onViewPayslip,
   onDownloadPDF,
+  onEditPayslip,
   isPeriodLocked = false,
 }: EmployeeProfilePanelProps) {
   const [showPayrollSetup, setShowPayrollSetup] = useState(false);
@@ -167,8 +173,8 @@ export default function EmployeeProfilePanel({
         <div className="space-y-2">
           {payslips.length > 0 ? (
             payslips.map((ps) => {
-              const periodStart = new Date(ps.payPeriodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-              const periodEnd = new Date(ps.payPeriodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              const periodStart = formatPayrollDate(ps.payPeriodStart, { format: { month: 'short', day: 'numeric' } });
+              const periodEnd = formatPayrollDate(ps.payPeriodEnd, { format: { month: 'short', day: 'numeric' } });
               return (
                 <div key={ps.id} className="p-3 rounded-xl bg-gray-50 dark:bg-white/5 border border-[var(--border)] group hover:border-blue-400/50 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-all duration-200 shadow-sm hover:shadow-md">
                   <div className="flex items-center gap-3">
@@ -177,8 +183,13 @@ export default function EmployeeProfilePanel({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-bold text-[var(--foreground)] truncate">
-                        {periodStart} - {periodEnd}
+                        {periodStart} to {periodEnd}
                       </div>
+                      {ps.editedAt && (
+                        <div className="text-[10px] text-amber-700 dark:text-amber-300 truncate" title={ps.editNote ?? undefined}>
+                          Edited by hand{ps.editNote ? `: ${ps.editNote}` : ""}
+                        </div>
+                      )}
                       <div className="text-[10px] text-[var(--muted)] font-medium flex items-center gap-2 mt-0.5">
                         <span className="text-emerald-600 dark:text-emerald-400 font-bold">₱{ps.netPay.toLocaleString()}</span>
                         <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
@@ -187,11 +198,29 @@ export default function EmployeeProfilePanel({
                     </div>
                     <button
                       onClick={() => onViewPayslip(ps)}
-                      className="p-1 px-3 text-[10px] font-bold bg-blue-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-blue-700 shadow-md transform translate-x-2 group-hover:translate-x-0"
+                      className="p-1 px-3 text-[10px] font-bold bg-blue-600 text-white rounded-full opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all duration-200 hover:bg-blue-700 shadow-md transform translate-x-2 group-hover:translate-x-0 focus-visible:translate-x-0"
                     >
                       VIEW
                     </button>
                   </div>
+                  {onEditPayslip && (
+                    isPayrollPeriodLocked(ps.periodStatus) ? (
+                      <p className="mt-2 flex items-center gap-1.5 text-[11px] text-[var(--muted)]">
+                        <LockKeyhole className="h-3 w-3 shrink-0" aria-hidden="true" />
+                        Period locked. Payslip is read-only.
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onEditPayslip(ps)}
+                        className="mt-2 inline-flex min-h-8 items-center gap-1.5 rounded px-2 text-xs font-medium text-sky-600 transition-colors hover:bg-sky-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] dark:text-sky-300"
+                        aria-label={`Edit payslip ${periodStart} to ${periodEnd}`}
+                      >
+                        <PenLine className="h-3.5 w-3.5" aria-hidden="true" />
+                        Edit or delete
+                      </button>
+                    )
+                  )}
                 </div>
               );
             })
