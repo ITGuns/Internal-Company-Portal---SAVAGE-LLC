@@ -77,4 +77,3 @@ ALTER TABLE "TimeEntryAdjustmentRequest" ADD CONSTRAINT "TimeEntryAdjustmentRequ
 
 -- AddForeignKey
 ALTER TABLE "TimeEntryAdjustmentRequest" ADD CONSTRAINT "TimeEntryAdjustmentRequest_timeEntryId_fkey" FOREIGN KEY ("timeEntryId") REFERENCES "TimeEntry"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
