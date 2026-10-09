@@ -183,12 +183,16 @@ form validation, payslip edit recompute.
 
 ## Deploy note
 
-Vercel does not run migrations. After merge, run against production:
+The Vercel build command runs `prisma migrate deploy` on Production builds
+only (guarded by `VERCEL_ENV`), using `DIRECT_DATABASE_URL` from the Vercel
+project env. Merging to `main` therefore migrates the database before the new
+code goes live. A failed migration fails the build and the previous deploy
+stays up. Preview builds skip the migration. Nobody needs a local
+`backend/.env.production` for routine deploys.
+
+Manual fallback, from a clone that has `backend/.env.production` with a
+direct (non-pooled) database URL:
 
 ```bash
 npm --prefix backend run prisma:deploy:production
 ```
-
-(needs `backend/.env.production` with the production `DATABASE_URL`, which
-only Guns has). Until that runs, the new code fails on the missing columns,
-so merge and migrate in the same sitting.
