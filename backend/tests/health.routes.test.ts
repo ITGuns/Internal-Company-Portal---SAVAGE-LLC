@@ -24,7 +24,9 @@ async function runHealthRouteTests() {
     checkDatabase: async () => true,
     checkReadiness: async () => true,
   })
-  assert.equal((await requestStatus(healthy, '/health')).status, 200)
+  const healthyHealth = await requestStatus(healthy, '/health')
+  assert.equal(healthyHealth.status, 200)
+  assert.equal(healthyHealth.body.ok, true)
   assert.equal((await requestStatus(healthy, '/ready')).status, 200)
 
   const unhealthy = createHealthRouter({
@@ -34,6 +36,7 @@ async function runHealthRouteTests() {
   const health = await requestStatus(unhealthy, '/health')
   assert.equal(health.status, 503)
   assert.equal(health.body.status, 'unhealthy')
+  assert.equal(health.body.ok, false)
 
   const readiness = await requestStatus(unhealthy, '/ready')
   assert.equal(readiness.status, 503)
