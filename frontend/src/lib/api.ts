@@ -299,9 +299,9 @@ export const updateUserProfile = async (userId: string | number, profileData: Pa
     name: string;
     email?: string;
     phone?: string;
-    birthday?: string;
-    address?: string;
-    city?: string;
+    birthday?: string | null;
+    address?: string | null;
+    city?: string | null;
     citizenship?: string;
     avatar?: string;
     bio?: string;

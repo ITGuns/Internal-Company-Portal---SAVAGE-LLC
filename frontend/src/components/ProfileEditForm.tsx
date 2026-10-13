@@ -52,10 +52,10 @@ const profileFieldConfigs: Array<{
 }> = [
   { id: "name", label: "Full Name", icon: User, autoComplete: "name", required: true },
   { id: "email", label: "Email Address", icon: Mail, type: "email", autoComplete: "email", inputMode: "email", required: true },
-  { id: "birthday", label: "Birthday", icon: Calendar, type: "date", autoComplete: "bday", required: true },
+  { id: "birthday", label: "Birthday", icon: Calendar, type: "date", autoComplete: "bday" },
   { id: "phone", label: "Phone Number", icon: Phone, type: "tel", placeholder: "+1 (XXX) XXX-XXXX", autoComplete: "tel", inputMode: "tel", required: true },
-  { id: "address", label: "Address", icon: MapPin, placeholder: "Street address", autoComplete: "street-address", required: true },
-  { id: "city", label: "City", icon: MapPin, placeholder: "City", autoComplete: "address-level2", required: true },
+  { id: "address", label: "Address", icon: MapPin, placeholder: "Street address", autoComplete: "street-address" },
+  { id: "city", label: "City", icon: MapPin, placeholder: "City", autoComplete: "address-level2" },
 ];
 
 function normalizeDateInput(value?: string) {
@@ -104,9 +104,7 @@ export default function ProfileEditForm({ user, onSave, onCancel }: ProfileEditF
       newErrors.email = "Invalid email format";
     }
 
-    if (!formData.birthday) {
-      newErrors.birthday = "Birthday is required";
-    } else if (new Date(formData.birthday) > new Date()) {
+    if (formData.birthday && new Date(formData.birthday) > new Date()) {
       newErrors.birthday = "Birthday cannot be in the future";
     }
 
@@ -114,14 +112,6 @@ export default function ProfileEditForm({ user, onSave, onCancel }: ProfileEditF
       newErrors.phone = "Phone number is required";
     } else if (!/^[\d\s\-+()]+$/.test(formData.phone)) {
       newErrors.phone = "Invalid phone number format";
-    }
-
-    if (!formData.address.trim()) {
-      newErrors.address = "Address is required";
-    }
-
-    if (!formData.city.trim()) {
-      newErrors.city = "City is required";
     }
 
     setErrors(newErrors);
@@ -196,9 +186,10 @@ export default function ProfileEditForm({ user, onSave, onCancel }: ProfileEditF
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
-        birthday: formData.birthday,
-        address: formData.address,
-        city: formData.city,
+        // Optional fields: an empty value clears the field instead of storing "".
+        birthday: formData.birthday || null,
+        address: formData.address.trim() || null,
+        city: formData.city.trim() || null,
         ...(shouldClearAvatar ? { avatar: "" } : {}),
       });
 
