@@ -21,6 +21,7 @@ interface CreateChannelModalProps {
     users: User[]
     currentUserId: string | undefined
     onCreateChannel: () => void
+    isCreating: boolean
 }
 
 export default function CreateChannelModal({
@@ -35,12 +36,32 @@ export default function CreateChannelModal({
     users,
     currentUserId,
     onCreateChannel,
+    isCreating,
 }: CreateChannelModalProps) {
     const dialogTitleId = React.useId()
     const dialogDescriptionId = React.useId()
     const channelNameId = React.useId()
     const memberSearchId = React.useId()
     const { dialogRef, handleDialogKeyDown } = useDialogA11y({ isOpen, onClose })
+    const [showValidation, setShowValidation] = React.useState(false)
+    const validationMessage = !channelName.trim()
+        ? 'Enter a channel name.'
+        : selectedUsers.length === 0
+            ? 'Select at least one member.'
+            : ''
+
+    React.useEffect(() => {
+        if (!isOpen) setShowValidation(false)
+    }, [isOpen])
+
+    const handleSubmit = () => {
+        if (isCreating) return
+        if (validationMessage) {
+            setShowValidation(true)
+            return
+        }
+        onCreateChannel()
+    }
 
     const selectableUsers = users.filter(u => u.id !== currentUserId)
     const userSections = buildChatUserPickerSections(users, currentUserId, searchQuery)
@@ -177,15 +198,18 @@ export default function CreateChannelModal({
                     )}
                 </div>
 
-                <div className="p-4 border-t border-[var(--border)] flex justify-end gap-3 bg-[var(--card-surface)]">
+                <div className="p-4 border-t border-[var(--border)] flex items-center justify-end gap-3 bg-[var(--card-surface)]">
+                    {showValidation && validationMessage ? (
+                        <p role="alert" className="mr-auto text-sm text-red-500">{validationMessage}</p>
+                    ) : null}
                     <Button type="button" variant="ghost" onClick={onClose}>
                         Cancel
                     </Button>
                     <Button
                         type="button"
                         variant="primary"
-                        onClick={onCreateChannel}
-                        disabled={!channelName.trim() || selectedUsers.length === 0}
+                        onClick={handleSubmit}
+                        loading={isCreating}
                     >
                         Create Channel
                     </Button>

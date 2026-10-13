@@ -57,6 +57,7 @@ export default function UnifiedChatPage() {
     // ... (rest of the previous state declarations if any)
     const [showNewChat, setShowNewChat] = useState(false)
     const [showCreateChannel, setShowCreateChannel] = useState(false)
+    const [creatingChannel, setCreatingChannel] = useState(false)
     const [newChannelName, setNewChannelName] = useState('')
     const [users, setUsers] = useState<SystemUser[]>([])
     const [searchQuery, setSearchQuery] = useState('')
@@ -158,6 +159,8 @@ export default function UnifiedChatPage() {
     }, [socket])
 
     const handleCreateChannel = async () => {
+        if (creatingChannel) return;
+
         if (!newChannelName.trim()) {
             toast.error("Channel name is required");
             return;
@@ -168,6 +171,7 @@ export default function UnifiedChatPage() {
             return;
         }
 
+        setCreatingChannel(true);
         try {
             const conv = await createConversation('channel', selectedChannelUsers, newChannelName.trim());
             setConversations(prev => [conv, ...prev]);
@@ -179,6 +183,8 @@ export default function UnifiedChatPage() {
         } catch (err) {
             console.error("Failed to create channel", err);
             toast.error("Failed to create channel")
+        } finally {
+            setCreatingChannel(false);
         }
     };
 
@@ -969,6 +975,7 @@ export default function UnifiedChatPage() {
                     users={users}
                     currentUserId={currentUser?.id ? String(currentUser.id) : undefined}
                     onCreateChannel={handleCreateChannel}
+                    isCreating={creatingChannel}
                 />
             </div>
         </main>
