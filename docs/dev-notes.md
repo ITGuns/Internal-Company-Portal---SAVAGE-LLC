@@ -1,5 +1,22 @@
 # Development Notes
 
+## 2026-10-14 - Production QA fixes (reland-payroll-v2)
+
+### Completed
+- Clock-out is idempotent: `PayrollService.clockOut` returns the most recently closed entry when nothing is open (400 only when the user has no entries). `clockIn`/`clockOut` in `frontend/src/lib/time-entries.ts` go through `singleFlight` (`frontend/src/lib/single-flight.ts`), so concurrent calls share one request. `TimeClock` reads the active entry straight from the React Query cache, uses one shared mutation key (every mounted clock disables while an action is pending) and refetches the active entry after every action. The payroll calendar resyncs after a failed clock action.
+- Create Channel: inline validation ("Enter a channel name.", "Select at least one member."), spinner and click guard while the create is pending, modal still closes only on success.
+- Profile: Birthday, Address and City are optional; empty values are sent as `null`.
+- Daily log Hours: focusing the field selects the prefilled 08:00 so typing replaces it (`FormField` gained `onFocus`).
+- Task quick actions: per-row pending state (aria-busy row, "Saving" spinner in the status pill, aria-disabled actions, repeat clicks ignored). Not optimistic, because the quick actions call `updateTask` directly rather than through a React Query mutation.
+
+### Decisions Made
+- Chat backend has no guard against the same user creating two channels with the same name seconds apart. Left alone; the frontend pending guard covers the double click.
+- Task action buttons use `aria-disabled` plus the handler guard, not `disabled`, so a click on a pending row's button cannot fall through to the row and open the detail modal.
+
+### How to Test
+- `node --test tests/single-flight.test.mjs tests/time-entries-active.test.mjs` from `frontend/`; `payroll.v2.routes.test.ts` covers the idempotent clock-out.
+- Dashboard at 1440 wide shows two clocks: clock in, wait, double click Clock Out and click the other clock. Expect one POST, both clocks Ready, no error toast.
+
 ## 2026-10-08 - Payroll and time v2 (backend)
 
 Contract: `docs/payroll-time-v2-spec.md`. Backend only; the frontend half was built in parallel against the same spec.
