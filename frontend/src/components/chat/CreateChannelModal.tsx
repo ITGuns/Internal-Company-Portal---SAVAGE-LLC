@@ -200,14 +200,15 @@ export default function CreateChannelModal({
 
                 <div className="p-4 border-t border-[var(--border)] flex items-center justify-end gap-3 bg-[var(--card-surface)]">
                     {showValidation && validationMessage ? (
-                        <p role="alert" className="mr-auto text-sm text-red-500">{validationMessage}</p>
+                        <p role="alert" className="mr-auto min-w-0 text-sm text-red-500">{validationMessage}</p>
                     ) : null}
-                    <Button type="button" variant="ghost" onClick={onClose}>
+                    <Button type="button" variant="ghost" className="shrink-0" onClick={onClose}>
                         Cancel
                     </Button>
                     <Button
                         type="button"
                         variant="primary"
+                        className="shrink-0 whitespace-nowrap"
                         onClick={handleSubmit}
                         loading={isCreating}
                     >
