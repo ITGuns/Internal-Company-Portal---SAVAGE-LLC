@@ -1,0 +1,70 @@
+name: Migrate Production Database
+
+# Vercel never runs Prisma migrations (vercel.json uses the legacy `builds`
+# array, which makes Vercel ignore `buildCommand`), and Render only migrates
+# when it deploys, which it does not while CI is red. This workflow is the one
+# place migrations run for production.
+#
+# Secret needed (repository settings > Secrets > Actions):
+#   PRODUCTION_DIRECT_DATABASE_URL  a DIRECT Postgres URL (port 5432, no
+#   pgbouncer=true). The pooled 6543 URL cannot run migrations.
+#
+# Runs on every push to main that changes backend/prisma/**, and on demand.
+# Without the secret it stops with a warning instead of failing the push.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "backend/prisma/**"
+      - ".github/workflows/migrate-production.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: migrate-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: prisma migrate deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DIRECT_DATABASE_URL: ${{ secrets.PRODUCTION_DIRECT_DATABASE_URL }}
+      DATABASE_URL: ${{ secrets.PRODUCTION_DIRECT_DATABASE_URL }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Stop early when the secret is missing
+        if: env.DIRECT_DATABASE_URL == ''
+        run: |
+          echo "::warning::PRODUCTION_DIRECT_DATABASE_URL is not set. Migrations were NOT applied. Add the secret and re-run this workflow."
+          echo "SKIP=true" >> "$GITHUB_ENV"
+
+      - name: Use Node.js 22
+        if: env.SKIP != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        if: env.SKIP != 'true'
+        run: npm --prefix backend ci --no-audit --no-fund
+
+      - name: Show pending migrations
+        if: env.SKIP != 'true'
+        working-directory: backend
+        run: npx prisma migrate status || true
+
+      - name: Apply migrations
+        if: env.SKIP != 'true'
+        working-directory: backend
+        run: npx prisma migrate deploy
+
+      - name: Confirm
+        if: env.SKIP != 'true'
+        working-directory: backend
+        run: npx prisma migrate status
