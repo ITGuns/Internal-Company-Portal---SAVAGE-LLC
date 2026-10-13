@@ -70,6 +70,8 @@ export function usePayrollData(targetUserId?: string, startIso?: string, endIso?
       }
       return { success: false };
     } catch (err) {
+      // The server may have changed state anyway (slow or duplicate request); resync this page and the header clock.
+      void loadData();
       return { success: false, error: err instanceof Error ? err.message : undefined };
     }
   };
@@ -87,6 +89,8 @@ export function usePayrollData(targetUserId?: string, startIso?: string, endIso?
       }
       return { success: false };
     } catch (err) {
+      // The server may have changed state anyway (slow or duplicate request); resync this page and the header clock.
+      void loadData();
       return { success: false, error: err instanceof Error ? err.message : undefined };
     }
   };

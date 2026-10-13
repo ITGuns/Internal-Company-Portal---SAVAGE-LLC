@@ -3,6 +3,7 @@
  */
 
 import { apiFetch } from './api';
+import { singleFlight } from './single-flight';
 import type { ApiTimeEntry } from './types/api';
 
 export type TimeEntry = {
@@ -84,8 +85,11 @@ export async function fetchActiveTimeEntry(): Promise<TimeEntry | null> {
 
 /**
  * Clock In: returns the new TimeEntry, or throws with the server's error message.
+ * Concurrent calls (double click, two mounted clocks) share one request.
  */
-export async function clockIn(): Promise<TimeEntry | null> {
+export const clockIn = singleFlight(requestClockIn);
+
+async function requestClockIn(): Promise<TimeEntry | null> {
   try {
     const res = await apiFetch('/payroll/clock-in', { method: 'POST' });
     if (res.status === 200 || res.status === 201) {
@@ -102,9 +106,12 @@ export async function clockIn(): Promise<TimeEntry | null> {
 }
 
 /**
- * Clock Out — returns the updated TimeEntry, or throws with the server's error message
+ * Clock Out: returns the closed TimeEntry, or throws with the server's error message.
+ * Concurrent calls share one request; the server also answers a duplicate with the closed entry.
  */
-export async function clockOut(): Promise<TimeEntry | null> {
+export const clockOut = singleFlight(requestClockOut);
+
+async function requestClockOut(): Promise<TimeEntry | null> {
   try {
     const res = await apiFetch('/payroll/clock-out', { method: 'POST' });
     if (res.status === 200) {

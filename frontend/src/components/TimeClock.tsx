@@ -1,29 +1,40 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Play, Square, Loader2 } from 'lucide-react';
 import { clockIn, clockOut, fetchActiveTimeEntry, type TimeEntry } from '@/lib/time-entries';
 import { useToast } from '@/components/ToastProvider';
 
 const ACTIVE_TIME_ENTRY_QUERY_KEY = ['time-entries', 'active'] as const;
+// Shared by every mounted TimeClock (header and dashboard) so a pending action disables all of them.
+const CLOCK_MUTATION_KEY = ['time-clock'] as const;
 
 export default function TimeClock() {
     const toast = useToast();
     const queryClient = useQueryClient();
-    const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
-    const [actionLoading, setActionLoading] = useState(false);
     const [elapsedTime, setElapsedTime] = useState(0); // seconds
     const timerRef = useRef<NodeJS.Timeout | null>(null);
-    const { data: fetchedActiveEntry = null, isLoading: loading } = useQuery({
+    const { data: activeEntry = null, isLoading: loading } = useQuery({
         queryKey: ACTIVE_TIME_ENTRY_QUERY_KEY,
         queryFn: fetchActiveTimeEntry,
         staleTime: 30 * 1000,
     });
-
-    useEffect(() => {
-        setActiveEntry(fetchedActiveEntry);
-    }, [fetchedActiveEntry]);
+    const actionLoading = useIsMutating({ mutationKey: CLOCK_MUTATION_KEY }) > 0;
+    const clockMutation = useMutation({
+        mutationKey: CLOCK_MUTATION_KEY,
+        mutationFn: (action: 'in' | 'out') => (action === 'in' ? clockIn() : clockOut()),
+        onSuccess: (entry: TimeEntry | null, action) => {
+            queryClient.setQueryData(ACTIVE_TIME_ENTRY_QUERY_KEY, action === 'in' ? entry : null);
+            toast.success(action === 'in' ? "Clocked in successfully" : "Clocked out successfully");
+        },
+        onError: (err, action) => {
+            const fallback = action === 'in' ? "Failed to clock in" : "Failed to clock out";
+            toast.error(err instanceof Error ? err.message : fallback);
+        },
+        // Whatever happened, re-read the server state so every mounted clock agrees.
+        onSettled: () => queryClient.invalidateQueries({ queryKey: ACTIVE_TIME_ENTRY_QUERY_KEY }),
+    });
 
     // Timer logic
     useEffect(() => {
@@ -47,32 +58,9 @@ export default function TimeClock() {
         };
     }, [activeEntry]);
 
-    const handleClockIn = async () => {
-        try {
-            setActionLoading(true);
-            const entry = await clockIn();
-            setActiveEntry(entry);
-            queryClient.setQueryData(ACTIVE_TIME_ENTRY_QUERY_KEY, entry);
-            toast.success("Clocked in successfully");
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Failed to clock in");
-        } finally {
-            setActionLoading(false);
-        }
-    };
-
-    const handleClockOut = async () => {
-        try {
-            setActionLoading(true);
-            await clockOut();
-            setActiveEntry(null);
-            queryClient.setQueryData(ACTIVE_TIME_ENTRY_QUERY_KEY, null);
-            toast.success("Clocked out successfully");
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Failed to clock out");
-        } finally {
-            setActionLoading(false);
-        }
+    const runClockAction = (action: 'in' | 'out') => {
+        if (actionLoading) return;
+        clockMutation.mutate(action);
     };
 
     const formatTime = (totalSeconds: number) => {
@@ -105,7 +93,7 @@ export default function TimeClock() {
 
             {activeEntry ? (
                 <button
-                    onClick={handleClockOut}
+                    onClick={() => runClockAction('out')}
                     disabled={actionLoading}
                     className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] border border-red-700 bg-red-700 px-3 py-2 text-xs font-semibold text-white transition-[background-color,transform] duration-150 ease-[var(--ease-out)] hover:bg-red-800 active:translate-y-px active:scale-[0.98] disabled:opacity-50"
                 >
@@ -114,7 +102,7 @@ export default function TimeClock() {
                 </button>
             ) : (
                 <button
-                    onClick={handleClockIn}
+                    onClick={() => runClockAction('in')}
                     disabled={actionLoading}
                     className="flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-[var(--accent-foreground)] transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-95 active:translate-y-px active:scale-[0.98] disabled:opacity-50"
                 >

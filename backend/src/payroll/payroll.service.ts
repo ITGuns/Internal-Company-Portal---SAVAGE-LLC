@@ -221,7 +221,15 @@ export class PayrollService {
 
     async clockOut(userId: string) {
         const openEntry = await this.getActiveTimeEntry(userId)
-        if (!openEntry) throw new Error('Not clocked in')
+        if (!openEntry) {
+            // Idempotent: a retried or duplicate clock-out gets the entry that is already closed.
+            const lastClosed = await this.prisma.timeEntry.findFirst({
+                where: { userId, end: { not: null } },
+                orderBy: { end: 'desc' },
+            })
+            if (!lastClosed) throw new Error('Not clocked in')
+            return lastClosed
+        }
 
         const end = new Date()
         const duration = Math.round((end.getTime() - openEntry.start.getTime()) / 60000)

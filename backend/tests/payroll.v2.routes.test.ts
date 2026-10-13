@@ -560,6 +560,34 @@ async function runAdjustmentPreviousTimesTest() {
   })
 }
 
+async function runIdempotentClockOutTest() {
+  // A retried or duplicate clock-out must not fail once the entry is closed.
+  const start = new Date('2026-10-14T01:00:00Z')
+  const rows: any[] = [{ id: 'te_clock', userId: 'u1', start, end: null, duration: null }]
+  let updates = 0
+  await withStubs([
+    [prisma.timeEntry, 'findFirst', async (args: any) => {
+      const wantOpen = args.where.end === null
+      return rows.find((row) => row.userId === args.where.userId && (wantOpen ? row.end === null : row.end !== null)) ?? null
+    }],
+    [prisma.timeEntry, 'update', async (args: any) => {
+      updates += 1
+      const row = rows.find((r) => r.id === args.where.id)
+      Object.assign(row, args.data)
+      return { ...row }
+    }],
+  ], async () => {
+    const service = new PayrollService()
+    const first = await service.clockOut('u1')
+    assert.ok(first.end, 'first clock-out closes the open entry')
+    const second = await service.clockOut('u1')
+    assert.equal(second.id, 'te_clock', 'duplicate clock-out returns the closed entry')
+    assert.equal(second.end?.getTime(), first.end?.getTime(), 'duplicate clock-out does not move the end time')
+    assert.equal(updates, 1, 'duplicate clock-out does not write again')
+    await assert.rejects(service.clockOut('u-never'), /Not clocked in/, 'no entries at all still reports not clocked in')
+  })
+}
+
 async function main() {
   const savedTimezone = config.payrollTimezone
   const savedAdminEmails = config.adminEmails
@@ -573,6 +601,7 @@ async function main() {
     await runAdjustmentPreviousTimesTest()
     await runPayslipEditServiceTests()
     await runLockedPeriodAndWithdrawTests()
+    await runIdempotentClockOutTest()
   } finally {
     ;(prisma.user as any).findUnique = originals.userFindUnique
     ;(prisma.user as any).create = originals.userCreate
