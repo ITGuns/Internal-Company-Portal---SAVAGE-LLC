@@ -935,6 +935,8 @@ export default function DailyLogsPage() {
                   setFormHours(normalized || '00:00');
                   setFormHoursError('');
                 }}
+                // Select the prefilled 08:00 so typing replaces it instead of appending.
+                onFocus={(event) => event.currentTarget.select()}
                 error={formHoursError}
                 placeholder="08:00"
                 inputMode="decimal"

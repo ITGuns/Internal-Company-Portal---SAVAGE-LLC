@@ -18,6 +18,8 @@ export interface FormFieldProps {
   onChange: (value: string) => void;
   /** Blur handler */
   onBlur?: () => void;
+  /** Focus handler */
+  onFocus?: (event: React.FocusEvent<HTMLInputElement>) => void;
   /** Optional error message */
   error?: string;
   /** Optional placeholder text */
@@ -58,6 +60,7 @@ export default function FormField({
   value,
   onChange,
   onBlur,
+  onFocus,
   error,
   placeholder,
   required = false,
@@ -99,6 +102,7 @@ export default function FormField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
+        onFocus={onFocus}
         disabled={disabled}
         placeholder={placeholder}
         min={min}
