@@ -120,6 +120,8 @@ async function bootstrap() {
         isRefreshSessionPersistenceAvailable(),
         uploadStorage.healthCheck(),
       ])
+      if (!refreshSessionsAvailable) logger.warn('Readiness: RefreshSession table is not available')
+      if (!storageAvailable) logger.warn('Readiness: upload storage health check failed (driver or bucket)')
       return refreshSessionsAvailable && storageAvailable
     },
   }))

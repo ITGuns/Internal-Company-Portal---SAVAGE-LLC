@@ -13,7 +13,13 @@ class PrismaService {
     static getInstance(): PrismaClient {
         if (!PrismaService.instance) {
             const connectionString = process.env.DATABASE_URL
-            const pool = new Pool({ connectionString })
+            // Serverless: many short-lived instances share one Supabase pooler, so keep
+            // each instance's pool small and let idle connections go quickly.
+            const pool = new Pool({
+                connectionString,
+                max: Number(process.env.DATABASE_POOL_MAX || 3),
+                idleTimeoutMillis: Number(process.env.DATABASE_POOL_IDLE_MS || 5000),
+            })
             const adapter = new PrismaPg(pool)
             PrismaService.instance = new PrismaClient({ adapter })
 

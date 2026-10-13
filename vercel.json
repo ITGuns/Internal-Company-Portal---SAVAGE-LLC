@@ -1,6 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
+  "regions": [
+    "syd1"
+  ],
   "installCommand": "npm --prefix backend ci && npm --prefix frontend ci",
   "buildCommand": "npm --prefix backend run build && npm --prefix frontend run build",
   "builds": [
@@ -40,13 +43,21 @@
       "src": "/backend-auth/(.*)",
       "dest": "backend/src/main.ts"
     },
-    { "src": "/auth/callback", "dest": "frontend/auth/callback" },
-    { "src": "/auth/callback/(.*)", "dest": "frontend/auth/callback/$1" },
-    { "src": "/auth/(.*)", "dest": "backend/src/main.ts" },
+    {
+      "src": "/auth/callback",
+      "dest": "frontend/auth/callback"
+    },
+    {
+      "src": "/auth/callback/(.*)",
+      "dest": "frontend/auth/callback/$1"
+    },
+    {
+      "src": "/auth/(.*)",
+      "dest": "backend/src/main.ts"
+    },
     {
       "src": "/(.*)",
       "dest": "frontend/$1"
     }
   ]
 }
-
