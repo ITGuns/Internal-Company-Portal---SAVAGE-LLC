@@ -183,16 +183,16 @@ form validation, payslip edit recompute.
 
 ## Deploy note
 
-The Vercel build command runs `prisma migrate deploy` on Production builds
-only (guarded by `VERCEL_ENV`), using `DIRECT_DATABASE_URL` from the Vercel
-project env. Merging to `main` therefore migrates the database before the new
-code goes live. A failed migration fails the build and the previous deploy
-stays up. Preview builds skip the migration. Nobody needs a local
-`backend/.env.production` for routine deploys.
+Vercel does NOT run migrations: `vercel.json` uses the legacy `builds` array,
+which makes Vercel ignore `buildCommand`, so a migrate step there never
+executes (that is how this release shipped twice against a database without
+its tables). Render only migrates when it deploys, and it does not deploy
+while CI is red.
 
-Manual fallback, from a clone that has `backend/.env.production` with a
-direct (non-pooled) database URL:
-
-```bash
-npm --prefix backend run prisma:deploy:production
-```
+Migrations for production run from the GitHub Actions workflow
+`.github/workflows/migrate-production.yml` (push to `main` touching
+`backend/prisma/**`, or run by hand). It needs the repository secret
+`PRODUCTION_DIRECT_DATABASE_URL` (direct 5432 URL, not the 6543 pooler).
+Order for any release with a migration: migration applied first, merge
+second. Manual fallback: paste the migration SQL into the Supabase SQL editor
+for the project and insert the matching `_prisma_migrations` row.
