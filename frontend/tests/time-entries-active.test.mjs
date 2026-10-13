@@ -8,7 +8,21 @@ import ts from 'typescript';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function loadTimeEntryHelpers(apiResponse) {
+function loadTsModule(relativePath, requireStub) {
+  const modulePath = path.resolve(__dirname, relativePath);
+  const { outputText } = ts.transpileModule(fs.readFileSync(modulePath, 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+  });
+  const compiledModule = { exports: {} };
+  vm.runInNewContext(outputText, {
+    module: compiledModule,
+    exports: compiledModule.exports,
+    require: requireStub,
+  }, { filename: modulePath });
+  return compiledModule.exports;
+}
+
+function loadTimeEntryHelpers(apiResponse, apiFetch) {
   const helperPath = path.resolve(__dirname, '../src/lib/time-entries.ts');
   const source = fs.readFileSync(helperPath, 'utf8');
   const { outputText } = ts.transpileModule(source, {
@@ -27,11 +41,16 @@ function loadTimeEntryHelpers(apiResponse) {
     require: (specifier) => {
       if (specifier === './api') {
         return {
-          apiFetch: async () => ({
+          apiFetch: apiFetch ?? (async () => ({
             status: 200,
             json: async () => apiResponse,
-          }),
+          })),
         };
+      }
+      if (specifier === './single-flight') {
+        return loadTsModule('../src/lib/single-flight.ts', () => {
+          throw new Error('single-flight has no imports');
+        });
       }
 
       throw new Error(`Unexpected import: ${specifier}`);
@@ -67,4 +86,27 @@ test('maps valid active time-entry payloads', async () => {
       durationMin: 15,
     },
   );
+});
+
+test('concurrent clock-out calls send one request', async () => {
+  const requests = [];
+  let respond;
+  const { clockOut } = loadTimeEntryHelpers(null, (endpoint, options) => {
+    requests.push([endpoint, options?.method]);
+    return new Promise((resolve) => {
+      respond = resolve;
+    });
+  });
+
+  const first = clockOut();
+  const second = clockOut();
+  respond({
+    status: 200,
+    json: async () => ({ id: 'entry-1', start: '2026-06-12T01:00:00.000Z', end: '2026-06-12T09:00:00.000Z', duration: 480 }),
+  });
+
+  const [a, b] = await Promise.all([first, second]);
+  assert.deepEqual(requests, [['/payroll/clock-out', 'POST']]);
+  assert.equal(a, b);
+  assert.equal(a.end, '2026-06-12T09:00:00.000Z');
 });
