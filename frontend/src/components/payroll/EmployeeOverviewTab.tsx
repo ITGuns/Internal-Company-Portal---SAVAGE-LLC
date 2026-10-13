@@ -177,11 +177,25 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
 
     const handleApproveEmployee = async (employee: Employee) => {
         try {
-            await apiFetch(`/employees/approve/${employee.id}`, {
+            const res = await apiFetch(`/employees/approve/${employee.id}`, {
                 method: 'POST',
             });
+            const data: { onboarding?: { emailSent?: boolean; setupUrl?: string } } = await res.json().catch(() => ({}));
+            // The API hands the setup link back only when the setup email was not sent
+            // (email not configured or delivery failed). Surface it instead of dropping it.
+            const setupUrl = data.onboarding?.emailSent === false ? data.onboarding.setupUrl : undefined;
 
-            toast.success(`${employee.name} has been approved and deployed.`);
+            if (setupUrl) {
+                const copied = await navigator.clipboard?.writeText(setupUrl).then(() => true, () => false);
+                toast.showToast(
+                    'warning',
+                    `${employee.name} approved, but no setup email was sent (email is not configured).`,
+                    `${copied ? 'Setup link copied to clipboard. ' : ''}Send this link to the employee yourself: ${setupUrl}`,
+                    30000,
+                );
+            } else {
+                toast.success(`${employee.name} has been approved and deployed. A setup email was sent.`);
+            }
             fetchData();
         } catch (err) {
             console.error("Approval failed", err);

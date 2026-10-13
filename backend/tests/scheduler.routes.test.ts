@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
-import { SchedulerController } from '../src/scheduler/scheduler.controller'
+import { SchedulerController, requireSchedulerSecret } from '../src/scheduler/scheduler.controller'
+import { config } from '../src/config/env.config'
 import { SchedulerService } from '../src/scheduler/scheduler.service'
 import { prisma } from '../src/database/prisma.service'
 
@@ -123,6 +124,31 @@ async function runAutoPayslipEndedPeriodTest() {
     ;(prisma.payrollPeriod as any).findMany = originals.periodFindMany
   }
 }
+
+// Missing CRON_SECRET in production: a clear 503 (not a bare 500), and the job never runs.
+function runMissingSchedulerSecretTest() {
+  const original = { nodeEnv: config.nodeEnv, schedulerSecret: config.schedulerSecret }
+  ;(config as any).nodeEnv = 'production'
+  ;(config as any).schedulerSecret = undefined
+  try {
+    let statusCode = 0
+    let body: any
+    let nextCalled = false
+    const res: any = {
+      status(code: number) { statusCode = code; return res },
+      json(payload: unknown) { body = payload; return res },
+    }
+    requireSchedulerSecret({ method: 'GET', originalUrl: '/api/scheduler/cron', headers: {} } as any, res, () => { nextCalled = true })
+    assert.equal(statusCode, 503, 'missing scheduler secret answers 503')
+    assert.equal(body?.code, 'SCHEDULER_SECRET_MISSING')
+    assert.equal(nextCalled, false, 'cron handler does not run without a secret')
+  } finally {
+    ;(config as any).nodeEnv = original.nodeEnv
+    ;(config as any).schedulerSecret = original.schedulerSecret
+  }
+}
+
+runMissingSchedulerSecretTest()
 
 runAutoPayslipEndedPeriodTest()
   .then(() => console.log('scheduler.routes tests passed'))

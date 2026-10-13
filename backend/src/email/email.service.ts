@@ -33,6 +33,11 @@ export class EmailService {
         return EmailService.instance;
     }
 
+    /** True when EMAIL_ENABLED=true and the provider config is complete, i.e. sends can actually happen. */
+    isEmailConfigured(): boolean {
+        return this.isConfigured;
+    }
+
     private initialize(): void {
         if (!emailConfig.enabled) {
             logger.info('Email service is disabled');

@@ -27,6 +27,7 @@ const tests = [
   'client-service-tier-presets.test.ts',
   'auth.security.test.ts',
   'auth.routes.test.ts',
+  'auth.forgot-password-email.test.ts',
   'file-directory.routes.test.ts',
   'employees.security.test.ts',
   'employees.routes.test.ts',

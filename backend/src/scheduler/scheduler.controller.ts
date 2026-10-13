@@ -26,13 +26,21 @@ const SCHEDULER_MANAGEMENT_ROLES = [
  * Middleware: verify the Vercel Cron / scheduler secret header.
  * Vercel Cron sends Authorization: Bearer <CRON_SECRET>; SCHEDULER_SECRET remains a legacy fallback.
  */
-function requireSchedulerSecret(req: Request, res: Response, next: express.NextFunction) {
+export function requireSchedulerSecret(req: Request, res: Response, next: express.NextFunction) {
     const secret = config.schedulerSecret
 
     // If no secret is configured, allow in non-production (dev convenience)
     if (!secret) {
         if (config.nodeEnv === 'production') {
-            return res.status(500).json({ error: 'CRON_SECRET or SCHEDULER_SECRET not configured' })
+            // Misconfiguration, not a crash: 503 + a log line so the skipped run is visible.
+            logger.warn('Scheduler cron request refused - CRON_SECRET/SCHEDULER_SECRET not set; scheduled jobs did not run', {
+                method: req.method,
+                path: req.originalUrl,
+            })
+            return res.status(503).json({
+                error: 'Scheduler is not configured: set CRON_SECRET (or SCHEDULER_SECRET) on the server',
+                code: 'SCHEDULER_SECRET_MISSING',
+            })
         }
         return next()
     }

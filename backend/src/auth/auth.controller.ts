@@ -545,6 +545,21 @@ export class AuthController {
             }
 
             try {
+                const { EmailService } = await import('../email/email.service')
+                const emailService = EmailService.getInstance()
+
+                // Without email delivery the reset link has nowhere to go. Say so instead of
+                // claiming it was sent. Checked before any user lookup, so the answer is the same
+                // for every address (no enumeration), and no token is minted. The link itself is
+                // never returned here: this route is unauthenticated, so that would be account takeover.
+                if (!emailService.isEmailConfigured()) {
+                    logger.warn('Forgot password requested but email delivery is not configured (EMAIL_ENABLED/provider)')
+                    return res.status(503).json({
+                        error: 'Password reset email is not available: email delivery is not configured on this server. Ask your workspace administrator to reset your password.',
+                        code: 'EMAIL_NOT_CONFIGURED',
+                    })
+                }
+
                 const { prisma } = await import('../database/prisma.service')
 
                 const user = await prisma.user.findUnique({
@@ -574,8 +589,6 @@ export class AuthController {
                 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
                 const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`
 
-                const { EmailService } = await import('../email/email.service')
-                const emailService = EmailService.getInstance()
                 await emailService.sendTemplateEmail(
                     email,
                     'Password Reset — SAVAGE LLC Portal',
