@@ -109,6 +109,9 @@ interface EnvConfig {
 
     // Scheduler (Vercel Cron protection secret)
     schedulerSecret?: string
+
+    // Payroll day bucketing timezone (payroll v2): PAYROLL_TIMEZONE, then DAILY_DIGEST_TIMEZONE, then Asia/Manila
+    payrollTimezone: string
 }
 
 function getEnvVar(key: string, defaultValue?: string): string {
@@ -121,6 +124,25 @@ function getEnvVar(key: string, defaultValue?: string): string {
 
 function getOptionalEnvVar(key: string): string | undefined {
     return process.env[key]
+}
+
+const DEFAULT_PAYROLL_TIMEZONE = 'Asia/Manila'
+
+function isValidTimeZoneName(timeZone: string): boolean {
+    try {
+        new Intl.DateTimeFormat('en-US', { timeZone })
+        return true
+    } catch {
+        return false
+    }
+}
+
+/** First valid zone of PAYROLL_TIMEZONE, DAILY_DIGEST_TIMEZONE, Asia/Manila. */
+export function resolvePayrollTimezone(env: NodeJS.ProcessEnv = process.env): string {
+    const candidates = [env.PAYROLL_TIMEZONE, env.DAILY_DIGEST_TIMEZONE]
+        .map((value) => (value || '').trim())
+        .filter(Boolean)
+    return candidates.find(isValidTimeZoneName) || DEFAULT_PAYROLL_TIMEZONE
 }
 
 function getPositiveIntegerEnvVar(key: string, defaultValue: number): number {
@@ -257,6 +279,8 @@ export const config: EnvConfig = {
 
     // Scheduler secret. Vercel Cron sends CRON_SECRET automatically; keep SCHEDULER_SECRET as a legacy/manual fallback.
     schedulerSecret: getOptionalEnvVar('CRON_SECRET') || getOptionalEnvVar('SCHEDULER_SECRET'),
+
+    payrollTimezone: resolvePayrollTimezone(),
 }
 
 /**

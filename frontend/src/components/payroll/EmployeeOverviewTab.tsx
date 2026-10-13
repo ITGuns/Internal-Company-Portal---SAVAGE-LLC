@@ -5,13 +5,17 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { Users, User, Clock, Award, CheckCircle, XCircle, UserCheck, UserPlus, Edit2, Plus } from "lucide-react";
+import { Users, User, Clock, Award, CheckCircle, XCircle, UserCheck, UserPlus, UserX, Edit2, Plus } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 import Button from "@/components/Button";
 import { PayrollEmployeesSectionSkeleton } from "@/components/ui/FeatureSkeletons";
-import { useDialogA11y } from "@/hooks/useDialogA11y";
+import { useUser } from "@/contexts/UserContext";
+import { canManageMemberStatus, hasFullAccess } from "@/lib/role-access";
+import { fetchInactiveMembers } from "@/lib/users-admin";
 import EmployeeCard from "./EmployeeCard";
+import InactiveMembersPanel from "./InactiveMembersPanel";
+import type { MemberStatusAction, MemberStatusTarget } from "./MemberStatusModal";
 import StatCard from "./StatCard";
 import type { Employee } from "@/lib/payroll-calendar/types";
 import type { ApiEmployee } from "@/lib/types/api";
@@ -19,9 +23,10 @@ import type { ApiEmployee } from "@/lib/types/api";
 // Lazy-loaded modals (only rendered when opened)
 const EmployeeDetailsModal = dynamic(() => import("./EmployeeDetailsModal"), { ssr: false });
 const EmployeeEditModal = dynamic(() => import("./EmployeeEditModal"), { ssr: false });
-const AddEmployeeModal = dynamic(() => import("./AddEmployeeModal"), { ssr: false });
+const InviteEmployeeModal = dynamic(() => import("./InviteEmployeeModal"), { ssr: false });
+const MemberStatusModal = dynamic(() => import("./MemberStatusModal"), { ssr: false });
 
-type EmployeeView = "deployed" | "pending";
+type EmployeeView = "deployed" | "pending" | "inactive";
 
 interface EmployeeOverviewTabProps {
     initialView?: EmployeeView;
@@ -30,6 +35,11 @@ interface EmployeeOverviewTabProps {
 export default function EmployeeOverviewTab({ initialView = "deployed" }: EmployeeOverviewTabProps) {
     const toast = useToast();
     const showToastError = toast.error;
+    const { user } = useUser();
+    const canChangeStatus = canManageMemberStatus(user);
+    // Nobody deactivates their own account from this list (they would lock themselves out).
+    const isCurrentUser = (memberId: string | number) => user?.id != null && String(memberId) === String(user.id);
+    const isAdmin = hasFullAccess(user);
     const [view, setView] = useState<EmployeeView>(initialView);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [pendingEmployees, setPendingEmployees] = useState<Employee[]>([]);
@@ -37,14 +47,36 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
-    const deleteDialogTitleId = React.useId();
-    const deleteDialogDescriptionId = React.useId();
-    const { dialogRef: deleteDialogRef, handleDialogKeyDown: handleDeleteDialogKeyDown } = useDialogA11y({
-        isOpen: Boolean(employeeToDelete),
-        onClose: () => setEmployeeToDelete(null),
-    });
+    const [showInviteModal, setShowInviteModal] = useState(false);
+    const [statusAction, setStatusAction] = useState<{ action: MemberStatusAction; member: MemberStatusTarget } | null>(null);
+    const [inactiveMembers, setInactiveMembers] = useState<MemberStatusTarget[]>([]);
+    const [inactiveLoading, setInactiveLoading] = useState(false);
+    const [inactiveError, setInactiveError] = useState<string | null>(null);
+
+    const loadInactiveMembers = useCallback(async () => {
+        if (!canChangeStatus) return;
+        setInactiveLoading(true);
+        setInactiveError(null);
+        try {
+            const rows = await fetchInactiveMembers();
+            setInactiveMembers((previous) => {
+                // Keep members deactivated in this session even if the server list is not available.
+                const merged = new Map(previous.map((member) => [member.id, member]));
+                for (const row of rows) {
+                    merged.set(String(row.id), { id: String(row.id), name: row.name || row.email, email: row.email });
+                }
+                return [...merged.values()];
+            });
+        } catch (err) {
+            setInactiveError(err instanceof Error ? err.message : "Could not load inactive members.");
+        } finally {
+            setInactiveLoading(false);
+        }
+    }, [canChangeStatus]);
+
+    useEffect(() => {
+        if (view === "inactive") void loadInactiveMembers();
+    }, [view, loadInactiveMembers]);
 
     // Fetch data from backend
     const fetchData = useCallback(async () => {
@@ -127,47 +159,19 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
         }
     };
 
-    const handleDeleteConfirm = async () => {
-        if (!employeeToDelete) return;
+    const toStatusTarget = (employee: Employee): MemberStatusTarget => ({
+        id: String(employee.id),
+        name: employee.name,
+        email: employee.email,
+    });
 
-        try {
-            await apiFetch(`/users/${employeeToDelete.id}`, {
-                method: 'DELETE',
-            });
-
-            setEmployees((prev) => prev.filter((emp) => emp.id !== employeeToDelete.id));
-            setPendingEmployees((prev) => prev.filter((emp) => emp.id !== employeeToDelete.id));
-
-            toast.success(`${employeeToDelete.name} has been removed`);
-            setEmployeeToDelete(null);
-        } catch (err) {
-            console.error("Delete failed", err);
-            toast.error("Failed to remove employee");
-        }
-    };
-
-    const handleAddEmployee = async (newEmployeeData: Omit<Employee, "id">) => {
-        try {
-            const res = await apiFetch('/employees/request-verification', {
-                method: 'POST',
-                body: JSON.stringify(newEmployeeData),
-            });
-
-            const data = await res.json();
-
-            if (!res.ok) {
-                throw new Error(data.error || data.message || "Failed to submit application");
-            }
-
-            if (data.success) {
-                toast.success(`Application submitted for ${newEmployeeData.name}!`);
-                fetchData();
-            } else {
-                throw new Error(data.message || "Failed to submit application");
-            }
-        } catch (err) {
-            console.error("Submission failed", err);
-            toast.error(err instanceof Error ? err.message : "Failed to submit application");
+    const handleStatusDone = (action: MemberStatusAction, member: MemberStatusTarget) => {
+        if (action === "deactivate") {
+            setEmployees((prev) => prev.filter((emp) => String(emp.id) !== member.id));
+            setInactiveMembers((prev) => [...prev.filter((item) => item.id !== member.id), member]);
+        } else {
+            setInactiveMembers((prev) => prev.filter((item) => item.id !== member.id));
+            if (action === "reactivate") void fetchData();
         }
     };
 
@@ -177,7 +181,7 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                 method: 'POST',
             });
 
-            toast.success(`${employee.name} has been approved and deployed!`);
+            toast.success(`${employee.name} has been approved and deployed.`);
             fetchData();
         } catch (err) {
             console.error("Approval failed", err);
@@ -217,7 +221,8 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-3 p-1 bg-[var(--card-surface)] rounded-lg border border-[var(--border)] w-fit">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2 p-1 bg-[var(--card-surface)] rounded-lg border border-[var(--border)] w-fit max-w-full">
                 <Button
                     variant={view === "deployed" ? "primary" : "ghost"}
                     size="sm"
@@ -240,11 +245,31 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                         </span>
                     )}
                 </Button>
+                {canChangeStatus && (
+                    <Button
+                        variant={view === "inactive" ? "primary" : "ghost"}
+                        size="sm"
+                        icon={<UserX className="w-4 h-4" />}
+                        onClick={() => setView("inactive")}
+                    >
+                        Inactive
+                    </Button>
+                )}
+            </div>
+            {isAdmin && (
+                <Button
+                    variant="primary"
+                    icon={<Plus className="w-4 h-4" />}
+                    onClick={() => setShowInviteModal(true)}
+                >
+                    Add employee
+                </Button>
+            )}
             </div>
 
             {isLoading && employees.length === 0 ? (
                 <PayrollEmployeesSectionSkeleton />
-            ) : view === "deployed" ? (
+            ) : view === "inactive" ? null : view === "deployed" ? (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <StatCard
                         icon={<Users className="w-5 h-5" aria-hidden="true" />}
@@ -294,7 +319,19 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                 </div>
             )}
 
-            {!isLoading && (view === "deployed" ? (
+            {view === "inactive" && (
+                <InactiveMembersPanel
+                    members={inactiveMembers}
+                    loading={inactiveLoading}
+                    error={inactiveError}
+                    canHardDelete={isAdmin}
+                    onRetry={() => void loadInactiveMembers()}
+                    onReactivate={(member) => setStatusAction({ action: "reactivate", member })}
+                    onHardDelete={(member) => setStatusAction({ action: "hard_delete", member })}
+                />
+            )}
+
+            {!isLoading && view !== "inactive" && (view === "deployed" ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {displayEmployees.map((employee) => (
                         <EmployeeCard
@@ -302,7 +339,9 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                             employee={employee}
                             onViewDetails={() => handleViewDetails(employee)}
                             onEdit={() => handleEdit(employee)}
-                            onDelete={() => setEmployeeToDelete(employee)}
+                            onDeactivate={canChangeStatus && !isCurrentUser(employee.id)
+                                ? () => setStatusAction({ action: "deactivate", member: toStatusTarget(employee) })
+                                : undefined}
                         />
                     ))}
                     {displayEmployees.length === 0 && (
@@ -419,18 +458,6 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                 </>
             ))}
 
-            {view === "pending" && (
-                <div className="flex justify-center">
-                    <Button
-                        variant="primary"
-                        icon={<Plus className="w-4 h-4" />}
-                        onClick={() => setShowAddModal(true)}
-                    >
-                        Submit New Application
-                    </Button>
-                </div>
-            )}
-
             <EmployeeDetailsModal
                 isOpen={showDetailsModal}
                 onClose={() => {
@@ -450,48 +477,19 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                 onSave={handleSaveEmployee}
             />
 
-            <AddEmployeeModal
-                isOpen={showAddModal}
-                onClose={() => setShowAddModal(false)}
-                onAdd={handleAddEmployee}
+            <InviteEmployeeModal
+                isOpen={showInviteModal}
+                onClose={() => setShowInviteModal(false)}
+                onInvited={() => void fetchData()}
             />
 
-            {employeeToDelete && (
-                <div className="portal-form-backdrop fixed inset-0 z-50 flex items-center justify-center">
-                    <div
-                        ref={deleteDialogRef}
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby={deleteDialogTitleId}
-                        aria-describedby={deleteDialogDescriptionId}
-                        tabIndex={-1}
-                        onKeyDown={handleDeleteDialogKeyDown}
-                        className="bg-[var(--card-bg)] rounded-lg p-6 max-w-md w-full mx-4 shadow-xl"
-                    >
-                        <h3 id={deleteDialogTitleId} className="text-lg font-bold text-[var(--foreground)] mb-2">
-                            Remove Employee?
-                        </h3>
-                        <p id={deleteDialogDescriptionId} className="text-sm text-[var(--muted)] mb-6">
-                            Are you sure you want to remove <strong>{employeeToDelete.name}</strong> from the system? This action cannot be undone.
-                        </p>
-                        <div className="flex gap-3 justify-end">
-                            <Button
-                                variant="ghost"
-                                onClick={() => setEmployeeToDelete(null)}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                variant="primary"
-                                onClick={handleDeleteConfirm}
-                                className="bg-red-600 hover:bg-red-700"
-                            >
-                                Remove Employee
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <MemberStatusModal
+                action={statusAction?.action ?? null}
+                member={statusAction?.member ?? null}
+                onClose={() => setStatusAction(null)}
+                onDone={handleStatusDone}
+            />
+
         </div>
     );
 }

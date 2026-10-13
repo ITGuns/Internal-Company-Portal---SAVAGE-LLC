@@ -31,6 +31,12 @@ import StatCard from "./StatCard";
 import { PayrollReportsSkeleton } from "@/components/ui/FeatureSkeletons";
 import type { Payslip } from "@/lib/payroll-calendar/types";
 import { generatePayslipPDF } from "@/lib/payroll-calendar/payslip-utils";
+import { formatPayrollDate, formatPayrollPeriod } from "@/lib/payroll-dates";
+
+function splitPeriodLabel(label: string): [string, string] {
+  const [start = "", end = ""] = label.split(" to ");
+  return [start, end];
+}
 import {
   buildDepartmentCostSummary,
   buildDepartmentSummaryCsv,
@@ -98,7 +104,7 @@ function BarChartPlaceholder({
                 }}
               />
               <span className="text-[9px] text-[var(--muted)] truncate max-w-full text-center">
-                {row.label.split(" ")[0]}
+                {row.label.split(" to ")[0]}
               </span>
               <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[var(--foreground)] text-[var(--background)] text-[9px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-10 pointer-events-none">
                 {valueKey === "count"
@@ -461,13 +467,9 @@ function PayslipArchive() {
                     <td className="px-5 py-3.5 text-[var(--foreground)]">
                       <div className="flex items-center gap-1.5 text-xs">
                         <Calendar className="w-3 h-3 text-[var(--muted)]" />
-                        {p.payPeriodStart
-                          ? new Date(p.payPeriodStart).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                          : "—"}
-                        {" "}&ndash;{" "}
-                        {p.payPeriodEnd
-                          ? new Date(p.payPeriodEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-                          : "—"}
+                        {p.payPeriodStart && p.payPeriodEnd
+                          ? formatPayrollPeriod(p.payPeriodStart, p.payPeriodEnd)
+                          : "Not set"}
                       </div>
                     </td>
 
@@ -488,9 +490,7 @@ function PayslipArchive() {
 
                     {/* Issue Date */}
                     <td className="px-5 py-3.5 text-xs text-[var(--muted)]">
-                      {p.issueDate
-                        ? new Date(p.issueDate).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
-                        : "—"}
+                      {formatPayrollDate(p.issueDate, {}, "Not set")}
                     </td>
 
                     {/* Download */}
@@ -534,8 +534,9 @@ export default function ReportsTab() {
       });
       const res = await apiFetch(`/payroll/reports${queryString}`);
       if (res.ok) {
-        const data = await res.json();
-        setStats(data);
+        const data: ReportStat[] = await res.json();
+        // The server labels periods with Manila day keys ("2026-10-01 to 2026-10-15").
+        setStats(data.map((stat) => ({ ...stat, label: formatPayrollPeriod(...splitPeriodLabel(stat.label)) })));
       }
     } catch (err) {
       console.error("Failed to fetch reports", err);

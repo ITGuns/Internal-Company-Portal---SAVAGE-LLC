@@ -3,6 +3,37 @@ import { prisma } from '../database/prisma.service'
 import { emailService } from '../email/email.service'
 import { createLogger } from '../observability/logger'
 import { isInternalEmployeeAccount } from '../employees/employees.security'
+import { config } from '../config/env.config'
+import {
+    PayrollConflictError,
+    PayrollForbiddenError,
+    PayrollNotFoundError,
+    PayrollValidationError,
+} from './payroll.errors'
+import {
+    DEFAULT_MAX_BILLABLE_HOURS_PER_DAY,
+    DEFAULT_OVERTIME_MULTIPLIER,
+    HOURLY_RATE_REQUIRED_MESSAGE,
+    PAY_BASIS_LABELS,
+    bucketEntryHoursByDay,
+    computeGrossPay,
+    getPayrollRateContext,
+    getWeekdaysInMonth,
+    isPayBasis,
+    normalizePayBasis,
+    normalizePayrollScheme,
+    normalizePositiveNumber,
+    payrollDayKey,
+    PeriodBounds,
+    payrollPeriodWindow,
+    periodEndDayKey,
+    periodFraction,
+    periodStartDayKey,
+    roundMoney,
+    semiMonthlyPeriodForDay,
+    summarizePayrollHours,
+} from './payroll.calculations'
+import { computePayslipTotals } from './payslip-edit.service'
 
 const logger = createLogger('payroll.service')
 
@@ -29,13 +60,31 @@ export interface UpdateTimeEntryDto {
     notes?: string | null
 }
 
+export interface GeneratePayslipOptions {
+    /** Regenerate even when the payslip was edited by hand; the edit record is cleared. */
+    force?: boolean
+}
+
+// The client confirms a regenerate by resending with force: true.
+export const EDITED_PAYSLIP_MESSAGE = 'This payslip was edited by hand. Regenerating replaces those edits.'
+
+export interface ManualPayslipInput {
+    hoursWorked?: number
+    grossPay?: number
+    netPay?: number
+    deductions?: Array<{ name: string, amount: number, type: string }>
+}
+
+type PayslipLine = { type: string; description: string; amount: number }
+
+/** Statuses whose members are always included in bulk generation. */
+const PAYROLL_ACTIVE_STATUSES = ['active', 'verified', 'vacation', 'leave']
+
 export interface PayrollReportFilters {
     userId?: string
     department?: string
     status?: string
 }
-
-type PayrollScheme = 'weekdays' | 'flat_30' | 'flat_20' | 'flat_160_hours'
 
 interface TimeEntryAccessOptions {
     requesterId: string
@@ -72,16 +121,10 @@ type PayslipReportRecord = Prisma.PayslipGetPayload<{
     }
 }>
 
-export class PayrollForbiddenError extends Error { }
-export class PayrollNotFoundError extends Error { }
+export { PayrollConflictError, PayrollForbiddenError, PayrollNotFoundError, PayrollValidationError }
 
-const DEFAULT_MAX_BILLABLE_HOURS_PER_DAY = 8
-const DEFAULT_PAYROLL_SCHEME: PayrollScheme = 'weekdays'
-const PAYROLL_SCHEME_LABELS: Record<PayrollScheme, string> = {
-    weekdays: 'Weekdays of month',
-    flat_30: 'Flat 30 days',
-    flat_20: 'Flat 20 days',
-    flat_160_hours: 'Flat 160 hours',
+function roundHours(value: number): number {
+    return Math.round(value * 100) / 100
 }
 
 export class PayrollService {
@@ -210,17 +253,13 @@ export class PayrollService {
         }
     }
 
+    // Thin wrappers kept for tests/payroll.calculations.test.ts; logic lives in payroll.calculations.ts.
     private normalizePositiveNumber(value: unknown, fallback: number): number {
-        const parsed = typeof value === 'number' ? value : parseFloat(String(value))
-        if (!Number.isFinite(parsed) || parsed <= 0) return fallback
-        return parsed
+        return normalizePositiveNumber(value, fallback)
     }
 
-    private normalizePayrollScheme(value: unknown): PayrollScheme {
-        if (value === 'flat_30' || value === 'flat_20' || value === 'flat_160_hours' || value === 'weekdays') {
-            return value
-        }
-        return DEFAULT_PAYROLL_SCHEME
+    private normalizePayrollScheme(value: unknown) {
+        return normalizePayrollScheme(value)
     }
 
     private getPayrollRateContext(profile: {
@@ -228,62 +267,18 @@ export class PayrollService {
         payrollScheme?: string | null
         maxBillableHoursPerDay?: number | null
     }, startDate: Date, endDate: Date) {
-        const monthlySalary = profile.baseSalary || 0
-        const maxBillableHoursPerDay = this.normalizePositiveNumber(
-            profile.maxBillableHoursPerDay,
-            DEFAULT_MAX_BILLABLE_HOURS_PER_DAY,
-        )
-        const payrollScheme = this.normalizePayrollScheme(profile.payrollScheme)
-        const midpointDate = this.getMidpointDate(startDate, endDate)
-
-        if (payrollScheme === 'flat_160_hours') {
-            return {
-                monthlySalary,
-                payrollScheme,
-                payrollSchemeLabel: PAYROLL_SCHEME_LABELS[payrollScheme],
-                maxBillableHoursPerDay,
-                divisorHours: 160,
-                hourlyRate: monthlySalary / 160,
-                dailyRate: (monthlySalary / 160) * maxBillableHoursPerDay,
-            }
-        }
-
-        const divisorDays = payrollScheme === 'flat_30'
-            ? 30
-            : payrollScheme === 'flat_20'
-                ? 20
-                : this.getWeekdaysInMonth(midpointDate)
-        const dailyRate = divisorDays > 0 ? monthlySalary / divisorDays : 0
-
-        return {
-            monthlySalary,
-            payrollScheme,
-            payrollSchemeLabel: PAYROLL_SCHEME_LABELS[payrollScheme],
-            maxBillableHoursPerDay,
-            divisorDays,
-            hourlyRate: maxBillableHoursPerDay > 0 ? dailyRate / maxBillableHoursPerDay : 0,
-            dailyRate,
-        }
+        return getPayrollRateContext(profile, startDate, endDate)
     }
 
     private summarizeDailyHours(
         dailyHours: Map<string, number>,
         maxBillableHoursPerDay: number,
     ) {
-        let totalHours = 0
-        let billableHours = 0
-        let pendingOvertimeHours = 0
-
-        dailyHours.forEach((hours) => {
-            totalHours += hours
-            billableHours += Math.min(hours, maxBillableHoursPerDay)
-            pendingOvertimeHours += Math.max(0, hours - maxBillableHoursPerDay)
-        })
-
+        const summary = summarizePayrollHours(dailyHours, maxBillableHoursPerDay)
         return {
-            totalHours,
-            billableHours,
-            pendingOvertimeHours,
+            totalHours: summary.totalHours,
+            billableHours: summary.billableHours,
+            pendingOvertimeHours: summary.overtimeHours,
         }
     }
 
@@ -328,10 +323,10 @@ export class PayrollService {
     }
 
     private getPayslipHoursWorked(payslip: PayslipReportRecord) {
-        const earning = payslip.items.find((item) => item.amount >= 0 && /hrs?/i.test(item.description))
+        const earning = payslip.items.find((item) => item.amount >= 0 && /\(\d+(?:\.\d+)?\s+h(?:rs?)?\b/i.test(item.description))
         if (!earning) return 0
 
-        const match = earning.description.match(/\(([\d.]+)\s+hrs?/i)
+        const match = earning.description.match(/\(([\d.]+)\s+h(?:rs?)?\b/i)
         return match ? Number(match[1]) || 0 : 0
     }
 
@@ -438,7 +433,7 @@ export class PayrollService {
      * Update Employee Profile
      */
     async updateEmployeeProfile(userId: string, data: Record<string, unknown>) {
-        await this.getEmployeeProfile(userId)
+        const current = await this.getEmployeeProfile(userId)
 
         const updateData: Prisma.EmployeeProfileUpdateInput = {}
         if (data.jobTitle !== undefined) updateData.jobTitle = data.jobTitle
@@ -460,6 +455,26 @@ export class PayrollService {
             }
             updateData.maxBillableHoursPerDay = maxBillableHoursPerDay
         }
+        if (data.payBasis !== undefined) {
+            if (!isPayBasis(data.payBasis)) throw new PayrollValidationError('Invalid pay basis')
+            updateData.payBasis = data.payBasis
+        }
+        if (data.hourlyRate !== undefined) {
+            updateData.hourlyRate = this.parseOptionalHourlyRate(data.hourlyRate)
+        }
+        const nextPayBasis = updateData.payBasis !== undefined ? updateData.payBasis : current.payBasis
+        const nextHourlyRate = updateData.hourlyRate !== undefined ? updateData.hourlyRate : current.hourlyRate
+        const touchesRate = data.payBasis !== undefined || data.hourlyRate !== undefined
+        if (touchesRate && nextPayBasis === 'hourly_rate' && !(typeof nextHourlyRate === 'number' && nextHourlyRate > 0)) {
+            throw new PayrollValidationError(HOURLY_RATE_REQUIRED_MESSAGE)
+        }
+        if (data.overtimeMultiplier !== undefined) {
+            const multiplier = parseFloat(String(data.overtimeMultiplier))
+            if (!Number.isFinite(multiplier) || multiplier < 1 || multiplier > 5) {
+                throw new PayrollValidationError('Overtime multiplier must be between 1 and 5')
+            }
+            updateData.overtimeMultiplier = multiplier
+        }
         if (data.bankAccount !== undefined) updateData.bankAccount = data.bankAccount
         if (data.taxId !== undefined) updateData.taxId = data.taxId
 
@@ -469,15 +484,24 @@ export class PayrollService {
         })
     }
 
+    private parseOptionalHourlyRate(value: unknown): number | null {
+        if (value === null || value === '') return null
+        const rate = parseFloat(String(value))
+        if (!Number.isFinite(rate) || rate < 0) {
+            throw new PayrollValidationError('Hourly rate must be zero or more')
+        }
+        return rate
+    }
+
     /**
      * Create Payroll Period
      */
-    async createPayrollPeriod(startDate: Date, endDate: Date, payDate: Date) {
+    async createPayrollPeriod(bounds: PeriodBounds) {
         return this.prisma.payrollPeriod.create({
             data: {
-                startDate,
-                endDate,
-                payDate,
+                startDate: bounds.start,
+                endDate: bounds.end,
+                payDate: bounds.payDate,
                 status: 'draft'
             }
         })
@@ -523,35 +547,78 @@ export class PayrollService {
         })
         if (existing) return existing.id
 
-        // Create a semi-monthly period: 1st–15 or 16th–end-of-month
-        const now = new Date()
-        const year = now.getFullYear()
-        const month = now.getMonth()
-        const day = now.getDate()
-
-        let startDate: Date
-        let endDate: Date
-        if (day <= 15) {
-            startDate = new Date(year, month, 1)
-            endDate = new Date(year, month, 15, 23, 59, 59)
-        } else {
-            startDate = new Date(year, month, 16)
-            endDate = new Date(year, month + 1, 0, 23, 59, 59) // last day of month
-        }
-
-        const payDate = new Date(endDate)
-        payDate.setDate(payDate.getDate() + 5)
-
-        const period = await this.prisma.payrollPeriod.create({
-            data: { startDate, endDate, payDate, status: 'draft' }
-        })
+        // Semi-monthly period (1st-15th or 16th-end) in payroll-timezone days.
+        const timeZone = config.payrollTimezone
+        const period = await this.createPayrollPeriod(
+            semiMonthlyPeriodForDay(payrollDayKey(new Date(), timeZone), timeZone),
+        )
 
         logger.info('Auto-created payroll period', {
             periodId: period.id,
-            startDate,
-            endDate,
+            startDate: period.startDate,
+            endDate: period.endDate,
         })
         return period.id
+    }
+
+    /**
+     * Hours per payroll-timezone day (Rule 1). Time entries first; daily logs
+     * are the fallback when no entry was tracked in the window. `window` is the
+     * [start, end) UTC range of whole payroll days (payrollPeriodWindow).
+     */
+    async loadDailyHours(userId: string, window: { start: Date; end: Date }) {
+        const timeZone = config.payrollTimezone
+        const timeEntries = await this.prisma.timeEntry.findMany({
+            where: {
+                userId,
+                start: { gte: window.start, lt: window.end },
+                duration: { not: null },
+            },
+            select: { start: true, duration: true },
+        })
+        const entryHours = bucketEntryHoursByDay(timeEntries, timeZone)
+        if (Array.from(entryHours.values()).some((hours) => hours > 0)) {
+            return { dailyHours: entryHours, source: 'Time Entries' }
+        }
+
+        const logs = await this.prisma.dailyLog.findMany({
+            where: {
+                authorId: userId,
+                logType: 'daily',
+                date: { gte: window.start, lt: window.end },
+            },
+            select: { date: true, hoursLogged: true },
+        })
+        const logHours = new Map<string, number>()
+        for (const log of logs) {
+            const key = payrollDayKey(log.date, timeZone)
+            logHours.set(key, (logHours.get(key) || 0) + (log.hoursLogged || 0))
+        }
+        const hasLogHours = Array.from(logHours.values()).some((hours) => hours > 0)
+        return { dailyHours: logHours, source: hasLogHours ? 'Daily Logs' : 'Time Entries' }
+    }
+
+    /**
+     * Approved overtime hours per payroll-timezone day. workDate is midnight of
+     * the work day in the payroll timezone, so the same [start, end) window as
+     * the hours loads each boundary day's approval into exactly one period.
+     */
+    async loadApprovedOvertimeByDay(userId: string, window: { start: Date; end: Date }) {
+        const requests = await this.prisma.overtimeRequest.findMany({
+            where: {
+                userId,
+                status: 'approved',
+                workDate: { gte: window.start, lt: window.end },
+            },
+            select: { workDate: true, hours: true, approvedHours: true },
+        })
+        const approved = new Map<string, number>()
+        for (const request of requests) {
+            const key = payrollDayKey(request.workDate, config.payrollTimezone)
+            // hours is the original ask; a reviewer may have approved fewer.
+            approved.set(key, (approved.get(key) || 0) + (request.approvedHours ?? request.hours))
+        }
+        return approved
     }
 
     /**
@@ -559,190 +626,232 @@ export class PayrollService {
      */
     async calculateEmployeeHours(userId: string, startDate: Date, endDate: Date) {
         const profile = await this.getEmployeeProfile(userId)
-        const maxBillableHoursPerDay = this.normalizePositiveNumber(
+        const maxBillableHoursPerDay = normalizePositiveNumber(
             profile.maxBillableHoursPerDay,
             DEFAULT_MAX_BILLABLE_HOURS_PER_DAY,
         )
-
-        // 1. Try fetching TimeEntries (Clock In/Out)
-        const timeEntries = await this.prisma.timeEntry.findMany({
-            where: {
-                userId,
-                start: { gte: startDate, lte: endDate },
-                duration: { not: null }
-            }
-        })
-
-        const dailyHours = new Map<string, number>()
-        timeEntries.forEach((entry) => {
-            const dateKey = entry.start.toISOString().slice(0, 10)
-            dailyHours.set(dateKey, (dailyHours.get(dateKey) || 0) + ((entry.duration || 0) / 60))
-        })
-
-        let summary = this.summarizeDailyHours(dailyHours, maxBillableHoursPerDay)
-        let source = 'Time Entries'
-
-        // 2. Fallback to Daily Logs
-        if (summary.totalHours === 0) {
-            const logs = await this.prisma.dailyLog.findMany({
-                where: {
-                    authorId: userId,
-                    logType: 'daily',
-                    date: { gte: startDate, lte: endDate }
-                }
-            })
-            const logDailyHours = new Map<string, number>()
-            logs.forEach((log) => {
-                const dateKey = log.date.toISOString().slice(0, 10)
-                logDailyHours.set(dateKey, (logDailyHours.get(dateKey) || 0) + (log.hoursLogged || 0))
-            })
-            summary = this.summarizeDailyHours(logDailyHours, maxBillableHoursPerDay)
-            if (summary.totalHours > 0) source = 'Daily Logs'
-        }
+        const window = payrollPeriodWindow(startDate, endDate, config.payrollTimezone)
+        const [{ dailyHours, source }, approvedByDay] = await Promise.all([
+            this.loadDailyHours(userId, window),
+            this.loadApprovedOvertimeByDay(userId, window),
+        ])
+        const summary = summarizePayrollHours(dailyHours, maxBillableHoursPerDay, approvedByDay)
 
         return {
             totalHours: summary.totalHours,
             billableHours: summary.billableHours,
-            pendingOvertimeHours: summary.pendingOvertimeHours,
+            overtimeHours: summary.overtimeHours,
+            overtimeApprovedHours: summary.overtimeApprovedHours,
+            overtimePendingHours: summary.overtimePendingHours,
+            // Kept for older clients: unpaid overtime (not yet approved).
+            pendingOvertimeHours: summary.overtimePendingHours,
             maxBillableHoursPerDay,
-            source
+            source,
         }
     }
 
     /**
-     * Calculate number of weekdays in a given month
+     * Pay for one employee over a window, per Rules 2 and 3.
      */
+    async computePeriodPay(userId: string, startDate: Date, endDate: Date) {
+        const profile = await this.getEmployeeProfile(userId)
+        const hours = await this.calculateEmployeeHours(userId, startDate, endDate)
+        const rateContext = getPayrollRateContext(profile, startDate, endDate)
+        const payBasis = normalizePayBasis(profile.payBasis)
+        const fraction = periodFraction(startDate, endDate)
+        const pay = computeGrossPay({
+            payBasis,
+            billableHours: hours.billableHours,
+            overtimeApprovedHours: hours.overtimeApprovedHours,
+            monthlySalary: rateContext.monthlySalary,
+            derivedHourlyRate: rateContext.hourlyRate,
+            explicitHourlyRate: profile.hourlyRate,
+            overtimeMultiplier: profile.overtimeMultiplier,
+            periodFraction: fraction,
+        })
+        return { profile, hours, rateContext, pay, periodFraction: fraction }
+    }
+
     private getWeekdaysInMonth(date: Date): number {
-        const year = date.getFullYear()
-        const month = date.getMonth()
-        const daysInMonth = new Date(year, month + 1, 0).getDate()
-        let weekdays = 0
-        for (let d = 1; d <= daysInMonth; d++) {
-            const dayOfWeek = new Date(year, month, d).getDay()
-            if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Exclude Saturday (6) and Sunday (0)
-                weekdays++
-            }
-        }
-        return weekdays
-    }
-
-    /**
-     * Get midpoint of two dates
-     */
-    private getMidpointDate(start: Date, end: Date): Date {
-        const midTime = start.getTime() + (end.getTime() - start.getTime()) / 2
-        return new Date(midTime)
+        return getWeekdaysInMonth(date)
     }
 
     /**
      * Preview a payslip calculation
      */
     async previewPayslip(userId: string, startDate: Date, endDate: Date) {
-        const profile = await this.getEmployeeProfile(userId)
-        const {
-            totalHours,
-            billableHours,
-            pendingOvertimeHours,
-            maxBillableHoursPerDay,
-            source,
-        } = await this.calculateEmployeeHours(userId, startDate, endDate)
-        const rateContext = this.getPayrollRateContext(profile, startDate, endDate)
-        const grossPay = billableHours * rateContext.hourlyRate
+        const { profile, hours, rateContext, pay, periodFraction: fraction } =
+            await this.computePeriodPay(userId, startDate, endDate)
 
         return {
-            totalHours,
-            billableHours,
-            pendingOvertimeHours,
-            source,
-            hourlyRate: rateContext.hourlyRate,
+            totalHours: hours.totalHours,
+            billableHours: hours.billableHours,
+            pendingOvertimeHours: hours.overtimePendingHours,
+            overtimeApprovedHours: hours.overtimeApprovedHours,
+            overtimePendingHours: hours.overtimePendingHours,
+            source: hours.source,
+            payBasis: pay.payBasis,
+            payBasisLabel: PAY_BASIS_LABELS[pay.payBasis],
+            hourlyRate: pay.hourlyRate,
             dailyRate: rateContext.dailyRate,
-            grossPay,
+            basePay: roundMoney(pay.basePay),
+            overtimeRate: pay.overtimeRate,
+            overtimeMultiplier: normalizePositiveNumber(profile.overtimeMultiplier, DEFAULT_OVERTIME_MULTIPLIER),
+            overtimePay: roundMoney(pay.overtimePay),
+            // Same total the generated payslip stores: the sum of the rounded line amounts.
+            grossPay: roundMoney(roundMoney(pay.basePay) + roundMoney(pay.overtimePay)),
+            periodFraction: fraction,
             monthlySalary: profile.baseSalary,
             payrollScheme: rateContext.payrollScheme,
             payrollSchemeLabel: rateContext.payrollSchemeLabel,
-            maxBillableHoursPerDay,
+            maxBillableHoursPerDay: hours.maxBillableHoursPerDay,
         }
+    }
+
+    /**
+     * Line items for an automatic payslip (item types per the v2 spec).
+     */
+    private buildAutomaticPayslipItems(
+        hours: Awaited<ReturnType<PayrollService['calculateEmployeeHours']>>,
+        pay: ReturnType<typeof computeGrossPay>,
+        schemeLabel: string,
+        fraction: number,
+        overtimeMultiplier: number,
+    ) {
+        const billable = roundHours(hours.billableHours)
+        const tracked = roundHours(hours.totalHours)
+        const rateLabel = pay.payBasis === 'hourly_rate' ? 'Hourly rate' : schemeLabel
+        const baseItem = pay.payBasis === 'fixed_monthly'
+            ? {
+                type: 'fixed_salary',
+                description: `Fixed monthly salary (${billable} h billable, ${roundHours(fraction)} of month)`,
+                amount: roundMoney(pay.basePay),
+            }
+            : {
+                type: 'regular_hours',
+                description: `Billable work hours (${billable} h billable, ${tracked} h tracked) - ${rateLabel}`,
+                amount: roundMoney(pay.basePay),
+            }
+        const approvedItems = hours.overtimeApprovedHours > 0
+            ? [{
+                type: 'overtime_approved',
+                description: `Approved overtime (${roundHours(hours.overtimeApprovedHours)} h at ${overtimeMultiplier}x)`,
+                amount: roundMoney(pay.overtimePay),
+            }]
+            : []
+        const pendingItems = hours.overtimePendingHours > 0
+            ? [{
+                type: 'overtime_pending',
+                description: `Unapproved overtime, not paid (${roundHours(hours.overtimePendingHours)} h)`,
+                amount: 0,
+            }]
+            : []
+        return [baseItem, ...approvedItems, ...pendingItems]
+    }
+
+    /**
+     * Base line for a manual payslip. The admin's hours replace the regular
+     * hours only: hourly bases pay hours x hourly rate, fixed_monthly keeps the
+     * fixed salary. An explicit grossPay replaces the base amount, never the
+     * overtime lines.
+     */
+    private buildManualBaseItem(
+        overrideData: ManualPayslipInput,
+        pay: ReturnType<typeof computeGrossPay>,
+    ): PayslipLine {
+        const hoursWorked = Number(overrideData.hoursWorked)
+        if (!Number.isFinite(hoursWorked) || hoursWorked < 0) {
+            throw new PayrollValidationError('Hours worked must be 0 or more')
+        }
+        const hasManualAmount = overrideData.grossPay !== undefined && overrideData.grossPay !== null
+        const manualAmount = Number(overrideData.grossPay)
+        if (hasManualAmount && !Number.isFinite(manualAmount)) {
+            throw new PayrollValidationError('Gross pay must be a number')
+        }
+        const isFixed = pay.payBasis === 'fixed_monthly'
+        const computed = isFixed ? pay.basePay : hoursWorked * pay.hourlyRate
+        return {
+            type: isFixed ? 'fixed_salary' : 'regular_hours',
+            description: isFixed
+                ? `Fixed monthly salary (${roundHours(hoursWorked)} h entered by hand)`
+                : `Work hours (${roundHours(hoursWorked)} h) entered by hand`,
+            amount: roundMoney(hasManualAmount ? manualAmount : computed),
+        }
+    }
+
+    private buildDeductionItems(deductions: ManualPayslipInput['deductions'] = []): PayslipLine[] {
+        return deductions.map((deduction) => {
+            const amount = Number(deduction.amount)
+            if (!Number.isFinite(amount)) throw new PayrollValidationError('Deduction amounts must be numbers')
+            return {
+                type: 'deduction',
+                description: deduction.name || deduction.type,
+                amount: -roundMoney(Math.abs(amount)),
+            }
+        })
+    }
+
+    /**
+     * Line items for one payslip. The automatic lines always come from the pay
+     * basis and approved overtime; a manual override (hoursWorked) replaces only
+     * the base (regular hours) line. Deductions are added on either path.
+     */
+    private async buildPayslipItems(
+        userId: string,
+        period: { startDate: Date; endDate: Date },
+        overrideData?: ManualPayslipInput,
+    ): Promise<PayslipLine[]> {
+        const { profile, hours, rateContext, pay, periodFraction: fraction } =
+            await this.computePeriodPay(userId, period.startDate, period.endDate)
+        const [baseItem, ...overtimeItems] = this.buildAutomaticPayslipItems(
+            hours,
+            pay,
+            rateContext.payrollSchemeLabel,
+            fraction,
+            normalizePositiveNumber(profile.overtimeMultiplier, DEFAULT_OVERTIME_MULTIPLIER),
+        )
+        const isManual = overrideData?.hoursWorked !== undefined && overrideData?.hoursWorked !== null
+        const base = isManual ? this.buildManualBaseItem(overrideData, pay) : baseItem
+        return [base, ...overtimeItems, ...this.buildDeductionItems(overrideData?.deductions)]
     }
 
     /**
      * Generate Payslip for a User in a Period
      */
-    async generatePayslip(periodId: string, userId: string, overrideData?: {
-        hoursWorked?: number,
-        grossPay?: number,
-        netPay?: number,
-        deductions?: Array<{ name: string, amount: number, type: string }>
-    }) {
+    async generatePayslip(
+        periodId: string,
+        userId: string,
+        overrideData?: ManualPayslipInput,
+        options: GeneratePayslipOptions = {},
+    ) {
         const period = await this.prisma.payrollPeriod.findUnique({ where: { id: periodId } })
         if (!period) throw new Error('Period not found')
         if (period.status !== 'draft') {
             throw new Error(`Cannot run payroll for a ${period.status} cycle. Cycle must be draft.`);
         }
 
+        // Hand edits (PATCH /payslips/:id) are never overwritten silently.
+        const existing = await this.prisma.payslip.findFirst({
+            where: { periodId, userId },
+            select: { id: true, editedAt: true },
+        })
+        if (existing?.editedAt && !options.force) throw new PayrollConflictError(EDITED_PAYSLIP_MESSAGE)
+
         const profile = await this.getEmployeeProfile(userId)
 
-        let totalHours: number;
-        let grossPay: number;
-        let netPay: number;
-        const items = [];
+        // Totals always come from the line items, never from the request.
+        const items = await this.buildPayslipItems(userId, period, overrideData)
+        const { grossPay, netPay } = computePayslipTotals(items)
 
-        if (overrideData && overrideData.hoursWorked !== undefined) {
-            // Manual path
-            totalHours = overrideData.hoursWorked;
-            grossPay = overrideData.grossPay ?? 0;
-            netPay = overrideData.netPay ?? grossPay;
-
-            items.push({
-                type: 'earning',
-                description: `Work Hours (${totalHours} hrs) - Manual`,
-                amount: grossPay
-            });
-
-            if (overrideData.deductions) {
-                for (const d of overrideData.deductions) {
-                    items.push({
-                        type: 'deduction',
-                        description: d.name || d.type,
-                        amount: -Math.abs(d.amount)
-                    });
-                }
-            }
-        } else {
-            // Automatic path
-            const {
-                totalHours: trackedHours,
-                billableHours,
-                pendingOvertimeHours,
-            } = await this.calculateEmployeeHours(userId, period.startDate, period.endDate)
-            const rateContext = this.getPayrollRateContext(profile, period.startDate, period.endDate)
-            totalHours = billableHours;
-            grossPay = billableHours * rateContext.hourlyRate
-
-            items.push({
-                type: 'earning',
-                description: `Billable Work Hours (${billableHours} hrs, ${trackedHours} tracked) - ${rateContext.payrollSchemeLabel}`,
-                amount: grossPay
-            })
-
-            if (pendingOvertimeHours > 0) {
-                items.push({
-                    type: 'overtime_pending',
-                    description: `Pending overtime (${pendingOvertimeHours} hrs) - not billable until approved`,
-                    amount: 0,
-                })
-            }
-
-            netPay = grossPay;
-        }
-
-        // Gather EOD notes/shiftNotes for this period
+        // Gather EOD notes/shiftNotes for this period (whole payroll-timezone days)
+        const noteWindow = payrollPeriodWindow(period.startDate, period.endDate, config.payrollTimezone)
         const logsWithNotes = await this.prisma.dailyLog.findMany({
             where: {
                 authorId: userId,
                 logType: 'daily',
                 date: {
-                    gte: period.startDate,
-                    lte: period.endDate
+                    gte: noteWindow.start,
+                    lt: noteWindow.end
                 },
                 OR: [
                     { shiftNotes: { not: "" } },
@@ -752,18 +861,12 @@ export class PayrollService {
         })
 
         const aggregatedNotes = logsWithNotes.map(log =>
-            `[${log.date.toLocaleDateString()}] ${log.shiftNotes || log.content}`
+            `[${payrollDayKey(log.date, config.payrollTimezone)}] ${log.shiftNotes || log.content}`
         ).join('\n')
 
         // Create or Update Payslip
-        // Check existing
-        const existing = await this.prisma.payslip.findFirst({
-            where: { periodId, userId },
-            include: { items: true }
-        })
-
         if (existing) {
-            // Update
+            // Update (a forced regenerate also clears the hand-edit record)
             await this.prisma.payrollItem.deleteMany({ where: { payslipId: existing.id } })
             return this.prisma.payslip.update({
                 where: { id: existing.id },
@@ -771,6 +874,7 @@ export class PayrollService {
                     grossPay,
                     netPay,
                     notes: aggregatedNotes || null,
+                    ...(existing.editedAt ? { editedById: null, editedAt: null, editNote: null } : {}),
                     items: {
                         create: items
                     }
@@ -799,10 +903,10 @@ export class PayrollService {
                 if (user && user.email) {
                     await emailService.sendPayslipNotification(user.email, {
                         userName: user.name || 'Employee',
-                        periodDateRange: `${period.startDate.toLocaleDateString()} - ${period.endDate.toLocaleDateString()}`,
+                        periodDateRange: `${periodStartDayKey(period.startDate)} to ${periodEndDayKey(period.endDate)}`,
                         grossPay: `${profile.currency} ${grossPay.toFixed(2)}`,
                         netPay: `${profile.currency} ${netPay.toFixed(2)}`,
-                        payDate: period.payDate ? period.payDate.toLocaleDateString() : 'N/A',
+                        payDate: period.payDate ? periodEndDayKey(period.payDate) : 'N/A',
                         viewUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/my-payslips`,
                     });
                 }
@@ -826,12 +930,26 @@ export class PayrollService {
             throw new Error(`Cannot run payroll for a ${period.status} cycle. Cycle must be draft.`);
         }
 
-        // Fetch active internal employees only; client-only accounts stay out of payroll generation.
+        // Internal employees only; client-only accounts stay out of payroll generation.
+        // Inactive members are included when they tracked time or had overtime approved
+        // inside the period, so a mid-period deactivation still gets paid.
+        const window = payrollPeriodWindow(period.startDate, period.endDate, config.payrollTimezone)
         const employeeAccounts = await this.prisma.user.findMany({
             where: {
-                status: {
-                    in: ['active', 'verified', 'vacation', 'leave'],
-                },
+                OR: [
+                    { status: { in: PAYROLL_ACTIVE_STATUSES } },
+                    {
+                        status: 'inactive',
+                        OR: [
+                            { timeEntries: { some: { start: { gte: window.start, lt: window.end } } } },
+                            {
+                                overtimeRequests: {
+                                    some: { status: 'approved', workDate: { gte: window.start, lt: window.end } },
+                                },
+                            },
+                        ],
+                    },
+                ],
             },
             include: {
                 roles: {
@@ -848,8 +966,26 @@ export class PayrollService {
         })
         const employees = employeeAccounts.filter(isInternalEmployeeAccount)
 
-        const results = []
+        // Hand-edited payslips are kept; they are reported as skipped.
+        const edited = await this.prisma.payslip.findMany({
+            where: { periodId, editedAt: { not: null } },
+            select: { userId: true },
+        })
+        const editedUserIds = new Set(edited.map((payslip) => payslip.userId))
+
+        const results: Array<{
+            userId: string
+            success: boolean
+            payslipId?: string
+            skipped?: boolean
+            reason?: string
+            error?: string
+        }> = []
         for (const emp of employees) {
+            if (editedUserIds.has(emp.id)) {
+                results.push({ userId: emp.id, success: true, skipped: true, reason: 'Edited by hand; kept as is' })
+                continue
+            }
             try {
                 const payslip = await this.generatePayslip(periodId, emp.id)
                 results.push({ userId: emp.id, success: true, payslipId: payslip.id })
@@ -943,7 +1079,7 @@ export class PayrollService {
 
             return {
                 periodId: p.id,
-                label: `${p.startDate.toLocaleDateString()} - ${p.endDate.toLocaleDateString()}`,
+                label: `${periodStartDayKey(p.startDate)} to ${periodEndDayKey(p.endDate)}`,
                 gross: totalGross,
                 net: totalNet,
                 deductions: totalDeductions,
@@ -1001,9 +1137,10 @@ export class PayrollService {
             employeeEmail: identity.employeeEmail,
             employeeDepartment: identity.employeeDepartment,
             employeeRole: identity.employeeRole,
-            payPeriodStart: ps.period?.startDate?.toISOString().split('T')[0] ?? null,
-            payPeriodEnd: ps.period?.endDate?.toISOString().split('T')[0] ?? null,
-            issueDate: ps.generatedAt?.toISOString().split('T')[0] ?? null,
+            // Payroll-timezone calendar days, not UTC dates.
+            payPeriodStart: ps.period?.startDate ? periodStartDayKey(ps.period.startDate) : null,
+            payPeriodEnd: ps.period?.endDate ? periodEndDayKey(ps.period.endDate) : null,
+            issueDate: ps.generatedAt ? payrollDayKey(ps.generatedAt, config.payrollTimezone) : null,
             status: (ps.status ?? 'issued').toLowerCase(),
             hoursWorked: this.getPayslipHoursWorked(ps),
             grossPay: ps.grossPay,

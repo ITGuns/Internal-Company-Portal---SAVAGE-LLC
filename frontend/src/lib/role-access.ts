@@ -85,6 +85,17 @@ export function hasPayrollManagementAccess(user?: RoleAccessUser | null): boolea
   return getUserRoleNames(user).some((role) => PAYROLL_MANAGEMENT_ROLES.has(role));
 }
 
+// Mirrors backend canReviewTimeRequests: management or payroll roles review
+// overtime and time-entry correction requests and edit time entries directly.
+export function canReviewTimeRequests(user?: RoleAccessUser | null): boolean {
+  return hasManagementAccess(user) || hasPayrollManagementAccess(user);
+}
+
+// POST /users/:id/deactivate and /reactivate: admin-class or operations_manager.
+export function canManageMemberStatus(user?: RoleAccessUser | null): boolean {
+  return hasFullAccess(user) || getUserRoleNames(user).includes("operations_manager");
+}
+
 export function hasClientOperationsAccess(user?: RoleAccessUser | null): boolean {
   return getUserRoleNames(user).some((role) => CLIENT_OPERATIONS_ROLES.has(role));
 }

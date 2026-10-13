@@ -130,3 +130,31 @@ test('detects free-tier accounts (bare sign-ups) but not assigned employees or c
   assert.equal(isFreeTierUser({ role: 'client' }), false);
   assert.equal(isFreeTierUser(null), false);
 });
+
+test('canReviewTimeRequests mirrors backend: management or payroll roles', () => {
+  const { canReviewTimeRequests, canManageMemberStatus } = loadRoleAccessHelper();
+
+  assert.equal(typeof canReviewTimeRequests, 'function');
+  // Management roles
+  assert.equal(canReviewTimeRequests({ role: 'admin' }), true);
+  assert.equal(canReviewTimeRequests({ role: 'Owner / Founder' }), true);
+  assert.equal(canReviewTimeRequests({ role: 'Manager' }), true);
+  assert.equal(canReviewTimeRequests({ role: 'Project Manager' }), true);
+  assert.equal(canReviewTimeRequests({ role: 'Operations Manager' }), true);
+  assert.equal(canReviewTimeRequests({ role: 'Chief Operations Officer' }), true);
+  // Payroll roles
+  assert.equal(canReviewTimeRequests({ role: 'Bookkeeping' }), true);
+  assert.equal(canReviewTimeRequests({ role: 'employee', roles: ['Payroll Finance'] }), true);
+  assert.equal(canReviewTimeRequests({ role: 'Financial Controller' }), true);
+  // Everyone else files requests
+  assert.equal(canReviewTimeRequests({ role: 'employee' }), false);
+  assert.equal(canReviewTimeRequests({ role: 'Frontend Developer' }), false);
+  assert.equal(canReviewTimeRequests({ role: 'client' }), false);
+  assert.equal(canReviewTimeRequests(null), false);
+
+  // Deactivate / reactivate: admin-class or operations_manager only
+  assert.equal(canManageMemberStatus({ role: 'admin' }), true);
+  assert.equal(canManageMemberStatus({ role: 'Operations Manager' }), true);
+  assert.equal(canManageMemberStatus({ role: 'Manager' }), false);
+  assert.equal(canManageMemberStatus({ role: 'Bookkeeping' }), false);
+});

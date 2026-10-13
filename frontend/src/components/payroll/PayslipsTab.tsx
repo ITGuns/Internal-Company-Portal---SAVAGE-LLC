@@ -13,11 +13,17 @@ import TimeTrackingCalendar from "./TimeTrackingCalendar";
 import EmployeeProfilePanel from "./EmployeeProfilePanel";
 import { PayrollPayslipsManagementSkeleton } from "@/components/ui/FeatureSkeletons";
 import { createTimeEntry, deleteTimeEntry } from "@/lib/time-entries";
+import { formatPayrollDate, payrollPeriodDayKey } from "@/lib/payroll-dates";
+import { getPayrollDayKey } from "@/lib/time-requests";
+import { isEditedPayslipConflict, type GeneratePayslipBody } from "@/lib/payslip-generate";
+
+const REGENERATE_EDITED_CONFIRM = "This payslip was edited by hand. Regenerate and discard the edits?";
 
 // Lazy-loaded modals (only rendered when opened)
 const GeneratePayslipModal = dynamic(() => import("./GeneratePayslipModal"), { ssr: false });
 const PayslipDetailsModal = dynamic(() => import("./PayslipDetailsModal"), { ssr: false });
 const AddTimeEntryModal = dynamic(() => import("./AddTimeEntryModal"), { ssr: false });
+const PayslipEditModal = dynamic(() => import("./PayslipEditModal"), { ssr: false });
 
 import { generatePayslipPDF } from "@/lib/payroll-calendar/payslip-utils";
 import type { Employee, Payslip } from "@/lib/payroll-calendar/types";
@@ -34,6 +40,7 @@ export default function PayslipsTab() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [isBulkGenerating, setIsBulkGenerating] = useState(false);
   const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
+  const [editingPayslip, setEditingPayslip] = useState<Payslip | null>(null);
 
   // Local state for the selected employee's payslips
   const [employeePayslips, setEmployeePayslips] = useState<Payslip[]>([]);
@@ -53,11 +60,13 @@ export default function PayslipsTab() {
           id: ps.id,
           employeeId: ps.userId,
           employeeName: employee.name,
-          payPeriodStart: ps.period.startDate ? ps.period.startDate.split('T')[0] : 'N/A',
-          payPeriodEnd: ps.period.endDate ? ps.period.endDate.split('T')[0] : 'N/A',
-          issueDate: ps.generatedAt ? ps.generatedAt.split('T')[0] : 'N/A',
+          // Manila calendar days (period rows may be stored at UTC or Manila midnight).
+          payPeriodStart: payrollPeriodDayKey(ps.period?.startDate, 'start') ?? 'N/A',
+          payPeriodEnd: payrollPeriodDayKey(ps.period?.endDate, 'end') ?? 'N/A',
+          issueDate: (ps.generatedAt && getPayrollDayKey(ps.generatedAt)) || 'N/A',
           status: ps.status || "issued",
-          hoursWorked: employee.salary > 0 ? ((ps.items.find((i: ApiPayslipItem) => i.description.includes('Hourly'))?.amount ?? 0) / employee.salary || 0) : 0,
+          hoursWorked: 0, // not stored on payslip; the line items carry the hours
+          payBasis: employee.payBasis,
           grossPay: ps.grossPay,
           netPay: ps.netPay,
           deductions: ps.items.filter((i: ApiPayslipItem) => i.amount < 0).map((i: ApiPayslipItem) => ({
@@ -65,7 +74,12 @@ export default function PayslipsTab() {
             type: 'other',
             name: i.description,
             amount: Math.abs(i.amount)
-          }))
+          })),
+          items: ps.items,
+          periodId: ps.period?.id ?? ps.periodId,
+          periodStatus: ps.period?.status,
+          editedAt: ps.editedAt,
+          editNote: ps.editNote,
         })));
       }
     } catch (err) {
@@ -109,6 +123,7 @@ export default function PayslipsTab() {
         role: emp.role || (emp.employeeProfile?.jobTitle) || "Member",
         payrollScheme: emp.payrollScheme || emp.employeeProfile?.payrollScheme || "weekdays",
         maxBillableHoursPerDay: emp.maxBillableHoursPerDay || emp.employeeProfile?.maxBillableHoursPerDay || 8,
+        payBasis: emp.payBasis || emp.employeeProfile?.payBasis,
         avatar: emp.avatar || (emp.name?.[0] || "U"),
         status: (emp.status || "active") as Employee['status'],
         email: emp.email || "no-email@company.com"
@@ -176,37 +191,31 @@ export default function PayslipsTab() {
     }
   };
 
-  // Handle payslip generation
-  const handleGeneratePayslip = async (payslipData: Record<string, unknown>) => {
+  // Handle payslip generation. A hand-edited payslip answers 409; the admin
+  // confirms before it is regenerated with force: true.
+  const handleGeneratePayslip = async (body: GeneratePayslipBody): Promise<void> => {
     if (!selectedEmployee) return;
 
     try {
-      // 1. Ensure a period exists (auto-create if none) — idempotent
+      // 1. Ensure a period exists (auto-create if none). Idempotent.
       const ensureRes = await apiFetch('/payroll/periods/ensure', { method: 'POST' });
-      if (!ensureRes.ok) {
-        toast.error("Failed to initialize payroll period.");
-        return;
-      }
       const { periodId } = await ensureRes.json();
 
       // 2. Generate the payslip for this employee in that period
-      const genRes = await apiFetch(`/payroll/periods/${periodId}/generate/${selectedEmployee.id}`, {
+      await apiFetch(`/payroll/periods/${periodId}/generate/${selectedEmployee.id}`, {
         method: 'POST',
-        body: JSON.stringify(payslipData)
+        body: JSON.stringify(body),
       });
-
-      if (genRes.ok) {
-        toast.success(`Payslip generated for ${selectedEmployee.name}`);
-        // Refresh payslips list
-        fetchData();
-        setRefreshKey(prev => prev + 1);
-      } else {
-        const errData = await genRes.json().catch(() => ({}));
-        throw new Error(errData.error || "Generation failed");
-      }
+      toast.success(`Payslip generated for ${selectedEmployee.name}`);
+      fetchData();
+      setRefreshKey(prev => prev + 1);
     } catch (err) {
-      console.error("Failed to generate", err);
-      toast.error(err instanceof Error ? err.message : "Failed to generate payslip");
+      const message = err instanceof Error ? err.message : "";
+      if (!body.force && isEditedPayslipConflict(message)) {
+        if (window.confirm(REGENERATE_EDITED_CONFIRM)) await handleGeneratePayslip({ ...body, force: true });
+        return;
+      }
+      toast.error(message || "Failed to generate payslip");
     }
   };
 
@@ -222,9 +231,11 @@ export default function PayslipsTab() {
       // 2. Perform bulk generation
       const bulkRes = await apiFetch(`/payroll/periods/${periodId}/generate-all`, { method: 'POST' });
       if (bulkRes.ok) {
-        const results = await bulkRes.json();
-        const successCount = results.filter((r: { success: boolean }) => r.success).length;
-        toast.success(`Calculated and generated ${successCount} company-wide payslips successfully!`);
+        const results: Array<{ success: boolean; skipped?: boolean }> = await bulkRes.json();
+        const successCount = results.filter((r) => r.success && !r.skipped).length;
+        const skippedCount = results.filter((r) => r.skipped).length;
+        const skippedNote = skippedCount > 0 ? ` Kept ${skippedCount} hand-edited payslip${skippedCount === 1 ? "" : "s"} as is.` : "";
+        toast.success(`Calculated and generated ${successCount} company-wide payslips.${skippedNote}`);
 
         // Refresh data
         fetchData();
@@ -243,7 +254,8 @@ export default function PayslipsTab() {
   // Handle lock/finalize payroll period
   const handleLockPeriod = async () => {
     if (!activePeriod) return;
-    if (!window.confirm(`Are you sure you want to finalize and lock the payroll period: ${new Date(activePeriod.startDate).toLocaleDateString('en-US')} to ${new Date(activePeriod.endDate).toLocaleDateString('en-US')}? This will transition its status to processed and prevent any further additions/edits.`)) {
+    const periodLabel = `${formatPayrollDate(activePeriod.startDate, { edge: 'start' })} to ${formatPayrollDate(activePeriod.endDate, { edge: 'end' })}`;
+    if (!window.confirm(`Lock the payroll period ${periodLabel}? Its status becomes processed and its payslips and time can no longer change.`)) {
       return;
     }
     try {
@@ -252,7 +264,7 @@ export default function PayslipsTab() {
         method: 'POST',
       });
       if (res.ok) {
-        toast.success("Payroll period finalized and locked successfully!");
+        toast.success("Payroll period finalized and locked.");
         await fetchPeriods();
         setRefreshKey(prev => prev + 1);
       } else {
@@ -287,16 +299,18 @@ export default function PayslipsTab() {
   return (
     <div className="h-full flex flex-col p-6 pt-0">
       {/* 3-Column Layout */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[280px_1fr_320px] gap-6 min-h-0">
+      {/* Below 2xl the profile panel sits under the calendar, so the calendar keeps
+          readable day cells at 1280px instead of squeezing between two side columns. */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[260px_1fr] 2xl:grid-cols-[280px_1fr_320px] gap-6 min-h-0">
         {/* Left Column - Employee Sidebar */}
-        <div className="flex flex-col bg-[var(--card-bg)] rounded-lg border border-[var(--border)] overflow-hidden shadow-sm">
+        <div className="flex flex-col bg-[var(--card-bg)] rounded-lg border border-[var(--border)] overflow-hidden shadow-sm lg:row-span-2 2xl:row-span-1">
           {/* Action Area - Automated Payroll */}
           <div className="p-4 border-b border-[var(--border)] bg-gray-50/50 dark:bg-black/20">
             {activePeriod && (
               <div className="mb-3 px-1">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Active Payroll Period</div>
                 <div className="text-xs font-semibold text-[var(--foreground)] mt-0.5">
-                  {new Date(activePeriod.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(activePeriod.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  {formatPayrollDate(activePeriod.startDate, { edge: 'start', format: { month: 'short', day: 'numeric' } })} to {formatPayrollDate(activePeriod.endDate, { edge: 'end' })}
                 </div>
                 <div className="mt-1 flex items-center gap-1.5">
                   <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${
@@ -380,7 +394,7 @@ export default function PayslipsTab() {
         </div>
 
         {/* Center Column - Time Tracking Calendar */}
-        <div className="h-fit bg-[var(--card-bg)] rounded-lg border border-[var(--border)] px-6 pt-6 pb-3 overflow-hidden">
+        <div className="h-fit min-w-0 bg-[var(--card-bg)] rounded-lg border border-[var(--border)] px-6 pt-6 pb-3 overflow-hidden">
           <TimeTrackingCalendar
             employee={selectedEmployee}
             onAddTimeEntry={handleAddTimeEntry}
@@ -400,6 +414,7 @@ export default function PayslipsTab() {
               setShowDetailsModal(true);
             }}
             onDownloadPDF={(ps) => handleDownloadPDF(ps)}
+            onEditPayslip={setEditingPayslip}
             isPeriodLocked={activePeriod?.status === 'processed'}
           />
         </div>
@@ -412,13 +427,23 @@ export default function PayslipsTab() {
         onGenerate={handleGeneratePayslip}
         selectedEmployee={selectedEmployee}
         employees={employees}
+        period={activePeriod}
       />
 
       <PayslipDetailsModal
         isOpen={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}
         payslip={selectedPayslip}
+        payBasis={selectedEmployee?.payBasis}
         onDownloadPDF={handleDownloadPDF}
+      />
+
+      <PayslipEditModal
+        isOpen={Boolean(editingPayslip)}
+        payslip={editingPayslip}
+        employeeName={selectedEmployee?.name || "this employee"}
+        onClose={() => setEditingPayslip(null)}
+        onChanged={() => setRefreshKey(prev => prev + 1)}
       />
 
       <AddTimeEntryModal

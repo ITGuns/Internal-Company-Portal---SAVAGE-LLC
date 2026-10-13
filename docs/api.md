@@ -17,7 +17,8 @@ Creates a pending user application.
 Authenticates approved users only.
 
 - Invalid credentials return `401`.
-- Pending or unapproved accounts return `403`.
+- Pending or unapproved accounts return `403` (`Account pending approval`).
+- Deactivated accounts (`status: "inactive"`) return `403` with a deactivated-account message.
 - Approved users receive an access token in JSON and a refresh token in an httpOnly `portal_refresh_token` cookie.
 - Auth user responses are serialized through the auth security helper and do not return password or reset-token fields.
 
@@ -25,7 +26,7 @@ Authenticates approved users only.
 
 Google and Discord OAuth routes are mounted under `/auth`.
 
-- New OAuth users are created with pending status and `isApproved: false`.
+- New OAuth users (Google, Apple and Discord) are created with pending status and `isApproved: false`, so the first login is refused until an admin approves the account. Only emails listed in `ADMIN_EMAILS` are approved on first sign-in. Before 2026-10-08 Google and Apple auto-approved unknown emails.
 - Existing OAuth users keep updated name/avatar data.
 - OAuth users must still pass the same approval check before tokens are issued.
 
@@ -33,7 +34,8 @@ Google and Discord OAuth routes are mounted under `/auth`.
 
 - `POST /auth/refresh` refreshes an access token from the httpOnly refresh cookie only. JavaScript-readable refresh-token bodies are not accepted.
 - Refresh tokens are stored as hashed server-side `RefreshSession` records and rotate on every successful refresh.
-- Refresh rejects missing sessions, reused or revoked refresh tokens, missing users, and users who are no longer approved.
+- Refresh rejects missing sessions, reused or revoked refresh tokens, missing users, users who are no longer approved, and deactivated users.
+- Every route behind `authenticateToken` also checks the account: deleted users get `401`, deactivated or unapproved users get `403`. The status lookup is cached per process for 30 seconds, so another serverless instance can honour a valid access token for up to 30 seconds after deactivation. Database failures during the check return `503`.
 - `GET /auth/me` returns the authenticated user context through the same safe auth serializer.
 - `POST /auth/logout` revokes the active refresh session and clears the refresh-token cookie; the frontend also clears its in-memory access token and cached user snapshot.
 - `POST /auth/forgot-password` and `POST /auth/reset-password` support the password reset flow.
@@ -71,7 +73,11 @@ User directory endpoints sanitize sensitive fields before returning data to the 
 - Full-access administrators may update `managerId` through `PATCH /api/users/:id` to maintain Operations org-chart reporting lines. The backend rejects self-manager assignments and manager cycles.
 - User avatar writes through `POST /api/users`, `PATCH /api/users/:id`, and `POST /api/users/:id/avatar` accept only http(s) URLs, relative paths, empty removal values where profile updates allow them, or supported image data URIs that pass signature validation and the 5 MB avatar limit.
 - Non-privileged users cannot update protected fields such as `status`, `appliedDate`, `salary`, `role`, `department`, `departmentId`, `managerId`, `payrollScheme`, `maxBillableHoursPerDay`, or `isApproved`.
-- `DELETE /api/users/:id` requires admin or operations-manager access.
+- `POST /api/users/:id/deactivate` (admin or operations manager) sets `status: "inactive"`, revokes every refresh session and keeps all data. Self-deactivation returns `400`, an already inactive member returns `409`, and only full-access admins can deactivate another full-access account (`403`). Response: `{ success, user }`.
+- `POST /api/users/:id/reactivate` (same roles) restores `status: "active"`. It does not change `isApproved`, so a never-approved account stays blocked. A member who is not inactive returns `409`.
+- `PATCH /api/users/:id` ignores `status` (and no longer derives `isApproved` from it). Activation is owned by `POST /api/users/:id/deactivate` and `/reactivate`, which carry the full-access target guard. Non-privileged callers sending `status` still get `403`.
+- Deactivate refuses (`403`) when the target is an `ADMIN_EMAILS` admin and the requester is not a full-access admin, even if the target holds no full-access role row. Deactivation also disconnects the member's open sockets; the socket handshake refuses deactivated, unapproved and deleted accounts.
+- `DELETE /api/users/:id` is a permanent delete for full-access admins only. It needs `?confirm=hard` (otherwise `400`), refuses self-delete (`400`), and returns `409` with `payslipCount` while the user has any payslip. Use deactivate to remove a member.
 - `POST /api/users/:id/roles` and `DELETE /api/users/:id/roles/:role` are full-access admin-only role assignment routes.
 - The Operations member editor uses sanitized `GET /api/users` responses plus these user-role routes; authorization changes are enforced by backend role checks, not by frontend-only visibility.
 
@@ -98,7 +104,7 @@ User directory endpoints sanitize sensitive fields before returning data to the 
 ### Employee Review
 
 - `GET /api/employees/pending` requires employee-management access.
-- `GET /api/employees/deployed` requires employee-management access and excludes client-only accounts from internal employee/payroll workflows.
+- `GET /api/employees/deployed` requires employee-management access and excludes client-only accounts from internal employee/payroll workflows. `?includeInactive=true` also returns deactivated members (`status: "inactive"`) so the UI can offer Reactivate.
 - `POST /api/employees/approve/:id` approves a pending employee application when the requester has employee-management access.
 - `POST /api/employees/reject/:id` rejects a pending employee application when the requester has employee-management access.
 
@@ -295,8 +301,13 @@ Payroll management access currently recognizes:
 - `operations_manager`
 - `bookkeeping`
 - `contractor_salary_payments`
+- `payroll_finance` (route guards include it since 2026-10-08)
 
 Configured admin bypass emails also receive payroll management access.
+
+Time review access (`canReviewTimeRequests`, mirrored in `frontend/src/lib/role-access.ts`) is management roles or payroll-management roles. It allows direct time-entry edits and reviewing overtime and correction requests. Reviewers cannot approve or reject their own requests (`403`).
+
+Payroll and time v2 contract: `docs/payroll-time-v2-spec.md`.
 
 ### Payroll Events
 
@@ -308,22 +319,40 @@ Configured admin bypass emails also receive payroll management access.
 ### Time Entry Access
 
 - `GET /api/payroll/time-entries` returns the authenticated user's entries by default.
-- `GET /api/payroll/time-entries?userId=:userId` returns `403` when a non-privileged user requests another user's entries.
+- `GET /api/payroll/time-entries?userId=:userId` returns `403` when a user without payroll-management or time-review access requests another user's entries.
 - `GET /api/payroll/time-entries` also accepts `start` and `end` date filters.
 - `POST /api/payroll/clock-in` creates an open time entry for the authenticated user.
 - `POST /api/payroll/clock-out` closes the authenticated user's open entry.
-- `POST /api/payroll/entry` lets users create their own manual entry.
-- Privileged users may create a manual entry for another employee by passing `userId`.
-- `PATCH /api/payroll/entry/:id` lets users update their own entry start, end, and notes.
-- Only privileged users can reassign a time entry by changing `userId`.
-- `DELETE /api/payroll/entry/:id` lets users delete their own entry; privileged users may delete any employee entry.
+- `POST /api/payroll/entry`, `PATCH /api/payroll/entry/:id` and `DELETE /api/payroll/entry/:id` are time-review roles only. Everyone else gets `403` with `{ error, message: "Submit an adjustment request" }`. Reviewers without payroll access get the same `403` when the target (`userId`, default self) or the entry owner is themselves (self-review rule). Moving an entry to another person (`userId` on PATCH) is payroll-management only (`403` otherwise).
 - Manual entry create/update validates date values and requires end time to be after start time when an end time is provided.
+
+### Overtime And Correction Requests
+
+Hours above `maxBillableHoursPerDay` on a day (bucketed in `PAYROLL_TIMEZONE`, default `Asia/Manila`) are overtime and unpaid until an overtime request for that day is approved.
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| POST | `/api/payroll/overtime-requests` | self | `{ workDate: "YYYY-MM-DD", hours, reason? }`. `400` when hours exceed the over-cap hours of that day not already claimed by a pending or approved request. `201` with the request. |
+| GET | `/api/payroll/overtime-requests` | self: own only; reviewers: all | `?status=pending\|approved\|rejected&userId=&from=YYYY-MM-DD&to=YYYY-MM-DD` (dates filter `workDate`). Max 500 rows, newest first. |
+| POST | `/api/payroll/overtime-requests/:id/approve` | time review roles | `{ note?, hours? }`. `hours` may only lower the request. `409` when already reviewed. |
+| POST | `/api/payroll/overtime-requests/:id/reject` | time review roles | `{ note? }` |
+| DELETE | `/api/payroll/overtime-requests/:id` | owner or reviewer, pending only | A reviewed (approved or rejected) request answers `409` for everyone. |
+| POST | `/api/payroll/adjustment-requests` | self | `{ action: "create"\|"update"\|"delete", timeEntryId?, proposedStart?, proposedEnd?, reason }`. `create` needs both times and no `timeEntryId`; `update` needs `timeEntryId` and at least one time; `delete` needs `timeEntryId`. The entry must be the requester's own. One pending request per entry (`409`). Proposed times may not be in the future or older than 60 days, and an entry may span at most 24 hours (`400`). `409` when the entry or proposed start falls on a day of a processed period. Reason and notes max 500 chars. |
+| GET | `/api/payroll/adjustment-requests` | same split as overtime | Same query params; `from`/`to` filter `createdAt`. Rows include `timeEntry`. |
+| POST | `/api/payroll/adjustment-requests/:id/approve` | time review roles | `{ note? }`. Applies the change to `TimeEntry` in one transaction and appends `Correction approved YYYY-MM-DD: <reason>` to the entry notes. `409` if already reviewed, the entry no longer exists, or the day is in a processed period. |
+| POST | `/api/payroll/adjustment-requests/:id/reject` | time review roles | `{ note? }` |
+| DELETE | `/api/payroll/adjustment-requests/:id` | owner or reviewer, pending only | `409` once reviewed. |
+
+Approving overtime for a day inside a processed (non-draft) period returns `409`. Filing runs the availability check and the insert in one serializable transaction; a lost race returns `409`.
+
+Request rows include `user { id, name, email }` and `reviewedBy { id, name }`. Paid overtime for a day is `min(approved hours, actual hours - cap)`, priced at hourly rate x `overtimeMultiplier`.
 
 ### Payroll Profile Access
 
 - `GET /api/payroll/config/:userId` allows self access or privileged access to another employee.
 - `POST /api/payroll/config/:userId` allows self access only for permitted non-sensitive fields.
-- Protected payroll profile fields are manager-only: `jobTitle`, `employmentType`, `baseSalary`, `currency`, `paymentFrequency`, `payrollScheme`, `maxBillableHoursPerDay`, `bankAccount`, and `taxId`.
+- Protected payroll profile fields are manager-only: `jobTitle`, `employmentType`, `baseSalary`, `currency`, `paymentFrequency`, `payrollScheme`, `maxBillableHoursPerDay`, `payBasis`, `hourlyRate`, `overtimeMultiplier`, `bankAccount`, and `taxId`.
+- `payBasis` is `hourly_from_monthly` (default), `fixed_monthly` or `hourly_rate` (`400` otherwise). `hourlyRate` is a number of 0 or more, or `null`. `overtimeMultiplier` must be between 1 and 5 (default 1.25).
 - Non-privileged updates containing protected fields return `403` with the rejected field names.
 - Empty or unknown payroll profile updates return `400`.
 
@@ -332,9 +361,15 @@ Configured admin bypass emails also receive payroll management access.
 - `GET /api/payroll/periods` lists payroll periods.
 - `POST /api/payroll/periods/ensure` ensures a period exists for a supplied date range.
 - `POST /api/payroll/periods` requires payroll-management access.
-- `POST /api/payroll/periods/:periodId/generate/:userId` requires payroll-management access.
-- `POST /api/payroll/periods/:periodId/generate-all` requires payroll-management access and generates only for internal employee accounts.
-- Payslip preview/generation separates tracked hours from billable hours. Hours beyond the employee's `maxBillableHoursPerDay` are returned as pending overtime and are not included in automatic gross pay until approved or manually overridden by a privileged reviewer.
+- `POST /api/payroll/periods/:periodId/generate/:userId` requires payroll-management access. A payslip that was edited by hand answers `409` unless the body has `force: true`, which regenerates it and clears `editedById` / `editedAt` / `editNote`. With `hoursWorked` in the body (manual path) `grossPay` and `netPay` are recomputed from the line items; a `netPay` in the body is ignored.
+- `POST /api/payroll/periods/:periodId/generate-all` requires payroll-management access and generates only for internal employee accounts. It includes deactivated members who tracked time or had overtime approved inside the period. Hand-edited payslips are kept and reported as `{ userId, success: true, skipped: true, reason }`.
+- Pay periods cover whole payroll-timezone days: hours, daily logs and approved overtime are loaded from Manila midnight of the period's first calendar day up to (not including) Manila midnight after its last calendar day. Each payroll day belongs to exactly one period and gets one daily cap.
+- Payslip preview/generation separates tracked hours from billable hours. Hours beyond the employee's `maxBillableHoursPerDay` are overtime; only approved overtime is paid.
+- Gross by pay basis: `hourly_from_monthly` = billable hours x (salary / scheme divisor / cap) + OT pay; `fixed_monthly` = salary x period fraction (0.5 for 1-15 or 16-end, 1 for a whole month, else calendar days / days in the start month) + OT pay; `hourly_rate` = billable hours x `hourlyRate` + OT pay. `hourly_rate` needs `hourlyRate > 0`: setting it without one returns `400`, and preview or generation for such a profile returns `400` instead of paying 0.
+- `GET /api/payroll/preview-calculation?userId=&startDate=&endDate=` returns `totalHours`, `billableHours`, `pendingOvertimeHours` (legacy alias of `overtimePendingHours`), `overtimeApprovedHours`, `overtimePendingHours`, `source`, `payBasis`, `payBasisLabel`, `hourlyRate`, `dailyRate`, `basePay`, `overtimeRate`, `overtimeMultiplier`, `overtimePay`, `grossPay`, `periodFraction`, `monthlySalary`, `payrollScheme`, `payrollSchemeLabel`, `maxBillableHoursPerDay`.
+- Generated payslip item types: `regular_hours`, `fixed_salary`, `overtime_approved`, `overtime_pending` (amount 0, informational), plus `allowance`, `deduction`, `adjustment` from edits. Older payslips may still carry `earning` / `deduction`.
+- `PATCH /api/payroll/payslips/:id` (payroll management) takes `{ items: [{ type, description, amount }], note }`, replaces all line items, and recomputes `grossPay` (sum of non-deduction amounts) and `netPay` (sum of all amounts). Deduction amounts are stored negative whatever sign is sent; `overtime_pending` is stored as 0; amounts round to cents. `note` is required (max 500 chars), 1 to 50 items. Sets `editedById`, `editedAt`, `editNote`. `409` when the period is not `draft` (checked inside the write, so a period processed mid-request cannot be edited). `403` on your own payslip. Money rounds half away from zero, same as the frontend editor.
+- `DELETE /api/payroll/payslips/:id` (payroll management) deletes a draft-period payslip; `409` when the period is processed, `403` on your own payslip.
 - Payroll schemes currently supported are `weekdays`, `flat_30`, `flat_20`, and `flat_160_hours`.
 - `GET /api/payroll/my-payslips` returns self payslips by default and allows privileged `userId` review.
 - `GET /api/payroll/reports` requires payroll-management access.
@@ -350,7 +385,7 @@ Scheduler endpoints require protection because they can create payroll periods, 
 - `GET /api/scheduler/runs?limit=:limit` returns recent scheduler runs for scheduler-management users. `limit` is capped at 100.
 Scheduler-management access includes payroll-management roles, including owner/founder, contractor salary payments, payroll assistant, and payroll finance.
 - `period-advance` ensures a semi-monthly draft payroll period exists for the current half-month.
-- `auto-payslip` bulk-generates payslips for the most recent draft period when the period is within the generation window.
+- `auto-payslip` bulk-generates payslips for the draft period that most recently ended (`endDate < now`), never the still-open newest period. An ended period is generated right away; the pay-date gate (2 days before pay date) only applies to a period that has not ended.
 - `dept-report` stores a payroll report summary for the latest available payroll period.
 - `client-invoices` scans active/trial/past-due monthly billing records and creates draft manual invoices when due.
 
