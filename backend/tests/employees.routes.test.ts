@@ -7,7 +7,6 @@ import { emailService } from '../src/email/email.service'
 import { EmployeesController } from '../src/employees/employees.controller'
 import { EmployeeValidationError } from '../src/employees/employees.service'
 import { JwtService } from '../src/auth/jwt.service'
-import { prisma } from '../src/database/prisma.service'
 
 type JsonRecord = Record<string, any>
 
@@ -201,9 +200,6 @@ async function runEmployeeValidationErrorTest() {
 async function runApprovalSetupEmailTest() {
   const controller = new EmployeesController()
   const originalTemplateEmail = emailService.sendTemplateEmail
-  const originalUserFindUnique = prisma.user.findUnique
-  // authenticateToken checks account status (payroll v2); serve an active account without a DB.
-  ;(prisma.user as any).findUnique = async () => ({ status: 'active', isApproved: true })
   let sentTo: string | string[] | undefined
   let sentTemplate: string | undefined
   let sentResetUrl: string | undefined
@@ -264,7 +260,6 @@ async function runApprovalSetupEmailTest() {
     })
   } finally {
     ;(emailService as any).sendTemplateEmail = originalTemplateEmail
-    ;(prisma.user as any).findUnique = originalUserFindUnique
   }
 }
 

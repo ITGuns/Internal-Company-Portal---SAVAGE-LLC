@@ -14,14 +14,11 @@ import { hasEmployeeManagementAccess } from '../employees/employees.security'
 import { hasFullAccess, hasInternalDirectoryAccess } from '../org/org-access-policy'
 import { resolvePaginationQuery } from '../http/pagination'
 import { createLogger } from '../observability/logger'
-import { clearAccountStatusCache } from '../auth/account-status'
-import { notificationService } from '../notifications/socket.service'
 
 const logger = createLogger('users.users.controller')
 
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const MEMBER_ACTIVATION_ROLES = ['admin', 'operations_manager']
 
 export class UsersController {
     private service = new UsersService()
@@ -52,43 +49,6 @@ export class UsersController {
                 requesterRoles,
                 false, // email bypass already handled above
             ),
-        }
-    }
-
-    private async handleActivation(req: Request, res: Response, active: boolean) {
-        try {
-            const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
-            const authReq = req as AuthRequest
-            const requesterId = authReq.user?.userId
-            if (!requesterId) return res.status(401).json({ error: 'Authentication required' })
-            if (!active && requesterId === id) {
-                return res.status(400).json({ error: 'You cannot deactivate your own account' })
-            }
-
-            const target = await this.service.findById(id)
-            if (!target) return res.status(404).json({ error: 'User not found' })
-
-            const isInactive = target.status === 'inactive'
-            if (!active && isInactive) return res.status(409).json({ error: 'This member is already deactivated' })
-            if (active && !isInactive) return res.status(409).json({ error: 'This member is not deactivated' })
-
-            // Only full-access admins may change the activation of another full-access account,
-            // including an ADMIN_EMAILS admin whose role rows do not grant full access.
-            const [targetRoles, requesterRoles] = await Promise.all([
-                this.service.getUserRoles(id),
-                this.service.getUserRoles(requesterId),
-            ])
-            const targetIsAdmin = hasFullAccess(targetRoles, isAdminEmail(target.email))
-            if (targetIsAdmin && !hasFullAccess(requesterRoles, isAdminEmail(authReq.user?.email))) {
-                return res.status(403).json({ error: 'Only an administrator can change this account' })
-            }
-
-            const user = await this.service.setActivation(id, active)
-            if (!active) notificationService.disconnectUser(id)
-            return res.json({ success: true, user: sanitizeUserForDirectory(user) })
-        } catch (error) {
-            logger.error('Member activation change failed:', error)
-            return res.status(500).json({ error: active ? 'Failed to reactivate member' : 'Failed to deactivate member' })
         }
     }
 
@@ -352,6 +312,7 @@ export class UsersController {
                     address,
                     city,
                     citizenship,
+                    status,
                     appliedDate,
                     salary,
                     role,
@@ -380,8 +341,6 @@ export class UsersController {
                     return res.status(403).json({ error: 'Unauthorized to update another user' })
                 }
 
-                // `status` is accepted from privileged callers but ignored: activation is owned by
-                // POST /:id/deactivate and /:id/reactivate, which carry the full-access target guard.
                 const protectedFields = [
                     'status',
                     'appliedDate',
@@ -472,7 +431,9 @@ export class UsersController {
                     address,
                     city,
                     citizenship,
+                    status,
                     appliedDate,
+                    isApproved: status !== undefined ? status !== 'pending' : undefined,
                     managerId: normalizedManagerId,
                 })
 
@@ -519,45 +480,20 @@ export class UsersController {
             }
         })
 
-        // Deactivate / reactivate a member (Admin or Operations Manager). Data is kept. (payroll v2, Rule 6)
-        router.post('/:id/deactivate', authenticateToken, requireRole(MEMBER_ACTIVATION_ROLES), (req: Request, res: Response) =>
-            this.handleActivation(req, res, false))
-        router.post('/:id/reactivate', authenticateToken, requireRole(MEMBER_ACTIVATION_ROLES), (req: Request, res: Response) =>
-            this.handleActivation(req, res, true))
-
-        // Hard delete (Admin only). Needs ?confirm=hard and is refused while payslips exist.
-        router.delete('/:id', authenticateToken, requireRole('admin'), async (req: Request, res: Response) => {
+        // Delete user (Admin or Operations Manager)
+        router.delete('/:id', authenticateToken, requireRole(['admin', 'operations_manager']), async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
-                const authReq = req as AuthRequest
 
-                if (req.query.confirm !== 'hard') {
-                    return res.status(400).json({
-                        error: 'Permanent deletion needs ?confirm=hard. Deactivate the member instead to keep their records.',
-                    })
-                }
-                if (authReq.user?.userId === id) {
-                    return res.status(400).json({ error: 'You cannot delete your own account' })
-                }
-
+                // Check if user exists
                 const existingUser = await this.service.findById(id)
                 if (!existingUser) {
                     return res.status(404).json({ error: 'User not found' })
                 }
 
-                const payslipCount = await this.service.countPayslips(id)
-                if (payslipCount > 0) {
-                    return res.status(409).json({
-                        error: 'This member has payslips, so their records must be kept. Deactivate them instead.',
-                        payslipCount,
-                    })
-                }
-
                 await this.service.delete(id)
-                clearAccountStatusCache(id)
                 res.json({ message: 'User deleted successfully' })
             } catch (error) {
-                logger.error('Delete user error:', error)
                 res.status(500).json({ error: 'Failed to delete user' })
             }
         })

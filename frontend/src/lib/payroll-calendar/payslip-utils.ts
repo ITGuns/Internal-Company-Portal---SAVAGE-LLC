@@ -1,5 +1,4 @@
 import { Payslip, Deduction, PayPeriod, Employee } from "./types";
-import { formatPayrollDate, formatPayrollPeriod } from "../payroll-dates";
 
 /**
  * Calculate gross pay based on salary and pay period
@@ -190,7 +189,7 @@ export function generatePayslipPDF(payslip: Payslip, employee: Employee): void {
     doc.text("PAYMENT PERIOD", 110, yPos);
     doc.setFont("helvetica", "normal");
     doc.text(formatPayPeriod(payslip.payPeriodStart, payslip.payPeriodEnd), 110, yPos + 6);
-    doc.text(`Issue Date: ${formatPayrollDate(payslip.issueDate)}`, 110, yPos + 12);
+    doc.text(`Issue Date: ${new Date(payslip.issueDate).toLocaleDateString()}`, 110, yPos + 12);
     doc.text(`Status: ${payslip.status.toUpperCase()}`, 110, yPos + 18);
 
     yPos += 35;
@@ -310,8 +309,25 @@ export function calculateTotalDeductions(deductions: Deduction[]): number {
   return deductions.reduce((sum, d) => sum + d.amount, 0);
 }
 
-/** Pay period label in Manila days. Same helper as every other payroll date label. */
-export const formatPayPeriod = formatPayrollPeriod;
+/**
+ * Format pay period string
+ */
+export function formatPayPeriod(start: string, end: string): string {
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+
+  const startStr = startDate.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+  const endStr = endDate.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  return `${startStr} - ${endStr}`;
+}
 
 /**
  * Get year-to-date earnings for employee

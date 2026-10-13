@@ -41,8 +41,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  tasks                       Task[]                       @relation("TaskAssignee")
-  createdTasks                Task[]                       @relation("TaskCreator")
+  tasks                       Task[]                 @relation("TaskAssignee")
+  createdTasks                Task[]                 @relation("TaskCreator")
   roles                       UserRole[]
   announcements               Announcement[]
   dailyLogs                   DailyLog[]
@@ -58,34 +58,30 @@ model User {
   employeeProfile             EmployeeProfile?
   payslips                    Payslip[]
   taskWorkSessions            TaskWorkSession[]
-  taskCollaborations          TaskCollaborator[]           @relation("TaskCollaboratorUser")
-  taskCollaboratorInvites     TaskCollaborator[]           @relation("TaskCollaboratorInviter")
-  taskProjectMemberships      TaskProjectMember[]          @relation("TaskProjectMemberUser")
-  taskProjectMembershipsAdded TaskProjectMember[]          @relation("TaskProjectMemberAddedBy")
+  taskCollaborations          TaskCollaborator[]     @relation("TaskCollaboratorUser")
+  taskCollaboratorInvites     TaskCollaborator[]     @relation("TaskCollaboratorInviter")
+  taskProjectMemberships      TaskProjectMember[]    @relation("TaskProjectMemberUser")
+  taskProjectMembershipsAdded TaskProjectMember[]    @relation("TaskProjectMemberAddedBy")
   clientMemberships           ClientMembership[]
-  clientTicketsCreated        ClientTicket[]               @relation("ClientTicketCreator")
-  clientTicketsAssigned       ClientTicket[]               @relation("ClientTicketAssignee")
-  clientTicketComments        ClientTicketComment[]        @relation("ClientTicketCommentAuthor")
-  clientUpdatesCreated        ClientUpdate[]               @relation("ClientUpdateCreator")
-  clientResourceLinksCreated  ClientResourceLink[]         @relation("ClientResourceLinkCreator")
-  clientWorkItemsCreated      ClientWorkItem[]             @relation("ClientWorkItemCreator")
-  clientWorkItemsAssigned     ClientWorkItem[]             @relation("ClientWorkItemAssignee")
-  clientApprovalsRequested    ClientApproval[]             @relation("ClientApprovalRequester")
-  clientApprovalsDecided      ClientApproval[]             @relation("ClientApprovalDecider")
-  clientReportsCreated        ClientReport[]               @relation("ClientReportCreator")
-  clientCalendarItemsCreated  ClientCalendarItem[]         @relation("ClientCalendarItemCreator")
-  clientBookingRequests       ClientBookingRequest[]       @relation("ClientBookingRequestRequester")
-  clientActivities            ClientActivity[]             @relation("ClientActivityActor")
-  manager                     User?                        @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull)
-  directReports               User[]                       @relation("UserManager")
-  ownedTaskProjects           TaskProject[]                @relation("TaskProjectOwner")
-  createdTaskProjects         TaskProject[]                @relation("TaskProjectCreator")
+  clientTicketsCreated        ClientTicket[]         @relation("ClientTicketCreator")
+  clientTicketsAssigned       ClientTicket[]         @relation("ClientTicketAssignee")
+  clientTicketComments        ClientTicketComment[]  @relation("ClientTicketCommentAuthor")
+  clientUpdatesCreated        ClientUpdate[]         @relation("ClientUpdateCreator")
+  clientResourceLinksCreated  ClientResourceLink[]   @relation("ClientResourceLinkCreator")
+  clientWorkItemsCreated      ClientWorkItem[]       @relation("ClientWorkItemCreator")
+  clientWorkItemsAssigned     ClientWorkItem[]       @relation("ClientWorkItemAssignee")
+  clientApprovalsRequested    ClientApproval[]       @relation("ClientApprovalRequester")
+  clientApprovalsDecided      ClientApproval[]       @relation("ClientApprovalDecider")
+  clientReportsCreated        ClientReport[]         @relation("ClientReportCreator")
+  clientCalendarItemsCreated  ClientCalendarItem[]   @relation("ClientCalendarItemCreator")
+  clientBookingRequests       ClientBookingRequest[] @relation("ClientBookingRequestRequester")
+  clientActivities            ClientActivity[]       @relation("ClientActivityActor")
+  manager                     User?                  @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull)
+  directReports               User[]                 @relation("UserManager")
+  ownedTaskProjects           TaskProject[]          @relation("TaskProjectOwner")
+  createdTaskProjects         TaskProject[]          @relation("TaskProjectCreator")
   refreshSessions             RefreshSession[]
-  ownedUploads                StoredUpload[]               @relation("StoredUploadOwner")
-  overtimeRequests            OvertimeRequest[]            @relation("OvertimeRequests")
-  overtimeReviews             OvertimeRequest[]            @relation("OvertimeReviews")
-  adjustmentRequests          TimeEntryAdjustmentRequest[] @relation("AdjustmentRequests")
-  adjustmentReviews           TimeEntryAdjustmentRequest[] @relation("AdjustmentReviews")
+  ownedUploads                StoredUpload[]         @relation("StoredUploadOwner")
 
   @@index([email])
   @@index([managerId])
@@ -1025,8 +1021,7 @@ model TimeEntry {
   createdAt DateTime @default(now())
 
   // Relations
-  user               User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  adjustmentRequests TimeEntryAdjustmentRequest[]
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([start])
@@ -1060,10 +1055,6 @@ model EmployeeProfile {
   paymentFrequency       String  @default("Semi-Monthly")
   payrollScheme          String  @default("weekdays")
   maxBillableHoursPerDay Float   @default(8)
-  // Pay basis (2026-10-08): hourly_from_monthly | fixed_monthly | hourly_rate
-  payBasis               String  @default("hourly_from_monthly")
-  hourlyRate             Float?
-  overtimeMultiplier     Float   @default(1.25)
   bankAccount            String?
   taxId                  String?
 
@@ -1093,17 +1084,14 @@ model PayrollPeriod {
 }
 
 model Payslip {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   periodId    String
   userId      String
-  grossPay    Float     @default(0)
-  netPay      Float     @default(0)
-  status      String    @default("draft")
+  grossPay    Float    @default(0)
+  netPay      Float    @default(0)
+  status      String   @default("draft")
   notes       String?
-  generatedAt DateTime  @default(now())
-  editedById  String?
-  editedAt    DateTime?
-  editNote    String?
+  generatedAt DateTime @default(now())
 
   // Relations
   period PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
@@ -1127,58 +1115,6 @@ model PayrollItem {
 
   @@index([payslipId])
   @@index([type])
-}
-
-// Overtime is unpaid until a request for that day is approved (payroll v2).
-model OvertimeRequest {
-  id            String    @id @default(cuid())
-  userId        String
-  // Midnight of the work day in PAYROLL_TIMEZONE, stored as a UTC instant.
-  workDate      DateTime
-  // The hours the employee asked for. Never changed by review.
-  hours         Float
-  // Set on approval (a reviewer may approve fewer hours). Pay reads approvedHours ?? hours.
-  approvedHours Float?
-  reason        String?
-  status        String    @default("pending") // pending | approved | rejected
-  reviewedById  String?
-  reviewedAt    DateTime?
-  reviewNote    String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  user       User  @relation("OvertimeRequests", fields: [userId], references: [id], onDelete: Cascade)
-  reviewedBy User? @relation("OvertimeReviews", fields: [reviewedById], references: [id], onDelete: SetNull)
-
-  @@index([userId, workDate])
-  @@index([status])
-}
-
-// Employees correct their time through these requests; reviewers apply them.
-model TimeEntryAdjustmentRequest {
-  id            String    @id @default(cuid())
-  userId        String
-  timeEntryId   String? // null when action = create
-  action        String    @default("update") // create | update | delete
-  proposedStart DateTime?
-  proposedEnd   DateTime?
-  // The entry's times just before an approved update or delete was applied.
-  previousStart DateTime?
-  previousEnd   DateTime?
-  reason        String
-  status        String    @default("pending") // pending | approved | rejected
-  reviewedById  String?
-  reviewedAt    DateTime?
-  reviewNote    String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  user       User       @relation("AdjustmentRequests", fields: [userId], references: [id], onDelete: Cascade)
-  reviewedBy User?      @relation("AdjustmentReviews", fields: [reviewedById], references: [id], onDelete: SetNull)
-  timeEntry  TimeEntry? @relation(fields: [timeEntryId], references: [id], onDelete: SetNull)
-
-  @@index([userId, status])
-  @@index([status])
 }
 
 // ============================================

@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Header from "@/components/Header";
 import Button from "@/components/Button";
 import { PayrollCalendarBodySkeleton } from "@/components/ui/FeatureSkeletons";
 import { useToast } from "@/components/ToastProvider";
-import { Calendar as CalendarIcon, Users, FileText, BarChart3, Plus, Timer, ClipboardCheck } from "lucide-react";
+import { Calendar as CalendarIcon, Users, FileText, BarChart3, Plus, Timer } from "lucide-react";
 import { type PayrollEventType } from "@/lib/payroll-events";
 import type { PayrollTab, CalendarEvent } from "@/lib/payroll-calendar/types";
 import { usePayrollData } from "@/lib/payroll-calendar/usePayrollData";
@@ -28,22 +28,12 @@ import {
   getPayrollAuditTarget,
   getPayrollTimeEntryRange,
 } from "@/lib/payroll-calendar/audit-target";
-import {
-  canReviewTimeRequests,
-  hasPayrollManagementAccess as getHasManagementAccess,
-} from "@/lib/role-access";
-import { apiFetch } from "@/lib/api";
-import { useTimeRequests } from "@/components/payroll/useTimeRequests";
-import { listOvertimeRequests } from "@/lib/overtime-requests";
-import { listAdjustmentRequests } from "@/lib/adjustment-requests";
-import { countPending, DEFAULT_BILLABLE_CAP_HOURS } from "@/lib/time-requests";
+import { hasPayrollManagementAccess as getHasManagementAccess } from "@/lib/role-access";
 
 // Lazy-loaded heavy components (CalendarTab has FullCalendar, modals are only shown on interaction)
 const CalendarTab = dynamic(() => import("@/components/payroll/CalendarTab"), { ssr: false });
 const AddTimeEntryModal = dynamic(() => import("@/components/payroll/AddTimeEntryModal"), { ssr: false });
 const AddEventModal = dynamic(() => import("@/components/payroll/AddEventModal"), { ssr: false });
-const ApprovalsTab = dynamic(() => import("@/components/payroll/ApprovalsTab"), { ssr: false });
-const MyTimeRequests = dynamic(() => import("@/components/payroll/MyTimeRequests"), { ssr: false });
 
 export default function PayrollCalendarPage() {
   const { user } = useUser();
@@ -69,21 +59,11 @@ export default function PayrollCalendarPage() {
 
   // RBAC: Check if user has management access
   const hasManagementAccess = getHasManagementAccess(user);
-  // Management or payroll roles edit time directly and review requests; everyone else files requests.
-  const canReview = canReviewTimeRequests(user);
   const currentUserId = user?.id != null ? String(user.id) : undefined;
-  const [pendingApprovals, setPendingApprovals] = useState(0);
-  const [ownCapHours, setOwnCapHours] = useState(DEFAULT_BILLABLE_CAP_HOURS);
-  // Any reviewer may pick a person: non-payroll reviewers can only edit other people's time.
-  const targetUserId = canReview && selectedAuditUserId ? selectedAuditUserId : undefined;
+  const targetUserId = hasManagementAccess && selectedAuditUserId ? selectedAuditUserId : undefined;
   const selectedPayrollUser = payrollUsers.find((payrollUser) => String(payrollUser.id) === targetUserId);
   const auditEmployeeLabel = selectedPayrollUser?.name || selectedPayrollUser?.email || "selected employee";
   const isOwnTimeView = !targetUserId || targetUserId === currentUserId;
-  // Self-review rule: only payroll roles edit their own entries; everyone else files a request.
-  const canEditVisibleEntries = canReview && (hasManagementAccess || !isOwnTimeView);
-  // Requests of the person whose time is shown (employees always get their own rows).
-  const shownUserId = targetUserId ?? currentUserId;
-  const timeRequests = useTimeRequests(canReview ? shownUserId : undefined, Boolean(currentUserId));
   const timeEntryRange = useMemo(
     () => getPayrollTimeEntryRange({ startDate: auditStartDate, endDate: auditEndDate }),
     [auditEndDate, auditStartDate],
@@ -116,7 +96,7 @@ export default function PayrollCalendarPage() {
 
     const searchParams = new URLSearchParams(window.location.search);
     if (searchParams.has("tab")) {
-      setActiveTab(getPayrollTabFromSearch(searchParams, hasManagementAccess, canReview));
+      setActiveTab(getPayrollTabFromSearch(searchParams, hasManagementAccess));
     }
     if (searchParams.has("view")) {
       setEmployeeOverviewView(getEmployeeOverviewViewFromSearch(searchParams));
@@ -125,53 +105,16 @@ export default function PayrollCalendarPage() {
     const auditTarget = getPayrollAuditTarget({
       searchParams,
       currentUserId,
-      hasManagementAccess: canReview,
+      hasManagementAccess,
     });
     const auditRange = getPayrollAuditDateRange(searchParams);
     setSelectedAuditUserId(searchParams.has("userId") && auditTarget.targetUserId ? auditTarget.targetUserId : "");
     setAuditStartDate(auditRange.startDate);
     setAuditEndDate(auditRange.endDate);
-  }, [currentUserId, hasManagementAccess, canReview]);
-
-  const refreshPendingApprovals = useCallback(async () => {
-    try {
-      const [overtime, corrections] = await Promise.all([
-        listOvertimeRequests({ status: "pending" }),
-        listAdjustmentRequests({ status: "pending" }),
-      ]);
-      setPendingApprovals(countPending(overtime) + countPending(corrections));
-    } catch {
-      // The badge is a hint only; the Approvals tab shows its own error state.
-      setPendingApprovals(0);
-    }
-  }, []);
+  }, [currentUserId, hasManagementAccess]);
 
   useEffect(() => {
-    if (canReview) void refreshPendingApprovals();
-  }, [canReview, refreshPendingApprovals]);
-
-  // The daily cap of the person whose time is shown: employees need it for
-  // "Request overtime", reviewers for the billable / overtime split.
-  useEffect(() => {
-    if (!shownUserId) return;
-    let isMounted = true;
-    setOwnCapHours(DEFAULT_BILLABLE_CAP_HOURS);
-    apiFetch(`/payroll/config/${encodeURIComponent(shownUserId)}`)
-      .then((res) => res.json())
-      .then((profile: { maxBillableHoursPerDay?: number } | null) => {
-        const cap = Number(profile?.maxBillableHoursPerDay);
-        if (isMounted && Number.isFinite(cap) && cap > 0) setOwnCapHours(cap);
-      })
-      .catch(() => {
-        // Fall back to the default cap; the server validates overtime hours anyway.
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [shownUserId]);
-
-  useEffect(() => {
-    if (!canReview) {
+    if (!hasManagementAccess) {
       setPayrollUsers([]);
       setIsLoadingPayrollUsers(false);
       return;
@@ -194,7 +137,7 @@ export default function PayrollCalendarPage() {
     return () => {
       isMounted = false;
     };
-  }, [canReview, showErrorToast]);
+  }, [hasManagementAccess, showErrorToast]);
 
   const updateCalendarQuery = (updates: {
     userId?: string;
@@ -404,22 +347,6 @@ export default function PayrollCalendarPage() {
             >
               Calendar
             </Button>
-            {canReview && (
-              <Button
-                variant={activeTab === "approvals" ? "primary" : "outline"}
-                size="md"
-                icon={<ClipboardCheck className="w-4 h-4" />}
-                onClick={() => setActiveTab("approvals")}
-                aria-label={pendingApprovals > 0 ? `Approvals, ${pendingApprovals} pending` : "Approvals"}
-              >
-                Approvals
-                {pendingApprovals > 0 && (
-                  <span aria-hidden="true" className="rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white">
-                    {pendingApprovals}
-                  </span>
-                )}
-              </Button>
-            )}
             {hasManagementAccess && (
               <>
                 <Button
@@ -468,7 +395,7 @@ export default function PayrollCalendarPage() {
               </Button>
             )}
           </div>
-          {canReview && activeTab === "calendar" && (
+          {hasManagementAccess && activeTab === "calendar" && (
             <PayrollAuditFilterBar
               payrollUsers={payrollUsers}
               selectedAuditUserId={selectedAuditUserId}
@@ -504,26 +431,10 @@ export default function PayrollCalendarPage() {
                 onDeleteTimeEntry={handleDeleteTimeEntry}
                 isOwnTimeView={isOwnTimeView}
                 auditEmployeeLabel={auditEmployeeLabel}
-                canEditEntries={canEditVisibleEntries}
-                capHours={ownCapHours}
-                overtimeRequests={timeRequests.overtime}
-                correctionRequests={timeRequests.corrections}
-                onRequestsChanged={() => void timeRequests.reload()}
               />
             )
           )}
-          {activeTab === "calendar" && isOwnTimeView && !loading && (
-            <MyTimeRequests
-              overtime={timeRequests.overtime}
-              corrections={timeRequests.corrections}
-              loading={timeRequests.loading}
-              error={timeRequests.error}
-            />
-          )}
 
-          {canReview && activeTab === "approvals" && (
-            <ApprovalsTab people={payrollUsers} onPendingCountChange={setPendingApprovals} />
-          )}
           {hasManagementAccess && activeTab === "employees" && (
             <EmployeeOverviewTab initialView={employeeOverviewView} />
           )}

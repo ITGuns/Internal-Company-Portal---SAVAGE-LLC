@@ -21,6 +21,3 @@ tests/load/users*.csv
 !tests/load/users.example.csv
 
 .vercel
-
-# gate evidence screenshots (local only)
-assets/verify/

@@ -3,16 +3,7 @@ import { PayrollService } from '../payroll/payroll.service'
 import { ClientProviderWorkflowsService } from '../clients/client-provider-workflows.service'
 import { GemfieldPipelineService } from '../clients/gemfield/gemfield-pipeline.service'
 import { createLogger } from '../observability/logger'
-import { config } from '../config/env.config'
-import { periodEndDayKey, periodStartDayKey } from '../payroll/payroll.calculations'
-import {
-    computeExpectedPeriodWindow,
-    isAutoPayslipDue,
-    periodOverlapsWindow,
-    selectAutoPayslipPeriod,
-} from './scheduler.periods'
-
-const DAY_MS = 24 * 60 * 60 * 1000
+import { computeExpectedPeriodWindow } from './scheduler.periods'
 
 const logger = createLogger('scheduler.service')
 
@@ -104,19 +95,15 @@ export class SchedulerService {
 
         try {
             // Determine the expected semi-monthly period window for today.
-            const expected = computeExpectedPeriodWindow(new Date(), config.payrollTimezone)
-            const { start: expectedStart, end: expectedEnd, payDate } = expected
+            const { start: expectedStart, end: expectedEnd, payDate } = computeExpectedPeriodWindow(new Date())
 
-            // A period already covering any of these calendar days blocks creation.
-            // The query is widened by a day because older periods were stored at UTC
-            // midnight; the calendar-day comparison makes the final call.
-            const nearby = await prisma.payrollPeriod.findMany({
+            // Check whether a period already covering this window exists
+            const existing = await prisma.payrollPeriod.findFirst({
                 where: {
-                    startDate: { lte: new Date(expectedEnd.getTime() + DAY_MS) },
-                    endDate: { gte: new Date(expectedStart.getTime() - DAY_MS) },
+                    startDate: { lte: expectedEnd },
+                    endDate: { gte: expectedStart },
                 },
             })
-            const existing = nearby.find((period) => periodOverlapsWindow(period, expected))
 
             let summary: Record<string, unknown>
             if (existing) {
@@ -131,8 +118,8 @@ export class SchedulerService {
             summary = {
                 created: true,
                 periodId: period.id,
-                startDate: periodStartDayKey(period.startDate),
-                endDate: periodEndDayKey(period.endDate),
+                startDate: period.startDate.toISOString().slice(0, 10),
+                endDate: period.endDate.toISOString().slice(0, 10),
             }
             return await this.finishRun(run.id, 'success', Date.now() - t0, summary)
         } catch (err) {
@@ -150,44 +137,43 @@ export class SchedulerService {
         const t0 = Date.now()
 
         try {
-            // Target the draft period that most recently ended, not the newest one
-            // (the newest is usually still open). Payroll v2, Rule 8.
-            const now = new Date()
-            const candidates = await prisma.payrollPeriod.findMany({
-                where: { status: 'draft', endDate: { lt: now } },
-                orderBy: { endDate: 'desc' },
-                take: 5,
+            // Find the most recent draft period
+            const period = await prisma.payrollPeriod.findFirst({
+                where: { status: 'draft' },
+                orderBy: { startDate: 'desc' },
             })
-            const period = selectAutoPayslipPeriod(candidates, now)
 
             if (!period) {
-                const summary = { skipped: true, reason: 'No ended draft period found' }
+                const summary = { skipped: true, reason: 'No draft period found' }
                 return await this.finishRun(run.id, 'skipped', Date.now() - t0, summary)
             }
 
-            // Ended periods generate right away; the pay-date gate only applies to open ones.
-            if (!isAutoPayslipDue(period, now)) {
+            // Only generate on or after pay date (or within 2 days before it)
+            const now = new Date()
+            const generateFrom = period.payDate
+                ? new Date(period.payDate.getTime() - 2 * 24 * 60 * 60 * 1000)
+                : period.endDate
+
+            if (now < generateFrom) {
                 const summary = {
                     skipped: true,
-                    reason: 'Too early: period pay date not yet reached',
+                    reason: 'Too early — period pay date not yet reached',
                     periodId: period.id,
-                    payDate: period.payDate ? periodEndDayKey(period.payDate) : undefined,
+                    payDate: period.payDate?.toISOString().slice(0, 10),
                 }
                 return await this.finishRun(run.id, 'skipped', Date.now() - t0, summary)
             }
 
             const results = await this.payrollService.bulkGeneratePayslips(period.id)
-            const skippedEdited = results.filter((r) => r.skipped).length
-            const succeeded = results.filter((r) => r.success && !r.skipped).length
+            const succeeded = results.filter((r) => r.success).length
             const failed = results.filter((r) => !r.success).length
 
             const summary = {
                 periodId: period.id,
-                startDate: periodStartDayKey(period.startDate),
-                endDate: periodEndDayKey(period.endDate),
+                startDate: period.startDate.toISOString().slice(0, 10),
+                endDate: period.endDate.toISOString().slice(0, 10),
                 total: results.length,
                 succeeded,
-                skippedEdited,
                 failed,
                 failures: results.filter((r) => !r.success).map((r) => ({
                     userId: r.userId,

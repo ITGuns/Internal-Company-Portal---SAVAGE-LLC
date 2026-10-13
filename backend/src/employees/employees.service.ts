@@ -56,12 +56,11 @@ export class EmployeesService {
     /**
      * Get all deployed employees with their current-week hours computed
      */
-    async getDeployed(options: { includeInactive?: boolean } = {}) {
-        const statuses = ['active', 'vacation', 'leave', 'verified', ...(options.includeInactive ? ['inactive'] : [])]
+    async getDeployed() {
         const accounts = await this.prisma.user.findMany({
             where: {
                 status: {
-                    in: statuses,
+                    in: ['active', 'vacation', 'leave', 'verified'],
                 },
             },
             include: {

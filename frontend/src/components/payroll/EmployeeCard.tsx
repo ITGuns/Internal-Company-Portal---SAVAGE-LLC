@@ -4,7 +4,7 @@
 
 import React from "react";
 import Image from "next/image";
-import { TrendingUp, UserX, Check, Plane, Coffee } from "lucide-react";
+import { TrendingUp, Trash2, Check, Plane, Coffee } from "lucide-react";
 import Button from "@/components/Button";
 import type { Employee } from "@/lib/payroll-calendar/types";
 
@@ -12,15 +12,14 @@ interface EmployeeCardProps {
   employee: Employee;
   onViewDetails: () => void;
   onEdit: () => void;
-  /** Omitted when the viewer cannot change member status. */
-  onDeactivate?: () => void;
+  onDelete: () => void;
 }
 
 export default function EmployeeCard({
   employee,
   onViewDetails,
   onEdit,
-  onDeactivate,
+  onDelete,
 }: EmployeeCardProps) {
   const hasPerformance = typeof employee.performance === "number";
 
@@ -106,25 +105,22 @@ export default function EmployeeCard({
           </div>
 
           {/* Action Buttons */}
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex gap-2">
             <Button size="sm" variant="outline" onClick={onViewDetails}>
               View Details
             </Button>
             <Button size="sm" variant="ghost" onClick={onEdit}>
               Edit
             </Button>
-            {onDeactivate && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={onDeactivate}
-                aria-label={`Deactivate ${employee.name}`}
-                icon={<UserX className="w-3.5 h-3.5" aria-hidden="true" />}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-              >
-                Deactivate
-              </Button>
-            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onDelete}
+              aria-label={`Remove ${employee.name}`}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
           </div>
         </div>
       </div>

@@ -13,7 +13,7 @@ export const DASHBOARD_DEEP_LINKS = {
 } as const;
 
 const MANAGEMENT_PAYROLL_TABS = new Set<PayrollTab>(["employees", "payslips", "reports"]);
-const PAYROLL_TABS = new Set<PayrollTab>(["calendar", "approvals", "employees", "payslips", "reports"]);
+const PAYROLL_TABS = new Set<PayrollTab>(["calendar", "employees", "payslips", "reports"]);
 
 export function shouldOpenCreateFromSearch(searchParams: URLSearchParams) {
   return searchParams.get("new") === "1";
@@ -22,16 +22,11 @@ export function shouldOpenCreateFromSearch(searchParams: URLSearchParams) {
 export function getPayrollTabFromSearch(
   searchParams: URLSearchParams,
   hasManagementAccess: boolean,
-  canReviewTimeRequests = hasManagementAccess,
 ): PayrollTab {
   const requestedTab = searchParams.get("tab") as PayrollTab | null;
 
   if (!requestedTab || !PAYROLL_TABS.has(requestedTab)) {
     return "calendar";
-  }
-
-  if (requestedTab === "approvals") {
-    return canReviewTimeRequests ? "approvals" : "calendar";
   }
 
   if (!hasManagementAccess && MANAGEMENT_PAYROLL_TABS.has(requestedTab)) {

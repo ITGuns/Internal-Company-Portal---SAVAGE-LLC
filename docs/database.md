@@ -14,7 +14,6 @@ Current additive migrations related to the recent release:
 - `202606120001_task_project_members`
 - `202606120002_task_assignee_ids`
 - `202606220001_refresh_sessions`
-- `202610080001_payroll_time_v2` (payroll and time v2: pay basis, overtime and correction requests, payslip edit audit fields). Vercel does not run migrations: run `npm --prefix backend run prisma:deploy:production` in the same sitting as the merge.
 
 Migration SQL is now tracked. Do not ignore migration SQL files or rely on local schema drift.
 
@@ -114,9 +113,7 @@ Payroll-sensitive fields also live on `EmployeeProfile`.
 - Compensation, currency, payment frequency, bank account, and tax ID are protected fields.
 - Directory serializers must not expose sensitive payroll/profile fields.
 - `EmployeeProfile.payrollScheme` stores the salary divisor rule for payroll calculation. Supported values are `weekdays`, `flat_30`, `flat_20`, and `flat_160_hours`.
-- `EmployeeProfile.maxBillableHoursPerDay` stores the daily cap used to split tracked time into billable hours and overtime.
-- `EmployeeProfile.payBasis` (`hourly_from_monthly` default, `fixed_monthly`, `hourly_rate`), `hourlyRate` (nullable, used by `hourly_rate`) and `overtimeMultiplier` (default 1.25) drive gross pay. All three are protected payroll fields.
-- `User.status = "inactive"` marks a deactivated member: data stays, sign-in, refresh and authenticated requests are refused. Hard delete is admin-only and refused while the user has payslips.
+- `EmployeeProfile.maxBillableHoursPerDay` stores the daily cap used to split tracked time into billable hours and pending overtime.
 
 ## Task Tracking
 
@@ -177,27 +174,15 @@ Payroll-sensitive fields also live on `EmployeeProfile`.
 
 `TimeEntry` stores clock-in/clock-out and manual time-entry records.
 
-- `end` may be null for an open entry.
+- `clockOut` may be null for an open entry.
 - Manager audit views use existing `userId`, `start`, and `end` filtering rather than a separate audit table.
-- Employees no longer edit entries directly; they file a `TimeEntryAdjustmentRequest`. Approval applies the change in one transaction and appends `Correction approved YYYY-MM-DD: <reason>` to `TimeEntry.notes`. The request row (who asked, who reviewed, when, note) is the durable record of the change.
-- Payroll days are bucketed in `PAYROLL_TIMEZONE` (default `Asia/Manila`, falls back to `DAILY_DIGEST_TIMEZONE`) by the entry start time, never UTC. New `PayrollPeriod` rows start at midnight and end at 23:59:59 in the payroll timezone (`semiMonthlyPeriodForDay` and `periodBoundsFromInput` in `backend/src/payroll/payroll.calculations.ts`). Older rows stored at UTC midnight are read through `periodStartDayKey` and `periodEndDayKey`, which return the same calendar day for both, so they need no backfill.
-
-`OvertimeRequest` (payroll v2) records overtime an employee asks to be paid.
-
-- `workDate` is midnight of the work day in the payroll timezone, stored as a UTC instant (Manila midnight = 16:00 UTC the day before).
-- `status` is `pending`, `approved` or `rejected`; `reviewedById` / `reviewedAt` / `reviewNote` record the decision. Reviewer deletion sets `reviewedById` to null; user deletion cascades.
-- `hours` is the employee's original ask and is never changed by review. `approvedHours` (nullable) is set on approval, when a reviewer may approve fewer hours. Pay reads `approvedHours ?? hours`.
-- Paid overtime for a day = `min(sum of approved hours, actual hours - cap)`. Indexes: `(userId, workDate)`, `status`.
-
-`TimeEntryAdjustmentRequest` (payroll v2) records a correction request: `action` `create` / `update` / `delete`, optional `timeEntryId` (null for create, set to the created entry on approval, set null if the entry is later deleted), `proposedStart`, `proposedEnd`, `previousStart` and `previousEnd` (nullable, the entry's times captured when an update or delete is approved), required `reason`, and the same review fields. Indexes: `(userId, status)`, `status`.
+- Correction notes are currently stored in the entry notes/context, not in a durable immutable audit-log table.
 
 `PayrollPeriod`, `Payslip`, and `PayrollItem` store generated payroll results.
 
 - Period generation is restricted through payroll controller permissions.
 - Payslip reads are self-service by default and privileged for management review.
-- Automatic payslip generation applies the employee pay basis. Items: `regular_hours` or `fixed_salary`, `overtime_approved` when approved overtime exists, and a zero-amount `overtime_pending` line described as "Unapproved overtime, not paid". Edits may add `allowance`, `deduction` (stored negative) and `adjustment`. Older payslips may carry the legacy `earning` type.
-- `Payslip.editedById`, `editedAt`, `editNote` record the last manual edit (plain columns, no foreign key). Edits and deletes are only allowed while the period is `draft`; processed periods are read-only.
-- Money amounts on generated and edited items are rounded to cents.
+- Automatic payslip generation uses billable hours after applying the employee daily cap. Pending overtime is recorded as a zero-amount `PayrollItem` note until a manager approves or manually overrides pay.
 
 `PayrollEvent` stores calendar-level payroll events.
 

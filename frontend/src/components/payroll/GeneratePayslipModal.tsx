@@ -1,97 +1,53 @@
 /**
- * Generate Payslip Modal.
- *
- * Shows the server's own preview (GET /payroll/preview-calculation) for the
- * period the payslip goes into: base pay, approved overtime, unapproved
- * overtime and gross, exactly as the server returns them. By default it sends
- * no hours, so the server builds the payslip the same way. "Override hours"
- * (off by default) replaces the regular-hours line only.
+ * Generate Payslip Modal - Redesigned with editable + auto-calculated hours
  */
 
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
-import { CalendarDays, ChevronDown, Loader2, PhilippinePeso, Plus, Save, User, X } from "lucide-react";
-import Modal from "@/components/Modal";
-import type { Employee } from "@/lib/payroll-calendar/types";
-import { apiFetch } from "@/lib/api";
-import { currentSemiMonthlyDayKeys, formatPayrollDate, payrollPeriodDayKey } from "@/lib/payroll-dates";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
-  buildGeneratePayslipBody,
-  previewBasePay,
-  previewGrossPay,
-  totalDeductions,
-  type GenerateDeductionInput,
-  type GeneratePayslipBody,
-  type PayslipPreview,
-} from "@/lib/payslip-generate";
+  PhilippinePeso,
+  Save,
+  Plus,
+  X,
+  Loader2,
+  RefreshCw,
+  Clock,
+  User,
+  CalendarDays,
+  ChevronDown,
+} from "lucide-react";
+import Modal from "@/components/Modal";
+import type { Deduction, Employee } from "@/lib/payroll-calendar/types";
+import { apiFetch } from "@/lib/api";
 
 interface GeneratePayslipModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onGenerate: (body: GeneratePayslipBody) => void;
+  onGenerate: (payslipData: {
+    employeeId: string;
+    payPeriodStart: string;
+    payPeriodEnd: string;
+    hoursWorked: number;
+    grossPay: number;
+    deductions: Deduction[];
+    netPay: number;
+  }) => void;
   selectedEmployee?: Employee | null;
   employees: Employee[];
-  /** The period the payslip is generated into (the active period). */
-  period?: { startDate: string; endDate: string } | null;
 }
 
-const fieldClass =
-  "w-full px-3 py-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40";
+// ── helpers ─────────────────────────────────────────────
 
-function money(value: number) {
-  return `PHP ${value.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function fmt(n: number) {
+  return n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function hrs(value?: number) {
-  return `${(value ?? 0).toLocaleString("en-US", { maximumFractionDigits: 2 })} h`;
+function fmtHours(n: number) {
+  return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
 }
 
-function periodDayKeys(period: GeneratePayslipModalProps["period"]) {
-  const start = payrollPeriodDayKey(period?.startDate, "start");
-  const end = payrollPeriodDayKey(period?.endDate, "end");
-  return start && end ? { start, end } : currentSemiMonthlyDayKeys();
-}
-
-function Row({ label, detail, value, tone }: { label: string; detail?: string; value: string; tone?: string }) {
-  return (
-    <div className="flex items-start justify-between gap-3 px-4 py-2.5 border-t border-[var(--border)] first:border-t-0">
-      <div>
-        <p className={`text-sm font-medium ${tone ?? "text-[var(--foreground)]"}`}>{label}</p>
-        {detail && <p className="text-[11px] text-[var(--muted)] mt-0.5">{detail}</p>}
-      </div>
-      <span className={`text-sm font-semibold whitespace-nowrap ${tone ?? "text-[var(--foreground)]"}`}>{value}</span>
-    </div>
-  );
-}
-
-function usePayslipPreview(employeeId: string, start: string, end: string, isOpen: boolean) {
-  const [preview, setPreview] = useState<PayslipPreview | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const load = useCallback(async () => {
-    if (!employeeId || !isOpen) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const query = new URLSearchParams({ userId: employeeId, startDate: start, endDate: end });
-      const res = await apiFetch(`/payroll/preview-calculation?${query.toString()}`);
-      setPreview(await res.json());
-    } catch (err) {
-      setPreview(null);
-      setError(err instanceof Error ? err.message : "Could not load the pay preview.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [employeeId, start, end, isOpen]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  return { preview, error, isLoading };
-}
+// ── Component ────────────────────────────────────────────
 
 export default function GeneratePayslipModal({
   isOpen,
@@ -99,151 +55,352 @@ export default function GeneratePayslipModal({
   onGenerate,
   selectedEmployee,
   employees,
-  period,
 }: GeneratePayslipModalProps) {
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
   const [employeeId, setEmployeeId] = useState(selectedEmployee?.id?.toString() ?? "");
-  const [overrideHours, setOverrideHours] = useState(false);
-  const [hoursWorked, setHoursWorked] = useState(0);
-  const [deductions, setDeductions] = useState<GenerateDeductionInput[]>([]);
-  const { start, end } = periodDayKeys(period);
-  const { preview, error, isLoading } = usePayslipPreview(employeeId, start, end, isOpen);
+  const [payPeriodStart, setPayPeriodStart] = useState(firstDay.toISOString().split("T")[0]);
+  const [payPeriodEnd, setPayPeriodEnd] = useState(lastDay.toISOString().split("T")[0]);
+  const [hoursWorked, setHoursWorked] = useState<number>(0);
+  const [hourlyRate, setHourlyRate] = useState<number>(0);   // derived from preview
+  const [grossPay, setGrossPay] = useState<number>(0);
+  const [trackedHours, setTrackedHours] = useState<number>(0);
+  const [pendingOvertimeHours, setPendingOvertimeHours] = useState<number>(0);
+  const [maxBillableHoursPerDay, setMaxBillableHoursPerDay] = useState<number>(selectedEmployee?.maxBillableHoursPerDay || 8);
+  const [payrollSchemeLabel, setPayrollSchemeLabel] = useState("Weekdays of month");
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [hoursManual, setHoursManual] = useState(false);       // true = user edited manually
+  const hoursManualRef = useRef(hoursManual);
+  const hoursWorkedRef = useRef(hoursWorked);
+
+  const [customDeductions, setCustomDeductions] = useState<Omit<Deduction, "id">[]>([]);
 
   useEffect(() => {
-    if (selectedEmployee) setEmployeeId(selectedEmployee.id.toString());
-    else if (employees.length > 0) setEmployeeId((current) => current || employees[0].id.toString());
+    hoursManualRef.current = hoursManual;
+  }, [hoursManual]);
+
+  useEffect(() => {
+    hoursWorkedRef.current = hoursWorked;
+  }, [hoursWorked]);
+
+  // Sync employee on prop change
+  useEffect(() => {
+    if (selectedEmployee) {
+      setEmployeeId(selectedEmployee.id.toString());
+      setMaxBillableHoursPerDay(selectedEmployee.maxBillableHoursPerDay || 8);
+    } else if (employees.length > 0) {
+      setEmployeeId(current => current || employees[0].id.toString());
+    }
   }, [selectedEmployee, employees]);
 
-  // A new employee or period starts from the automatic numbers again.
+  // ── Fetch preview from backend ──────────────────────────
+  const fetchPreview = useCallback(async (overrideHours?: number) => {
+    if (!employeeId || !payPeriodStart || !payPeriodEnd) return;
+    setIsCalculating(true);
+    try {
+      const res = await apiFetch(
+        `/payroll/preview-calculation?userId=${employeeId}&startDate=${payPeriodStart}&endDate=${payPeriodEnd}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const hrs = overrideHours ?? data.billableHours ?? data.totalHours ?? 0;
+        const rate = data.hourlyRate ?? 0;
+        const manualHoursEnabled = hoursManualRef.current;
+        const currentHours = hoursWorkedRef.current;
+
+        setHourlyRate(rate);
+        setTrackedHours(data.totalHours ?? hrs);
+        setPendingOvertimeHours(data.pendingOvertimeHours ?? 0);
+        setMaxBillableHoursPerDay(data.maxBillableHoursPerDay ?? selectedEmployee?.maxBillableHoursPerDay ?? 8);
+        setPayrollSchemeLabel(data.payrollSchemeLabel ?? "Weekdays of month");
+        if (!manualHoursEnabled || overrideHours !== undefined) {
+          hoursManualRef.current = false;
+          hoursWorkedRef.current = hrs;
+          setHoursWorked(hrs);
+          setHoursManual(false);
+        }
+        // Recalculate gross with whatever hours we have
+        const effectiveHrs = manualHoursEnabled && overrideHours === undefined
+          ? currentHours
+          : hrs;
+        setGrossPay(rate * effectiveHrs);
+      }
+    } catch (err) {
+      console.error("Preview fetch failed", err);
+    } finally {
+      setIsCalculating(false);
+    }
+  }, [employeeId, payPeriodStart, payPeriodEnd, selectedEmployee?.maxBillableHoursPerDay]);
+
+  // Auto-fetch whenever employee or dates change
   useEffect(() => {
-    setOverrideHours(false);
-    setHoursWorked(preview?.billableHours ?? 0);
-  }, [preview]);
+    hoursManualRef.current = false;
+    setHoursManual(false);
+    fetchPreview();
+  }, [fetchPreview]);
 
-  const state = { overrideHours, hoursWorked, deductions };
-  const grossPay = preview ? previewGrossPay(preview, state) : 0;
-  const deductionTotal = totalDeductions(deductions);
-  const employee = employees.find((e) => e.id.toString() === employeeId);
-  const isFixed = preview?.payBasis === "fixed_monthly";
+  // Recalculate gross when hours are edited manually
+  useEffect(() => {
+    if (hoursManual && hourlyRate > 0) {
+      setGrossPay(hourlyRate * hoursWorked);
+    }
+  }, [hoursWorked, hourlyRate, hoursManual]);
 
-  const updateDeduction = (index: number, patch: Partial<GenerateDeductionInput>) =>
-    setDeductions((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  // ── Deductions ──────────────────────────────────────────
+  const addDeduction = () =>
+    setCustomDeductions([...customDeductions, { type: "other", name: "", amount: 0 }]);
 
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!employeeId || !preview) return;
-    onGenerate(buildGeneratePayslipBody(state));
+  const removeDeduction = (i: number) =>
+    setCustomDeductions(customDeductions.filter((_, idx) => idx !== i));
+
+  const updateDeduction = (i: number, field: keyof Omit<Deduction, "id">, val: string | number) =>
+    setCustomDeductions(customDeductions.map((d, idx) => idx === i ? { ...d, [field]: val } : d));
+
+  const totalDeductions = customDeductions.reduce((s, d) => s + d.amount, 0);
+  const netPay = grossPay - totalDeductions;
+
+  // ── Submit ──────────────────────────────────────────────
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employeeId) return;
+    onGenerate({
+      employeeId,
+      payPeriodStart,
+      payPeriodEnd,
+      hoursWorked,
+      grossPay,
+      deductions: customDeductions.map((d, i) => ({ ...d, id: `ded${i}` })),
+      netPay,
+    });
     onClose();
   };
+
+  const employee = employees.find((e) => e.id.toString() === employeeId);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="" size="lg">
       <div className="flex flex-col">
-        <div className="px-6 pt-6 pb-4 border-b border-[var(--border)] flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md flex-shrink-0">
-            <PhilippinePeso className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-[var(--foreground)] leading-tight">Generate payslip</h2>
-            <p className="text-xs text-[var(--muted)]">{employee ? `For ${employee.name}` : "Select an employee to get started"}</p>
+
+        {/* ── Modal Header ── */}
+        <div className="px-6 pt-6 pb-4 border-b border-[var(--border)]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md flex-shrink-0">
+              <PhilippinePeso className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-[var(--foreground)] leading-tight">Generate Payslip</h2>
+              <p className="text-xs text-[var(--muted)]">
+                {employee ? `For ${employee.name}` : "Select an employee to get started"}
+              </p>
+            </div>
           </div>
         </div>
 
+        {/* ── Scrollable body ── */}
         <form onSubmit={handleSubmit} className="flex flex-col">
           <div className="px-6 py-5 space-y-5 overflow-y-auto max-h-[65vh] chat-scroll">
+
+            {/* Employee */}
             <div>
               <label htmlFor="payslip-employee" className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-1.5">
                 <User className="w-3.5 h-3.5" /> Employee
               </label>
               <div className="relative">
-                <select id="payslip-employee" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className={`${fieldClass} appearance-none pr-8`} required>
-                  <option value="" disabled>Select employee</option>
+                <select
+                  id="payslip-employee"
+                  value={employeeId}
+                  onChange={(e) => setEmployeeId(e.target.value)}
+                  className="w-full pl-3 pr-8 py-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 appearance-none"
+                  required
+                >
+                  <option value="" disabled>Select employee…</option>
                   {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id.toString()}>{emp.name} ({emp.role})</option>
+                    <option key={emp.id} value={emp.id.toString()}>
+                      {emp.name} — {emp.role}
+                    </option>
                   ))}
                 </select>
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)] pointer-events-none" />
               </div>
             </div>
 
-            <div className="flex items-center gap-2 text-sm text-[var(--foreground)]">
-              <CalendarDays className="w-4 h-4 text-[var(--muted)]" />
-              <span>Pay period: <strong>{formatPayrollDate(start)} to {formatPayrollDate(end)}</strong></span>
-            </div>
-
-            {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-
-            {isLoading && !preview && (
-              <p className="flex items-center gap-2 text-sm text-[var(--muted)]"><Loader2 className="w-4 h-4 animate-spin" /> Loading the pay preview.</p>
-            )}
-
-            {preview && (
-              <div className={`rounded-xl border border-[var(--border)] overflow-hidden ${isLoading ? "opacity-60" : ""}`}>
-                <Row
-                  label={isFixed ? "Fixed salary" : "Regular hours"}
-                  detail={`${preview.payBasisLabel ?? "Pay basis"}. ${hrs(overrideHours ? hoursWorked : preview.billableHours)} billable of ${hrs(preview.totalHours)} tracked${isFixed ? "" : ` at ${money(preview.hourlyRate ?? 0)} per hour`}.`}
-                  value={money(previewBasePay(preview, state))}
-                />
-                <Row
-                  label="Approved overtime"
-                  detail={`${hrs(preview.overtimeApprovedHours)} at ${preview.overtimeMultiplier ?? 1.25}x`}
-                  value={money(preview.overtimePay ?? 0)}
-                />
-                <Row label="Unapproved overtime, not paid" detail={hrs(preview.overtimePendingHours)} value={money(0)} tone="text-[var(--muted)]" />
-                <Row label="Gross pay" value={money(grossPay)} tone="text-emerald-700 dark:text-emerald-400" />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
-                <input type="checkbox" checked={overrideHours} onChange={(e) => setOverrideHours(e.target.checked)} disabled={!preview} />
-                Override hours
+            {/* Pay Period */}
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-1.5">
+                <CalendarDays className="w-3.5 h-3.5" /> Pay Period
               </label>
-              {overrideHours && (
+              <div className="grid grid-cols-2 gap-3">
                 <div>
+                  <label htmlFor="pay-period-start" className="text-[10px] text-[var(--muted)] mb-1 block">Start</label>
                   <input
-                    type="number"
-                    aria-label="Regular hours for this payslip"
-                    value={hoursWorked}
-                    onChange={(e) => setHoursWorked(e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)))}
-                    className={fieldClass}
-                    min="0"
-                    step="0.25"
+                    id="pay-period-start"
+                    type="date"
+                    value={payPeriodStart}
+                    onChange={(e) => setPayPeriodStart(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                    required
                   />
-                  <p className="text-[11px] text-[var(--muted)] mt-1">
-                    {isFixed
-                      ? "Fixed salary does not depend on hours. Approved overtime is still paid."
-                      : "Replaces the regular hours line only. Approved overtime is still paid."}
-                  </p>
                 </div>
-              )}
+                <div>
+                  <label htmlFor="pay-period-end" className="text-[10px] text-[var(--muted)] mb-1 block">End</label>
+                  <input
+                    id="pay-period-end"
+                    type="date"
+                    value={payPeriodEnd}
+                    onChange={(e) => setPayPeriodEnd(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                    required
+                  />
+                </div>
+              </div>
             </div>
 
+            {/* Hours Worked — editable + auto */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">
+                  <Clock className="w-3.5 h-3.5" /> Hours Worked
+                </label>
+                <div className="flex items-center gap-2">
+                  {hoursManual && (
+                    <span className="text-[10px] text-amber-500 font-medium">Manually set</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hoursManualRef.current = false;
+                      setHoursManual(false);
+                      fetchPreview(undefined);
+                    }}
+                    className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 hover:opacity-75 transition-opacity"
+                    title="Re-fetch calculated hours"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isCalculating ? "animate-spin" : ""}`} />
+                    {isCalculating ? "Calculating…" : "Auto-calculate"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="number"
+                  value={hoursWorked === 0 && !hoursManual ? "" : hoursWorked}
+                  onChange={(e) => {
+                    setHoursManual(true);
+                    setHoursWorked(e.target.value === "" ? 0 : parseFloat(e.target.value));
+                  }}
+                  placeholder={isCalculating ? "Calculating…" : "Enter or auto-calculate hours"}
+                  className={`w-full pl-3 pr-10 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 transition-colors ${hoursManual
+                    ? "border-amber-400 focus:ring-amber-400/30 bg-amber-50 dark:bg-amber-900/10 text-[var(--foreground)]"
+                    : "border-[var(--border)] focus:ring-emerald-500/40 bg-[var(--background)] text-[var(--foreground)]"
+                    } ${isCalculating ? "animate-pulse" : ""}`}
+                  min="0"
+                  step="0.5"
+                />
+                {isCalculating && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />
+                  </div>
+                )}
+              </div>
+              <p className="text-[10px] text-[var(--muted)] mt-1">
+                Auto-filled with billable hours from daily logs and timers. Decimal overrides are allowed when payroll needs a manager correction.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2">
+                <p className="text-[10px] uppercase font-semibold text-[var(--muted)]">Tracked</p>
+                <p className="text-sm font-bold text-[var(--foreground)]">{fmtHours(trackedHours)}h</p>
+              </div>
+              <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/15 px-3 py-2">
+                <p className="text-[10px] uppercase font-semibold text-emerald-700 dark:text-emerald-300">Billable</p>
+                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{fmtHours(hoursWorked)}h</p>
+              </div>
+              <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/15 px-3 py-2">
+                <p className="text-[10px] uppercase font-semibold text-blue-700 dark:text-blue-300">Pending overtime</p>
+                <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{fmtHours(pendingOvertimeHours)}h</p>
+              </div>
+            </div>
+
+            {/* Gross Pay */}
+            <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">Gross Pay</p>
+                <p className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70 mt-0.5">
+                  {fmtHours(hoursWorked)} billable hours at PHP {fmt(hourlyRate)} / hour
+                </p>
+                <p className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70 mt-0.5">
+                  {payrollSchemeLabel}; cap {fmtHours(maxBillableHoursPerDay)}h/day
+                </p>
+              </div>
+              <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                ₱{fmt(grossPay)}
+              </span>
+            </div>
+
+            {/* Deductions */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">Deductions</span>
+                <label className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">Deductions</label>
                 <button
                   type="button"
-                  onClick={() => setDeductions((rows) => [...rows, { type: "other", name: "", amount: 0 }])}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                  onClick={addDeduction}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
                 >
-                  <Plus className="w-3 h-3" /> Add deduction
+                  <Plus className="w-3 h-3" />
+                  Add Deduction
                 </button>
               </div>
-              {deductions.length === 0 ? (
-                <p className="text-center py-3 rounded-lg border border-dashed border-[var(--border)] text-[var(--muted)] text-xs">No deductions.</p>
+
+              {customDeductions.length === 0 ? (
+                <div className="text-center py-4 rounded-lg border border-dashed border-[var(--border)] text-[var(--muted)] text-xs">
+                  No deductions added. Click "Add Deduction" to add one.
+                </div>
               ) : (
                 <div className="space-y-2">
-                  {deductions.map((row, i) => (
-                    <div key={i} className="flex gap-2 items-center rounded-lg px-3 py-2 border border-[var(--border)]">
-                      <select value={row.type} onChange={(e) => updateDeduction(i, { type: e.target.value })} aria-label={`Deduction ${i + 1} type`} className="text-xs py-1 px-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]">
+                  {customDeductions.map((ded, i) => (
+                    <div key={i} className="flex gap-2 items-center bg-[var(--card-surface)] rounded-lg px-3 py-2 border border-[var(--border)]">
+                      <select
+                        value={ded.type}
+                        onChange={(e) => updateDeduction(i, "type", e.target.value)}
+                        className="text-xs py-1 px-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                        aria-label={`Deduction ${i + 1} type`}
+                      >
                         <option value="tax">Tax</option>
                         <option value="insurance">Insurance</option>
                         <option value="retirement">Retirement</option>
                         <option value="other">Other</option>
                       </select>
-                      <input type="text" value={row.name} onChange={(e) => updateDeduction(i, { name: e.target.value })} placeholder="Description" aria-label={`Deduction ${i + 1} description`} className="flex-1 text-xs py-1 px-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]" />
-                      <input type="number" value={row.amount === 0 ? "" : row.amount} onChange={(e) => updateDeduction(i, { amount: e.target.value === "" ? 0 : Number(e.target.value) })} placeholder="0" min="0" aria-label={`Deduction ${i + 1} amount`} className="w-24 text-xs py-1 px-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]" />
-                      <button type="button" onClick={() => setDeductions((rows) => rows.filter((_, idx) => idx !== i))} className="p-1 text-red-500 rounded" aria-label={`Remove deduction ${i + 1}`}>
+
+                      <input
+                        type="text"
+                        value={ded.name}
+                        onChange={(e) => updateDeduction(i, "name", e.target.value)}
+                        placeholder="Description"
+                        className="flex-1 text-xs py-1 px-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                      />
+
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-[var(--muted)]">₱</span>
+                        <input
+                          type="number"
+                          value={ded.amount === 0 ? "" : ded.amount}
+                          onChange={(e) => updateDeduction(i, "amount", e.target.value === "" ? 0 : Number(e.target.value))}
+                          placeholder="0"
+                          className="w-24 text-xs py-1 pl-5 pr-2 rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                          min="0"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => removeDeduction(i)}
+                        className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                        aria-label={`Remove deduction ${i + 1}`}
+                      >
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -252,27 +409,41 @@ export default function GeneratePayslipModal({
               )}
             </div>
 
-            <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-4 py-3 flex items-center justify-between">
-              <div className="text-xs text-blue-700 dark:text-blue-300">
-                Gross {money(grossPay)}{deductionTotal > 0 ? `, less ${money(deductionTotal)} deductions` : ""}
+            {/* Summary strip */}
+            <div className="rounded-xl border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 overflow-hidden">
+              <div className="px-4 py-2 border-b border-blue-200 dark:border-blue-800 flex justify-between text-xs text-blue-700 dark:text-blue-400">
+                <span>Gross Pay</span>
+                <span className="font-semibold">₱{fmt(grossPay)}</span>
               </div>
-              <div className="text-right">
-                <p className="text-[11px] font-semibold uppercase text-blue-700 dark:text-blue-300">Net pay</p>
-                <p className="text-xl font-extrabold text-blue-600 dark:text-blue-400">{money(grossPay - deductionTotal)}</p>
+              {totalDeductions > 0 && (
+                <div className="px-4 py-2 border-b border-blue-200 dark:border-blue-800 flex justify-between text-xs text-red-600 dark:text-red-400">
+                  <span>Total Deductions</span>
+                  <span className="font-semibold">-₱{fmt(totalDeductions)}</span>
+                </div>
+              )}
+              <div className="px-4 py-3 flex items-center justify-between">
+                <span className="text-sm font-bold text-blue-700 dark:text-blue-300">Net Pay</span>
+                <span className="text-2xl font-extrabold text-blue-600 dark:text-blue-400">₱{fmt(netPay)}</span>
               </div>
             </div>
+
           </div>
 
+          {/* ── Footer ── */}
           <div className="px-6 py-4 border-t border-[var(--border)] flex justify-end gap-3 bg-[var(--card-bg)]">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-[var(--muted)] hover:bg-[var(--card-surface)]">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg text-sm font-medium text-[var(--muted)] hover:bg-[var(--card-surface)] transition-colors"
+            >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={!preview || isLoading}
-              className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm hover:shadow-md hover:opacity-90 transition-all"
             >
-              <Save className="w-4 h-4" /> Generate payslip
+              <Save className="w-4 h-4" />
+              Generate Payslip
             </button>
           </div>
         </form>

@@ -1,8 +1,6 @@
 import crypto from 'node:crypto'
 import { PrismaClient, User, Prisma } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
-import { revokeAllRefreshSessionsForUser } from '../auth/refresh-session.service'
-import { clearAccountStatusCache } from '../auth/account-status'
 import {
     findMergedSignupRoleById,
     isDefaultSignupRoleId,
@@ -349,24 +347,6 @@ export class UsersService {
         }
 
         return false
-    }
-
-    /**
-     * Deactivate or reactivate a member (payroll v2, Rule 6). Deactivation keeps
-     * all data, blocks sign-in and revokes refresh sessions.
-     */
-    async setActivation(id: string, active: boolean): Promise<User> {
-        const user = await this.prisma.user.update({
-            where: { id },
-            data: { status: active ? 'active' : 'inactive' },
-        })
-        if (!active) await revokeAllRefreshSessionsForUser(id)
-        clearAccountStatusCache(id)
-        return user
-    }
-
-    async countPayslips(userId: string): Promise<number> {
-        return this.prisma.payslip.count({ where: { userId } })
     }
 
     /**

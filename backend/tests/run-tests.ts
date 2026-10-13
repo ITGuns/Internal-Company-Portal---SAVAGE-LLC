@@ -15,8 +15,6 @@ const tests = [
   'org-catalog-sync.test.ts',
   'payroll.permissions.test.ts',
   'payroll.calculations.test.ts',
-  'payroll.v2.calculations.test.ts',
-  'payroll.v2.routes.test.ts',
   'scheduler.routes.test.ts',
   'scheduler.periods.test.ts',
   'users.security.test.ts',

@@ -1,5 +1,4 @@
 import {
-  hasManagementAccess as hasOrgManagementAccess,
   hasPayrollManagementAccess as hasOrgPayrollManagementAccess,
   normalizeOrgRoleName,
 } from '../org/org-access-policy'
@@ -11,8 +10,6 @@ export interface RoleLike {
 export interface PayrollAccess {
   requesterId: string
   isPrivileged: boolean
-  /** Management or payroll roles: edit time directly and review requests (payroll v2). */
-  canReviewTime?: boolean
 }
 
 export interface PayrollProfileFilterResult {
@@ -28,9 +25,6 @@ const PAYROLL_PROFILE_UPDATE_FIELDS = new Set([
   'paymentFrequency',
   'payrollScheme',
   'maxBillableHoursPerDay',
-  'payBasis',
-  'hourlyRate',
-  'overtimeMultiplier',
   'bankAccount',
   'taxId',
 ])
@@ -43,9 +37,6 @@ const PROTECTED_PAYROLL_PROFILE_FIELDS = new Set([
   'paymentFrequency',
   'payrollScheme',
   'maxBillableHoursPerDay',
-  'payBasis',
-  'hourlyRate',
-  'overtimeMultiplier',
   'bankAccount',
   'taxId',
 ])
@@ -62,40 +53,6 @@ export function hasPayrollManagementAccess(
 
   return hasOrgPayrollManagementAccess(roles)
 }
-
-/**
- * Roles allowed to review overtime and adjustment requests and to edit time
- * entries directly: MANAGEMENT_ACCESS_ROLES or PAYROLL_MANAGEMENT_ROLES.
- * Mirrored in frontend/src/lib/role-access.ts.
- */
-export function canReviewTimeRequests(
-  roles: RoleLike[] = [],
-  isConfiguredAdminEmail = false,
-): boolean {
-  return hasOrgManagementAccess(roles, isConfiguredAdminEmail)
-    || hasOrgPayrollManagementAccess(roles, isConfiguredAdminEmail)
-}
-
-/** Route-level role list for requireRole on payroll-management routes. */
-export const PAYROLL_MANAGEMENT_ROUTE_ROLES: readonly string[] = [
-  'admin',
-  'administrator',
-  'operations_manager',
-  'bookkeeper',
-  'bookkeeping',
-  'contractor_salary_payments',
-  'financial_controller',
-  'payroll_assistant',
-  'payroll_finance',
-]
-
-/** Route-level role list for requireRole on time-review routes (management or payroll). */
-export const TIME_REVIEW_ROUTE_ROLES: readonly string[] = [
-  ...PAYROLL_MANAGEMENT_ROUTE_ROLES,
-  'manager',
-  'project_manager',
-  'chief_operations_officer',
-]
 
 export function canAccessPayrollTarget(access: PayrollAccess, targetUserId: string): boolean {
   return access.isPrivileged || access.requesterId === targetUserId
