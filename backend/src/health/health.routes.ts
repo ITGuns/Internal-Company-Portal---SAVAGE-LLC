@@ -19,8 +19,6 @@ export function createHealthRouter(dependencies: HealthDependencies): Router {
     router.get('/health', async (_req, res) => {
         const databaseHealthy = await runCheck(dependencies.checkDatabase)
         res.status(databaseHealthy ? 200 : 503).json({
-            // ok: the shape the Gemfield control panel's "Database health" probe expects.
-            ok: databaseHealthy,
             status: databaseHealthy ? 'healthy' : 'unhealthy',
             database: databaseHealthy ? 'connected' : 'disconnected',
             timestamp: new Date().toISOString(),
