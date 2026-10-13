@@ -3,7 +3,7 @@
  */
 
 export type EventType = "payday" | "holiday" | "deadline" | "time" | "meeting" | "other";
-export type PayrollTab = "calendar" | "employees" | "payslips" | "reports" | "scheduler";
+export type PayrollTab = "calendar" | "approvals" | "employees" | "payslips" | "reports" | "scheduler";
 
 export interface Employee {
   id: string | number;
@@ -17,6 +17,7 @@ export interface Employee {
   status: "active" | "vacation" | "leave" | "pending" | "verified";
   payrollScheme?: string;
   maxBillableHoursPerDay?: number;
+  payBasis?: string;
   // Extended fields for profile panel
   phone?: string;
   email?: string;
@@ -118,6 +119,21 @@ export interface Payslip {
   deductions: Deduction[];
   netPay: number;
   notes?: string;
+  // Payroll v2: raw line items and period lock state for editing and display.
+  items?: PayslipLineItem[];
+  periodId?: string;
+  periodStatus?: string;
+  editedAt?: string | null;
+  editNote?: string | null;
+  /** The employee's pay basis (EmployeeProfile.payBasis), when known. */
+  payBasis?: string;
+}
+
+export interface PayslipLineItem {
+  id: string;
+  type?: string;
+  description: string;
+  amount: number;
 }
 
 export type PayPeriod = "weekly" | "bi-weekly" | "monthly";

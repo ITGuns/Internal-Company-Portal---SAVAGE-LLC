@@ -17,6 +17,7 @@ type EmployeeProfileLike = {
   baseSalary?: number | null
   payrollScheme?: string | null
   maxBillableHoursPerDay?: number | null
+  payBasis?: string | null
   bankAccount?: string | null
   taxId?: string | null
   currency?: string | null
@@ -125,6 +126,8 @@ export function serializeDeployedEmployee(employee: EmployeeLike) {
     salary: employee.salary ?? employee.employeeProfile?.baseSalary ?? 0,
     payrollScheme: employee.employeeProfile?.payrollScheme ?? 'weekdays',
     maxBillableHoursPerDay: employee.employeeProfile?.maxBillableHoursPerDay ?? 8,
+    // Shown on the admin payslip view (payroll v2). Not sensitive: no rates or salary detail.
+    payBasis: employee.employeeProfile?.payBasis ?? 'hourly_from_monthly',
     hoursThisWeek: employee.hoursThisWeek ?? 0,
     performance: employee.performance ?? null,
   }

@@ -1,8 +1,9 @@
 import crypto from 'crypto'
 import jwt, { type JwtPayload } from 'jsonwebtoken'
-import { config } from '../config/env.config'
+import { config, isAdminEmail } from '../config/env.config'
 import { prisma } from '../database/prisma.service'
 import { authUserSelect, type AuthUserLike } from './auth.security'
+import { getOAuthNewUserState } from './signup.requests'
 
 export type OAuthProvider = 'google' | 'discord' | 'apple'
 
@@ -55,7 +56,7 @@ export function getFrontendUrl(): string {
 
 export function buildOAuthFrontendRedirect(
   provider: OAuthProvider,
-  status: 'success' | 'pending' | 'failed' | 'not_configured' | 'state_mismatch' = 'success',
+  status: 'success' | 'pending' | 'inactive' | 'failed' | 'not_configured' | 'state_mismatch' = 'success',
 ): string {
   const redirectUrl = new URL(status === 'success' ? '/auth/callback' : '/login', getFrontendUrl())
   redirectUrl.searchParams.set('provider', provider)
@@ -233,12 +234,12 @@ export async function findOrCreateAppleOAuthUser(
     })
   }
 
+  // Unknown emails wait for admin approval (payroll v2, Rule 7).
   return prisma.user.create({
     data: {
       email,
       name: profile.name || fallbackName,
-      status: 'verified',
-      isApproved: true,
+      ...getOAuthNewUserState(isAdminEmail(email)),
       appliedDate: new Date(),
     },
     select: authUserSelect,

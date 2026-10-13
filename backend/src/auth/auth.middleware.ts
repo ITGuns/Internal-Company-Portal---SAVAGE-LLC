@@ -3,6 +3,7 @@ import { JwtService, JwtPayload } from './jwt.service'
 import { isAdminEmail } from '../config/env.config'
 import { hasFullAccess, normalizeOrgRoleName } from '../org/org-access-policy'
 import { createLogger } from '../observability/logger'
+import { checkAccountStatus } from './account-status'
 
 const logger = createLogger('auth.middleware')
 
@@ -27,14 +28,28 @@ export function authenticateToken(
         return
     }
 
+    let payload: JwtPayload
     try {
-        const payload = JwtService.verifyAccessToken(token)
-        req.user = payload
-        next()
+        payload = JwtService.verifyAccessToken(token)
     } catch (error) {
         res.status(403).json({ error: 'Invalid or expired token' })
         return
     }
+
+    // Deactivated, unapproved or deleted accounts are refused even with a valid token.
+    checkAccountStatus(payload.userId)
+        .then((result) => {
+            if (!result.ok && 'httpStatus' in result) {
+                res.status(result.httpStatus).json({ error: result.message })
+                return
+            }
+            req.user = payload
+            next()
+        })
+        .catch((error) => {
+            logger.error('Account status check failed', error)
+            res.status(503).json({ error: 'Unable to verify your session. Try again shortly.' })
+        })
 }
 
 /**
@@ -48,16 +63,31 @@ export function optionalAuth(
     const authHeader = req.headers['authorization']
     const token = authHeader && authHeader.split(' ')[1]
 
-    if (token) {
-        try {
-            const payload = JwtService.verifyAccessToken(token)
-            req.user = payload
-        } catch (error) {
-            // Token invalid, but we don't fail - just continue without user
-        }
+    if (!token) {
+        next()
+        return
     }
 
-    next()
+    let payload: JwtPayload
+    try {
+        payload = JwtService.verifyAccessToken(token)
+    } catch {
+        // Token invalid, but we don't fail - just continue without user
+        next()
+        return
+    }
+
+    // Same account check as authenticateToken: a deactivated, unapproved or
+    // deleted account is treated as anonymous instead of attached.
+    checkAccountStatus(payload.userId)
+        .then((account) => {
+            if (account.ok) req.user = payload
+            next()
+        })
+        .catch((error) => {
+            logger.error('Account status check failed', error)
+            next()
+        })
 }
 
 /**

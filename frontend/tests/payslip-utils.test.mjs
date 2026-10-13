@@ -11,6 +11,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Compile the pure payslip helper in isolation. Type-only imports (./types) are
 // elided by transpileModule, and the jspdf dynamic import lives inside an
 // untested function so it is never resolved at load time.
+// payslip-utils imports ../payroll-dates (pure, no imports of its own).
+function requireLibModule(id) {
+  if (!id.endsWith('payroll-dates')) throw new Error(`Unexpected import in payslip-utils: ${id}`);
+  const libPath = path.resolve(__dirname, '../src/lib/payroll-dates.ts');
+  const { outputText } = ts.transpileModule(fs.readFileSync(libPath, 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+  });
+  const libModule = { exports: {} };
+  vm.runInNewContext(outputText, { module: libModule, exports: libModule.exports }, { filename: libPath });
+  return libModule.exports;
+}
+
 function loadPayslipUtils() {
   const helperPath = path.resolve(__dirname, '../src/lib/payroll-calendar/payslip-utils.ts');
   const source = fs.readFileSync(helperPath, 'utf8');
@@ -27,6 +39,7 @@ function loadPayslipUtils() {
     module: compiledModule,
     exports: compiledModule.exports,
     console,
+    require: requireLibModule,
   }, { filename: helperPath });
 
   return compiledModule.exports;

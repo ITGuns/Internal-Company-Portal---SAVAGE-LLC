@@ -105,8 +105,12 @@ export interface ApiPayslip {
   notes?: string;
   generatedAt?: string;
   period: ApiPayrollPeriod;
+  periodId?: string;
   items: ApiPayslipItem[];
   user?: { name: string | null };
+  editedById?: string | null;
+  editedAt?: string | null;
+  editNote?: string | null;
 }
 
 export interface ApiPayrollEvent {
@@ -126,6 +130,9 @@ export interface ApiEmployeeProfile {
   department?: { name: string };
   payrollScheme?: string;
   maxBillableHoursPerDay?: number;
+  payBasis?: string;
+  hourlyRate?: number | null;
+  overtimeMultiplier?: number;
 }
 
 export interface ApiEmployee {
@@ -147,6 +154,7 @@ export interface ApiEmployee {
   role?: string;
   payrollScheme?: string;
   maxBillableHoursPerDay?: number;
+  payBasis?: string;
   employeeProfile?: ApiEmployeeProfile;
 }
 

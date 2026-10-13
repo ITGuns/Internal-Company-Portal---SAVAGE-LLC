@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "installCommand": "npm --prefix backend ci && npm --prefix frontend ci",
-  "buildCommand": "npm --prefix backend run build && npm --prefix frontend run build",
+  "buildCommand": "npm --prefix backend run build && if [ \"$VERCEL_ENV\" = production ]; then npm --prefix backend run prisma:deploy:render; fi && npm --prefix frontend run build",
   "builds": [
     {
       "src": "frontend/package.json",

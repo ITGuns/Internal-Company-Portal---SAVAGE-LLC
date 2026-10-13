@@ -4,6 +4,8 @@ import { config } from '../../config/env.config'
 import { prisma } from '../../database/prisma.service'
 import { createLogger } from '../../observability/logger'
 import { authUserSelect } from '../auth.security'
+import { getOAuthNewUserState } from '../signup.requests'
+import { isAdminEmail } from '../../config/env.config'
 
 const logger = createLogger('auth.google')
 
@@ -38,19 +40,19 @@ export function setupGoogleStrategy(): void {
                     })
 
                     if (!user) {
-                        // OAuth-created users are auto-approved with free tier access.
+                        // Unknown emails wait for admin approval (payroll v2, Rule 7);
+                        // only ADMIN_EMAILS are approved on first sign-in.
                         user = await prisma.user.create({
                             data: {
                                 email,
                                 name,
                                 avatar,
-                                status: 'verified',
-                                isApproved: true,
+                                ...getOAuthNewUserState(isAdminEmail(email)),
                                 appliedDate: new Date(),
                             },
                             select: authUserSelect,
                         })
-                        logger.info('New user created via Google OAuth (free tier)', { provider: 'google', email })
+                        logger.info('New user created via Google OAuth', { provider: 'google', status: user.status })
                     } else {
                         // Update existing user info
                         user = await prisma.user.update({

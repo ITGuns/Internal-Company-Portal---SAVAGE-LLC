@@ -87,6 +87,7 @@ assert.deepEqual(deployed, {
   salary: 75000,
   payrollScheme: 'flat_160_hours',
   maxBillableHoursPerDay: 7.5,
+  payBasis: 'hourly_from_monthly',
   hoursThisWeek: 8,
   performance: 0,
 })
