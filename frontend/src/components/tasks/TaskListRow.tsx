@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Play, Pause, CheckCircle2, RotateCcw } from "lucide-react";
+import { Play, Pause, CheckCircle2, RotateCcw, Loader2 } from "lucide-react";
 import type { Task, TaskPriority, TaskStatus } from "@/lib/tasks";
 import { useLiveElapsed } from "@/hooks/useLiveElapsed";
 import { TASK_QUICK_ACTION_LABELS, type TaskQuickAction } from "@/lib/task-status-actions";
@@ -34,6 +34,8 @@ interface TaskListRowProps {
   onAction: (e: React.MouseEvent, taskId: string, action: TaskQuickAction) => void;
   isSelected?: boolean;
   onSelect?: (taskId: string, selected: boolean) => void;
+  /** A quick action for this task is waiting on the server. */
+  isPending?: boolean;
 }
 
 function calcProgress(elapsedSecs: number, estimatedMinutes: number | undefined): number {
@@ -41,16 +43,17 @@ function calcProgress(elapsedSecs: number, estimatedMinutes: number | undefined)
   return Math.min(100, Math.round((elapsedSecs / (estimatedMinutes * 60)) * 100));
 }
 
-export default function TaskListRow({ task, onClick, onAction, isSelected = false, onSelect }: TaskListRowProps) {
+export default function TaskListRow({ task, onClick, onAction, isSelected = false, onSelect, isPending = false }: TaskListRowProps) {
   const liveElapsed = useLiveElapsed(task.timerStatus, task.timerStart, task.totalElapsed || 0);
   const autoProgress = task.status === 'completed' ? 100 : calcProgress(liveElapsed, task.estimatedTime);
   const collaboratorCount = task.collaborators?.length || 0;
   const actionButtonClass =
-    "inline-flex min-h-10 items-center gap-1.5 rounded-md border border-transparent px-2.5 py-1.5 text-xs font-medium transition hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
+    `inline-flex min-h-10 items-center gap-1.5 rounded-md border border-transparent px-2.5 py-1.5 text-xs font-medium transition hover:bg-[var(--card-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]${isPending ? " cursor-wait opacity-50" : ""}`;
 
   return (
     <div
       onClick={onClick}
+      aria-busy={isPending || undefined}
       className={`motion-interactive motion-list-in p-3 bg-[var(--card-surface)] border border-[var(--border)] rounded flex items-center justify-between cursor-pointer hover:bg-[var(--card-bg)] group ${isSelected ? 'ring-2 ring-[var(--accent)] border-[var(--accent)]' : ''}`}
     >
       <div className="flex-1 flex items-center gap-4">
@@ -112,6 +115,7 @@ export default function TaskListRow({ task, onClick, onAction, isSelected = fals
           {task.status === 'completed' ? (
             <button
               onClick={(e) => onAction(e, task.id, 'reopen')}
+              aria-disabled={isPending || undefined}
               className={`${actionButtonClass} text-amber-500 hover:border-amber-500/30 hover:bg-amber-500/10`}
               aria-label={`Reopen ${task.title}`}
               title="Reopen task"
@@ -124,6 +128,7 @@ export default function TaskListRow({ task, onClick, onAction, isSelected = fals
               {task.timerStatus === 'playing' ? (
                 <button
                   onClick={(e) => onAction(e, task.id, 'pause')}
+                  aria-disabled={isPending || undefined}
                   className={`${actionButtonClass} text-[var(--accent)]`}
                   aria-label={`Pause ${task.title}`}
                   title="Pause task"
@@ -134,6 +139,7 @@ export default function TaskListRow({ task, onClick, onAction, isSelected = fals
               ) : (
                 <button
                   onClick={(e) => onAction(e, task.id, 'play')}
+                  aria-disabled={isPending || undefined}
                   className={`${actionButtonClass} text-emerald-500`}
                   aria-label={`Start ${task.title}`}
                   title="Start task"
@@ -144,6 +150,7 @@ export default function TaskListRow({ task, onClick, onAction, isSelected = fals
               )}
               <button
                 onClick={(e) => onAction(e, task.id, 'complete')}
+                aria-disabled={isPending || undefined}
                 className={`${actionButtonClass} text-blue-500 hover:border-blue-500/30 hover:bg-blue-500/10`}
                 aria-label={`Mark ${task.title} done`}
                 title="Mark done"
@@ -158,7 +165,12 @@ export default function TaskListRow({ task, onClick, onAction, isSelected = fals
         <div className="flex items-center gap-6 text-xs text-[var(--muted)]">
           <div className={`px-2 py-0.5 rounded border ${task.status === 'completed' ? 'bg-green-500/10 border-green-500/20 text-green-600' : 'bg-[var(--card-bg)] border-[var(--border)]'
             }`}>
-            {STATUS_LABELS[task.status]}
+            {isPending ? (
+              <span className="inline-flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                Saving
+              </span>
+            ) : STATUS_LABELS[task.status]}
           </div>
           <div className="w-24 truncate text-right font-medium">
             {task.assignee ? (task.assignee.name || task.assignee.email) : 'Unassigned'}

@@ -177,6 +177,8 @@ export default function TaskTrackingPage() {
   const isLoading = tasksLoading;
   const [showModal, setShowModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  // Tasks with a quick action (play, pause, done, reopen) waiting on the server.
+  const [pendingTaskIds, setPendingTaskIds] = useState<string[]>([]);
   const [deepLinkFilter, setDeepLinkFilter] = useState<TaskDeepLinkFilter | null>(null);
   const [deepLinkTaskId, setDeepLinkTaskId] = useState<string | null>(null);
   const [taskLinkError, setTaskLinkError] = useState<string | null>(null);
@@ -261,6 +263,7 @@ export default function TaskTrackingPage() {
   // Action hander for Play/Pause/Complete
   const handleTaskAction = async (e: React.MouseEvent, taskId: string, action: TaskQuickAction) => {
     e.stopPropagation();
+    if (pendingTaskIds.includes(taskId)) return;
 
     // Find local task
     const task = tasks.find(t => t.id === taskId);
@@ -317,6 +320,7 @@ export default function TaskTrackingPage() {
       };
     }
 
+    setPendingTaskIds((prev) => [...prev, taskId]);
     try {
       const updatedTask = await updateTask(taskId, updates);
       if (updatedTask) {
@@ -332,6 +336,8 @@ export default function TaskTrackingPage() {
       }
     } catch {
       toast.error("Failed to update task action");
+    } finally {
+      setPendingTaskIds((prev) => prev.filter((id) => id !== taskId));
     }
   };
 
@@ -1600,6 +1606,7 @@ export default function TaskTrackingPage() {
                       task={t}
                       onClick={() => openTaskDetails(t)}
                       onAction={handleTaskAction}
+                      isPending={pendingTaskIds.includes(t.id)}
                     />
                   ))}
                 </div>
