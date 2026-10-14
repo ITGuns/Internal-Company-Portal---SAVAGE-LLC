@@ -191,6 +191,14 @@ function freshState(): FakeState {
 
 const payroll = { requesterId: 'u-books', isFullAccess: false }
 const request = { ...base, startDate: '2026-09-29', userId: 'u-emp', skipWeekends: true, notes: 'Paper timesheet' }
+
+;(async () => {
+  const service = new BackfillService()
+  await assert.rejects(
+    service.backfill({ ...request, userId: 'u-books', dryRun: true }, payroll, NOW),
+    (err: Error) => err instanceof PayrollForbiddenError && /own hours/.test(err.message),
+  )
+})()
 const expectedDays = ['2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-05', '2026-10-06', '2026-10-12', '2026-10-13']
 const expectedSkipped = [
   '2026-10-03: weekend',

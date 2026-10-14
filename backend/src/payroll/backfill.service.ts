@@ -44,6 +44,9 @@ export class BackfillService {
         const dryRun = readFlag(body.dryRun, 'dryRun')
         const userId = typeof body.userId === 'string' ? body.userId.trim() : ''
         if (!userId) throw new PayrollValidationError('Choose an employee')
+        if (userId === actor.requesterId) {
+            throw new PayrollForbiddenError('You cannot backfill your own hours. Ask another payroll member.')
+        }
 
         const [target, actorUser] = await Promise.all([
             prisma.user.findUnique({
