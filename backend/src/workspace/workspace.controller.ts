@@ -65,7 +65,7 @@ function loadBrandingFromFile(): Partial<PublicWorkspaceConfig> {
 }
 
 /** Saved branding: the database row, else the old file. A missing table falls back too. */
-export async function loadStoredBranding(): Promise<Partial<PublicWorkspaceConfig>> {
+async function loadStoredBranding(): Promise<Partial<PublicWorkspaceConfig>> {
   try {
     const row = await prisma.workspaceSetting.findUnique({ where: { key: BRANDING_SETTING_KEY } })
     const value = row?.value

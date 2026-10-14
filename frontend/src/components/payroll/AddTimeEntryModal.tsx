@@ -307,13 +307,13 @@ export default function AddTimeEntryModal({
                 setValidationErrors((prev) => ({ ...prev, notes: "" }));
               }
             }}
-            placeholder={auditContextLabel ? "Reason for manager correction..." : "e.g. Overtime, client meeting..."}
+            placeholder={auditContextLabel ? "Reason for the correction..." : "e.g. Overtime, client meeting..."}
             className={`w-full border rounded px-3 py-2 bg-[var(--card-bg)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] ${validationErrors.notes ? "border-red-500" : "border-[var(--border)]"}`}
             required
           />
           {auditContextLabel && (
             <p className="mt-1 text-xs text-[var(--muted)]">
-              Manager edit for {auditContextLabel}. Include the correction reason for payroll review.
+              Payroll edit for {auditContextLabel}. Include the reason so the record explains the change.
             </p>
           )}
           {validationErrors.notes && (

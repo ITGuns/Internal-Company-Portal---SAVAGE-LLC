@@ -10,4 +10,3 @@ CREATE TABLE "WorkspaceSetting" (
 
     CONSTRAINT "WorkspaceSetting_pkey" PRIMARY KEY ("key")
 );
-
