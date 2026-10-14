@@ -8,7 +8,7 @@ import {
   refreshAccessToken,
   setCurrentUser as saveCurrentUser,
 } from '@/lib/api';
-import { AUTH_SESSION_CLEARED_EVENT } from '@/lib/auth-session';
+import { AUTH_SESSION_CLEARED_EVENT, shouldTryRefreshSession } from '@/lib/auth-session';
 
 export interface User {
   id: string | number;
@@ -111,7 +111,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
 
       let accessToken = getAuthToken();
-      if (!accessToken) {
+      const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+      // Logged-out visitors have no refresh cookie, so skip a refresh call that can only fail.
+      if (!accessToken && shouldTryRefreshSession(Boolean(storedUser), pathname)) {
         accessToken = await refreshAccessToken();
       }
 
