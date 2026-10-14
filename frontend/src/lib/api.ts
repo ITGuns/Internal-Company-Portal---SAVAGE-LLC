@@ -108,9 +108,12 @@ export const refreshAccessToken = (): Promise<string | null> => {
                     setRefreshToken()
                     return data.accessToken
                 }
-            } else if (res.status === 403) {
+            } else if (res.status === 400 || res.status === 403) {
                 const payload = await res.json().catch(() => null)
                 if (isDeactivatedAccountMessage(getAuthErrorMessage(payload))) rememberDeactivatedLogin()
+                // No cookie (400) or a refused one (403): the session is gone. Drop the stored
+                // user so later page loads stop retrying a refresh that cannot succeed.
+                clearAuthSession()
             }
         } catch (err) {
             console.error('Token refresh failed:', err)

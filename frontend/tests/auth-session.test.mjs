@@ -72,3 +72,15 @@ test('leaves a one-shot deactivated notice for the login page', () => {
   assert.equal(DEACTIVATED_ACCOUNT_MESSAGE, 'This account is deactivated. Contact an administrator.');
   assert.equal(takeLoginNotice(), '', 'the notice is read once');
 });
+
+test('tries the cookie refresh only with a session hint or on the OAuth callback', () => {
+  const { shouldTryRefreshSession } = loadAuthSessionHelpers();
+
+  assert.equal(shouldTryRefreshSession(true, '/dashboard'), true, 'a stored user means a refresh cookie may exist');
+  assert.equal(shouldTryRefreshSession(false, '/login'), false, 'logged-out visitors skip the refresh call');
+  assert.equal(shouldTryRefreshSession(false, '/'), false);
+  assert.equal(shouldTryRefreshSession(false, '/auth/callback'), true, 'OAuth lands here with a cookie and no stored user');
+  assert.equal(shouldTryRefreshSession(false, '/auth/callback/'), true);
+  assert.equal(shouldTryRefreshSession(false, '/auth/callbacks'), false);
+  assert.equal(shouldTryRefreshSession(false, '/auth/sandbox'), false);
+});

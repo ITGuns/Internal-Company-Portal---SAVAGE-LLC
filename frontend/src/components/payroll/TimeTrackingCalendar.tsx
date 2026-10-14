@@ -240,7 +240,7 @@ export default function TimeTrackingCalendar({
           <div className="flex items-center justify-between mb-0.5 flex-shrink-0">
             <span className="text-sm font-medium text-[var(--foreground)]">{day}</span>
             {timeEntry?.hours != null && timeEntry.hours > 0 && (
-              <span className="text-[9px] font-bold text-sky-500 dark:text-sky-400">
+              <span className="text-[11px] font-bold tabular-nums text-sky-600 dark:text-sky-400">
                 {timeEntry.hours.toFixed(1)}h
               </span>
             )}
@@ -258,20 +258,20 @@ export default function TimeTrackingCalendar({
                     {idx > 0 && <div className="border-t border-white/10 my-[1px]" />}
                     {/* Clock In */}
                     <div className="flex items-center bg-emerald-600/90 text-white rounded px-1 py-[1px]">
-                      <span className="text-[8px] leading-tight font-bold tracking-tight">
+                      <span className="text-[11px] leading-tight font-bold tabular-nums">
                         🟢 {inTime}
                       </span>
                     </div>
                     {/* Clock Out or running */}
                     {outTime ? (
                       <div className="flex items-center bg-red-600/90 text-white rounded px-1 py-[1px]">
-                        <span className="text-[8px] leading-tight font-bold tracking-tight">
+                        <span className="text-[11px] leading-tight font-bold tabular-nums">
                           🔴 {outTime}
                         </span>
                       </div>
                     ) : (
                       <div className="flex items-center bg-emerald-500/50 text-white rounded px-1 py-[1px]">
-                        <span className="text-[8px] leading-tight font-semibold animate-pulse">
+                        <span className="text-[11px] leading-tight font-semibold animate-pulse">
                           ● running
                         </span>
                       </div>
@@ -305,7 +305,7 @@ export default function TimeTrackingCalendar({
 
           {/* Task badge */}
           {tasksForDay.length > 0 && (
-            <div className="absolute bottom-1 right-1 flex items-center gap-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-1.5 py-0.5 rounded text-[9px] font-bold shadow">
+            <div className="absolute bottom-1 right-1 flex items-center gap-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-1.5 py-0.5 rounded text-[11px] font-bold shadow">
               <CheckCircle2 className="w-2.5 h-2.5" />
               <span>{tasksForDay.length}</span>
             </div>
@@ -375,27 +375,32 @@ export default function TimeTrackingCalendar({
         </button>
       </div>
 
-      {/* Day labels */}
-      <div className="grid grid-cols-7 gap-x-1 gap-y-0 mb-2">
-        {DAYS_OF_WEEK.map((day) => (
-          <div
-            key={day}
-            className="text-center text-xs font-bold text-[var(--muted)] py-2"
-          >
-            {day}
+      {/* Day cells keep at least 72 px each (fits 1280 px without scrolling); narrower columns scroll sideways instead of squeezing. */}
+      <div className="overflow-x-auto">
+        <div className="min-w-[33rem]">
+          {/* Day labels */}
+          <div className="grid grid-cols-7 gap-x-1 gap-y-0 mb-2">
+            {DAYS_OF_WEEK.map((day) => (
+              <div
+                key={day}
+                className="text-center text-xs font-bold text-[var(--muted)] py-2"
+              >
+                {day}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* Calendar Grid */}
-      <div className="relative">
-        {isFetching && (
-          <div className="absolute inset-0 z-10 bg-[var(--card-bg)]/50 backdrop-blur-[1px] flex items-center justify-center rounded-xl">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+          {/* Calendar Grid */}
+          <div className="relative">
+            {isFetching && (
+              <div className="absolute inset-0 z-10 bg-[var(--card-bg)]/50 backdrop-blur-[1px] flex items-center justify-center rounded-xl">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+              </div>
+            )}
+            <div className="grid grid-cols-7 gap-x-1 gap-y-0.5">
+              {renderCalendar()}
+            </div>
           </div>
-        )}
-        <div className="grid grid-cols-7 gap-x-1 gap-y-0.5">
-          {renderCalendar()}
         </div>
       </div>
 

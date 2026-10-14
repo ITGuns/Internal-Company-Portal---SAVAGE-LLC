@@ -5,6 +5,8 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { APP_CONFIG } from '@/lib/config';
+import { getFallbackListQueryOptions } from '@/lib/realtime-fallback';
 import {
   fetchAnnouncements,
   fetchAnnouncementsPaginated,
@@ -22,12 +24,16 @@ import {
 
 const QUERY_KEY = ['announcements'] as const;
 
+// Without realtime nothing invalidates this list, so refetch on focus and every minute while visible.
+const LIST_REFRESH = getFallbackListQueryOptions(APP_CONFIG.enableRealtime, APP_CONFIG.listPollInterval);
+
 interface UseAnnouncementsOptions {
   enabled?: boolean;
 }
 
 export function useAnnouncements(options: UseAnnouncementsOptions = {}) {
   return useQuery({
+    ...LIST_REFRESH,
     queryKey: QUERY_KEY,
     queryFn: fetchAnnouncements,
     enabled: options.enabled ?? true,
@@ -36,6 +42,7 @@ export function useAnnouncements(options: UseAnnouncementsOptions = {}) {
 
 export function useAnnouncementsPaginated(page: number, limit: number, options: UseAnnouncementsOptions = {}) {
   return useQuery({
+    ...LIST_REFRESH,
     queryKey: [...QUERY_KEY, 'paginated', page, limit],
     queryFn: () => fetchAnnouncementsPaginated(page, limit),
     enabled: options.enabled ?? true,

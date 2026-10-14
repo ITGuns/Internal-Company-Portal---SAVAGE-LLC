@@ -7,6 +7,8 @@ import { apiFetch, getAuthToken } from '@/lib/api'
 import { useUser } from '@/contexts/UserContext'
 import { getQueryClient } from '@/lib/queryClient'
 import { resolveSocketUrl } from '@/lib/socket-url'
+import { getFallbackPollInterval } from '@/lib/realtime-fallback'
+import { useVisiblePolling } from '@/hooks/useVisiblePolling'
 import type { SocketNotificationPayload } from '@/lib/types/api'
 import {
     DEFAULT_NOTIFICATION_PREFERENCES,
@@ -259,49 +261,60 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         if (typeof window !== 'undefined') localStorage.removeItem('notification_read_ids')
     }
 
-    const clearChatBadge = () => setUnreadChatCount(0)
+    // Stable identity: the chat page lists it in effect deps, so a new function per render
+    // (every badge poll) would refetch the open conversation and jump its scroll.
+    const clearChatBadge = useCallback(() => setUnreadChatCount(0), [])
 
 
-    // Fetch historical notifications from REST API on mount
-    useEffect(() => {
-        const loadHistorical = async () => {
-            const hasAuthenticatedSession = !userLoading && Boolean(user) && Boolean(getAuthToken())
+    // Notifications and the chat badge from the REST API: once on sign-in, then on a timer
+    // while realtime is off, because nothing pushes them without a socket.
+    const loadNotifications = useCallback(async () => {
+        const hasAuthenticatedSession = !userLoading && Boolean(user) && Boolean(getAuthToken())
 
-            if (!hasAuthenticatedSession) return
+        if (!hasAuthenticatedSession) return
 
-            try {
-                // Fetch general notifications AND actual unread chat count in parallel
-                const [notifRes, chatRes] = await Promise.all([
-                    apiFetch('/notifications'),
-                    apiFetch('/chat/unread-count')
-                ]);
+        try {
+            // Fetch general notifications AND actual unread chat count in parallel
+            const [notifRes, chatRes] = await Promise.all([
+                apiFetch('/notifications'),
+                apiFetch('/chat/unread-count')
+            ]);
 
-                if (notifRes.ok) {
-                    const data: Notification[] = await notifRes.json()
-                    const readIds = getReadIds()
-                    const shaped = data
-                        .map(n => ({ ...n, read: readIds.has(n.id) }))
-                        .filter(n => shouldShowNotification(n, notificationPreferences))
-                    setNotifications(prev => {
-                        // Merge: keep existing socket ones on top, add historical below without duplicates
-                        const existingIds = new Set(prev.map(n => n.id))
-                        const newOnes = shaped.filter(n => !existingIds.has(n.id))
-                        return [...prev, ...newOnes]
-                    })
-                }
-
-                if (chatRes.ok) {
-                    const chatData = await chatRes.json()
-                    if (chatData.count !== undefined && chatData.count > 0) {
-                        setUnreadChatCount(prev => prev === 0 ? chatData.count : prev)
-                    }
-                }
-            } catch {
-                // Silently ignore — user still gets live socket notifications
+            if (notifRes.ok) {
+                const data: Notification[] = await notifRes.json()
+                const readIds = getReadIds()
+                const shaped = data
+                    .map(n => ({ ...n, read: readIds.has(n.id) }))
+                    .filter(n => shouldShowNotification(n, notificationPreferences))
+                setNotifications(prev => {
+                    // Merge by id so local read state survives; newest first; no re-render when nothing is new.
+                    const existingIds = new Set(prev.map(n => n.id))
+                    const newOnes = shaped.filter(n => !existingIds.has(n.id))
+                    if (newOnes.length === 0) return prev
+                    return [...prev, ...newOnes].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+                })
             }
+
+            if (chatRes.ok) {
+                const chatData = await chatRes.json()
+                if (typeof chatData.count === 'number') {
+                    // Socket events keep a live badge current; without them the server count is the truth.
+                    setUnreadChatCount(prev => (APP_CONFIG.enableRealtime && prev > 0 ? prev : chatData.count))
+                }
+            }
+        } catch {
+            // Ignore: the next poll or socket event brings the bell up to date.
         }
-        loadHistorical()
     }, [notificationPreferences, user, userLoading])
+
+    useEffect(() => {
+        void loadNotifications()
+    }, [loadNotifications])
+
+    useVisiblePolling(
+        loadNotifications,
+        getFallbackPollInterval(APP_CONFIG.enableRealtime, APP_CONFIG.notificationPollInterval),
+    )
 
     // Auto-connect and monitor user changes
     useEffect(() => {

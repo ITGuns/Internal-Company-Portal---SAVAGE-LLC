@@ -5,6 +5,8 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { APP_CONFIG } from '@/lib/config';
+import { getFallbackListQueryOptions } from '@/lib/realtime-fallback';
 import {
   fetchTasks,
   fetchTasksPaginated,
@@ -29,12 +31,16 @@ const TASK_PROJECTS_KEY = ['task-projects'] as const;
 const USERS_KEY = ['users'] as const;
 const DEPARTMENTS_KEY = ['departments'] as const;
 
+// Without realtime nothing invalidates this list, so refetch on focus and every minute while visible.
+const LIST_REFRESH = getFallbackListQueryOptions(APP_CONFIG.enableRealtime, APP_CONFIG.listPollInterval);
+
 interface UseTasksOptions {
   enabled?: boolean;
 }
 
 export function useTasks(departmentId?: string, assigneeId?: number | string, options: UseTasksOptions = {}) {
   return useQuery({
+    ...LIST_REFRESH,
     queryKey: [...TASKS_KEY, departmentId, assigneeId],
     queryFn: () => fetchTasks(departmentId, assigneeId),
     enabled: options.enabled ?? true,
@@ -43,6 +49,7 @@ export function useTasks(departmentId?: string, assigneeId?: number | string, op
 
 export function useTasksPaginated(page: number, limit: number) {
   return useQuery({
+    ...LIST_REFRESH,
     queryKey: [...TASKS_KEY, 'paginated', page, limit],
     queryFn: () => fetchTasksPaginated(page, limit),
     placeholderData: (prev) => prev,

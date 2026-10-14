@@ -6,6 +6,17 @@ export const SESSION_EXPIRED_MESSAGE = 'Session expired. Please log in again.';
 export const DEACTIVATED_ACCOUNT_MESSAGE = 'This account is deactivated. Contact an administrator.';
 const LOGIN_NOTICE_KEY = 'mydeskii:login-notice';
 const DEACTIVATED_NOTICE = 'deactivated';
+// The backend sends successful OAuth sign-ins here (backend/src/auth/oauth.helpers.ts).
+const OAUTH_CALLBACK_PATH = '/auth/callback';
+
+/**
+ * The refresh cookie is httpOnly, so the stored user snapshot (written at login, removed at
+ * logout) is the only sign that one exists. Without it, POST /backend-auth/refresh can only fail.
+ * The OAuth callback is the one page that arrives with a fresh cookie and no snapshot yet.
+ */
+export function shouldTryRefreshSession(hasStoredUser: boolean, pathname: string): boolean {
+  return hasStoredUser || pathname === OAUTH_CALLBACK_PATH || pathname.startsWith(`${OAUTH_CALLBACK_PATH}/`);
+}
 
 type AuthErrorPayload = {
   error?: unknown;

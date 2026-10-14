@@ -23,8 +23,12 @@ export const APP_CONFIG = {
   
   // Polling Intervals (milliseconds)
   userPollInterval: 30000, // 30 seconds
-  notificationPollInterval: 60000, // 60 seconds
-  
+  // Fallback polls, used only while enableRealtime is false (lib/realtime-fallback.ts).
+  notificationPollInterval: 30000, // 30 seconds
+  chatMessagePollInterval: 10000, // 10 seconds, open conversation
+  chatConversationPollInterval: 30000, // 30 seconds, conversation list and unread counts
+  listPollInterval: 60000, // 60 seconds, tasks, announcements and daily logs
+
   // UI Configuration
   maxFileSize: 5 * 1024 * 1024, // 5MB
   maxMessageLength: 2000,

@@ -62,6 +62,20 @@ async function apiDeleteFolder(id: string): Promise<void> {
   if (!res.ok) throw new Error('Failed to delete folder');
 }
 
+// Stored files need the in-memory access token, so a plain link would 401. Fetch the bytes
+// with it and save them through a short-lived blob URL under the file's own name.
+async function apiDownloadFile(uploadId: string, fileName: string): Promise<void> {
+  const res = await apiFetch(`/uploads/files/${encodeURIComponent(uploadId)}`);
+  const url = URL.createObjectURL(await res.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 // ── Build breadcrumbs from folder list ──────────────────────────────────────
 
 function buildBreadcrumbs(allFolders: FileDirectory[], folderId: string | null): FileDirectory[] {
@@ -258,12 +272,20 @@ export default function FileDirectoryPage() {
     saveViewPreference(mode);
   };
 
-  // Navigate into folder
-  const handleFolderClick = (folder: FileDirectory) => {
-    if (folder.type === 'file') {
-      toast.info('File record selected', 'Direct file links are disabled for this workspace.');
-    } else {
+  // Navigate into a folder, or download a file
+  const handleFolderClick = async (folder: FileDirectory) => {
+    if (folder.type !== 'file') {
       setCurrentFolderId(folder.id);
+      return;
+    }
+    if (!folder.uploadId) {
+      toast.error('Nothing to download', 'This entry has no stored file. Upload it again to replace it.');
+      return;
+    }
+    try {
+      await apiDownloadFile(folder.uploadId, folder.name);
+    } catch (err) {
+      toast.error('Download failed', err instanceof Error ? err.message : 'Please try again.');
     }
   };
 

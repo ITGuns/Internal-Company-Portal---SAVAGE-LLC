@@ -19,7 +19,11 @@ import NewChatModal from '@/components/chat/NewChatModal'
 import CreateChannelModal from '@/components/chat/CreateChannelModal'
 import { useToast } from '@/components/ToastProvider'
 import { useEscapeToClose } from '@/hooks/useEscapeToClose'
+import { useVisiblePolling } from '@/hooks/useVisiblePolling'
 import { getChatMessageActionLayout } from '@/lib/chat-message-layout'
+import { mergePolledMessages, replacePendingMessage } from '@/lib/chat-message-merge'
+import { APP_CONFIG } from '@/lib/config'
+import { getFallbackPollInterval } from '@/lib/realtime-fallback'
 
 const QUICK_REACTIONS = ['\u{1F44D}', '\u2705', '\u{1F602}', '\u{1F525}', '\u2764\uFE0F', '\u{1F440}']
 
@@ -271,6 +275,45 @@ export default function UnifiedChatPage() {
         loadMessages()
     }, [selectedId, socket, clearChatBadge, toast])
 
+    // Without realtime nothing pushes chat updates, so poll while the tab is visible.
+    // The ref lets a poll that lands after the user switched views drop its stale result.
+    const pollTargetRef = useRef({ selectedId, conversationView })
+    useEffect(() => {
+        pollTargetRef.current = { selectedId, conversationView }
+    }, [selectedId, conversationView])
+
+    useVisiblePolling(async () => {
+        const conversationId = selectedId
+        if (!conversationId) return
+        try {
+            const incoming = await fetchMessages(conversationId)
+            if (pollTargetRef.current.selectedId !== conversationId) return
+            const shownIds = new Set(messages.map(m => m.id))
+            setMessages(prev => mergePolledMessages(prev, incoming))
+            // Messages from others are now on screen, so keep the server unread count in step.
+            if (incoming.some(m => !shownIds.has(m.id) && String(m.senderId) !== String(currentUser?.id))) {
+                markAsRead(conversationId).catch(() => {/* the next poll tries again */})
+            }
+        } catch {
+            // Ignore: the next poll tries again.
+        }
+    }, getFallbackPollInterval(APP_CONFIG.enableRealtime, APP_CONFIG.chatMessagePollInterval))
+
+    useVisiblePolling(async () => {
+        const view = conversationView
+        try {
+            const convData = await fetchConversations(view)
+            if (pollTargetRef.current.conversationView !== view || !Array.isArray(convData)) return
+            setConversations(convData)
+            // The open conversation is being read, so it never shows an unread badge.
+            setUnreadCounts(Object.fromEntries(convData
+                .filter(c => c.unreadCount && c.id !== pollTargetRef.current.selectedId)
+                .map(c => [c.id, c.unreadCount as number])))
+        } catch {
+            // Ignore: the next poll tries again.
+        }
+    }, getFallbackPollInterval(APP_CONFIG.enableRealtime, APP_CONFIG.chatConversationPollInterval))
+
     useEffect(() => {
         joinedConversationIdsRef.current.clear()
     }, [socket])
@@ -448,8 +491,8 @@ export default function UnifiedChatPage() {
         try {
             setSending(true)
             const result = await sendMessage(selectedId, content, curAttachment || undefined)
-            // Replace temp with real
-            setMessages(prev => prev.map(m => m.id === tempId ? result : m))
+            // Replace temp with real (a poll may already have added it)
+            setMessages(prev => replacePendingMessage(prev, tempId, result))
         } catch (err) {
             console.error("Send failed", err)
             setMessages(prev => prev.filter(m => m.id !== tempId))
