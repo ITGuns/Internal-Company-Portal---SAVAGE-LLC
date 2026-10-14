@@ -225,10 +225,11 @@ Company Chat supports internal direct messages, group/channel conversations, rea
 - The composer includes expandable quick emoji insertion.
 - Messages support stored quick reactions; reaction chips show counts and can be toggled by conversation participants, while quick reaction shortcuts expand from a side action button beside each message bubble.
 - Reactions are broadcast through the same conversation room as message events.
+- When realtime is off (production on Vercel functions without `NEXT_PUBLIC_WS_URL`), the open conversation refetches every 10 seconds and the conversation list with unread counts every 30 seconds while the tab is visible, plus once when the tab becomes visible again. The sidebar shows "Updates every 10 seconds" instead of the connection badge. Polled messages merge by id, so nothing shows twice.
 
 ## Notifications
 
-Notifications combine REST-derived history with live Socket.io events.
+Notifications combine REST-derived history with live Socket.io events. Without realtime the bell and the chat badge poll every 30 seconds while the tab is visible. Task, announcement and daily log lists then refetch every 60 seconds and on tab focus instead of waiting for `data:changed`.
 
 - The header notification drawer supports marking individual notifications read, marking all read, clearing local notifications, and following notification links.
 - Read notification IDs remain locally persisted in the browser.

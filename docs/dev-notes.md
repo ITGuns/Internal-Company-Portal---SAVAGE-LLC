@@ -1,5 +1,28 @@
 # Development Notes
 
+## 2026-10-14 - Polling fallback and form polish (feat-polling-and-polish)
+
+### Completed
+- Realtime off (production): `useVisiblePolling` (`frontend/src/hooks/useVisiblePolling.ts`) polls only while the tab is visible and once more when it becomes visible. Chat refetches the open conversation every 10 s and the conversation list with unread counts every 30 s; the bell and chat badge poll every 30 s from `SocketContext`. Intervals live in `APP_CONFIG` (`frontend/src/lib/config.ts`). Tasks, announcements and daily-log list queries add `refetchOnWindowFocus` and a 60 s `refetchInterval` (`getFallbackListQueryOptions`). With realtime on nothing changes.
+- Polled messages merge by id (`frontend/src/lib/chat-message-merge.ts`): the server copy wins inside the polled page, older messages stay, optimistic `temp-` messages stay until their saved copy arrives, and an unchanged poll returns the same array so the view does not scroll. The send path uses `replacePendingMessage` so a poll that lands first cannot duplicate the sent message.
+- `clearChatBadge` is now a stable callback. It was a new function on every SocketProvider render, so each badge poll re-ran the chat page's load effect (extra fetches, scroll jump).
+- Logged-out pages no longer call POST /backend-auth/refresh: `shouldTryRefreshSession` needs the stored user snapshot or the `/auth/callback` path (OAuth lands there with a cookie and no snapshot). A 400 or 403 from refresh clears the snapshot, so a dead session tries once, not on every load.
+- Task form: required legend, ETOC spelled out with an HH:MM helper, "Select a person" placeholder, inline errors from `validateTaskForm` (`frontend/src/lib/task-form.ts`) after the first submit, focus on the first invalid field. Daily log: "Add at least one task line" by the submit, server error shown inline.
+- Payslips tab calendar: 11 px floor for hours, session times and task badges; the grid keeps a 33rem minimum (about 72 px per day) and scrolls sideways below that. At 1280 px it fits without scrolling and the profile panel sits under the calendar. Edit payslip summary shows the pay basis; the payslip PDF lists earning lines by type (Regular hours and so on) plus the pay basis instead of "Gross Earnings / Base Salary".
+- File directory: files download through GET /api/uploads/files/:id with the access token (blob URL, original file name). The "Direct file links are disabled" message was a hard-coded toast, not a workspace setting.
+
+### Decisions Made
+- The chat badge follows the server unread count when realtime is off; with realtime on the old "keep the live count" rule stays.
+- Without realtime, the open conversation is marked read when a poll brings in messages from others, so unread counts and the bell stay right.
+
+### How to Test
+- `node --test tests/realtime-fallback.test.mjs tests/chat-message-merge.test.mjs tests/task-form.test.mjs tests/auth-session.test.mjs tests/payslip-utils.test.mjs` from `frontend/`.
+- Production build plus a mocked-API Playwright click-through covered chat polling (10 s cadence, pause while hidden, no duplicates on a slow send), bell polling, task form errors, daily log errors, payslips at 1280 and 1024, the PDF text, file download, logged-out refresh and the OAuth callback.
+
+### Next Steps
+- The calendar header "Monthly Earnings Estimate" still shows the base salary for every pay basis; hourly-rate staff need a rate-based estimate (product call).
+- Polled notifications do not raise browser alerts; only socket notifications do.
+
 ## 2026-10-14 production recovery, onboarding proof and ops hardening
 
 - Root cause of the payroll v2 outage: the production database never received
