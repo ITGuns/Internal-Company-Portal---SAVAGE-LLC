@@ -75,7 +75,9 @@ const FULL_ACCESS_ROLES = new Set([
   'overlord',
 ])
 
-const MANAGEMENT_ACCESS_ROLES = new Set([
+// Exported read-only so route-level role lists (payroll.permissions.ts) derive
+// from the same source and cannot drift.
+export const MANAGEMENT_ACCESS_ROLES: ReadonlySet<string> = new Set([
   ...FULL_ACCESS_ROLES,
   'manager',
   'project_manager',
@@ -83,7 +85,7 @@ const MANAGEMENT_ACCESS_ROLES = new Set([
   'chief_operations_officer',
 ])
 
-const PAYROLL_MANAGEMENT_ROLES = new Set([
+export const PAYROLL_MANAGEMENT_ROLES: ReadonlySet<string> = new Set([
   ...FULL_ACCESS_ROLES,
   'operations_manager',
   'bookkeeper',
@@ -127,7 +129,7 @@ export const CLIENT_DIRECTORY_ONLY_ROLES = new Set([
 
 function hasAccessRole(
   roles: OrgRoleLike[] = [],
-  allowedRoles: Set<string>,
+  allowedRoles: ReadonlySet<string>,
   isConfiguredAdminEmail = false,
 ): boolean {
   if (isConfiguredAdminEmail) return true

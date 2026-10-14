@@ -1,7 +1,9 @@
 import {
   hasManagementAccess as hasOrgManagementAccess,
   hasPayrollManagementAccess as hasOrgPayrollManagementAccess,
+  MANAGEMENT_ACCESS_ROLES,
   normalizeOrgRoleName,
+  PAYROLL_MANAGEMENT_ROLES,
 } from '../org/org-access-policy'
 
 export interface RoleLike {
@@ -76,25 +78,15 @@ export function canReviewTimeRequests(
     || hasOrgPayrollManagementAccess(roles, isConfiguredAdminEmail)
 }
 
-/** Route-level role list for requireRole on payroll-management routes. */
-export const PAYROLL_MANAGEMENT_ROUTE_ROLES: readonly string[] = [
-  'admin',
-  'administrator',
-  'operations_manager',
-  'bookkeeper',
-  'bookkeeping',
-  'contractor_salary_payments',
-  'financial_controller',
-  'payroll_assistant',
-  'payroll_finance',
-]
+/**
+ * Route-level role list for requireRole on payroll-management routes. Derived
+ * from org-access-policy so it cannot drift from hasPayrollManagementAccess.
+ */
+export const PAYROLL_MANAGEMENT_ROUTE_ROLES: readonly string[] = [...PAYROLL_MANAGEMENT_ROLES]
 
 /** Route-level role list for requireRole on time-review routes (management or payroll). */
 export const TIME_REVIEW_ROUTE_ROLES: readonly string[] = [
-  ...PAYROLL_MANAGEMENT_ROUTE_ROLES,
-  'manager',
-  'project_manager',
-  'chief_operations_officer',
+  ...new Set([...PAYROLL_MANAGEMENT_ROLES, ...MANAGEMENT_ACCESS_ROLES]),
 ]
 
 export function canAccessPayrollTarget(access: PayrollAccess, targetUserId: string): boolean {

@@ -2,10 +2,13 @@ import assert from 'node:assert/strict'
 import { PayrollController } from '../src/payroll/payroll.controller'
 import {
   canAccessPayrollTarget,
+  canReviewTimeRequests,
   filterPayrollProfileUpdate,
   getProtectedPayrollProfileFields,
   hasPayrollManagementAccess,
   normalizePayrollRoleName,
+  PAYROLL_MANAGEMENT_ROUTE_ROLES,
+  TIME_REVIEW_ROUTE_ROLES,
 } from '../src/payroll/payroll.permissions'
 
 assert.equal(normalizePayrollRoleName('Operations Manager'), 'operations_manager')
@@ -104,5 +107,21 @@ assert.deepEqual(
     rejectedFields: ['baseSalary', 'bankAccount', 'taxId', 'payrollScheme', 'maxBillableHoursPerDay'],
   },
 )
+
+// Route-level role lists derive from org-access-policy, so they match the helpers exactly.
+for (const role of PAYROLL_MANAGEMENT_ROUTE_ROLES) {
+  assert.equal(hasPayrollManagementAccess([{ role }]), true, `${role} is payroll management`)
+}
+for (const role of TIME_REVIEW_ROUTE_ROLES) {
+  assert.equal(canReviewTimeRequests([{ role }]), true, `${role} reviews time`)
+}
+for (const role of ['bookkeeping', 'payroll_finance', 'operations_manager', 'owner_founder']) {
+  assert.ok(PAYROLL_MANAGEMENT_ROUTE_ROLES.includes(role), `${role} passes payroll route guards`)
+}
+assert.ok(!PAYROLL_MANAGEMENT_ROUTE_ROLES.includes('project_manager'), 'plain managers are not payroll')
+for (const role of ['project_manager', 'manager', 'chief_operations_officer', 'bookkeeping']) {
+  assert.ok(TIME_REVIEW_ROUTE_ROLES.includes(role), `${role} passes time-review route guards`)
+}
+assert.equal(new Set(TIME_REVIEW_ROUTE_ROLES).size, TIME_REVIEW_ROUTE_ROLES.length, 'no duplicate roles')
 
 console.log('payroll.permissions tests passed')
