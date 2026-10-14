@@ -14,11 +14,12 @@ export const APP_CONFIG = {
   
   // Feature Flags
   enableDebug: process.env.NEXT_PUBLIC_ENABLE_DEBUG === 'true',
-  enableRealtime: process.env.NEXT_PUBLIC_ENABLE_REALTIME === 'true'
-    || (
-      process.env.NEXT_PUBLIC_ENABLE_REALTIME !== 'false'
-      && (process.env.NODE_ENV !== 'production' || Boolean(process.env.NEXT_PUBLIC_WS_URL))
-    ),
+  // Realtime needs a socket host that can hold a connection. In production
+  // that means NEXT_PUBLIC_WS_URL must be set; the flag alone cannot turn it
+  // on, because the Vercel functions behind /api cannot serve Socket.io.
+  enableRealtime:
+    process.env.NEXT_PUBLIC_ENABLE_REALTIME !== 'false'
+    && (process.env.NODE_ENV !== 'production' || Boolean(process.env.NEXT_PUBLIC_WS_URL)),
   
   // Polling Intervals (milliseconds)
   userPollInterval: 30000, // 30 seconds
