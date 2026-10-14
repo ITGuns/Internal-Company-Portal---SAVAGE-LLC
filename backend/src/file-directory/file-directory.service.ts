@@ -1,4 +1,6 @@
 import { prisma } from '../database/prisma.service'
+import { UploadsService } from '../uploads/uploads.service'
+import { createUploadStorage } from '../uploads/upload.storage'
 
 export class FileDirectoryService {
 
@@ -91,8 +93,27 @@ export class FileDirectoryService {
     }
 
     async delete(id: string) {
-        // Cascade deletes children via DB relation
-        return prisma.fileFolder.delete({ where: { id } })
+        // Collect every upload under this entry (the entry itself and all descendants)
+        // before the row cascade removes the links, then delete the stored objects.
+        const uploadIds = await this.collectUploadIds(id)
+        const deleted = await prisma.fileFolder.delete({ where: { id } })
+        if (uploadIds.length > 0) {
+            const uploads = new UploadsService(createUploadStorage())
+            await Promise.all(uploadIds.map((uploadId) => uploads.deleteUpload(uploadId).catch(() => false)))
+        }
+        return deleted
+    }
+
+    private async collectUploadIds(rootId: string): Promise<string[]> {
+        const rows = await prisma.$queryRaw<Array<{ uploadId: string | null }>>`
+            WITH RECURSIVE tree AS (
+                SELECT id, "uploadId" FROM "FileFolder" WHERE id = ${rootId}
+                UNION ALL
+                SELECT f.id, f."uploadId" FROM "FileFolder" f JOIN tree t ON f."parentId" = t.id
+            )
+            SELECT "uploadId" FROM tree WHERE "uploadId" IS NOT NULL
+        `
+        return rows.map((row) => row.uploadId).filter((value): value is string => Boolean(value))
     }
 
     async findById(id: string) {

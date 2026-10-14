@@ -35,6 +35,15 @@ export class UploadsService {
         }
     }
 
+    /** Remove the stored object and its row. Missing rows or objects are not errors. */
+    async deleteUpload(uploadId: string): Promise<boolean> {
+        const upload = await this.db.storedUpload.findUnique({ where: { id: uploadId }, select: { id: true, objectKey: true } })
+        if (!upload) return false
+        await this.storage.delete(upload.objectKey).catch(() => undefined)
+        await this.db.storedUpload.delete({ where: { id: upload.id } }).catch(() => undefined)
+        return true
+    }
+
     async readForUser(uploadId: string, requesterId: string, requesterEmail: string) {
         const [upload, roles, memberships] = await Promise.all([
             this.db.storedUpload.findUnique({

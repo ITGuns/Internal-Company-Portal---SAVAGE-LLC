@@ -26,6 +26,7 @@ import {
 import { getTimeAgo } from '@/lib/announcements'
 import { useRouter } from 'next/navigation'
 import { useSocket } from '@/context/SocketContext'
+import { APP_CONFIG } from '@/lib/config'
 import { fetchConversations, fetchMessages, sendMessage, type Message, type Conversation } from '@/lib/chat'
 import TimeClock from '@/components/TimeClock'
 import DashboardQuickActions from '@/components/dashboard/DashboardQuickActions'
@@ -482,10 +483,12 @@ export default function DashboardPage() {
               <Card.Header>
                 <div className="flex items-center justify-between w-full">
                   <h3 className="font-semibold text-sm">Company Chat</h3>
-                  <div className="flex items-center gap-2">
-                    <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-[var(--status-completed)]' : 'bg-[var(--status-blocked)]'}`} aria-hidden="true"></span>
-                    <span className="text-[10px] text-[var(--muted)]">{!isConnected ? 'Disconnected' : onlineCount > 0 ? `${onlineCount} online` : 'Active'}</span>
-                  </div>
+                  {APP_CONFIG.enableRealtime && (
+                    <div className="flex items-center gap-2">
+                      <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-[var(--status-completed)]' : 'bg-[var(--status-blocked)]'}`} aria-hidden="true"></span>
+                      <span className="text-[10px] text-[var(--muted)]">{!isConnected ? 'Disconnected' : onlineCount > 0 ? `${onlineCount} online` : 'Active'}</span>
+                    </div>
+                  )}
                 </div>
               </Card.Header>
 

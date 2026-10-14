@@ -1,6 +1,7 @@
 "use client"
 
 import React from 'react'
+import { APP_CONFIG } from '@/lib/config'
 import Image from 'next/image'
 import { Archive, ArchiveRestore, Hash, Users, Plus } from 'lucide-react'
 import type { Conversation } from '@/lib/chat'
@@ -79,12 +80,14 @@ export default function ChatSidebar({
                 <div className="flex items-center justify-between mb-2">
                     <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] flex items-center gap-2">
                         <Hash className="w-3.5 h-3.5" aria-hidden="true" /> Channels
-                        <span className="inline-flex items-center gap-1.5">
-                            <span className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} aria-hidden="true" />
-                            <span className={`text-[10px] font-semibold ${isConnected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                {isConnected ? 'Connected' : 'Disconnected'}
+                        {APP_CONFIG.enableRealtime && (
+                            <span className="inline-flex items-center gap-1.5">
+                                <span className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} aria-hidden="true" />
+                                <span className={`text-[10px] font-semibold ${isConnected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                    {isConnected ? 'Connected' : 'Disconnected'}
+                                </span>
                             </span>
-                        </span>
+                        )}
                     </h2>
                     <button
                         type="button"
