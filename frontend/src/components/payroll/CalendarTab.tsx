@@ -20,6 +20,7 @@ import {
   LockKeyhole,
   PenLine,
   FilePlus2,
+  History,
 } from "lucide-react";
 import AddTimeEntryModal from "./AddTimeEntryModal";
 import AdjustmentRequestModal from "./AdjustmentRequestModal";
@@ -55,11 +56,16 @@ interface CalendarTabProps {
   onClockIn: () => void;
   onClockOut: () => void;
   onAddManualEntry: () => void;
+  /** Payroll roles only: opens the backfill dialog. The button is hidden when omitted. */
+  onBackfillHours?: () => void;
   onEditTimeEntry: (id: string, startIso: string, endIso?: string, notes?: string, userId?: string) => Promise<boolean>;
   onDeleteTimeEntry: (id: string) => Promise<void> | void;
   isOwnTimeView?: boolean;
   auditEmployeeLabel?: string;
-  /** False for employees: no direct edits, corrections and overtime go through requests. */
+  /**
+   * Payroll roles only. Without it, your own time shows request controls
+   * (corrections, overtime) and someone else's time is read-only.
+   */
   canEditEntries?: boolean;
   /** Daily billable cap in hours for the person whose time is shown. */
   capHours?: number;
@@ -101,6 +107,7 @@ export default function CalendarTab({
   onClockIn,
   onClockOut,
   onAddManualEntry,
+  onBackfillHours,
   onEditTimeEntry,
   onDeleteTimeEntry,
   isOwnTimeView = true,
@@ -367,15 +374,27 @@ export default function CalendarTab({
                 </div>
               )}
               {canEditEntries ? (
-                <button
-                  type="button"
-                  onClick={onAddManualEntry}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm font-medium transition-colors hover:bg-[var(--card-surface)]"
-                >
-                  <Plus className="w-4 h-4" aria-hidden="true" />
-                  Manual
-                </button>
-              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={onAddManualEntry}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm font-medium transition-colors hover:bg-[var(--card-surface)]"
+                  >
+                    <Plus className="w-4 h-4" aria-hidden="true" />
+                    Manual
+                  </button>
+                  {onBackfillHours && (
+                    <button
+                      type="button"
+                      onClick={onBackfillHours}
+                      className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm font-medium transition-colors hover:bg-[var(--card-surface)]"
+                    >
+                      <History className="w-4 h-4" aria-hidden="true" />
+                      Backfill hours
+                    </button>
+                  )}
+                </>
+              ) : isOwnTimeView && (
                 <button
                   type="button"
                   onClick={() => setCorrectionRequest({ entry: null, date: today })}
@@ -456,15 +475,17 @@ export default function CalendarTab({
                             : "-"}
                       </span>
                       {!canEditEntries ? (
-                        <button
-                          type="button"
-                          aria-label="Request a correction for this entry"
-                          title="Request a correction"
-                          onClick={() => setCorrectionRequest({ entry: e, date: null })}
-                          className="inline-flex min-h-8 min-w-8 items-center justify-center rounded border border-transparent bg-transparent p-1.5 text-[var(--muted)] transition-colors hover:bg-sky-600 hover:text-white"
-                        >
-                          <PenLine className="h-3.5 w-3.5" aria-hidden="true" />
-                        </button>
+                        isOwnTimeView && (
+                          <button
+                            type="button"
+                            aria-label="Request a correction for this entry"
+                            title="Request a correction"
+                            onClick={() => setCorrectionRequest({ entry: e, date: null })}
+                            className="inline-flex min-h-8 min-w-8 items-center justify-center rounded border border-transparent bg-transparent p-1.5 text-[var(--muted)] transition-colors hover:bg-sky-600 hover:text-white"
+                          >
+                            <PenLine className="h-3.5 w-3.5" aria-hidden="true" />
+                          </button>
+                        )
                       ) : (
                       <>
                       <button
@@ -504,10 +525,11 @@ export default function CalendarTab({
             onRequestEditEntry={setEditingEntry}
             onRequestDeleteEntry={setDeleteTarget}
             canEditEntries={canEditEntries}
-            onRequestCorrection={(entry) => setCorrectionRequest({ entry, date: null })}
-            onReportMissingEntry={(date) => setCorrectionRequest({ entry: null, date })}
+            // Requests are always for your own time; someone else's time is read-only without edit rights.
+            onRequestCorrection={isOwnTimeView ? (entry) => setCorrectionRequest({ entry, date: null }) : undefined}
+            onReportMissingEntry={isOwnTimeView ? (date) => setCorrectionRequest({ entry: null, date }) : undefined}
             overtimeHours={selectedDayOvertimeHours}
-            onRequestOvertime={setOvertimeDate}
+            onRequestOvertime={isOwnTimeView ? setOvertimeDate : undefined}
             capHours={capHours}
             dayOvertimeRequests={selectedDayRequests.overtime}
             dayCorrectionRequests={selectedDayRequests.corrections}

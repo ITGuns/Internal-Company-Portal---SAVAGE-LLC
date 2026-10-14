@@ -5,6 +5,7 @@
 import { apiFetch } from './api';
 import { singleFlight } from './single-flight';
 import type { ApiTimeEntry } from './types/api';
+import type { BackfillResult, buildBackfillPayload } from './backfill-hours';
 
 export type TimeEntry = {
   id: string;
@@ -177,6 +178,19 @@ export async function deleteTimeEntry(id: string): Promise<boolean> {
     console.error('Delete entry failed:', error);
     return false;
   }
+}
+
+/**
+ * Backfill hours for past days (payroll roles only). With dryRun the server
+ * answers the same shape without writing. Throws with the server's message on
+ * any non-2xx response (apiFetch).
+ */
+export async function backfillHours(payload: ReturnType<typeof buildBackfillPayload>): Promise<BackfillResult> {
+  const res = await apiFetch('/payroll/entries/backfill', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return res.json();
 }
 
 /**

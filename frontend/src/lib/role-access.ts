@@ -86,7 +86,8 @@ export function hasPayrollManagementAccess(user?: RoleAccessUser | null): boolea
 }
 
 // Mirrors backend canReviewTimeRequests: management or payroll roles review
-// overtime and time-entry correction requests and edit time entries directly.
+// overtime and time-entry correction requests. Editing time entries directly
+// (manual entry, backfill, edit, delete) needs hasPayrollManagementAccess.
 export function canReviewTimeRequests(user?: RoleAccessUser | null): boolean {
   return hasManagementAccess(user) || hasPayrollManagementAccess(user);
 }

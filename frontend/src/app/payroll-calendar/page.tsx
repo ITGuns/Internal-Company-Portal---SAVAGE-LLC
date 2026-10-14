@@ -42,6 +42,7 @@ import { countPending, DEFAULT_BILLABLE_CAP_HOURS } from "@/lib/time-requests";
 // Lazy-loaded heavy components (CalendarTab has FullCalendar, modals are only shown on interaction)
 const CalendarTab = dynamic(() => import("@/components/payroll/CalendarTab"), { ssr: false });
 const AddTimeEntryModal = dynamic(() => import("@/components/payroll/AddTimeEntryModal"), { ssr: false });
+const BackfillHoursModal = dynamic(() => import("@/components/payroll/BackfillHoursModal"), { ssr: false });
 const AddEventModal = dynamic(() => import("@/components/payroll/AddEventModal"), { ssr: false });
 const ApprovalsTab = dynamic(() => import("@/components/payroll/ApprovalsTab"), { ssr: false });
 const MyTimeRequests = dynamic(() => import("@/components/payroll/MyTimeRequests"), { ssr: false });
@@ -55,6 +56,7 @@ function PayrollCalendarContent() {
   const [activeTab, setActiveTab] = useState<PayrollTab>("calendar");
   const [employeeOverviewView, setEmployeeOverviewView] = useState<EmployeeOverviewView>("deployed");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showBackfillModal, setShowBackfillModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
   const [payrollUsers, setPayrollUsers] = useState<TaskUser[]>([]);
   const [isLoadingPayrollUsers, setIsLoadingPayrollUsers] = useState(false);
@@ -70,20 +72,20 @@ function PayrollCalendarContent() {
     description?: string;
   } | null>(null);
 
-  // RBAC: Check if user has management access
+  // RBAC: payroll-management access (the backend's isPrivileged).
   const hasManagementAccess = getHasManagementAccess(user);
-  // Management or payroll roles edit time directly and review requests; everyone else files requests.
+  // Management or payroll roles review requests; only payroll roles edit time directly.
   const canReview = canReviewTimeRequests(user);
   const currentUserId = user?.id != null ? String(user.id) : undefined;
   const [pendingApprovals, setPendingApprovals] = useState(0);
   const [ownCapHours, setOwnCapHours] = useState(DEFAULT_BILLABLE_CAP_HOURS);
-  // Any reviewer may pick a person: non-payroll reviewers can only edit other people's time.
+  // Any reviewer may pick a person to audit; only payroll roles can change what they see.
   const targetUserId = canReview && selectedAuditUserId ? selectedAuditUserId : undefined;
   const selectedPayrollUser = payrollUsers.find((payrollUser) => String(payrollUser.id) === targetUserId);
   const auditEmployeeLabel = selectedPayrollUser?.name || selectedPayrollUser?.email || "selected employee";
   const isOwnTimeView = !targetUserId || targetUserId === currentUserId;
-  // Self-review rule: only payroll roles edit their own entries; everyone else files a request.
-  const canEditVisibleEntries = canReview && (hasManagementAccess || !isOwnTimeView);
+  // Manual entry, backfill, edit and delete are payroll roles only (POST/PATCH/DELETE /payroll/entry).
+  const canEditVisibleEntries = hasManagementAccess;
   // Requests of the person whose time is shown (employees always get their own rows).
   const shownUserId = targetUserId ?? currentUserId;
   const timeRequests = useTimeRequests(canReview ? shownUserId : undefined, Boolean(currentUserId));
@@ -106,6 +108,7 @@ function PayrollCalendarContent() {
     addCustomEvent,
     updateCustomEvent,
     deleteCustomEvent,
+    loadData: reloadPayrollData,
   } = usePayrollData(targetUserId, timeEntryRange.startIso, timeEntryRange.endIso);
 
   const {
@@ -502,6 +505,7 @@ function PayrollCalendarContent() {
                 onClockIn={handleClockInClick}
                 onClockOut={handleClockOutClick}
                 onAddManualEntry={() => setShowAddModal(true)}
+                onBackfillHours={hasManagementAccess ? () => setShowBackfillModal(true) : undefined}
                 onEditTimeEntry={handleEditManualEntry}
                 onDeleteTimeEntry={handleDeleteTimeEntry}
                 isOwnTimeView={isOwnTimeView}
@@ -543,6 +547,16 @@ function PayrollCalendarContent() {
         initialUserId={targetUserId}
         auditContextLabel={!isOwnTimeView ? auditEmployeeLabel : undefined}
       />
+      {hasManagementAccess && (
+        <BackfillHoursModal
+          isOpen={showBackfillModal}
+          onClose={() => setShowBackfillModal(false)}
+          people={payrollUsers}
+          loadingPeople={isLoadingPayrollUsers}
+          initialUserId={targetUserId}
+          onCreated={() => void reloadPayrollData()}
+        />
+      )}
       <AddEventModal
         isOpen={showEventModal}
         onClose={() => {
