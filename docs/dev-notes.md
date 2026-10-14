@@ -1,5 +1,38 @@
 # Development Notes
 
+## 2026-10-14 production recovery, onboarding proof and ops hardening
+
+- Root cause of the payroll v2 outage: the production database never received
+  migration 202610080001. Vercel ignores `buildCommand` when `vercel.json` uses
+  the legacy `builds` array, so the build-time migrate step never ran. The
+  migration was applied by hand in the Supabase SQL editor (with its
+  `_prisma_migrations` row) and the release re-landed. Migrations now run from
+  `.github/workflows/migrate-production.yml` (needs the
+  `PRODUCTION_DIRECT_DATABASE_URL` repository secret).
+- Supabase project "savage temp" had been paused (free plan). Resumed; the
+  control panel now probes `/health` (which returns `ok`) every five minutes.
+- Production env added on Vercel: `CRON_SECRET`, `PAYROLL_TIMEZONE`,
+  `UPLOAD_STORAGE_DRIVER=s3` with the Supabase Storage S3 endpoint, bucket
+  `deskii-uploads` and access keys. Uploads previously went to the function's
+  temporary disk and vanished within minutes. Functions pinned to `syd1`.
+- Data cleanup: nine test client organisations and eighteen demo and test
+  accounts removed; two employees added by hand with bcrypt password hashes.
+- Live QA found and this session fixed: clock-out double submit (idempotent
+  clock-out plus single-flight on the client), duplicate chat channel on slow
+  create, profile unsavable without optional fields, daily-log hours prefill,
+  task pending state, Disconnected badge when realtime is off, stored files
+  not deleted with their directory entry, Payroll Calendar missing from the
+  employee sidebar, Add Event shown to employees, deactivated sign-out without
+  a message, `?tab=` not re-read on in-page navigation, email prefill after
+  setup.
+- Onboarding proven end to end on production with a throwaway employee:
+  invite link, setup, first sign-in, clock in and out, pay setup, deactivate,
+  hard delete.
+- Known gaps left: realtime cannot work on Vercel functions (chat updates on
+  reload only); email is not configured (setup links are shared by hand); the
+  Render backend is frozen on old code; the free Supabase plan has no backups
+  and pauses after seven idle days.
+
 ## 2026-10-14 - Production QA fixes (reland-payroll-v2)
 
 ### Completed
