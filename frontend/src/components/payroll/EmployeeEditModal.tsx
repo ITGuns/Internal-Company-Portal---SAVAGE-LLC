@@ -302,6 +302,9 @@ export default function EmployeeEditModal({
                 required
               />
             </div>
+            <p className="mt-1.5 text-xs text-[var(--muted)]">
+              Pay basis, hourly rate and overtime multiplier are in Payslips Management &gt; Set Up Payroll.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

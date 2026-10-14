@@ -39,7 +39,6 @@ import {
   hasClientWorkspaceShellAccess,
   hasFullAccess,
   hasManagementAccess,
-  hasPayrollManagementAccess,
   isFreeTierUser,
 } from '@/lib/role-access';
 import { cn } from '@/lib/utils';
@@ -162,7 +161,6 @@ export default function Sidebar() {
   const canUseFullAccessAdmin = hasFullAccess(user);
   const canAccessClientOperations = useMemo(() => hasClientOperationsAccess(user), [user]);
   const canUseOperationsAdmin = useMemo(() => hasManagementAccess(user), [user]);
-  const canUsePayrollManagement = useMemo(() => hasPayrollManagementAccess(user), [user]);
   const hasRoleBasedClientPortalAccess = useMemo(() => hasClientPortalAccess(user), [user]);
   const isFreeTier = useMemo(() => isFreeTierUser(user), [user]);
   const usesClientShell = useMemo(
@@ -258,7 +256,8 @@ export default function Sidebar() {
     { href: '/dashboard', icon: Home, label: 'Dashboard' },
     { href: '/task-tracking', icon: Grid, label: 'Task Tracking' },
     { href: '/daily-logs', icon: Users, label: 'Daily Logs' },
-    ...(canUsePayrollManagement ? [{ href: '/payroll-calendar', icon: CalendarDays, label: 'Payroll Calendar' }] : []),
+    // Every internal account files time and correction requests here; management tabs stay gated inside the page.
+    { href: '/payroll-calendar', icon: CalendarDays, label: 'Payroll Calendar' },
     { href: '/my-payslips', icon: DollarSign, label: 'My Payslips' },
   ];
 

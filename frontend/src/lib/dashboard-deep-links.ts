@@ -12,8 +12,8 @@ export const DASHBOARD_DEEP_LINKS = {
   announcements: "/announcements",
 } as const;
 
-const MANAGEMENT_PAYROLL_TABS = new Set<PayrollTab>(["employees", "payslips", "reports"]);
-const PAYROLL_TABS = new Set<PayrollTab>(["calendar", "approvals", "employees", "payslips", "reports"]);
+const MANAGEMENT_PAYROLL_TABS = new Set<PayrollTab>(["employees", "payslips", "reports", "scheduler"]);
+const PAYROLL_TABS = new Set<PayrollTab>(["calendar", "approvals", ...MANAGEMENT_PAYROLL_TABS]);
 
 export function shouldOpenCreateFromSearch(searchParams: URLSearchParams) {
   return searchParams.get("new") === "1";

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Button from "@/components/Button";
 import { PayrollCalendarBodySkeleton } from "@/components/ui/FeatureSkeletons";
@@ -45,8 +46,10 @@ const AddEventModal = dynamic(() => import("@/components/payroll/AddEventModal")
 const ApprovalsTab = dynamic(() => import("@/components/payroll/ApprovalsTab"), { ssr: false });
 const MyTimeRequests = dynamic(() => import("@/components/payroll/MyTimeRequests"), { ssr: false });
 
-export default function PayrollCalendarPage() {
+function PayrollCalendarContent() {
   const { user } = useUser();
+  // Primitive dep: a same-route push (global search, deep links) must re-apply ?tab= without a remount.
+  const search = useSearchParams().toString();
   const toast = useToast();
   const showErrorToast = toast.error;
   const [activeTab, setActiveTab] = useState<PayrollTab>("calendar");
@@ -112,9 +115,7 @@ export default function PayrollCalendarPage() {
   } = useCalendarEvents(timeEntries, customEvents);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const searchParams = new URLSearchParams(window.location.search);
+    const searchParams = new URLSearchParams(search);
     if (searchParams.has("tab")) {
       setActiveTab(getPayrollTabFromSearch(searchParams, hasManagementAccess, canReview));
     }
@@ -131,7 +132,7 @@ export default function PayrollCalendarPage() {
     setSelectedAuditUserId(searchParams.has("userId") && auditTarget.targetUserId ? auditTarget.targetUserId : "");
     setAuditStartDate(auditRange.startDate);
     setAuditEndDate(auditRange.endDate);
-  }, [currentUserId, hasManagementAccess, canReview]);
+  }, [search, currentUserId, hasManagementAccess, canReview]);
 
   const refreshPendingApprovals = useCallback(async () => {
     try {
@@ -456,7 +457,8 @@ export default function PayrollCalendarPage() {
                 </Button>
               </>
             )}
-            {activeTab === "calendar" && (
+            {/* POST /payroll/events is guarded by PAYROLL_MANAGEMENT_ROUTE_ROLES on the backend. */}
+            {hasManagementAccess && activeTab === "calendar" && (
               <Button
                 variant="primary"
                 size="md"
@@ -551,5 +553,13 @@ export default function PayrollCalendarPage() {
         onSubmit={handleEventSubmit}
       />
     </main>
+  );
+}
+
+export default function PayrollCalendarPage() {
+  return (
+    <Suspense fallback={null}>
+      <PayrollCalendarContent />
+    </Suspense>
   );
 }

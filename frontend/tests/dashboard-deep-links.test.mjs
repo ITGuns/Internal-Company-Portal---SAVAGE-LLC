@@ -59,6 +59,10 @@ test('resolves payroll tab deep links with management guardrails', () => {
   assert.equal(getPayrollTabFromSearch(new URLSearchParams('tab=employees'), true), 'employees');
   assert.equal(getPayrollTabFromSearch(new URLSearchParams('tab=employees'), false), 'calendar');
   assert.equal(getPayrollTabFromSearch(new URLSearchParams('tab=unknown'), true), 'calendar');
+  for (const tab of ['payslips', 'reports', 'scheduler']) {
+    assert.equal(getPayrollTabFromSearch(new URLSearchParams(`tab=${tab}`), true), tab);
+    assert.equal(getPayrollTabFromSearch(new URLSearchParams(`tab=${tab}`), false, true), 'calendar');
+  }
   assert.equal(getEmployeeOverviewViewFromSearch(new URLSearchParams('view=pending')), 'pending');
   assert.equal(getEmployeeOverviewViewFromSearch(new URLSearchParams('view=anything')), 'deployed');
 });
