@@ -19,6 +19,7 @@ import {
 } from "@/lib/payslip-edit";
 import { formatCurrency, formatPayPeriod } from "@/lib/payroll-calendar/payslip-utils";
 import type { Payslip } from "@/lib/payroll-calendar/types";
+import { getPayBasisLabel } from "@/lib/pay-basis";
 import {
   fieldErrorClass,
   fieldHelpClass,
@@ -255,6 +256,12 @@ export default function PayslipEditModal({
           </fieldset>
 
           <dl className="grid grid-cols-2 gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-3 text-sm">
+            {payslip.payBasis && (
+              <>
+                <dt className="text-[var(--muted)]">Pay basis</dt>
+                <dd className="text-right font-medium">{getPayBasisLabel(payslip.payBasis)}</dd>
+              </>
+            )}
             <dt className="text-[var(--muted)]">Gross</dt>
             <dd className="text-right font-mono tabular-nums font-semibold">{formatCurrency(totals.gross)}</dd>
             <dt className="text-[var(--muted)]">Net</dt>

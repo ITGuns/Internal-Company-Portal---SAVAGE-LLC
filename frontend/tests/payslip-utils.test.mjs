@@ -11,10 +11,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Compile the pure payslip helper in isolation. Type-only imports (./types) are
 // elided by transpileModule, and the jspdf dynamic import lives inside an
 // untested function so it is never resolved at load time.
-// payslip-utils imports ../payroll-dates (pure, no imports of its own).
+// payslip-utils imports these lib modules, all pure with no imports of their own.
+const PURE_LIB_MODULES = ['payroll-dates', 'payslip-edit', 'pay-basis'];
+
 function requireLibModule(id) {
-  if (!id.endsWith('payroll-dates')) throw new Error(`Unexpected import in payslip-utils: ${id}`);
-  const libPath = path.resolve(__dirname, '../src/lib/payroll-dates.ts');
+  const moduleName = PURE_LIB_MODULES.find((name) => id.endsWith(`/${name}`));
+  if (!moduleName) throw new Error(`Unexpected import in payslip-utils: ${id}`);
+  const libPath = path.resolve(__dirname, `../src/lib/${moduleName}.ts`);
   const { outputText } = ts.transpileModule(fs.readFileSync(libPath, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   });
@@ -128,4 +131,22 @@ test('getStatusColor maps known statuses and falls back for unknown', () => {
   assert.match(getStatusColor('issued'), /blue/);
   assert.match(getStatusColor('draft'), /gray/);
   assert.match(getStatusColor('something-else'), /gray/);
+});
+
+test('labels PDF earning lines by item type, never with the legacy base salary wording', () => {
+  const { getPayslipEarningLines } = loadPayslipUtils();
+  const describe = (lines) => Array.from(lines, (line) => line.label + ': ' + line.amount);
+
+  const lines = getPayslipEarningLines({
+    grossPay: 1500,
+    items: [
+      { id: 'i1', type: 'earning', description: 'Billable Work Hours (8 hrs)', amount: 1000 },
+      { id: 'i2', type: 'overtime_approved', description: 'Approved overtime (2 h at 1.25x)', amount: 500 },
+      { id: 'i3', type: 'deduction', description: 'SSS', amount: -100 },
+    ],
+  });
+  assert.deepEqual(describe(lines), ['Regular hours: 1000', 'Overtime (approved): 500']);
+
+  assert.deepEqual(describe(getPayslipEarningLines({ grossPay: 900, items: [] })), ['Gross earnings: 900']);
+  assert.deepEqual(describe(getPayslipEarningLines({ grossPay: 900 })), ['Gross earnings: 900']);
 });

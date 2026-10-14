@@ -1,5 +1,20 @@
 import { Payslip, Deduction, PayPeriod, Employee } from "./types";
 import { formatPayrollDate, formatPayrollPeriod } from "../payroll-dates";
+import { getPayrollItemTypeLabel, inferPayrollItemType } from "../payslip-edit";
+import { getPayBasisLabel } from "../pay-basis";
+
+/**
+ * Earning lines for the payslip PDF, labelled by item type (Regular hours, Overtime and so on)
+ * so the legacy "Base Salary" wording never shows. Deductions are listed separately.
+ */
+export function getPayslipEarningLines(payslip: Pick<Payslip, "grossPay" | "items">): Array<{ label: string; amount: number }> {
+  const lines = (payslip.items ?? [])
+    .map((item) => ({ type: inferPayrollItemType(item.type, item.amount), amount: item.amount }))
+    .filter((item) => item.type !== "deduction")
+    .map((item) => ({ label: getPayrollItemTypeLabel(item.type), amount: item.amount }));
+
+  return lines.length > 0 ? lines : [{ label: "Gross earnings", amount: payslip.grossPay }];
+}
 
 /**
  * Calculate gross pay based on salary and pay period
@@ -203,11 +218,18 @@ export function generatePayslipPDF(payslip: Payslip, employee: Employee): void {
     doc.text("AMOUNT", pageWidth - 20, yPos + 7, { align: "right" });
     yPos += 15;
 
-    // Earnings
+    // Earnings, one line per item type, under the employee's pay basis when known
     doc.setFont("helvetica", "normal");
-    doc.text("Gross Earnings / Base Salary", 20, yPos);
-    doc.text(formatCurrency(payslip.grossPay), pageWidth - 20, yPos, { align: "right" });
-    yPos += 10;
+    if (payslip.payBasis) {
+      doc.text(`Pay basis: ${getPayBasisLabel(payslip.payBasis)}`, 20, yPos);
+      yPos += 8;
+    }
+    getPayslipEarningLines(payslip).forEach((line) => {
+      doc.text(line.label, 20, yPos);
+      doc.text(formatCurrency(line.amount), pageWidth - 20, yPos, { align: "right" });
+      yPos += 8;
+    });
+    yPos += 2;
 
     // Deductions
     doc.setFont("helvetica", "bold");
