@@ -2,7 +2,7 @@ import express, { Request, Response, Router } from 'express'
 import { UsersService } from './users.service'
 import { authenticateToken, requireRole, AuthRequest } from '../auth/auth.middleware'
 import { serializeAuthUser } from '../auth/auth.security'
-import { emailService } from '../email/email.service'
+import { emailService, settleEmailSends } from '../email/email.service'
 import { PayrollService } from '../payroll/payroll.service'
 import { DepartmentsService } from '../departments/departments.service'
 import { isAdminEmail } from '../config/env.config'
@@ -322,16 +322,18 @@ export class UsersController {
 
                 const user = await this.service.create({ email, name, avatar: avatarValidation?.value })
 
-                // Send welcome email (async, don't block response)
+                // Welcome email: awaited (at most 8 s) because a serverless function may freeze
+                // once it has answered. A failed email never fails user creation.
                 const loginUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
-                emailService.sendWelcomeEmail(
-                    user.email,
-                    user.name || 'New User',
-                    `${loginUrl}/login`
-                ).catch(err => {
-                    logger.error('Failed to send welcome email:', err)
-                    // Don't fail user creation if email fails
-                })
+                await settleEmailSends('Welcome email', [
+                    emailService.sendWelcomeEmail(
+                        user.email,
+                        user.name || 'New User',
+                        `${loginUrl}/login`
+                    ).catch(err => {
+                        logger.error('Failed to send welcome email:', err)
+                    }),
+                ])
 
                 res.status(201).json(sanitizeUserForDirectory(user))
             } catch (error) {

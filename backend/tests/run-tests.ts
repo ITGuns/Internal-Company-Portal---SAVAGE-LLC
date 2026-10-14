@@ -25,6 +25,7 @@ const tests = [
   'users.routes-security.test.ts',
   'users.onboarding.test.ts',
   'email.routes.test.ts',
+  'email.delivery.test.ts',
   'client-service-tier-presets.test.ts',
   'auth.security.test.ts',
   'auth.routes.test.ts',

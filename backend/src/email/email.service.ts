@@ -17,6 +17,49 @@ import { createLogger } from '../observability/logger';
 
 const logger = createLogger('email.service');
 
+/** Upper bound for awaiting sends before a response (see settleEmailSends). */
+export const EMAIL_SEND_TIMEOUT_MS = 8_000;
+
+/** "ana.cruz@example.com" -> "***@example.com": logs keep the domain, never the person. */
+export function maskEmailAddress(address: string): string {
+    const at = address.lastIndexOf('@');
+    return at > 0 ? `***${address.slice(at).trim()}` : '***';
+}
+
+function maskRecipients(to: string | string[]): string {
+    return (Array.isArray(to) ? to : to.split(','))
+        .map((address) => maskEmailAddress(address.trim()))
+        .join(', ');
+}
+
+/**
+ * Waits for email sends before a request answers: a serverless function may
+ * freeze once it has responded, which silently drops sends still in flight.
+ * Never waits longer than timeoutMs; failures and timeouts are logged, not thrown.
+ */
+export async function settleEmailSends(
+    label: string,
+    sends: ReadonlyArray<Promise<unknown>>,
+    timeoutMs = EMAIL_SEND_TIMEOUT_MS,
+): Promise<void> {
+    if (sends.length === 0) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<'timeout'>((resolve) => {
+        timer = setTimeout(() => resolve('timeout'), timeoutMs);
+    });
+    const settled = Promise.allSettled(sends).then((results) => {
+        for (const result of results) {
+            if (result.status === 'rejected') logger.error(`${label} failed`, result.reason);
+        }
+        return 'settled' as const;
+    });
+    const outcome = await Promise.race([settled, timedOut]);
+    clearTimeout(timer);
+    if (outcome === 'timeout') {
+        logger.warn(`${label} still sending after ${timeoutMs} ms; answering without waiting`);
+    }
+}
+
 export class EmailService {
     private static instance: EmailService;
     private transporter?: Transporter;
@@ -86,7 +129,10 @@ export class EmailService {
             // Redirect all emails to the test override address when configured
             if (emailConfig.testOverrideEmail) {
                 const originalTo = Array.isArray(to) ? to.join(', ') : to;
-                logger.info('Test email override applied', { originalTo, overrideEmail: emailConfig.testOverrideEmail });
+                logger.info('Test email override applied', {
+                    originalTo: maskRecipients(to),
+                    overrideEmail: maskEmailAddress(emailConfig.testOverrideEmail),
+                });
                 to = emailConfig.testOverrideEmail;
                 subject = `[TEST → ${originalTo}] ${subject}`;
             }
@@ -141,7 +187,7 @@ export class EmailService {
             }
 
             const response = await sgMail.send(msg);
-            logger.info('Email sent via SendGrid', { to });
+            logger.info('Email sent via SendGrid', { to: maskRecipients(to) });
 
             return {
                 success: true,
@@ -187,7 +233,7 @@ export class EmailService {
             }
 
             const info = await this.transporter.sendMail(mailOptions);
-            logger.info('Email sent via SMTP', { to });
+            logger.info('Email sent via SMTP', { to: maskRecipients(to) });
 
             return {
                 success: true,

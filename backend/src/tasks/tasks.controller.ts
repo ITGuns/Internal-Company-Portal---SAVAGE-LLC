@@ -1,7 +1,7 @@
 import express, { Request, Response, Router } from 'express'
 import { TasksService, TaskStatus } from './tasks.service'
 import { authenticateToken, requireRole, AuthRequest } from '../auth/auth.middleware'
-import { emailService } from '../email/email.service'
+import { emailService, settleEmailSends } from '../email/email.service'
 import { notificationService } from '../notifications/socket.service'
 import { prisma } from '../database/prisma.service'
 import { isAdminEmail } from '../config/env.config'
@@ -491,13 +491,16 @@ export class TasksController {
           collaboratorIds: access.isPrivileged ? collaboratorIdsInput.values : undefined,
         })
 
+        // Emails are awaited (bounded) before responding: a serverless function may freeze afterwards.
+        const emailSends: Array<Promise<unknown>> = []
+
         // Send task assigned email & notification if there's an assignee
         if (task.assignee && task.department) {
           const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
           const taskUrl = `${frontendUrl}/task-tracking?task=${task.id}`
 
           // 1. Send Email
-          emailService.sendTaskAssignedEmail(
+          emailSends.push(emailService.sendTaskAssignedEmail(
             task.assignee.email,
             {
               userName: task.assignee.name || 'Team Member',
@@ -507,7 +510,7 @@ export class TasksController {
               taskUrl,
               departmentName: task.department.name
             }
-          ).catch(err => logger.error('Failed to send task assignment email', err))
+          ).catch(err => logger.error('Failed to send task assignment email', err)))
 
           // 2. Send Real-time Notification
           notificationService.notifyUser(task.assignee.id, {
@@ -528,7 +531,7 @@ export class TasksController {
           })
           for (const u of users) {
             if (u.id === task.assigneeId) continue;
-            emailService.sendTaskAssignedEmail(
+            emailSends.push(emailService.sendTaskAssignedEmail(
               u.email,
               {
                 userName: u.name || 'Team Member',
@@ -538,7 +541,7 @@ export class TasksController {
                 taskUrl,
                 departmentName: task.department?.name || 'Department'
               }
-            ).catch(err => logger.error('Failed to send task assignment email', err))
+            ).catch(err => logger.error('Failed to send task assignment email', err)))
 
             notificationService.notifyUser(u.id, {
               type: 'info',
@@ -550,6 +553,7 @@ export class TasksController {
         }
 
         notificationService.broadcastDataChange('tasks')
+        await settleEmailSends('Task assignment emails', emailSends)
         res.status(201).json(task)
       } catch (error) {
         if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
@@ -635,13 +639,16 @@ export class TasksController {
           actorId: access.requesterId,
         })
 
+        // Emails are awaited (bounded) before responding: a serverless function may freeze afterwards.
+        const emailSends: Array<Promise<unknown>> = []
+
         // Send status changed email & notification if status was updated
         if (status && existingTask.status !== status && task.assignee) {
           const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
           const taskUrl = `${frontendUrl}/task-tracking?task=${task.id}`
 
           // 1. Send Email
-          emailService.sendTaskStatusChangedEmail(
+          emailSends.push(emailService.sendTaskStatusChangedEmail(
             task.assignee.email,
             {
               userName: task.assignee.name || 'Team Member',
@@ -651,7 +658,7 @@ export class TasksController {
               changedBy: (req as any).user?.name || (req as any).user?.email || 'Admin',
               taskUrl
             }
-          ).catch(err => logger.error('Failed to send status change email', err))
+          ).catch(err => logger.error('Failed to send status change email', err)))
 
           // 2. Send Real-time Notification
           notificationService.notifyUser(task.assignee.id, {
@@ -677,7 +684,7 @@ export class TasksController {
             })
             for (const u of users) {
               if (u.id === task.assigneeId) continue
-              emailService.sendTaskAssignedEmail(
+              emailSends.push(emailService.sendTaskAssignedEmail(
                 u.email,
                 {
                   userName: u.name || 'Team Member',
@@ -687,7 +694,7 @@ export class TasksController {
                   taskUrl,
                   departmentName: task.department?.name || 'Department'
                 }
-              ).catch(err => logger.error('Failed to send task assignment email', err))
+              ).catch(err => logger.error('Failed to send task assignment email', err)))
 
               notificationService.notifyUser(u.id, {
                 type: 'info',
@@ -700,6 +707,7 @@ export class TasksController {
         }
 
         notificationService.broadcastDataChange('tasks')
+        await settleEmailSends('Task update emails', emailSends)
         res.json(task)
       } catch (error) {
         if (error instanceof Error && 'code' in error && (error as Record<string, unknown>).code === 'P2003') {
