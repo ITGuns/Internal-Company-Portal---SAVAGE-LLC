@@ -4,7 +4,7 @@ import {
   normalizeWizardTicket,
   resolveTicketPriority,
 } from '../src/clients/gemfield/gemfield-ticket'
-import { ticketReference } from '../src/clients/gemfield/gemfield-ticket.service'
+import { GemfieldTicketService, ticketReference } from '../src/clients/gemfield/gemfield-ticket.service'
 
 function testPriorityRouting(): void {
   assert.equal(resolveTicketPriority('dev_assist', 'website_change'), 'high', 'dev_assist is always high')
@@ -63,8 +63,42 @@ function testReference(): void {
   assert.equal(ticketReference('ckabc123def456'), 'TK-DEF456', 'reference is the last 6 chars, upper-cased')
 }
 
+async function testAttachmentTotalCap(): Promise<void> {
+  // The 1 MB JSON parser on /api/gemfield leaves about 700 KB of files per ticket.
+  const stored: string[] = []
+  const uploads = {
+    create: async (_userId: string, name: string) => {
+      stored.push(name)
+      return { id: name }
+    },
+  }
+  const service = new GemfieldTicketService(uploads as never, {} as never)
+  const pdfOfSize = (bytes: number) =>
+    `data:application/pdf;base64,${Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(bytes - 9)]).toString('base64')}`
+  await assert.rejects(
+    service.createWizardTicket('org-1', 'user-1', { category: 'support' }, [
+      { name: 'a.pdf', contentType: 'application/pdf', data: pdfOfSize(400 * 1024) },
+      { name: 'b.pdf', contentType: 'application/pdf', data: pdfOfSize(400 * 1024) },
+    ]),
+    /Attachments can be up to 700 KB in total/,
+  )
+  await assert.rejects(
+    service.createWizardTicket('org-1', 'user-1', { category: 'support' }, [
+      { name: 'ok.pdf', contentType: 'application/pdf', data: pdfOfSize(1024) },
+      { name: 'fake.png', contentType: 'image/png', data: pdfOfSize(1024) },
+    ]),
+    /That file type is not supported/,
+  )
+  assert.deepEqual(stored, [], 'nothing is stored when any attachment is refused')
+}
+
 testPriorityRouting()
 testKindGuard()
 testNormalization()
 testReference()
-console.log('gemfield-ticket tests passed')
+testAttachmentTotalCap()
+  .then(() => console.log('gemfield-ticket tests passed'))
+  .catch((error) => {
+    console.error(error)
+    process.exitCode = 1
+  })

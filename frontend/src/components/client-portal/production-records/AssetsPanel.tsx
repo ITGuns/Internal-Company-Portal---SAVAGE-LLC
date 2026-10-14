@@ -5,6 +5,7 @@ import { FolderOpen, Upload } from "lucide-react";
 import Button from "@/components/Button";
 import FormField from "@/components/forms/FormField";
 import { apiFetch } from "@/lib/api";
+import { fileTooLargeMessage, MAX_UPLOAD_LABEL } from "@/lib/upload-limits";
 import type { ClientAsset } from "@/lib/client-portal";
 import {
   createClientAsset,
@@ -142,6 +143,12 @@ export default function AssetsPanel({
       alert('Supported formats: PNG, JPG, GIF, PDF, TXT, DOC, DOCX');
       return;
     }
+    const tooLarge = fileTooLargeMessage(file);
+    if (tooLarge) {
+      alert(tooLarge);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
 
     setUploading(true);
     const reader = new FileReader();
@@ -243,7 +250,7 @@ export default function AssetsPanel({
             onClick={() => fileInputRef.current?.click()}
             loading={uploading}
           >
-            Upload File
+            Upload File (max {MAX_UPLOAD_LABEL})
           </Button>
           <Button type="submit" loading={saving} disabled={!canAddAsset}>Add Asset</Button>
         </div>

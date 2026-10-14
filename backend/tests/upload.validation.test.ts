@@ -4,6 +4,7 @@ import {
   decodeBase64Payload,
   getUploadContentTypeForFilename,
   getUploadExtensionForMimeType,
+  MAX_UPLOAD_BYTES,
   normalizeMimeType,
   resolveGeneralUploadContentType,
   validateStoredUploadFilename,
@@ -105,6 +106,13 @@ assert.equal(validateAvatarValue(`data:image/png;base64,${largerPng.toString('ba
 assert.equal(validateAvatarValue(`data:image/png;base64,${pdf.toString('base64')}`).valid, false)
 assert.equal(validateAvatarValue(`data:text/html;base64,${Buffer.from('<svg></svg>').toString('base64')}`).valid, false)
 assert.equal(validateAvatarValue(`data:image/png;base64,${oversizedPng.toString('base64')}`).valid, false)
+// 3 MB is the honest cap: Vercel refuses larger base64 bodies before they reach the app.
+assert.equal(MAX_UPLOAD_BYTES, 3 * 1024 * 1024)
+const pngOfSize = (bytes: number) => Buffer.concat([png.subarray(0, 8), Buffer.alloc(bytes - 8)])
+assert.equal(validateAvatarValue(`data:image/png;base64,${pngOfSize(MAX_UPLOAD_BYTES).toString('base64')}`).valid, true)
+const justOver = validateAvatarValue(`data:image/png;base64,${pngOfSize(MAX_UPLOAD_BYTES + 1).toString('base64')}`)
+assert.equal(justOver.valid, false)
+assert.equal(justOver.error, 'Avatar image must be 3 MB or smaller')
 assert.equal(validateAvatarValue(123).valid, false)
 assert.equal(validateStoredAvatarValue(`data:image/svg+xml;base64,${Buffer.from('<svg />').toString('base64')}`).valid, false)
 assert.equal(validateStoredAvatarValue('not an avatar value').valid, false)

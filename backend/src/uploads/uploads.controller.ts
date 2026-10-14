@@ -4,6 +4,8 @@ import {
     buildStoredUploadMetadata,
     decodeBase64Payload,
     isGeneralUploadMimeType,
+    MAX_UPLOAD_BYTES,
+    MAX_UPLOAD_LABEL,
     normalizeMimeType,
     resolveGeneralUploadContentType,
     validateAvatarContent,
@@ -75,8 +77,8 @@ export class UploadsController {
 
                 const buffer = decoded.buffer
                 const sizeInBytes = buffer.length
-                if (sizeInBytes > 10 * 1024 * 1024) { // 10MB limit
-                    return res.status(400).json({ error: 'File too large (max 10MB)' })
+                if (sizeInBytes > MAX_UPLOAD_BYTES) {
+                    return res.status(400).json({ error: `File too large (max ${MAX_UPLOAD_LABEL})` })
                 }
 
                 const validatedType = validateUploadContent(resolvedType, buffer)
@@ -146,14 +148,14 @@ export class UploadsController {
 
                 const buffer = decoded.buffer
 
-                // Validate size (5MB max for avatars)
+                // Same cap as other uploads: larger bodies never reach the app on Vercel.
                 const sizeInBytes = buffer.length
-                if (sizeInBytes > 5 * 1024 * 1024) {
+                if (sizeInBytes > MAX_UPLOAD_BYTES) {
                     return res.status(400).json({
-                        error: 'Image size must be less than 5MB',
+                        error: `Image must be ${MAX_UPLOAD_LABEL} or smaller`,
                         code: 'VALIDATION_ERROR',
                         details: {
-                            maxSize: '5MB',
+                            maxSize: MAX_UPLOAD_LABEL,
                             actualSize: `${(sizeInBytes / (1024 * 1024)).toFixed(2)}MB`
                         }
                     })

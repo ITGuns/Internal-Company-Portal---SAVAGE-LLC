@@ -1,6 +1,9 @@
 import type { Express, NextFunction, Request, Response } from 'express'
 import bodyParser from 'body-parser'
 
+// Parser ceilings only. On Vercel the platform refuses bodies above 4.5 MB first,
+// so the limits users see are MAX_UPLOAD_BYTES (3 MB, uploads/upload.validation.ts)
+// and MAX_TICKET_ATTACHMENTS_BYTES (700 KB under the 1 MB parser, gemfield-ticket.service.ts).
 export const DEFAULT_JSON_BODY_LIMIT = '1mb'
 export const LARGE_JSON_BODY_LIMIT = '16mb'
 

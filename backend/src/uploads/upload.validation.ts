@@ -11,7 +11,14 @@ export const GENERAL_UPLOAD_MIME_TYPES = [
 export type GeneralUploadMimeType = typeof GENERAL_UPLOAD_MIME_TYPES[number]
 export type AvatarImageType = 'jpeg' | 'png' | 'gif' | 'webp'
 
-const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024
+/**
+ * Request bodies above 4.5 MB never reach the app on Vercel, and files travel
+ * as base64 JSON (a third larger), so 3 MB is the largest file that reliably
+ * arrives. Mirrored in frontend/src/lib/upload-limits.ts.
+ */
+export const MAX_UPLOAD_BYTES = 3 * 1024 * 1024
+export const MAX_UPLOAD_LABEL = '3 MB'
+const MAX_AVATAR_SIZE_BYTES = MAX_UPLOAD_BYTES
 const MAX_STORED_AVATAR_LENGTH = 2048
 const MAX_UPLOAD_BASENAME_LENGTH = 120
 
@@ -263,7 +270,7 @@ export function validateStoredAvatarValue(value: unknown): AvatarValueValidation
         }
 
         if (decoded.buffer.length > MAX_AVATAR_SIZE_BYTES) {
-            return { valid: false, error: 'Avatar image must be less than 5MB' }
+            return { valid: false, error: `Avatar image must be ${MAX_UPLOAD_LABEL} or smaller` }
         }
 
         const type = validateAvatarContent(mediaType, decoded.buffer)

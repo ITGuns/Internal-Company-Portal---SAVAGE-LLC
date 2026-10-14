@@ -14,6 +14,7 @@ const AddFolderModal = dynamic(() => import('@/components/file-directory/AddFold
 import { useToast } from '@/components/ToastProvider';
 import { useUser } from '@/contexts/UserContext';
 import { apiFetch } from '@/lib/api';
+import { fileTooLargeMessage, MAX_UPLOAD_LABEL } from '@/lib/upload-limits';
 import {
   Folder,
   Plus,
@@ -113,6 +114,12 @@ export default function FileDirectoryPage() {
     const fileExt = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     if (!allowedExtensions.includes(fileExt)) {
       toast.error('Supported formats: PNG, JPG, GIF, PDF, TXT, DOC, DOCX');
+      return;
+    }
+    const tooLarge = fileTooLargeMessage(file);
+    if (tooLarge) {
+      toast.error(tooLarge);
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
@@ -420,7 +427,7 @@ export default function FileDirectoryPage() {
               onClick={() => fileInputRef.current?.click()}
               loading={uploading}
             >
-              Upload File
+              Upload File (max {MAX_UPLOAD_LABEL})
             </Button>
 
             {/* Add Folder */}
@@ -455,7 +462,7 @@ export default function FileDirectoryPage() {
                   onClick={() => fileInputRef.current?.click()}
                   loading={uploading}
                 >
-                  Upload a File
+                  Upload a File (max {MAX_UPLOAD_LABEL})
                 </Button>
                 <Button
                   variant="primary"

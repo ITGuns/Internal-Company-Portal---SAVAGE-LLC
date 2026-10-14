@@ -14,6 +14,11 @@ import {
   getWizardCategory,
   type WizardOption,
 } from "@/lib/gemfield-ticket-wizard";
+import {
+  MAX_TICKET_ATTACHMENTS,
+  MAX_TICKET_ATTACHMENTS_LABEL,
+  ticketAttachmentsTooLargeMessage,
+} from "@/lib/upload-limits";
 
 interface TicketWizardProps {
   organizationId: string;
@@ -42,6 +47,7 @@ export default function TicketWizard({
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [description, setDescription] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [callbackNumber, setCallbackNumber] = useState("");
   const [callbackWindow, setCallbackWindow] = useState("");
   const [showCallback, setShowCallback] = useState(false);
@@ -215,9 +221,19 @@ export default function TicketWizard({
                         multiple
                         accept="image/png,image/jpeg,image/gif,application/pdf"
                         className="hidden"
-                        onChange={(event) => setFiles(Array.from(event.target.files ?? []).slice(0, 6))}
+                        aria-describedby="wizard-files-limit"
+                        onChange={(event) => {
+                          const picked = Array.from(event.target.files ?? []).slice(0, MAX_TICKET_ATTACHMENTS);
+                          const tooLarge = ticketAttachmentsTooLargeMessage(picked);
+                          setFileError(tooLarge);
+                          if (!tooLarge) setFiles(picked);
+                        }}
                       />
                     </label>
+                    <p id="wizard-files-limit" className="mt-1 text-xs text-[var(--muted)]">
+                      Up to {MAX_TICKET_ATTACHMENTS} photos or PDFs, {MAX_TICKET_ATTACHMENTS_LABEL} in total.
+                    </p>
+                    {fileError ? <p role="alert" className="mt-1 text-sm text-red-600">{fileError}</p> : null}
                     {files.length ? (
                       <ul className="mt-2 space-y-1 text-sm text-[var(--muted)]">
                         {files.map((file) => (

@@ -7,6 +7,7 @@ import UserAvatar from "@/assets/icons/UserAvatar";
 import { useToast } from "@/components/ToastProvider";
 import { useUser } from "@/contexts/UserContext";
 import { updateUserProfile, uploadAvatar } from "@/lib/api";
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from "@/lib/upload-limits";
 import { Camera, Calendar, Mail, MapPin, Phone, User, Shield } from "lucide-react";
 
 export interface EditableUserProfile {
@@ -134,8 +135,8 @@ export default function ProfileEditForm({ user, onSave, onCancel }: ProfileEditF
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      showToast("error", "Image size must be less than 5MB");
+    if (file.size > MAX_UPLOAD_BYTES) {
+      showToast("error", `Image must be ${MAX_UPLOAD_LABEL} or smaller. Choose a smaller photo.`);
       return;
     }
 
@@ -256,7 +257,7 @@ export default function ProfileEditForm({ user, onSave, onCancel }: ProfileEditF
             </Button>
           ) : null}
         </div>
-        <p className="mt-2 text-xs text-[var(--muted)]">JPG, PNG or GIF. Max size 5MB.</p>
+        <p className="mt-2 text-xs text-[var(--muted)]">JPG, PNG or GIF. Max size {MAX_UPLOAD_LABEL}.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
