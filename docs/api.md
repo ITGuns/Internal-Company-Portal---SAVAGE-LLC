@@ -71,7 +71,7 @@ User directory endpoints sanitize sensitive fields before returning data to the 
 - `POST /api/users/onboarding-invitations` is full-access admin-only and creates or completes an approved user setup record from `email` and `roleId`. `roleId` may be a persisted `AvailableRole.id` or a default org-catalog role ID returned by the roles API. It returns a reset-password setup link; users with an existing password return `409` and should use password reset instead.
 - `PATCH /api/users/:id` allows self updates for permitted profile fields. Self-service email changes are blocked; only full-access administrators can change a user's account email address.
 - Full-access administrators may update `managerId` through `PATCH /api/users/:id` to maintain Operations org-chart reporting lines. The backend rejects self-manager assignments and manager cycles.
-- User avatar writes through `POST /api/users`, `PATCH /api/users/:id`, and `POST /api/users/:id/avatar` accept only http(s) URLs, relative paths, empty removal values where profile updates allow them, or supported image data URIs that pass signature validation and the 5 MB avatar limit.
+- User avatar writes through `POST /api/users`, `PATCH /api/users/:id`, and `POST /api/users/:id/avatar` accept only http(s) URLs, relative paths, empty removal values where profile updates allow them, or supported image data URIs that pass signature validation and the 3 MB avatar limit.
 - Non-privileged users cannot update protected fields such as `status`, `appliedDate`, `salary`, `role`, `department`, `departmentId`, `managerId`, `payrollScheme`, `maxBillableHoursPerDay`, or `isApproved`.
 - `POST /api/users/:id/deactivate` (admin or operations manager) sets `status: "inactive"`, revokes every refresh session and keeps all data. Self-deactivation returns `400`, an already inactive member returns `409`, and only full-access admins can deactivate another full-access account (`403`). Response: `{ success, user }`.
 - `POST /api/users/:id/reactivate` (same roles) restores `status: "active"`. It does not change `isApproved`, so a never-approved account stays blocked. A member who is not inactive returns `409`.
@@ -437,10 +437,11 @@ Scheduler-management access includes payroll-management roles, including owner/f
 - Upload routes require authentication.
 - `POST /api/uploads` stores a file under a randomized object key, creates owner metadata, and returns `{ id, url, filename, name, type, size }`. Link the returned `id` when creating a file-directory item or uploaded client asset.
 - Upload payloads must be valid base64 and the decoded file signature must match the declared allowed content type. Supported generic uploads are PNG, JPEG, GIF, PDF, plain text, DOC, and DOCX.
+- Files over 3 MB are refused with `400` (`MAX_UPLOAD_BYTES`, since 2026-10-14). Vercel rejects request bodies above 4.5 MB before they reach the app and base64 adds a third, so larger files could never arrive. Gemfield wizard tickets go through the 1 MB JSON parser on `/api/gemfield`, so their attachments share 700 KB per ticket (`400` above that, and nothing is stored). The upload pickers state these limits and refuse larger files before sending.
 - When browsers submit an empty or generic upload MIME type such as `application/octet-stream`, general uploads may infer the canonical content type from a supported filename extension before signature validation. Explicit unsupported MIME types are still rejected.
 - Stored generic upload object keys use a random UUID and canonical extension derived from the validated content type, not the user-supplied filename.
 - `GET /api/uploads/files/:id` returns `404` unless the requester is the uploader, an authorized internal user for the linked file-directory department, client operations, or an active client member reading a client-visible linked asset. Responses use stored canonical content types and `X-Content-Type-Options: nosniff`.
-- Avatar data URI uploads and stored user avatar updates are limited to JPEG, PNG, GIF, and WebP signatures and remain capped at 5 MB. Stored avatar references are restricted to short initials, safe relative paths, or `http(s)` URLs.
+- Avatar data URI uploads and stored user avatar updates are limited to JPEG, PNG, GIF, and WebP signatures and capped at 3 MB. Stored avatar references are restricted to short initials, safe relative paths, or `http(s)` URLs.
 - File-directory list, children, create, and delete routes require internal directory access; client-only accounts must use client portal storage/resource flows instead.
 - Non-full-access internal users create folders under their own department derived from active server-side roles. Full-access users may choose a department.
 - File-directory create ignores user-supplied direct link fields. New internal folder/file records do not expose Google Drive or arbitrary external links from request bodies.
@@ -450,5 +451,5 @@ Scheduler-management access includes payroll-management roles, including owner/f
 ### Notifications
 
 - `GET /api/notifications` returns notifications for the authenticated user.
-- Notification history is derived from existing domain data such as announcements, tasks, and chat messages.
-- Browser notification permission and muted live-category preferences are frontend-local settings stored per user; there is no backend preference endpoint or dedicated Notification table in the current schema.
+- Notification history is derived from existing domain data such as announcements, tasks, and chat messages, plus the caller's `UserNotification` rows from the last 7 days (id `note-<id>`). The Gemfield daily digest writes one row per recipient, so it shows in the bell where sockets never deliver (Vercel). If that table is missing, the endpoint still answers with the other sources.
+- Browser notification permission and muted live-category preferences are frontend-local settings stored per user; there is no backend preference endpoint.

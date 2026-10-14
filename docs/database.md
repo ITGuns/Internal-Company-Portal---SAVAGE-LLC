@@ -199,6 +199,8 @@ Payroll-sensitive fields also live on `EmployeeProfile`.
 - `Payslip.editedById`, `editedAt`, `editNote` record the last manual edit (plain columns, no foreign key). Edits and deletes are only allowed while the period is `draft`; processed periods are read-only.
 - Money amounts on generated and edited items are rounded to cents.
 
+- Backfilled entries (`POST /payroll/entries/backfill`, payroll roles, since 2026-10-14) are ordinary rows whose `notes` end with `Backfilled by <name or email> on <YYYY-MM-DD>`.
+
 `PayrollEvent` stores calendar-level payroll events.
 
 `SchedulerJobRun` stores scheduler execution history for payroll automation and client invoice automation.
@@ -253,3 +255,5 @@ Chat, announcements, notifications, uploads, and file-directory records are part
 - File-directory permissions are enforced in the controller/service layer; do not expose unsafe file tree mutations from unauthenticated routes.
 - Uploaded files are served through ownership-aware authenticated `/api/uploads/files/:id` routes.
 - Uploaded file metadata and served files should be treated as authenticated portal data unless a route explicitly makes them public.
+- `UserNotification` (migration `202610140002_user_notifications`) stores notifications for the bell: `userId` (cascade delete), `type`, `title`, `message`, optional `link`, `createdAt`; index `(userId, createdAt)`. First writer: the Gemfield daily digest.
+- `WorkspaceSetting` (migration `202610140001_workspace_settings`) stores workspace-wide settings as JSON by `key`. The `branding` row replaced `workspace-branding.json`, which is read only as a fallback for one release.
