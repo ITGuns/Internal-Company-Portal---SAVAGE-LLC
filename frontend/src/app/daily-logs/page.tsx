@@ -107,6 +107,7 @@ export default function DailyLogsPage() {
   const [formDate, setFormDate] = useState(getLocalTodayDateInput);
   const [formHours, setFormHours] = useState(() => formatDecimalHoursAsClock(8));
   const [formHoursError, setFormHoursError] = useState('');
+  const [formSubmitError, setFormSubmitError] = useState('');
   const [formTasks, setFormTasks] = useState<LogTask[]>([]);
   const [formTaskInput, setFormTaskInput] = useState('');
   const [formShiftNotes, setFormShiftNotes] = useState('');
@@ -308,6 +309,7 @@ export default function DailyLogsPage() {
 
   const handleSubmit = async () => {
     if (formTasks.length === 0) return;
+    setFormSubmitError('');
 
     try {
       const parsedHours = parseHoursClockToDecimal(formHours);
@@ -352,7 +354,8 @@ export default function DailyLogsPage() {
       setShowModal(false);
     } catch (err: any) {
       console.error('Failed to save log:', err);
-      toast.error(err.message || 'Failed to save log');
+      // Shown next to the submit button, so the server's own reason (for example a department rule) stays readable.
+      setFormSubmitError(err?.message || 'Could not save this log. Try again.');
     }
   };
 
@@ -360,6 +363,7 @@ export default function DailyLogsPage() {
     setFormDate(getLocalTodayDateInput());
     setFormHours(formatDecimalHoursAsClock(8));
     setFormHoursError('');
+    setFormSubmitError('');
     setFormTasks([]);
     setFormTaskInput('');
     setFormShiftNotes('');
@@ -1124,11 +1128,6 @@ export default function DailyLogsPage() {
                     </div>
                   );
                 })}
-                {formTasks.length === 0 && (
-                  <p className="text-xs text-[var(--muted)] py-1" role="note">
-                    Add at least one task to save this log.
-                  </p>
-                )}
               </div>
             </div>
 
@@ -1151,7 +1150,17 @@ export default function DailyLogsPage() {
               />
             </div>
 
-            <div className="flex gap-3 justify-end pt-4">
+            {formSubmitError && (
+              <p id="daily-log-submit-error" className="text-sm text-red-500" role="alert">
+                {formSubmitError}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center justify-end gap-3 pt-4">
+              {formTasks.length === 0 && (
+                <p id="daily-log-submit-help" className="mr-auto text-xs text-[var(--muted)]">
+                  Add at least one task line
+                </p>
+              )}
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -1165,6 +1174,7 @@ export default function DailyLogsPage() {
                 variant="primary"
                 onClick={handleSubmit}
                 disabled={formTasks.length === 0}
+                aria-describedby={formTasks.length === 0 ? 'daily-log-submit-help' : formSubmitError ? 'daily-log-submit-error' : undefined}
                 icon={<Plus className="w-4 h-4" />}
               >
                 {editingLog ? 'Update Log' : 'Add Log'}

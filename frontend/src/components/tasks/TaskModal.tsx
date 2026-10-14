@@ -12,6 +12,7 @@ import {
   getLocalTodayDateInput,
   parseEstimatedClockToMinutes,
 } from "@/lib/task-estimate";
+import type { TaskFormErrors } from "@/lib/task-form";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "To Do",
@@ -21,8 +22,13 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 };
 
 const fieldControlClass =
-  "w-full min-h-10 rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
+  "w-full min-h-10 rounded-md border border-[var(--border)] bg-[var(--card-surface)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-red-500";
 const selectControlClass = `${fieldControlClass} portal-select`;
+const fieldErrorClass = "mt-1 text-xs text-red-500";
+
+function describedBy(...ids: Array<string | false | undefined>) {
+  return ids.filter(Boolean).join(" ") || undefined;
+}
 
 interface TaskModalProps {
   editTaskData: Task | null;
@@ -61,6 +67,8 @@ interface TaskModalProps {
     isReady: boolean;
   };
   onAssignToCurrentUser?: () => void;
+  /** Shown after the first submit attempt; see validateTaskForm. */
+  errors?: TaskFormErrors;
   onSubmit: (e: React.FormEvent) => void;
   onDelete: () => void;
   onClose: () => void;
@@ -98,6 +106,7 @@ export default function TaskModal({
   canManageAssignments,
   assignmentSummary,
   onAssignToCurrentUser,
+  errors = {},
   onSubmit,
   onDelete,
   onClose,
@@ -121,6 +130,13 @@ export default function TaskModal({
     if (!minutes) return;
 
     setEstimatedTime(formatEstimatedMinutesAsClock(minutes));
+  }
+
+  // noValidate also drops the browser's jump to the first bad field, so focus it once the errors render.
+  function handleFormSubmit(event: React.FormEvent<HTMLFormElement>) {
+    const form = event.currentTarget;
+    onSubmit(event);
+    requestAnimationFrame(() => form.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
   }
 
   function handleAssigneeChange(nextAssigneeId: string) {
@@ -184,7 +200,11 @@ export default function TaskModal({
           </button>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4">
+        {/* noValidate: validateTaskForm shows every problem inline instead of one browser bubble. */}
+        <form onSubmit={handleFormSubmit} className="space-y-4" noValidate>
+          <p className="text-xs text-[var(--muted)]">
+            Fields marked <span className="text-red-500">*</span> are required.
+          </p>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label htmlFor={`${fieldIdPrefix}-task-title`} className="block text-sm mb-1 font-medium">
@@ -196,8 +216,13 @@ export default function TaskModal({
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="What needs to be done?"
                 className={fieldControlClass}
+                aria-invalid={Boolean(errors.title)}
+                aria-describedby={describedBy(errors.title && `${fieldIdPrefix}-task-title-error`)}
                 required
               />
+              {errors.title && (
+                <p id={`${fieldIdPrefix}-task-title-error`} className={fieldErrorClass}>{errors.title}</p>
+              )}
             </div>
           </div>
 
@@ -211,8 +236,13 @@ export default function TaskModal({
               onChange={(event) => setDescription(event.target.value)}
               placeholder="Tell us more about this task..."
               className={`${fieldControlClass} min-h-24`}
+              aria-invalid={Boolean(errors.description)}
+              aria-describedby={describedBy(errors.description && `${fieldIdPrefix}-description-error`)}
               required
             />
+            {errors.description && (
+              <p id={`${fieldIdPrefix}-description-error`} className={fieldErrorClass}>{errors.description}</p>
+            )}
           </div>
 
           {canManageAssignments ? (
@@ -239,15 +269,20 @@ export default function TaskModal({
                     onChange={(event) => handleAssigneeChange(event.target.value)}
                     className={selectControlClass}
                     aria-label="Assign To"
+                    aria-invalid={Boolean(errors.assignee)}
+                    aria-describedby={describedBy(errors.assignee && `${fieldIdPrefix}-assignee-error`)}
                     required
                   >
-                    <option value="">Unassigned</option>
+                    <option value="">Select a person</option>
                     {users.map((user) => (
                       <option key={user.id} value={user.id}>
                         {user.name || user.email}
                       </option>
                     ))}
                   </select>
+                  {errors.assignee && (
+                    <p id={`${fieldIdPrefix}-assignee-error`} className={fieldErrorClass}>{errors.assignee}</p>
+                  )}
                 </div>
 
                 <div>
@@ -435,7 +470,8 @@ export default function TaskModal({
             </div>
             <div>
               <label htmlFor={`${fieldIdPrefix}-estimated-time`} className="block text-sm mb-1 font-medium">
-                ETOC <span className="text-red-500">*</span>
+                ETOC <span className="font-normal text-[var(--muted)]">(estimated time to complete)</span>{" "}
+                <span className="text-red-500">*</span>
               </label>
               <input
                 id={`${fieldIdPrefix}-estimated-time`}
@@ -449,13 +485,20 @@ export default function TaskModal({
                 placeholder="HH:MM"
                 pattern="\d{1,3}:[0-5]\d"
                 title="Use HH:MM, for example 01:30"
-                aria-describedby={`${fieldIdPrefix}-estimated-time-help`}
+                aria-invalid={Boolean(errors.estimatedTime)}
+                aria-describedby={describedBy(
+                  `${fieldIdPrefix}-estimated-time-help`,
+                  errors.estimatedTime && `${fieldIdPrefix}-estimated-time-error`,
+                )}
                 className={fieldControlClass}
                 required
               />
               <p id={`${fieldIdPrefix}-estimated-time-help`} className="mt-1 text-xs text-[var(--muted)]">
-                Use HH:MM, for example 01:30.
+                Hours and minutes of work as HH:MM. For example, 01:30 is 1 hour 30 minutes and 12:00 is 12 hours.
               </p>
+              {errors.estimatedTime && (
+                <p id={`${fieldIdPrefix}-estimated-time-error`} className={fieldErrorClass}>{errors.estimatedTime}</p>
+              )}
             </div>
           </div>
 

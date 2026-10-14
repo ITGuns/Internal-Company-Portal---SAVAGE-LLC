@@ -82,6 +82,7 @@ import {
 import { taskMatchesSearchQuery } from "@/lib/task-search";
 import { getReopenedTaskProgress, type TaskQuickAction } from "@/lib/task-status-actions";
 import { formatEstimatedMinutesAsClock, parseEstimatedClockToMinutes } from "@/lib/task-estimate";
+import { validateTaskForm } from "@/lib/task-form";
 import { getInternalOperationsMembers } from "@/lib/member-role-management";
 
 // Lazy-loaded heavy components
@@ -359,6 +360,8 @@ export default function TaskTrackingPage() {
   const [role, setRole] = useState("");
   const [status, setStatus] = useState<TaskStatus>("todo");
   const [estimatedTime, setEstimatedTime] = useState<string>("");
+  // Inline task form errors appear after the first submit and then follow every edit.
+  const [taskSubmitAttempted, setTaskSubmitAttempted] = useState(false);
 
   const [editTaskData, setEditTaskData] = useState<Task | null>(null);
   const [progress, setProgress] = useState(0);
@@ -537,6 +540,7 @@ export default function TaskTrackingPage() {
   function closeModal() {
     setShowModal(false);
     setEditTaskData(null);
+    setTaskSubmitAttempted(false);
   }
 
   useEffect(() => {
@@ -580,6 +584,10 @@ export default function TaskTrackingPage() {
 
 
 
+  function taskFormValidation() {
+    return validateTaskForm({ title, description, assigneeId, estimatedTime, requireAssignee: canManageAssignments });
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -594,13 +602,10 @@ export default function TaskTrackingPage() {
       : currentUserAssignment?.role || "";
     const estimatedTimeMinutes = parseEstimatedClockToMinutes(estimatedTime);
 
-    if (!title.trim() || !description.trim()) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
-    if (!estimatedTimeMinutes) {
-      toast.error("Enter ETOC as HH:MM, for example 01:30");
+    setTaskSubmitAttempted(true);
+    const [formError] = Object.values(taskFormValidation());
+    if (formError || !estimatedTimeMinutes) {
+      toast.error(formError || "Enter ETOC as HH:MM, for example 01:30.");
       return;
     }
 
@@ -1662,6 +1667,7 @@ export default function TaskTrackingPage() {
             isReady: Boolean(currentUserId && currentUserAssignment?.departmentId && currentUserAssignment?.role),
           }}
           onAssignToCurrentUser={applyCurrentUserAssignment}
+          errors={taskSubmitAttempted ? taskFormValidation() : undefined}
           onSubmit={handleSubmit} onDelete={handleDelete} onClose={closeModal}
         />
       )}
