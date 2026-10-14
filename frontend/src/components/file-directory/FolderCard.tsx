@@ -90,7 +90,7 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
               }}
               className="px-4 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--card-bg)] rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
-              {folder.type === 'file' ? 'Open File' : 'Open'}
+              {folder.type === 'file' ? 'Download' : 'Open'}
             </button>
           )}
 
@@ -125,7 +125,7 @@ export default function FolderCard({ folder, onClick, onDelete, viewMode }: Fold
           <button
             type="button"
             onClick={onClick}
-            aria-label={`Open ${folder.name}`}
+            aria-label={`${folder.type === 'file' ? 'Download' : 'Open'} ${folder.name}`}
             className="absolute inset-0 z-10 rounded-[var(--radius-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
           />
         )}

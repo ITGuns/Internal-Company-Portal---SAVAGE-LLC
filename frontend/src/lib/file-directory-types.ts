@@ -20,6 +20,7 @@ export interface FileDirectory {
   createdAt?: string;            // ISO date string
   updatedAt?: string;            // ISO date string
   isCustom?: boolean;            // Flag for user-added folders (frontend only)
+  uploadId?: string | null;      // Stored file behind a 'file' entry, read via GET /api/uploads/files/:id
   upload?: {
     sizeBytes: number;
   } | null;
