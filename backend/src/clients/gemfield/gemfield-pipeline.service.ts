@@ -1,6 +1,7 @@
 import { Prisma, type PrismaClient } from '@prisma/client'
 import { prisma } from '../../database/prisma.service'
 import { notificationService } from '../../notifications/socket.service'
+import { createLogger } from '../../observability/logger'
 import { CLIENT_ACTIVITY_TYPES, createClientActivity } from '../clients.activity'
 import { GemfieldValidationError } from './gemfield.progress'
 import { buildGemfieldDigest, type GemfieldDigest } from './gemfield-digest'
@@ -12,6 +13,8 @@ import {
   isGemfieldTicketStatus,
   resolveTargetStatus,
 } from './gemfield-pipeline'
+
+const logger = createLogger('clients.gemfield.pipeline')
 
 export interface PipelineFilters {
   status?: string
@@ -85,12 +88,16 @@ export class GemfieldPipelineService {
     }))
   }
 
-  /** Daily digest: summarize the open pipeline and notify staff. Config-toggleable via GEMFIELD_DIGEST_ENABLED. */
-  async runGemfieldDigest(): Promise<{ enabled: boolean; notified: number; digest: GemfieldDigest }> {
+  /**
+   * Daily digest: summarize the open pipeline and notify staff. Config-toggleable via
+   * GEMFIELD_DIGEST_ENABLED. Sockets reach staff online now; a stored row per recipient
+   * keeps it in the bell, since sockets never deliver on Vercel.
+   */
+  async runGemfieldDigest(): Promise<{ enabled: boolean; notified: number; persisted: number; digest: GemfieldDigest }> {
     const items = await this.listPipeline()
     const digest = buildGemfieldDigest(items)
     if (!isGemfieldDigestEnabled()) {
-      return { enabled: false, notified: 0, digest }
+      return { enabled: false, notified: 0, persisted: 0, digest }
     }
     // Target staff who run the pipeline (dev channel). notifyUser is targeted - never a broadcast,
     // so this never reaches clients.
@@ -99,15 +106,23 @@ export class GemfieldPipelineService {
       select: { userId: true },
       distinct: ['userId'],
     })
+    const payload = {
+      type: digest.breachedCount ? 'warning' : 'info',
+      title: digest.title,
+      message: digest.message,
+      link: '/operations/clients/gemfield',
+    } as const
     for (const member of staff) {
-      notificationService.notifyUser(member.userId, {
-        type: digest.breachedCount ? 'warning' : 'info',
-        title: digest.title,
-        message: digest.message,
-        link: '/operations/clients/gemfield',
-      })
+      notificationService.notifyUser(member.userId, payload)
     }
-    return { enabled: true, notified: staff.length, digest }
+    let persisted = 0
+    try {
+      persisted = await notificationService.persistForUsers(staff.map((member) => member.userId), payload)
+    } catch (error) {
+      // The socket delivery above already happened; a missing table must not fail the job.
+      logger.error('Could not store the Gemfield digest notifications', error)
+    }
+    return { enabled: true, notified: staff.length, persisted, digest }
   }
 
   /** Full staff-side ticket detail: wizard answers, attachments, and the complete comment thread

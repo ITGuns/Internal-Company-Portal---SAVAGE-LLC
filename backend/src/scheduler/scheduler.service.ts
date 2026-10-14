@@ -57,6 +57,7 @@ export class SchedulerService {
             const summary = {
                 enabled: result.enabled,
                 notified: result.notified,
+                persisted: result.persisted,
                 open: result.digest.openCount,
                 devAssist: result.digest.devAssistCount,
                 breached: result.digest.breachedCount,

@@ -12,6 +12,7 @@ const logger = createLogger('notifications.notifications.controller')
  *   - Recent announcements (last 7 days)
  *   - Tasks assigned to the user (last 7 days)
  *   - Recent chat messages sent to the user (last 7 days)
+ *   - Stored UserNotification rows, such as the Gemfield daily digest (last 7 days)
  */
 export class NotificationsController {
 
@@ -24,7 +25,7 @@ export class NotificationsController {
                 const userId = (req as AuthRequest).user.userId
                 const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // last 7 days
 
-                const [announcements, tasks, chatMessages] = await Promise.all([
+                const [announcements, tasks, chatMessages, stored] = await Promise.all([
                     // Recent announcements
                     prisma.announcement.findMany({
                         where: { createdAt: { gte: since } },
@@ -59,6 +60,16 @@ export class NotificationsController {
                         },
                         orderBy: { createdAt: 'desc' },
                         take: 10,
+                    }),
+
+                    // Stored rows (UserNotification). A missing table must not break the bell.
+                    prisma.userNotification.findMany({
+                        where: { userId, createdAt: { gte: since } },
+                        orderBy: { createdAt: 'desc' },
+                        take: 10,
+                    }).catch((error) => {
+                        logger.error('Error fetching stored notifications:', error)
+                        return []
                     }),
                 ])
 
@@ -105,6 +116,18 @@ export class NotificationsController {
                         message: m.content.length > 80 ? m.content.slice(0, 80) + '…' : m.content,
                         link: '/chat',
                         createdAt: m.createdAt.toISOString(),
+                        read: false,
+                    })
+                }
+
+                for (const n of stored) {
+                    notifications.push({
+                        id: `note-${n.id}`,
+                        type: n.type,
+                        title: n.title,
+                        message: n.message,
+                        link: n.link || '/dashboard',
+                        createdAt: n.createdAt.toISOString(),
                         read: false,
                     })
                 }

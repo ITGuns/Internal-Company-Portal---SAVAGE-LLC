@@ -214,6 +214,24 @@ class NotificationService {
         this.logDebug(`Notification sent to user ${userId}: ${payload.title}`)
     }
 
+    /**
+     * Stores the notification for each user so the bell (GET /api/notifications)
+     * shows it even where sockets never deliver, as on Vercel. Returns rows written.
+     */
+    async persistForUsers(userIds: readonly string[], payload: NotificationPayload): Promise<number> {
+        if (userIds.length === 0) return 0
+        const result = await prisma.userNotification.createMany({
+            data: userIds.map((userId) => ({
+                userId,
+                type: payload.type,
+                title: payload.title,
+                message: payload.message,
+                link: payload.link ?? null,
+            })),
+        })
+        return result.count
+    }
+
     broadcast(payload: NotificationPayload) {
         if (!this.io) return
 

@@ -86,6 +86,7 @@ model User {
   overtimeReviews             OvertimeRequest[]            @relation("OvertimeReviews")
   adjustmentRequests          TimeEntryAdjustmentRequest[] @relation("AdjustmentRequests")
   adjustmentReviews           TimeEntryAdjustmentRequest[] @relation("AdjustmentReviews")
+  notifications               UserNotification[]
 
   @@index([email])
   @@index([managerId])
@@ -1294,6 +1295,25 @@ model WorkspaceSetting {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+// Notifications kept for the bell (GET /api/notifications) when sockets alone
+// would lose them, as on Vercel. First user: the Gemfield daily digest.
+model UserNotification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   @default("info") // info | success | warning | error
+  title     String
+  message   String
+  link      String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 // ============================================
