@@ -2,7 +2,10 @@ import { STORAGE_KEYS } from './constants';
 import type { LoginCredentials, AuthResponse } from './types/auth';
 import {
     clearAuthSession,
+    getAuthErrorMessage,
     isAuthFailureResponse,
+    isDeactivatedAccountMessage,
+    rememberDeactivatedLogin,
     SESSION_EXPIRED_MESSAGE,
 } from './auth-session';
 import { buildApiUrl, buildAuthUrl } from './api-url';
@@ -105,6 +108,9 @@ export const refreshAccessToken = (): Promise<string | null> => {
                     setRefreshToken()
                     return data.accessToken
                 }
+            } else if (res.status === 403) {
+                const payload = await res.json().catch(() => null)
+                if (isDeactivatedAccountMessage(getAuthErrorMessage(payload))) rememberDeactivatedLogin()
             }
         } catch (err) {
             console.error('Token refresh failed:', err)

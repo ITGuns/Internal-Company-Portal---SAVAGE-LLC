@@ -28,7 +28,7 @@ function createStorage(initial = {}) {
 
 function loadApiHelpers(localStorage, fetchImpl = async () => {
   throw new Error('Unexpected fetch call');
-}) {
+}, authSessionOverrides = {}) {
   const helperPath = path.resolve(__dirname, '../src/lib/api.ts');
   const source = fs.readFileSync(helperPath, 'utf8');
   const { outputText } = ts.transpileModule(source, {
@@ -61,8 +61,12 @@ function loadApiHelpers(localStorage, fetchImpl = async () => {
       if (specifier === './auth-session') {
         return {
           clearAuthSession() {},
+          getAuthErrorMessage: (payload) => (typeof payload?.error === 'string' ? payload.error : ''),
           isAuthFailureResponse: async () => false,
+          isDeactivatedAccountMessage: (message = '') => message.toLowerCase().includes('deactivated'),
+          rememberDeactivatedLogin() {},
           SESSION_EXPIRED_MESSAGE: 'Session expired',
+          ...authSessionOverrides,
         };
       }
 
@@ -143,4 +147,28 @@ test('shares one refresh-token rotation across concurrent callers', async () => 
     'rotated-access-token',
   ]);
   assert.equal(getAuthToken(), 'rotated-access-token');
+});
+
+test('notes a deactivated account when the refresh is refused with 403', async () => {
+  const respond = (status, error) => async () => ({
+    ok: false,
+    status,
+    async json() {
+      return { error };
+    },
+  });
+  let notices = 0;
+  const overrides = { rememberDeactivatedLogin: () => { notices += 1; } };
+
+  const deactivated = loadApiHelpers(
+    createStorage(),
+    respond(403, 'This account is deactivated. Contact an administrator.'),
+    overrides,
+  );
+  assert.equal(await deactivated.refreshAccessToken(), null);
+  assert.equal(notices, 1);
+
+  const expired = loadApiHelpers(createStorage(), respond(403, 'Invalid or expired refresh token'), overrides);
+  assert.equal(await expired.refreshAccessToken(), null);
+  assert.equal(notices, 1, 'an expired refresh token is not a deactivation');
 });

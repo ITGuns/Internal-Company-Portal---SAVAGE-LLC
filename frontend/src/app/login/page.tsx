@@ -8,6 +8,7 @@ import LoginInput from '@/components/LoginInput';
 import { useUser } from '@/contexts/UserContext';
 import { useWorkspaceConfig } from '@/contexts/WorkspaceConfigContext';
 import { loginWithEmail, startOAuthLogin } from '@/lib/api';
+import { DEACTIVATED_ACCOUNT_MESSAGE, takeLoginNotice } from '@/lib/auth-session';
 import { getAuthenticatedLandingPath } from '@/lib/role-access';
 import styles from './login.module.css';
 
@@ -50,6 +51,12 @@ export default function LoginPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const prefillEmail = params.get('email');
+    if (prefillEmail) setEmail(prefillEmail);
+
+    const notice = takeLoginNotice();
+    if (notice) setError(notice);
+
     const oauthError = params.get('oauthError');
     const provider = params.get('provider');
     if (!oauthError) return;
@@ -57,7 +64,7 @@ export default function LoginPage() {
     const providerName = provider === 'apple' ? 'Apple' : provider === 'google' ? 'Google' : 'OAuth';
     const messageByError: Record<string, string> = {
       pending: `${providerName} sign-in worked, but this account is waiting for manager approval.`,
-      inactive: 'This account is deactivated. Contact an administrator.',
+      inactive: DEACTIVATED_ACCOUNT_MESSAGE,
       failed: `${providerName} sign-in could not be completed. Please try again or use email.`,
       not_configured: `${providerName} sign-in is not configured yet.`,
       state_mismatch: `${providerName} sign-in expired. Please start again.`,

@@ -162,7 +162,7 @@ function ResetPasswordForm() {
             </p>
             <button
               className={styles.submitButton}
-              onClick={() => router.push('/login')}
+              onClick={() => router.push(email ? `/login?email=${encodeURIComponent(email)}` : '/login')}
             >
               Go to Sign In
             </button>

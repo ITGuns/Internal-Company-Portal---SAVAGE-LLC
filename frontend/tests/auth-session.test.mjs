@@ -8,7 +8,7 @@ import ts from 'typescript';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function loadAuthSessionHelpers() {
+function loadAuthSessionHelpers(browserGlobals = {}) {
   const helperPath = path.resolve(__dirname, '../src/lib/auth-session.ts');
   const source = fs.readFileSync(helperPath, 'utf8');
   const { outputText } = ts.transpileModule(source, {
@@ -30,6 +30,7 @@ function loadAuthSessionHelpers() {
       throw new Error(`Unexpected import: ${specifier}`);
     },
     Event,
+    ...browserGlobals,
   }, { filename: helperPath });
 
   return compiledModule.exports;
@@ -45,4 +46,29 @@ test('treats expired token responses as auth failures without masking permission
   assert.equal(isTokenAuthFailure(500, 'Invalid or expired token'), false);
   assert.equal(getAuthErrorMessage({ error: 'Invalid or expired token' }), 'Invalid or expired token');
   assert.equal(getAuthErrorMessage({ details: 'Insufficient permissions' }), 'Insufficient permissions');
+});
+
+test('leaves a one-shot deactivated notice for the login page', () => {
+  const store = new Map();
+  const sessionStorage = {
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => store.set(key, String(value)),
+    removeItem: (key) => store.delete(key),
+  };
+  const {
+    DEACTIVATED_ACCOUNT_MESSAGE,
+    isDeactivatedAccountMessage,
+    rememberDeactivatedLogin,
+    takeLoginNotice,
+  } = loadAuthSessionHelpers({ window: {}, sessionStorage });
+
+  assert.equal(isDeactivatedAccountMessage('This account is deactivated. Contact an administrator.'), true);
+  assert.equal(isDeactivatedAccountMessage('Invalid or expired refresh token'), false);
+  assert.equal(isDeactivatedAccountMessage(), false);
+
+  assert.equal(takeLoginNotice(), '');
+  rememberDeactivatedLogin();
+  assert.equal(takeLoginNotice(), DEACTIVATED_ACCOUNT_MESSAGE);
+  assert.equal(DEACTIVATED_ACCOUNT_MESSAGE, 'This account is deactivated. Contact an administrator.');
+  assert.equal(takeLoginNotice(), '', 'the notice is read once');
 });
