@@ -1,5 +1,41 @@
 # Development Notes
 
+## 2026-10-14 - Backfill hours and serverless hygiene (feat-backfill-hours)
+
+### Completed
+- Backfill hours (owner request: add time since Oct 1, when Deskii was not in use, payroll roles and higher): `POST /payroll/entries/backfill` with a dry run, and a "Backfill hours" dialog next to Manual on the payroll calendar. Contract in `docs/api.md`.
+- Direct time-entry create, edit and delete narrowed from time reviewers to payroll-management access. Plain managers keep reviewing requests and see other people's time read-only.
+- Upload limits made honest for Vercel: 3 MB for files and avatars, 700 KB in total for Gemfield ticket attachments. The pickers state the limit before a file is chosen and refuse larger files.
+- Backend function max duration 60 s through `export const config` in `backend/src/main.ts`.
+- Gemfield daily digest stored per recipient (`UserNotification`) and served by `GET /api/notifications`, so the bell shows it without sockets.
+- Welcome and task emails are awaited before responding (8 s cap); email logs mask recipients to `***@domain`.
+- Workspace branding stored in `WorkspaceSetting` (the old JSON file is read as a fallback for one release).
+- nodemailer 10.1 (clears the high advisory); payroll route role lists derived from `org-access-policy.ts`.
+
+### Files Changed
+- Backend: `payroll/backfill.calculations.ts`, `payroll/backfill.service.ts`, `payroll/payroll.controller.ts`, `payroll/payroll.permissions.ts`, `org/org-access-policy.ts`, `uploads/*`, `clients/gemfield/gemfield-ticket.service.ts`, `clients/gemfield/gemfield-pipeline.service.ts`, `notifications/*`, `email/email.service.ts`, `tasks/tasks.controller.ts`, `users/users.controller.ts`, `workspace/workspace.controller.ts`, `main.ts`, `prisma/schema.prisma`, migrations `202610140001_workspace_settings` and `202610140002_user_notifications`.
+- Frontend: `components/payroll/BackfillHoursModal.tsx`, `CalendarTab.tsx`, `PayrollDayDetailPanel.tsx`, `app/payroll-calendar/page.tsx`, `lib/backfill-hours.ts`, `lib/upload-limits.ts`, `lib/time-entries.ts`, the file directory, client assets, profile photo and ticket wizard pickers.
+
+### Decisions Made
+- `vercel.json` cannot take a `functions` block while it keeps `builds`: Vercel fails the deploy with FUNCTIONS_AND_BUILDS (checked in the Vercel CLI 60.1.1 validator). @vercel/node reads `maxDuration` from the entrypoint's static `export const config` instead, so it lives in `main.ts` (the env config import is now `appConfig`). 60 s is the Hobby maximum without Fluid compute. With Fluid on, Hobby already defaults to 300 s and 60 lowers it, so check the project's Fluid setting.
+- Backfill skips a day when any entry touches that Manila day (overnight and still-open entries count) and never merges. The weekend reason wins when both apply. Days in a processed payroll period are refused with 409, like adjustment approvals, and an entry may not end in the future. Times are same-day only, like the Manual form, so night shifts across midnight cannot be backfilled.
+- `skipped` items read `"YYYY-MM-DD: weekend"` or `"YYYY-MM-DD: existing entry"`; `created` is 0 on a dry run.
+- Payroll roles may backfill and edit their own time, as direct edits already allowed.
+- No stored notifications existed (the bell derived items from announcements, tasks and chat), so `UserNotification` was added. Both new tables are additive, and reads fall back when a table is missing, so a deploy that lands before its migration does not break login branding or the bell.
+- Chat attachments were left alone (the feat-polling-and-polish branch owns chat) and still have no client-side size check. `LIMITS.MAX_FILE_SIZE` and `APP_CONFIG.maxFileSize` (5 MB) are unused and were left for the same reason.
+- `LARGE_JSON_BODY_LIMIT` stays 16 MB as a parser ceiling; the caps users see are the 3 MB and 700 KB checks.
+
+### How to Test
+- Backend: `npm run build`, then `npm test` with `DATABASE_URL` pointing at the local test database (new: `payroll.backfill`, `email.delivery`, `notifications.persisted`).
+- Frontend: `npm --prefix frontend test` (new: `backfill-hours`, `upload-limits`).
+- Manual: as a payroll role open Payroll Calendar, Backfill hours, Preview, then Create entries. As a project manager pick an employee in the audit filter: no Manual, Backfill, edit or delete controls.
+
+### Next Steps
+- Apply migrations `202610140001_workspace_settings` and `202610140002_user_notifications` to production (migrate-production workflow) before merging.
+- Confirm the Vercel project's Fluid compute setting (see the max duration decision).
+- The Vercel crons run the scheduler, and so the "daily" digest, only on the 1st and 16th.
+- Remaining backend audit highs are dev tooling only (braces and chokidar through ts-node-dev).
+
 ## 2026-10-14 production recovery, onboarding proof and ops hardening
 
 - Root cause of the payroll v2 outage: the production database never received
