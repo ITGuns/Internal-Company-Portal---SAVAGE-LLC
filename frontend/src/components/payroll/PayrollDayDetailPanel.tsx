@@ -195,7 +195,7 @@ export default function PayrollDayDetailPanel({
             <Hourglass className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" aria-hidden="true" />
             <div className="min-w-0 flex-1">
               <div className="font-semibold">
-                {roundHours(overtimeHours)} hours above {!canEditEntries && onRequestOvertime ? "your" : "the"} daily cap
+                {roundHours(overtimeHours)} h above {!canEditEntries && onRequestOvertime ? "your" : "the"} daily cap
               </div>
               <div className="mt-1 text-xs text-[var(--muted)]">
                 {dayOvertimeRequests.length === 0

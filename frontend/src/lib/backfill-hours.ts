@@ -64,7 +64,7 @@ export function payrollTodayKey(now: Date, timeZone: string): string {
   return `${read("year")}-${read("month")}-${read("day")}`;
 }
 
-/** October 1 (or the earliest allowed day) to yesterday, 09:00 to 18:00, weekends skipped. */
+/** October 1 (or the earliest allowed day) to yesterday, 09:00 to 17:00 (eight hours, the daily cap), weekends skipped. */
 export function getBackfillDefaults(todayKey: string, userId = ""): BackfillForm {
   const yesterday = addDaysToKey(todayKey, -1);
   const earliest = addDaysToKey(yesterday, -MAX_BACKFILL_SPAN_DAYS);
@@ -74,7 +74,7 @@ export function getBackfillDefaults(todayKey: string, userId = ""): BackfillForm
     startDate: start < yesterday ? start : yesterday,
     endDate: yesterday,
     startTime: "09:00",
-    endTime: "18:00",
+    endTime: "17:00",
     skipWeekends: true,
     notes: "",
   };

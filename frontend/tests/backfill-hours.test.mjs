@@ -26,13 +26,13 @@ function form(overrides = {}) {
   return { ...helpers.getBackfillDefaults(TODAY, 'user-1'), ...overrides };
 }
 
-test('defaults run from October 1 to yesterday, 09:00 to 18:00, weekends skipped', () => {
+test('defaults run from October 1 to yesterday, 09:00 to 17:00, weekends skipped', () => {
   assert.deepEqual({ ...helpers.getBackfillDefaults(TODAY, 'user-1') }, {
     userId: 'user-1',
     startDate: '2026-10-01',
     endDate: '2026-10-13',
     startTime: '09:00',
-    endTime: '18:00',
+    endTime: '17:00',
     skipWeekends: true,
     notes: '',
   });
@@ -76,7 +76,7 @@ test('payload trims notes and carries the dry-run flag', () => {
     startDate: '2026-10-01',
     endDate: '2026-10-13',
     startTime: '09:00',
-    endTime: '18:00',
+    endTime: '17:00',
     skipWeekends: true,
     notes: 'Paper timesheet',
     dryRun: true,
