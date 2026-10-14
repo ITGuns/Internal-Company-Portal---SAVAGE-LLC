@@ -51,24 +51,12 @@ const users: Record<string, FakeUser> = {
   emailAdmin: { id: 'u-email-admin', email: 'owner@example.test', status: 'active', isApproved: true, roles: ['Frontend Developer'] },
 }
 
-// Time entries by owner, for the self-review checks on PATCH/DELETE /payroll/entry/:id.
-const entryOwners: Record<string, string> = {
-  te_1: 'u-employee',
-  te_mgr: 'u-manager',
-  te_books: 'u-bookkeeper',
-}
 const byId = new Map(Object.values(users).map((user) => [user.id, user]))
 
 const originals = {
   userFindUnique: prisma.user.findUnique,
   userCreate: prisma.user.create,
   userRoleFindMany: prisma.userRole.findMany,
-  timeEntryFindUnique: prisma.timeEntry.findUnique,
-}
-
-;(prisma.timeEntry as any).findUnique = async (args: any) => {
-  const owner = entryOwners[args?.where?.id]
-  return owner ? { id: args.where.id, userId: owner } : null
 }
 
 ;(prisma.user as any).findUnique = async (args: any) => {
@@ -105,6 +93,7 @@ async function requestJson(
 
 const calls: string[] = []
 const userUpdates: Array<{ id: string; data: JsonRecord }> = []
+const backfillActors: JsonRecord[] = []
 const record = (name: string) => async (..._args: unknown[]) => {
   calls.push(name)
   return { id: 'stub', name }
@@ -131,6 +120,13 @@ function buildApp() {
     addManualEntry: record('addManualEntry'),
     updateTimeEntry: record('updateTimeEntry'),
     deleteTimeEntry: record('deleteTimeEntry'),
+  }
+  ;(payroll as any).backfills = {
+    backfill: async (_body: unknown, actor: JsonRecord) => {
+      calls.push('backfill')
+      backfillActors.push(actor)
+      return { created: 0, skipped: [], days: [] }
+    },
   }
 
   const usersController = new UsersController()
@@ -181,17 +177,21 @@ async function runRouteGuardTests() {
   await withServer(async (baseUrl) => {
     const { employee, manager, bookkeeper, opsManager, admin, inactive } = users
 
-    // Rule 4: employees cannot edit time entries directly; reviewers edit other people's.
+    // Rule 4 (narrowed 2026-10-14): only payroll-management roles edit time entries
+    // directly. Plain managers keep reviewing requests but get the same 403 as employees.
     const times = { start: '2026-07-01T01:00:00Z', end: '2026-07-01T02:00:00Z' }
     for (const [method, path] of [['POST', '/payroll/entry'], ['PATCH', '/payroll/entry/te_1'], ['DELETE', '/payroll/entry/te_1']]) {
       const denied = await expectStatus(baseUrl, `employee ${method} entry`, path, method, employee, 403, { ...times, userId: employee.id })
       assert.equal(denied.body.message, 'Submit an adjustment request')
       const body = method === 'POST' ? { ...times, userId: employee.id } : times
-      await expectStatus(baseUrl, `manager ${method} other's entry`, path, method, manager, 200, body)
+      const managerDenied = await expectStatus(baseUrl, `manager ${method} other's entry`, path, method, manager, 403, body)
+      assert.equal(managerDenied.body.message, 'Submit an adjustment request')
       await expectStatus(baseUrl, `bookkeeper ${method} other's entry`, path, method, bookkeeper, 200, body)
+      await expectStatus(baseUrl, `ops manager ${method} other's entry`, path, method, opsManager, 200, body)
+      await expectStatus(baseUrl, `admin ${method} other's entry`, path, method, admin, 200, body)
     }
 
-    // Self-review rule: a reviewer without payroll access cannot touch their own time.
+    // Managers cannot touch their own time either.
     for (const [method, path, body] of [
       ['POST', '/payroll/entry', times],
       ['POST', '/payroll/entry', { ...times, userId: manager.id }],
@@ -207,6 +207,22 @@ async function runRouteGuardTests() {
     // Moving an entry to another person stays payroll-only.
     await expectStatus(baseUrl, 'manager moves entry', '/payroll/entry/te_1', 'PATCH', manager, 403, { userId: manager.id })
     await expectStatus(baseUrl, 'bookkeeper moves entry', '/payroll/entry/te_1', 'PATCH', bookkeeper, 200, { userId: manager.id })
+
+    // Backfill hours: payroll roles and higher only.
+    const backfillBody = { userId: employee.id, startDate: '2026-10-01', endDate: '2026-10-02', startTime: '09:00', endTime: '18:00', skipWeekends: true }
+    backfillActors.length = 0
+    const backfilled = await expectStatus(baseUrl, 'bookkeeper backfill', '/payroll/entries/backfill', 'POST', bookkeeper, 200, backfillBody)
+    assert.deepEqual(backfilled.body, { created: 0, skipped: [], days: [] })
+    await expectStatus(baseUrl, 'admin backfill', '/payroll/entries/backfill', 'POST', admin, 200, backfillBody)
+    assert.deepEqual(backfillActors, [
+      { requesterId: bookkeeper.id, isFullAccess: false },
+      { requesterId: admin.id, isFullAccess: true },
+    ])
+    for (const user of [manager, employee]) {
+      const denied = await expectStatus(baseUrl, `${user.id} backfill`, '/payroll/entries/backfill', 'POST', user, 403, backfillBody)
+      assert.equal(denied.body.error, 'Only payroll roles can backfill hours')
+    }
+    assert.equal(backfillActors.length, 2, 'denied callers never reach the service')
 
     // PATCH /users/:id ignores status: deactivate/reactivate own it (with the admin guard).
     userUpdates.length = 0
@@ -274,7 +290,7 @@ async function runRouteGuardTests() {
     assert.equal(refresh.body.error, INACTIVE_ACCOUNT_MESSAGE)
   })
 
-  for (const expected of ['createOvertime', 'reviewOvertime', 'approveAdjustment', 'rejectAdjustment', 'editPayslip', 'deletePayslip', 'deactivate', 'reactivate', 'hardDelete']) {
+  for (const expected of ['createOvertime', 'reviewOvertime', 'approveAdjustment', 'rejectAdjustment', 'editPayslip', 'deletePayslip', 'deactivate', 'reactivate', 'hardDelete', 'backfill']) {
     assert.ok(calls.includes(expected), `${expected} reached the service`)
   }
 }
@@ -606,7 +622,6 @@ async function main() {
     ;(prisma.user as any).findUnique = originals.userFindUnique
     ;(prisma.user as any).create = originals.userCreate
     ;(prisma.userRole as any).findMany = originals.userRoleFindMany
-    ;(prisma.timeEntry as any).findUnique = originals.timeEntryFindUnique
     config.payrollTimezone = savedTimezone
     config.adminEmails = savedAdminEmails
   }

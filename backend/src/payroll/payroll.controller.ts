@@ -21,9 +21,11 @@ import {
     PAYROLL_MANAGEMENT_ROUTE_ROLES as PAYROLL_ROUTE_ROLE_LIST,
 } from './payroll.permissions'
 import { createLogger } from '../observability/logger'
+import { hasFullAccess } from '../org/org-access-policy'
 import { registerTimeRequestRoutes } from './time-requests.routes'
 import { PayslipEditService } from './payslip-edit.service'
 import { TimeRequestsService } from './time-requests.service'
+import { BackfillService } from './backfill.service'
 
 const logger = createLogger('payroll.payroll.controller')
 
@@ -35,15 +37,16 @@ interface AuthRequest extends Request {
     }
 }
 
-// Shared list lives in payroll.permissions.ts (now includes payroll_finance, which
-// org-access-policy already treated as payroll management).
+// Derived from org-access-policy in payroll.permissions.ts, so it matches hasPayrollManagementAccess.
 const PAYROLL_MANAGEMENT_ROUTE_ROLES = [...PAYROLL_ROUTE_ROLE_LIST]
 const DIRECT_ENTRY_EDIT_DENIED = 'Submit an adjustment request'
+const BACKFILL_DENIED = 'Only payroll roles can backfill hours'
 
 export class PayrollController {
     private service = new PayrollService()
     private payslipEdits = new PayslipEditService()
     private timeRequests = new TimeRequestsService()
+    private backfills = new BackfillService()
 
     private getParam(value: string | string[]): string {
         return Array.isArray(value) ? value[0] : value
@@ -64,21 +67,13 @@ export class PayrollController {
             requesterId,
             isPrivileged: hasPayrollManagementAccess(roles, isConfiguredAdmin),
             canReviewTime: canReviewTimeRequests(roles, isConfiguredAdmin),
+            isFullAccess: hasFullAccess(roles, isConfiguredAdmin),
         }
     }
 
+    /** Direct time-entry edits are payroll-management only; everyone else files a request. */
     private denyDirectEntryEdit(res: Response) {
         return res.status(403).json({ error: DIRECT_ENTRY_EDIT_DENIED, message: DIRECT_ENTRY_EDIT_DENIED })
-    }
-
-    /**
-     * Reviewers without payroll access may not touch their own time (self-review rule):
-     * they go through an adjustment request like everyone else.
-     */
-    private async isOwnEntryForNonPayroll(access: PayrollAccess, entryId: string): Promise<boolean> {
-        if (access.isPrivileged) return false
-        const entry = await prisma.timeEntry.findUnique({ where: { id: entryId }, select: { userId: true } })
-        return entry?.userId === access.requesterId
     }
 
     private parseDate(value: unknown): Date | null {
@@ -275,14 +270,12 @@ export class PayrollController {
                 const access = await this.getPayrollAccess(req)
                 if (!access) return res.sendStatus(401)
 
-                if (!access.canReviewTime) return this.denyDirectEntryEdit(res)
+                if (!access.isPrivileged) return this.denyDirectEntryEdit(res)
 
                 const { start, end, notes, userId } = req.body
                 if (!start) return res.status(400).json({ error: 'Start time required' })
 
                 const targetUserId = userId || access.requesterId
-                if (targetUserId === access.requesterId && !access.isPrivileged) return this.denyDirectEntryEdit(res)
-
                 const startDate = this.parseDate(start)
                 const endDate = end ? this.parseDate(end) : null
                 if (!startDate || (end && !endDate)) {
@@ -308,14 +301,10 @@ export class PayrollController {
                 const access = await this.getPayrollAccess(req)
                 if (!access) return res.sendStatus(401)
 
-                if (!access.canReviewTime) return this.denyDirectEntryEdit(res)
+                if (!access.isPrivileged) return this.denyDirectEntryEdit(res)
 
                 const id = this.getParam(req.params.id)
                 const { start, end, notes, userId } = req.body
-                if (userId !== undefined && !access.isPrivileged) {
-                    return res.status(403).json({ error: 'Only payroll managers can move a time entry to another person' })
-                }
-                if (await this.isOwnEntryForNonPayroll(access, id)) return this.denyDirectEntryEdit(res)
                 const updates: UpdateTimeEntryDto = {}
 
                 if (start !== undefined) {
@@ -356,10 +345,9 @@ export class PayrollController {
                 const access = await this.getPayrollAccess(req)
                 if (!access) return res.sendStatus(401)
 
-                if (!access.canReviewTime) return this.denyDirectEntryEdit(res)
+                if (!access.isPrivileged) return this.denyDirectEntryEdit(res)
 
                 const id = this.getParam(req.params.id)
-                if (await this.isOwnEntryForNonPayroll(access, id)) return this.denyDirectEntryEdit(res)
                 await this.service.deleteTimeEntry(id, access.requesterId, {
                     canManageAny: true,
                 })
@@ -368,6 +356,26 @@ export class PayrollController {
             } catch (e) {
                 logger.error('Error deleting entry:', e)
                 this.sendPayrollError(res, e, 'Failed')
+            }
+        })
+
+        // Backfill hours for days before Deskii was in use (owner request 2026-10-14).
+        // Same guard as direct entry edits; dryRun answers the same shape without writing.
+        router.post('/entries/backfill', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const access = await this.getPayrollAccess(req)
+                if (!access) return res.sendStatus(401)
+                if (!access.isPrivileged) return res.status(403).json({ error: BACKFILL_DENIED })
+
+                const result = await this.backfills.backfill(req.body || {}, {
+                    requesterId: access.requesterId,
+                    isFullAccess: Boolean(access.isFullAccess),
+                })
+                res.json(result)
+                if (result.created > 0) notificationService.broadcastDataChange('time-entries')
+            } catch (e) {
+                logger.error('Error backfilling hours:', e)
+                this.sendPayrollError(res, e, 'Failed to backfill hours')
             }
         })
 

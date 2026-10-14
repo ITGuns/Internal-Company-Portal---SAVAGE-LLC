@@ -133,7 +133,7 @@ function isSerializationFailure(error: unknown): boolean {
 }
 
 /** Runs fn in a serializable transaction; a lost race answers 409 instead of 500. */
-async function serializable<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+export async function serializable<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     try {
         return await prisma.$transaction(fn, SERIALIZABLE)
     } catch (error) {
@@ -143,7 +143,7 @@ async function serializable<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>)
 }
 
 /** 409 when any of the instants falls on a day of a processed (non-draft) period. */
-async function assertDaysUnlocked(
+export async function assertDaysUnlocked(
     client: Prisma.TransactionClient,
     instants: readonly (Date | null | undefined)[],
 ): Promise<void> {

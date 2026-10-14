@@ -303,9 +303,9 @@ Payroll management access currently recognizes:
 - `contractor_salary_payments`
 - `payroll_finance` (route guards include it since 2026-10-08)
 
-Configured admin bypass emails also receive payroll management access.
+Configured admin bypass emails also receive payroll management access. The route-level lists in `backend/src/payroll/payroll.permissions.ts` (`PAYROLL_MANAGEMENT_ROUTE_ROLES`, `TIME_REVIEW_ROUTE_ROLES`) are derived from the role sets in `backend/src/org/org-access-policy.ts`, so they cannot drift from the helpers.
 
-Time review access (`canReviewTimeRequests`, mirrored in `frontend/src/lib/role-access.ts`) is management roles or payroll-management roles. It allows direct time-entry edits and reviewing overtime and correction requests. Reviewers cannot approve or reject their own requests (`403`).
+Time review access (`canReviewTimeRequests`, mirrored in `frontend/src/lib/role-access.ts`) is management roles or payroll-management roles. It allows reviewing overtime and correction requests. Reviewers cannot approve or reject their own requests (`403`). Since 2026-10-14 direct time-entry edits and backfill need payroll-management access; plain managers keep review rights only.
 
 Payroll and time v2 contract: `docs/payroll-time-v2-spec.md`.
 
@@ -323,8 +323,20 @@ Payroll and time v2 contract: `docs/payroll-time-v2-spec.md`.
 - `GET /api/payroll/time-entries` also accepts `start` and `end` date filters.
 - `POST /api/payroll/clock-in` creates an open time entry for the authenticated user.
 - `POST /api/payroll/clock-out` closes the authenticated user's open entry.
-- `POST /api/payroll/entry`, `PATCH /api/payroll/entry/:id` and `DELETE /api/payroll/entry/:id` are time-review roles only. Everyone else gets `403` with `{ error, message: "Submit an adjustment request" }`. Reviewers without payroll access get the same `403` when the target (`userId`, default self) or the entry owner is themselves (self-review rule). Moving an entry to another person (`userId` on PATCH) is payroll-management only (`403` otherwise).
+- `POST /api/payroll/entry`, `PATCH /api/payroll/entry/:id` and `DELETE /api/payroll/entry/:id` are payroll-management only (narrowed from time-review roles on 2026-10-14). Everyone else, managers included, gets `403` with `{ error, message: "Submit an adjustment request" }`. Payroll roles may edit any person's entries, their own included, and move an entry to another person (`userId` on PATCH).
 - Manual entry create/update validates date values and requires end time to be after start time when an end time is provided.
+
+### Backfill Hours
+
+`POST /api/payroll/entries/backfill` (payroll-management only, added 2026-10-14) adds one entry per day for time worked before Deskii was in use.
+
+- Body: `{ userId, startDate: "YYYY-MM-DD", endDate: "YYYY-MM-DD", startTime: "HH:MM", endTime: "HH:MM", skipWeekends: boolean, notes?: string, dryRun?: boolean }`. Dates are calendar days in `PAYROLL_TIMEZONE` (Manila); both times are on the same day, so an entry is at most 23 h 59 min.
+- `200` with `{ created, skipped, days }`. `days` lists the `YYYY-MM-DD` days that get an entry (on a dry run, would get one). `skipped` lists `"YYYY-MM-DD: weekend"` or `"YYYY-MM-DD: existing entry"`. `created` is the number written, always `0` when `dryRun: true` (nothing is written).
+- Days with any time entry touching that payroll day (open entries count until now) are skipped, never merged. With `skipWeekends: true`, Saturdays and Sundays are skipped. Entries are created in one serializable transaction; each gets `notes` = the given note (if any) followed by `Backfilled by <caller name or email> on <YYYY-MM-DD>`.
+- `400`: bad dates or times, `endDate` after today or more than 62 days after `startDate`, end time not after start time, notes over 500 characters, a client-only account, or a day whose end time is still ahead (today).
+- `403`: caller without payroll-management access (`{ error: "Only payroll roles can backfill hours" }`), or a deactivated target when the caller is not full access.
+- `404`: unknown `userId`.
+- `409`: a day to be created is in a processed payroll period, or a concurrent backfill for the same days won the race.
 
 ### Overtime And Correction Requests
 

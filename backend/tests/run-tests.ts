@@ -17,6 +17,7 @@ const tests = [
   'payroll.calculations.test.ts',
   'payroll.v2.calculations.test.ts',
   'payroll.v2.routes.test.ts',
+  'payroll.backfill.test.ts',
   'scheduler.routes.test.ts',
   'scheduler.periods.test.ts',
   'users.security.test.ts',

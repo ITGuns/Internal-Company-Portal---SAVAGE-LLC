@@ -12,9 +12,12 @@ export interface RoleLike {
 
 export interface PayrollAccess {
   requesterId: string
+  /** Payroll-management access: edit time entries directly, backfill hours, manage payslips. */
   isPrivileged: boolean
-  /** Management or payroll roles: edit time directly and review requests (payroll v2). */
+  /** Management or payroll roles: review overtime and correction requests (payroll v2). */
   canReviewTime?: boolean
+  /** Full-access roles (admin, owner): may also backfill hours for deactivated members. */
+  isFullAccess?: boolean
 }
 
 export interface PayrollProfileFilterResult {
@@ -66,8 +69,9 @@ export function hasPayrollManagementAccess(
 }
 
 /**
- * Roles allowed to review overtime and adjustment requests and to edit time
- * entries directly: MANAGEMENT_ACCESS_ROLES or PAYROLL_MANAGEMENT_ROLES.
+ * Roles allowed to review overtime and adjustment requests:
+ * MANAGEMENT_ACCESS_ROLES or PAYROLL_MANAGEMENT_ROLES. Editing time entries
+ * directly needs payroll-management access (hasPayrollManagementAccess).
  * Mirrored in frontend/src/lib/role-access.ts.
  */
 export function canReviewTimeRequests(

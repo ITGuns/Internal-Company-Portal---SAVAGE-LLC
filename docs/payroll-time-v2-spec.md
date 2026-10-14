@@ -34,8 +34,10 @@ current when the implementation drifts.
      hours x rate + OT pay. baseSalary ignored.
 4. Employees cannot create, edit or delete time entries directly. They clock
    in/out, and file a `TimeEntryAdjustmentRequest` for corrections. Roles in
-   `MANAGEMENT_ACCESS_ROLES` or `PAYROLL_MANAGEMENT_ROLES` edit directly and
-   review requests.
+   `MANAGEMENT_ACCESS_ROLES` or `PAYROLL_MANAGEMENT_ROLES` review requests.
+   Since 2026-10-14 only `PAYROLL_MANAGEMENT_ROLES` (full access included) edit
+   time directly and backfill past days (`POST /payroll/entries/backfill`, see
+   `docs/api.md`); plain managers keep review rights only.
 5. Payslips in a draft period can be edited (line items replaced, gross and
    net recomputed, note required) or deleted by payroll-management roles.
    Processed (locked) periods are read-only: respond 409.
@@ -137,7 +139,8 @@ All under the existing `/payroll`, `/users` and `/employees` routers. Auth as no
 | POST | /payroll/adjustment-requests/:id/approve | management or payroll | applies the change to TimeEntry in one transaction, appends a correction note |
 | POST | /payroll/adjustment-requests/:id/reject | same | |
 | DELETE | /payroll/adjustment-requests/:id | owner or management, pending only | 409 once reviewed |
-| POST/PATCH/DELETE | /payroll/entry[/:id] | management or payroll only | employees get 403 `{ message: "Submit an adjustment request" }` |
+| POST/PATCH/DELETE | /payroll/entry[/:id] | payroll management only (since 2026-10-14) | everyone else, managers included, gets 403 `{ message: "Submit an adjustment request" }` |
+| POST | /payroll/entries/backfill | payroll management only | `{ userId, startDate, endDate, startTime, endTime, skipWeekends, notes?, dryRun? }` -> `{ created, skipped, days }`; details in `docs/api.md` |
 | PATCH | /payroll/payslips/:id | payroll management | `{ items: [{type, description, amount}], note }` -> replace items, recompute gross/net, set editedBy/At/Note. 409 if period processed. |
 | DELETE | /payroll/payslips/:id | payroll management | 409 if period processed |
 | GET/POST | /payroll/config/:userId | unchanged | now accepts `payBasis`, `hourlyRate`, `overtimeMultiplier` (privileged only, via `filterPayrollProfileUpdate`) |
@@ -158,7 +161,9 @@ payroll roles. Mirror it in `frontend/src/lib/role-access.ts`.
   hourly rate field (shown for `hourly_rate`), OT multiplier field.
 - Time clock and calendar: employees see clock in/out, their entries
   read-only, "Request a correction" (opens adjustment modal) and, on a day
-  over the cap, "Request overtime". Managers keep direct edit.
+  over the cap, "Request overtime". Payroll roles get Manual, Backfill hours,
+  edit and delete. Plain managers see other people's time read-only and file
+  requests for their own.
 - Payroll calendar page: new "Approvals" tab (management and payroll roles)
   with two queues, OT and corrections, approve/reject with note, filter by
   status and person. Badge count on the tab.
