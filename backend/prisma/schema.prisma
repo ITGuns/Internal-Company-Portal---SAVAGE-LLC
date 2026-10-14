@@ -1285,6 +1285,18 @@ model FileFolder {
 }
 
 // ============================================
+// WORKSPACE SETTINGS
+// ============================================
+
+// Workspace-wide settings as JSON by key ("branding" for now). Replaces
+// workspace-branding.json, which Vercel's read-only filesystem never kept.
+model WorkspaceSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
 // SCHEDULER MODULE
 // ============================================
 
