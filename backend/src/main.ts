@@ -23,7 +23,7 @@ import { SearchController } from './search/search.controller'
 import { WorkspaceController } from './workspace/workspace.controller'
 import { SchedulerController } from './scheduler/scheduler.controller'
 import { resolveCorsResponseOrigin } from './config/cors.config'
-import { config, validateConfig } from './config/env.config'
+import { config as appConfig, validateConfig } from './config/env.config'
 import { PrismaService } from './database/prisma.service'
 import { initializePassport } from './auth/passport.config'
 import { notificationService } from './notifications/socket.service' // Service for real-time updates
@@ -39,6 +39,14 @@ import { validateCommercialRuntimeDependencies } from './config/production-readi
 
 const logger = createLogger('backend.main')
 
+/**
+ * Vercel function settings, read statically by @vercel/node from this entrypoint.
+ * vercel.json keeps the legacy `builds` array and Vercel refuses a `functions`
+ * block next to `builds` (FUNCTIONS_AND_BUILDS), so the duration lives here.
+ * 60 s is the Hobby maximum without Fluid compute and is also valid with it.
+ */
+export const config = { maxDuration: 60 }
+
 async function bootstrap() {
   // Validate environment configuration
   validateConfig()
@@ -47,7 +55,7 @@ async function bootstrap() {
   await PrismaService.connect()
 
   const uploadStorage = createUploadStorage()
-  if (config.commercialReadinessMode) {
+  if (appConfig.commercialReadinessMode) {
     const [refreshSessionPersistenceAvailable, uploadStorageAvailable] = await Promise.all([
       isRefreshSessionPersistenceAvailable(),
       uploadStorage.healthCheck(),
@@ -64,26 +72,26 @@ async function bootstrap() {
   const app = express()
   const httpServer = createServer(app) // Create HTTP server
 
-  if (config.trustProxyHops > 0) {
-    app.set('trust proxy', config.trustProxyHops)
+  if (appConfig.trustProxyHops > 0) {
+    app.set('trust proxy', appConfig.trustProxyHops)
   }
 
-  app.use(createSecurityHeadersMiddleware({ nodeEnv: config.nodeEnv }))
+  app.use(createSecurityHeadersMiddleware({ nodeEnv: appConfig.nodeEnv }))
 
   // Initialize Notification Service (Socket.io)
   await notificationService.initialize(httpServer)
 
   const authRateLimitStoreFactory = await connectAuthRateLimitStoreFactory({
-    nodeEnv: config.nodeEnv,
-    prefix: config.authRateLimitRedisPrefix,
-    redisUrl: config.redisUrl,
-    storeMode: config.authRateLimitStore,
+    nodeEnv: appConfig.nodeEnv,
+    prefix: appConfig.authRateLimitRedisPrefix,
+    redisUrl: appConfig.redisUrl,
+    storeMode: appConfig.authRateLimitStore,
   })
 
   configureJsonBodyParsers(app)
   app.use(passport.initialize())
 
-  const shouldLogRequests = config.nodeEnv !== 'production' || config.logLevel.toLowerCase() === 'debug'
+  const shouldLogRequests = appConfig.nodeEnv !== 'production' || appConfig.logLevel.toLowerCase() === 'debug'
 
   // Request logging is useful locally, but too noisy for normal production traffic.
   app.use((req: Request, res: Response, next: NextFunction) => {
@@ -95,7 +103,7 @@ async function bootstrap() {
 
   // Enable CORS
   app.use((req: Request, res: Response, next: NextFunction) => {
-    const responseOrigin = resolveCorsResponseOrigin(req.headers.origin, config.corsOrigins)
+    const responseOrigin = resolveCorsResponseOrigin(req.headers.origin, appConfig.corsOrigins)
     if (responseOrigin) {
       res.header('Access-Control-Allow-Origin', responseOrigin)
     }
@@ -115,7 +123,7 @@ async function bootstrap() {
     checkReadiness: async () => {
       const databaseHealthy = await PrismaService.healthCheck()
       if (!databaseHealthy) return false
-      if (!config.commercialReadinessMode) return true
+      if (!appConfig.commercialReadinessMode) return true
       const [refreshSessionsAvailable, storageAvailable] = await Promise.all([
         isRefreshSessionPersistenceAvailable(),
         uploadStorage.healthCheck(),
@@ -129,7 +137,7 @@ async function bootstrap() {
   // Authentication routes
   const authController = new AuthController({
     rateLimiters: createAuthRateLimiters({
-      settings: config.authRateLimits,
+      settings: appConfig.authRateLimits,
       storeFactory: authRateLimitStoreFactory,
     }),
   })
@@ -199,10 +207,10 @@ async function bootstrap() {
   }
 
   // Listen on HTTP Server instead of App
-  httpServer.listen(config.port, () => {
-    logger.info('Backend listening', { port: config.port })
+  httpServer.listen(appConfig.port, () => {
+    logger.info('Backend listening', { port: appConfig.port })
     logger.info('Socket.io server initialized')
-    logger.info('Backend environment configured', { nodeEnv: config.nodeEnv })
+    logger.info('Backend environment configured', { nodeEnv: appConfig.nodeEnv })
   })
 }
 
