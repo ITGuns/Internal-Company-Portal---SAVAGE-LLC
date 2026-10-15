@@ -9,7 +9,7 @@ import { isAdminEmail } from '../config/env.config'
 import { canRequestAssigneeTasks, hasTaskAssignmentPrivilege } from '../tasks/tasks.permissions'
 import { validateAvatarValue } from '../uploads/upload.validation'
 import { sanitizeUserForDirectory, sanitizeUsersForDirectory } from './users.security'
-import { UserOnboardingConflictError, UserOnboardingValidationError } from './users.service'
+import { MemberPasswordResetError, UserOnboardingConflictError, UserOnboardingValidationError } from './users.service'
 import { hasEmployeeManagementAccess } from '../employees/employees.security'
 import { hasFullAccess, hasInternalDirectoryAccess } from '../org/org-access-policy'
 import { resolvePaginationQuery } from '../http/pagination'
@@ -526,6 +526,32 @@ export class UsersController {
             this.handleActivation(req, res, false))
         router.post('/:id/reactivate', authenticateToken, requireRole(MEMBER_ACTIVATION_ROLES), (req: Request, res: Response) =>
             this.handleActivation(req, res, true))
+
+        // Set a new password for a member. Whoever can deactivate a member can reset their password;
+        // this is the recovery path while Forgot password has no email delivery.
+        router.post('/:id/reset-password', authenticateToken, requireRole(MEMBER_ACTIVATION_ROLES), async (req: Request, res: Response) => {
+            const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+            const authReq = req as AuthRequest
+            const requesterId = authReq.user?.userId
+            if (!requesterId) return res.status(401).json({ error: 'Authentication required' })
+
+            try {
+                const { revokedSessions } = await this.service.resetMemberPassword({
+                    requesterId,
+                    requesterEmail: authReq.user?.email,
+                    targetId: id,
+                    newPassword: req.body?.newPassword,
+                })
+                logger.info('Member password reset by an administrator', { actorId: requesterId, targetId: id })
+                return res.json({ ok: true, revokedSessions })
+            } catch (error) {
+                if (error instanceof MemberPasswordResetError) {
+                    return res.status(error.httpStatus).json({ error: error.message })
+                }
+                logger.error('Member password reset failed:', error)
+                return res.status(500).json({ error: 'Failed to reset password' })
+            }
+        })
 
         // Hard delete (Admin only). Needs ?confirm=hard and is refused while payslips exist.
         router.delete('/:id', authenticateToken, requireRole('admin'), async (req: Request, res: Response) => {

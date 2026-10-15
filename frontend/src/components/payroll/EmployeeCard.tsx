@@ -4,7 +4,7 @@
 
 import React from "react";
 import Image from "next/image";
-import { TrendingUp, UserX, Check, Plane, Coffee } from "lucide-react";
+import { TrendingUp, UserX, Check, Plane, Coffee, KeyRound } from "lucide-react";
 import Button from "@/components/Button";
 import type { Employee } from "@/lib/payroll-calendar/types";
 
@@ -14,6 +14,8 @@ interface EmployeeCardProps {
   onEdit: () => void;
   /** Omitted when the viewer cannot change member status. */
   onDeactivate?: () => void;
+  /** Same gate as onDeactivate. */
+  onResetPassword?: () => void;
 }
 
 export default function EmployeeCard({
@@ -21,6 +23,7 @@ export default function EmployeeCard({
   onViewDetails,
   onEdit,
   onDeactivate,
+  onResetPassword,
 }: EmployeeCardProps) {
   const hasPerformance = typeof employee.performance === "number";
 
@@ -113,6 +116,17 @@ export default function EmployeeCard({
             <Button size="sm" variant="ghost" onClick={onEdit}>
               Edit
             </Button>
+            {onResetPassword && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onResetPassword}
+                aria-label={`Reset password for ${employee.name}`}
+                icon={<KeyRound className="w-3.5 h-3.5" aria-hidden="true" />}
+              >
+                Reset password
+              </Button>
+            )}
             {onDeactivate && (
               <Button
                 size="sm"

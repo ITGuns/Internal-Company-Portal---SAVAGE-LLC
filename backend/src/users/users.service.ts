@@ -1,6 +1,9 @@
 import crypto from 'node:crypto'
+import bcrypt from 'bcrypt'
 import { PrismaClient, User, Prisma } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
+import { isAdminEmail } from '../config/env.config'
+import { hasFullAccess } from '../org/org-access-policy'
 import { revokeAllRefreshSessionsForUser } from '../auth/refresh-session.service'
 import { clearAccountStatusCache } from '../auth/account-status'
 import {
@@ -65,6 +68,42 @@ export interface CreateUserOnboardingInvitationDto {
 
 export class UserOnboardingValidationError extends Error {}
 export class UserOnboardingConflictError extends Error {}
+
+/** Refusal from resetMemberPassword. httpStatus is the status the route answers with. */
+export class MemberPasswordResetError extends Error {
+    constructor(readonly httpStatus: 400 | 403 | 404, message: string) {
+        super(message)
+    }
+}
+
+/** Same bcrypt cost as signup and POST /auth/reset-password in auth.controller.ts. */
+const PASSWORD_HASH_ROUNDS = 10
+const PASSWORD_MIN_LENGTH = 8
+/** bcrypt ignores everything past 72 bytes. */
+const PASSWORD_MAX_LENGTH = 72
+
+/**
+ * Rules for a password an administrator sets for a member: the signup and
+ * POST /auth/reset-password rules (length, an uppercase letter, a number),
+ * the bcrypt length cap, and never the member's own email address.
+ * Returns the refusal message, or null when the password is acceptable.
+ */
+export function memberPasswordError(password: unknown, email: string): string | null {
+    if (typeof password !== 'string' || password.length === 0) return 'New password is required'
+    if (password.length < PASSWORD_MIN_LENGTH) return `Password must be at least ${PASSWORD_MIN_LENGTH} characters`
+    if (password.length > PASSWORD_MAX_LENGTH) return `Password must be at most ${PASSWORD_MAX_LENGTH} characters`
+    if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter'
+    if (!/\d/.test(password)) return 'Password must contain at least one number'
+    if (password.toLowerCase() === email.toLowerCase()) return 'Password must not be the same as the email address'
+    return null
+}
+
+export interface ResetMemberPasswordInput {
+    requesterId: string
+    requesterEmail?: string
+    targetId: string
+    newPassword: unknown
+}
 
 export interface UpdateUserDto {
     name?: string
@@ -363,6 +402,45 @@ export class UsersService {
         if (!active) await revokeAllRefreshSessionsForUser(id)
         clearAccountStatusCache(id)
         return user
+    }
+
+    /**
+     * Administrator sets a new password for a member (POST /users/:id/reset-password).
+     * Production has no email, so Forgot password sends members to an administrator.
+     * Same guard as deactivate: never your own account, and only a full-access
+     * requester may change a full-access account. Any pending reset or setup link
+     * stops working and every refresh session of the member is revoked.
+     */
+    async resetMemberPassword(input: ResetMemberPasswordInput): Promise<{ revokedSessions: number }> {
+        if (input.requesterId === input.targetId) {
+            throw new MemberPasswordResetError(400, 'You cannot reset your own password here. Ask another administrator.')
+        }
+
+        const target = await this.prisma.user.findUnique({
+            where: { id: input.targetId },
+            select: { id: true, email: true },
+        })
+        if (!target) throw new MemberPasswordResetError(404, 'User not found')
+
+        const [targetRoles, requesterRoles] = await Promise.all([
+            this.getUserRoles(target.id),
+            this.getUserRoles(input.requesterId),
+        ])
+        const targetIsAdmin = hasFullAccess(targetRoles, isAdminEmail(target.email))
+        if (targetIsAdmin && !hasFullAccess(requesterRoles, isAdminEmail(input.requesterEmail))) {
+            throw new MemberPasswordResetError(403, 'Only an administrator can change this account')
+        }
+
+        const refusal = memberPasswordError(input.newPassword, target.email)
+        if (refusal) throw new MemberPasswordResetError(400, refusal)
+
+        // memberPasswordError returned null, so newPassword is a string.
+        const password = await bcrypt.hash(input.newPassword as string, PASSWORD_HASH_ROUNDS)
+        await this.prisma.user.update({
+            where: { id: target.id },
+            data: { password, passwordResetToken: null, passwordResetExpiry: null },
+        })
+        return { revokedSessions: await revokeAllRefreshSessionsForUser(target.id) }
     }
 
     async countPayslips(userId: string): Promise<number> {

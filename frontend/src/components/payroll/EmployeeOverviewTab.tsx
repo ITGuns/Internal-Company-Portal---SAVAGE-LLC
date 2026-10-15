@@ -25,6 +25,7 @@ const EmployeeDetailsModal = dynamic(() => import("./EmployeeDetailsModal"), { s
 const EmployeeEditModal = dynamic(() => import("./EmployeeEditModal"), { ssr: false });
 const InviteEmployeeModal = dynamic(() => import("./InviteEmployeeModal"), { ssr: false });
 const MemberStatusModal = dynamic(() => import("./MemberStatusModal"), { ssr: false });
+const ResetPasswordModal = dynamic(() => import("./ResetPasswordModal"), { ssr: false });
 
 type EmployeeView = "deployed" | "pending" | "inactive";
 
@@ -49,6 +50,7 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
     const [showEditModal, setShowEditModal] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [statusAction, setStatusAction] = useState<{ action: MemberStatusAction; member: MemberStatusTarget } | null>(null);
+    const [passwordResetMember, setPasswordResetMember] = useState<MemberStatusTarget | null>(null);
     const [inactiveMembers, setInactiveMembers] = useState<MemberStatusTarget[]>([]);
     const [inactiveLoading, setInactiveLoading] = useState(false);
     const [inactiveError, setInactiveError] = useState<string | null>(null);
@@ -356,6 +358,9 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                             onDeactivate={canChangeStatus && !isCurrentUser(employee.id)
                                 ? () => setStatusAction({ action: "deactivate", member: toStatusTarget(employee) })
                                 : undefined}
+                            onResetPassword={canChangeStatus && !isCurrentUser(employee.id)
+                                ? () => setPasswordResetMember(toStatusTarget(employee))
+                                : undefined}
                         />
                     ))}
                     {displayEmployees.length === 0 && (
@@ -503,6 +508,10 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                 onClose={() => setStatusAction(null)}
                 onDone={handleStatusDone}
             />
+
+            {passwordResetMember && (
+                <ResetPasswordModal member={passwordResetMember} onClose={() => setPasswordResetMember(null)} />
+            )}
 
         </div>
     );

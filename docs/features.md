@@ -118,6 +118,7 @@ Signup creates a pending account and preserves the requested department/role wit
 - Approval now requires an existing or requested role/department assignment; applications missing both are rejected with a clear error instead of creating approved users without roles.
 - Full-access admins, project managers, operations managers, and chief operations officers can approve pending employee applications.
 - Admin onboarding under `/operations/onboarding` lets admins generate approved setup links by entering an email and selecting a role. The user follows the link to set and confirm their password through the reset-password flow.
+- `Reset password` on a deployed employee card (`/payroll-calendar`, Employees tab) lets anyone who can deactivate the member set a new password, typed or generated (12 letters and digits without look-alikes). It is the recovery path while Forgot password has no email delivery: the admin tells the member the password in person or by chat, and the member is signed out on all their devices. Unlike setup links, the admin knows this password, and there is no self-service password change yet.
 
 ## Operations
 

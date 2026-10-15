@@ -2,6 +2,7 @@
  * Member status API client (docs/payroll-time-v2-spec.md rule 6).
  * Deactivate / reactivate: admin or operations_manager.
  * Hard delete: admin only, needs ?confirm=hard, 409 while the user has payslips.
+ * Reset password: same roles as deactivate, never your own account.
  */
 
 import { apiFetch } from "./api";
@@ -28,6 +29,20 @@ export async function deactivateUser(id: string): Promise<MemberStatusResult> {
 
 export async function reactivateUser(id: string): Promise<MemberStatusResult> {
   const res = await apiFetch(`/users/${encodeURIComponent(id)}/reactivate`, { method: "POST" });
+  return res.json().catch(() => ({}));
+}
+
+export interface PasswordResetResult {
+  ok?: boolean;
+  /** Refresh sessions the reset ended (the member's signed-in devices). */
+  revokedSessions?: number;
+}
+
+export async function resetUserPassword(id: string, newPassword: string): Promise<PasswordResetResult> {
+  const res = await apiFetch(`/users/${encodeURIComponent(id)}/reset-password`, {
+    method: "POST",
+    body: JSON.stringify({ newPassword }),
+  });
   return res.json().catch(() => ({}));
 }
 
