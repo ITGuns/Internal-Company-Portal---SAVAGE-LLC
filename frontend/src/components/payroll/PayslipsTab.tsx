@@ -416,6 +416,7 @@ export default function PayslipsTab() {
             onDownloadPDF={(ps) => handleDownloadPDF(ps)}
             onEditPayslip={setEditingPayslip}
             isPeriodLocked={activePeriod?.status === 'processed'}
+            onPayrollSaved={() => setRefreshKey(prev => prev + 1)}
           />
         </div>
       </div>

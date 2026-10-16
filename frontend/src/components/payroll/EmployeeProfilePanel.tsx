@@ -32,6 +32,8 @@ interface EmployeeProfilePanelProps {
   onDownloadPDF: (payslip: Payslip) => void;
   onEditPayslip?: (payslip: Payslip) => void;
   isPeriodLocked?: boolean;
+  /** Called after Set Up Payroll saves, so views that show pay settings can refetch. */
+  onPayrollSaved?: () => void;
 }
 
 const PAYROLL_SCHEME_LABELS: Record<string, string> = {
@@ -49,6 +51,7 @@ export default function EmployeeProfilePanel({
   onDownloadPDF,
   onEditPayslip,
   isPeriodLocked = false,
+  onPayrollSaved,
 }: EmployeeProfilePanelProps) {
   const [showPayrollSetup, setShowPayrollSetup] = useState(false);
   if (!employee) {
@@ -273,6 +276,7 @@ export default function EmployeeProfilePanel({
         isOpen={showPayrollSetup}
         onClose={() => setShowPayrollSetup(false)}
         employee={employee}
+        onSaved={onPayrollSaved}
       />
     </div>
   );

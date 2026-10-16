@@ -144,6 +144,23 @@ export async function requestBrowserNotificationPermission(
   }
 }
 
+/** Most browser pop-ups one REST load may raise, so a backlog does not flood the desktop. */
+export const MAX_POLLED_POPUPS = 3;
+
+/**
+ * Notifications from a REST load (the polling fallback) that should raise a
+ * browser pop-up: unread and not in the previous load. previousIds is null on
+ * the first load, which raises none because nothing in it is new to this tab.
+ */
+export function pickPolledPopups<T extends { id: string; read: boolean }>(
+  fetched: readonly T[],
+  previousIds: ReadonlySet<string> | null,
+  limit: number = MAX_POLLED_POPUPS,
+): T[] {
+  if (!previousIds) return [];
+  return fetched.filter((notification) => !notification.read && !previousIds.has(notification.id)).slice(0, limit);
+}
+
 export function createBrowserNotification(
   notification: NotificationPreferencePayload,
   target: NotificationTarget | undefined = getDefaultNotificationTarget(),

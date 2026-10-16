@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 import type { DayTask } from "@/lib/types/api";
 import { PAYROLL_TIME_ZONE, getPayrollDayKey } from "@/lib/time-requests";
+import { getCalendarPayHeader } from "@/lib/pay-basis";
 
 import DayDetailsModal, { type DayTimeEntry } from "./DayDetailsModal";
 
@@ -17,6 +18,14 @@ interface RawApiTask {
   dueDate?: string;
   updatedAt?: string;
   department?: { name: string };
+}
+
+/** Pay settings from GET /payroll/config/:userId; the employee list leaves out the hourly rate. */
+interface PayProfile {
+  payBasis?: string | null;
+  baseSalary?: number | null;
+  hourlyRate?: number | null;
+  maxBillableHoursPerDay?: number | null;
 }
 
 interface TimeTrackingCalendarProps {
@@ -66,6 +75,7 @@ export default function TimeTrackingCalendar({
   const [isFetching, setIsFetching] = useState(false);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [tasks, setTasks] = useState<RawApiTask[]>([]);
+  const [payProfile, setPayProfile] = useState<{ userId: string; profile: PayProfile } | null>(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -102,20 +112,48 @@ export default function TimeTrackingCalendar({
     fetchData();
   }, [employee, month, year, refreshKey, toast]);
 
+  // Pay basis, rate and daily cap for the header. refreshKey refetches after Set Up Payroll saves.
+  useEffect(() => {
+    if (!employee) return;
+    const userId = String(employee.id);
+    let active = true;
+    apiFetch(`/payroll/config/${encodeURIComponent(userId)}`)
+      .then((res) => res.json())
+      .then((profile: PayProfile) => {
+        if (active) setPayProfile({ userId, profile });
+      })
+      .catch(() => {
+        // The header falls back to the pay basis and salary from the employee list.
+      });
+    return () => {
+      active = false;
+    };
+  }, [employee, refreshKey]);
+
   // Leave records — no mock data; real API to be wired later
   const employeeLeaveRecords = useMemo(() => {
     return [] as ReturnType<typeof Array.prototype.filter>;
   }, []);
 
-  // Calculate total hours and salary for the month
-  const { totalHours, monthlySalary } = useMemo(() => {
-    if (!employee) return { totalHours: 0, monthlySalary: 0 };
+  // Logged hours for the month, and per Manila day of the entry start (as the server buckets them).
+  const { totalHours, dailyHours } = useMemo(() => {
+    const byDay = new Map<string, number>();
+    for (const entry of timeEntries) {
+      const day = getPayrollDayKey(entry.start) ?? entry.start;
+      byDay.set(day, (byDay.get(day) ?? 0) + (entry.durationMin || 0) / 60);
+    }
+    const days = [...byDay.values()];
+    return { totalHours: days.reduce((sum, hours) => sum + hours, 0), dailyHours: days };
+  }, [timeEntries]);
 
-    const hours = timeEntries.reduce((sum, entry) => sum + (entry.durationMin || 0) / 60, 0);
-    const salary = employee.salary; // Monthly salary
-
-    return { totalHours: hours, monthlySalary: salary };
-  }, [employee, timeEntries]);
+  const loadedProfile = employee && payProfile?.userId === String(employee.id) ? payProfile.profile : null;
+  const payHeader = getCalendarPayHeader({
+    payBasis: loadedProfile?.payBasis ?? employee?.payBasis,
+    baseSalary: loadedProfile?.baseSalary ?? employee?.salary,
+    hourlyRate: loadedProfile?.hourlyRate,
+    maxBillableHoursPerDay: loadedProfile?.maxBillableHoursPerDay ?? employee?.maxBillableHoursPerDay,
+    dailyHours,
+  });
 
   // Navigate to previous month
   const handlePrevMonth = () => {
@@ -345,10 +383,11 @@ export default function TimeTrackingCalendar({
         {/* Hours and Salary Display */}
         <div className="text-center mb-3 flex flex-col items-center">
           <div className="text-3xl font-bold text-[var(--foreground)]">
-            {totalHours.toFixed(2)} hrs / ₱{monthlySalary.toLocaleString()}
+            {totalHours.toFixed(2)} hrs
+            {payHeader.amount !== null && <> / ₱{payHeader.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</>}
           </div>
           <div className="text-xs text-[var(--muted)] mt-1 font-medium">
-            (Monthly Earnings Estimate)
+            ({payHeader.label})
           </div>
         </div>
 

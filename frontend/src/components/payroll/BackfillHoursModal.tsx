@@ -232,7 +232,7 @@ export default function BackfillHoursModal({
           </div>
         </div>
         <p id={fieldId("time-help")} className={`${fieldHelpClass} -mt-2`}>
-          Manila time, the payroll time zone. Both times are on the same day.
+          Manila time, the payroll time zone. An end time earlier than the start time means the shift ends the next day.
         </p>
 
         <label className="flex min-h-10 items-center gap-3 text-sm text-[var(--foreground)]">
@@ -275,7 +275,7 @@ export default function BackfillHoursModal({
           className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-sm"
         >
           {currentPreview ? (
-            <span className="font-medium">{backfillPreviewMessage(currentPreview)}</span>
+            <span className="font-medium">{backfillPreviewMessage(currentPreview, form)}</span>
           ) : (
             <span className="text-[var(--muted)]">Preview first. Nothing is saved until you choose Create entries.</span>
           )}

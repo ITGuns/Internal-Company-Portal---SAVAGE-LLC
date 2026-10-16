@@ -41,9 +41,9 @@ export function parseClockMinutes(value: unknown): number | null {
 }
 
 /**
- * Checks the dates, times and note against today's payroll day. Both times
- * fall on the same calendar day, so the longest window is 00:00 to 23:59 and
- * an entry can never pass 24 hours.
+ * Checks the dates, times and note against today's payroll day. An end time
+ * earlier than the start time ends on the next day (a night shift). Equal
+ * times are refused, so an entry is always shorter than 24 hours.
  */
 export function validateBackfillInput(input: BackfillInput, todayKey: string): BackfillRange {
     const startKey = parseDateKey(input.startDate)
@@ -60,7 +60,7 @@ export function validateBackfillInput(input: BackfillInput, todayKey: string): B
     if (startMinutes === null || endMinutes === null) {
         throw new PayrollValidationError('Start and end times must use HH:MM (24-hour clock)')
     }
-    if (endMinutes <= startMinutes) throw new PayrollValidationError('The end time must be after the start time')
+    if (endMinutes === startMinutes) throw new PayrollValidationError('The end time cannot be the same as the start time')
 
     if (input.notes !== undefined && input.notes !== null && typeof input.notes !== 'string') {
         throw new PayrollValidationError('Notes must be text')
@@ -88,8 +88,10 @@ export function isWeekendDayKey(dayKey: string): boolean {
 }
 
 /**
- * UTC instants for the window on one payroll-timezone day. Offsets from local
- * midnight, which is exact for zones without daylight saving (Asia/Manila).
+ * UTC instants for the window on one payroll-timezone day. An end time earlier
+ * than the start ends on the next day; the entry still belongs to its start
+ * day. Offsets from local midnight, which is exact for zones without daylight
+ * saving (Asia/Manila).
  */
 export function backfillEntryTimes(
     dayKey: string,
@@ -98,9 +100,12 @@ export function backfillEntryTimes(
     timeZone: string,
 ): { start: Date; end: Date } {
     const midnight = zonedMidnightUtc(dayKey, timeZone).getTime()
+    const endMidnight = endMinutes < startMinutes
+        ? zonedMidnightUtc(addDaysToKey(dayKey, 1), timeZone).getTime()
+        : midnight
     return {
         start: new Date(midnight + startMinutes * MINUTE_MS),
-        end: new Date(midnight + endMinutes * MINUTE_MS),
+        end: new Date(endMidnight + endMinutes * MINUTE_MS),
     }
 }
 
@@ -119,6 +124,24 @@ export function occupiedDayKeys(entries: readonly ExistingEntryLike[], now: Date
         for (const day of enumerateDayKeys(first, last)) days.add(day)
     }
     return days
+}
+
+/**
+ * Days whose window would overlap an existing entry (an open entry runs until
+ * now). occupiedDayKeys already covers a window inside its own day; this
+ * catches an overnight window running into an entry on the next morning.
+ */
+export function overlappingDayKeys(
+    dayKeys: readonly string[],
+    entries: readonly ExistingEntryLike[],
+    range: Pick<BackfillRange, 'startMinutes' | 'endMinutes'>,
+    now: Date,
+    timeZone: string,
+): string[] {
+    return dayKeys.filter((day) => {
+        const window = backfillEntryTimes(day, range.startMinutes, range.endMinutes, timeZone)
+        return entries.some((entry) => entry.start < window.end && (entry.end ?? now) > window.start)
+    })
 }
 
 export interface BackfillPlan {

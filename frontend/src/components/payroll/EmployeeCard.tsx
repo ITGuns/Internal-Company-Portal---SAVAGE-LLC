@@ -41,8 +41,9 @@ export default function EmployeeCard({
 
         {/* Employee Info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between">
-            <div>
+          {/* min-w-0 lets the name truncate; shrink-0 keeps the badge inside the card at 375 px. */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
               <h3 className="font-semibold text-[var(--foreground)] truncate">
                 {employee.name}
               </h3>
@@ -52,19 +53,19 @@ export default function EmployeeCard({
             </div>
             {/* Improved Status Badge */}
             {(employee.status === "active" || employee.status === "verified") && (
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800 shadow-sm">
+              <div className="inline-flex shrink-0 items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800 shadow-sm">
                 <Check className="w-3 h-3" />
                 <span>Verified</span>
               </div>
             )}
             {employee.status === "vacation" && (
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/50 dark:text-sky-400 dark:border-sky-800 shadow-sm">
+              <div className="inline-flex shrink-0 items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/50 dark:text-sky-400 dark:border-sky-800 shadow-sm">
                 <Plane className="w-3 h-3" />
                 <span>On Vacation</span>
               </div>
             )}
             {employee.status === "leave" && (
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800 shadow-sm">
+              <div className="inline-flex shrink-0 items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800 shadow-sm">
                 <Coffee className="w-3 h-3" />
                 <span>On Leave</span>
               </div>

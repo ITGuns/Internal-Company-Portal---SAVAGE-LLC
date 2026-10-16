@@ -14,6 +14,7 @@ import {
     DEFAULT_NOTIFICATION_PREFERENCES,
     createBrowserNotification,
     getBrowserNotificationPermission,
+    pickPolledPopups,
     readNotificationPreferences,
     requestBrowserNotificationPermission as requestBrowserNotificationPermissionState,
     shouldShowNotification,
@@ -83,6 +84,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const [browserNotificationPermission, setBrowserNotificationPermission] =
         useState<BrowserNotificationPermissionState>('unsupported')
     const [notificationError, setNotificationError] = useState<string | null>(null)
+    // Notification ids this tab has already seen, per user, so a poll can tell which ones are new.
+    const seenNotificationIdsRef = React.useRef<{ userId: string; ids: Set<string> } | null>(null)
 
     const [unreadChatCount, setUnreadChatCount] = useState(0)
 
@@ -132,6 +135,19 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         return permission
     }, [updateNotificationPreferences])
 
+    // The browser pop-up for one notification when browser alerts are on. Socket events and polls share it.
+    const showBrowserPopup = useCallback((notification: Notification) => {
+        if (!notificationPreferencesRef.current.browserAlerts) return
+
+        const displayed = createBrowserNotification(notification)
+        const permission = getBrowserNotificationPermission()
+        setBrowserNotificationPermission(permission)
+
+        if (!displayed) {
+            setNotificationError(getPermissionError(permission) || 'Browser notification could not be displayed.')
+        }
+    }, [])
+
     const handleSocketNotification = useCallback((payload: SocketNotificationPayload) => {
         const newNotification: Notification = {
             ...payload,
@@ -140,21 +156,16 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             createdAt: payload.createdAt || new Date().toISOString()
         }
 
-        const preferences = notificationPreferencesRef.current
-        if (!shouldShowNotification(newNotification, preferences)) return
+        if (!shouldShowNotification(newNotification, notificationPreferencesRef.current)) return
 
         setNotifications(prev => [newNotification, ...prev])
 
-        if (preferences.browserAlerts) {
-            const displayed = createBrowserNotification(newNotification)
-            const permission = getBrowserNotificationPermission()
-            setBrowserNotificationPermission(permission)
+        // A later REST load must not pop this one up a second time.
+        const seen = seenNotificationIdsRef.current
+        if (seen) seenNotificationIdsRef.current = { ...seen, ids: new Set(seen.ids).add(newNotification.id) }
 
-            if (!displayed) {
-                setNotificationError(getPermissionError(permission) || 'Browser notification could not be displayed.')
-            }
-        }
-    }, [])
+        showBrowserPopup(newNotification)
+    }, [showBrowserPopup])
 
     const connect = useCallback((userId: string, token = getAuthToken() || "") => {
         if (!APP_CONFIG.enableRealtime) return
@@ -286,6 +297,18 @@ export function SocketProvider({ children }: { children: ReactNode }) {
                 const shaped = data
                     .map(n => ({ ...n, read: readIds.has(n.id) }))
                     .filter(n => shouldShowNotification(n, notificationPreferences))
+
+                // Without a socket nothing else raises browser pop-ups: pop up the unread ones this
+                // tab has not seen before. The first load for a user only records what is there.
+                const userKey = String(user?.id)
+                const seen = seenNotificationIdsRef.current
+                const previousIds = seen?.userId === userKey ? seen.ids : null
+                seenNotificationIdsRef.current = {
+                    userId: userKey,
+                    ids: new Set([...(previousIds ?? []), ...data.map(n => n.id)]),
+                }
+                pickPolledPopups(shaped, previousIds).forEach(showBrowserPopup)
+
                 setNotifications(prev => {
                     // Merge by id so local read state survives; newest first; no re-render when nothing is new.
                     const existingIds = new Set(prev.map(n => n.id))
@@ -305,7 +328,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         } catch {
             // Ignore: the next poll or socket event brings the bell up to date.
         }
-    }, [notificationPreferences, user, userLoading])
+    }, [notificationPreferences, showBrowserPopup, user, userLoading])
 
     useEffect(() => {
         void loadNotifications()

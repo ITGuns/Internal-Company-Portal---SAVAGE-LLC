@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Send, Paperclip, Smile, X } from 'lucide-react'
 import { useEscapeToClose } from '@/hooks/useEscapeToClose'
+import { fileTooLargeMessage, MAX_CHAT_ATTACHMENT_BYTES, MAX_CHAT_ATTACHMENT_LABEL } from '@/lib/upload-limits'
 
 interface MessageInputProps {
     newMessage: string
@@ -32,6 +33,7 @@ export default function MessageInput({
     const fileInputRef = useRef<HTMLInputElement>(null)
     const emojiPickerRef = useRef<HTMLDivElement>(null)
     const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
+    const [fileError, setFileError] = useState<string | null>(null)
     const closeEmojiPicker = useCallback(() => setEmojiPickerOpen(false), [])
 
     useEscapeToClose({ isOpen: emojiPickerOpen, onClose: closeEmojiPicker })
@@ -51,6 +53,18 @@ export default function MessageInput({
         }
     }, [closeEmojiPicker, emojiPickerOpen])
 
+    // An oversize file is refused here, before it is attached or sent; the server would refuse it anyway.
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        const tooLarge = file ? fileTooLargeMessage(file, MAX_CHAT_ATTACHMENT_BYTES, MAX_CHAT_ATTACHMENT_LABEL) : null
+        setFileError(tooLarge)
+        if (tooLarge) {
+            e.target.value = ''
+            return
+        }
+        onFileSelect(e)
+    }
+
     const isSendingRef = useRef(false)
 
     const handleSend = useCallback(
@@ -58,6 +72,7 @@ export default function MessageInput({
             if (isSendingRef.current || sending) return
             if (!newMessage.trim() && !attachment) return
             isSendingRef.current = true
+            setFileError(null)
             onSend(e)
             // Reset after a short guard window
             setTimeout(() => { isSendingRef.current = false }, 600)
@@ -67,6 +82,11 @@ export default function MessageInput({
 
     return (
         <div className="p-4 bg-[var(--card-surface)] border-t border-[var(--border)] shadow-lg">
+            {fileError && (
+                <p role="alert" className="mb-4 rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-xs font-medium text-red-600 dark:text-red-400">
+                    {fileError}
+                </p>
+            )}
             {attachmentPreview && (
                 <div className="mb-4 flex items-center gap-3 p-2 bg-[var(--background)] rounded-xl border border-[var(--border)] animate-in slide-in-from-bottom-2">
                     <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-[var(--border)]">
@@ -99,7 +119,7 @@ export default function MessageInput({
                     type="file"
                     ref={fileInputRef}
                     className="hidden"
-                    onChange={onFileSelect}
+                    onChange={handleFileChange}
                     accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
                     aria-label="Attach file"
                 />
@@ -108,7 +128,7 @@ export default function MessageInput({
                     onClick={() => fileInputRef.current?.click()}
                     className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--muted)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                     aria-label="Attach file, image, or GIF"
-                    title="Attach file, image, or GIF"
+                    title={`Attach file, image, or GIF (up to ${MAX_CHAT_ATTACHMENT_LABEL})`}
                 >
                     <Paperclip className="w-5 h-5" />
                 </button>

@@ -95,8 +95,8 @@ export const DATE_FORMATS = {
 // ============================================
 // VALIDATION LIMITS
 // ============================================
+// File size limits live in lib/upload-limits.ts.
 export const LIMITS = {
-  MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB
   MAX_MESSAGE_LENGTH: 2000,
   MAX_ANNOUNCEMENT_BODY: 5000,
   MAX_TITLE_LENGTH: 200,

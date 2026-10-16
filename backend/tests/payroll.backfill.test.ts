@@ -8,6 +8,7 @@ import {
   isWeekendDayKey,
   MAX_BACKFILL_SPAN_DAYS,
   occupiedDayKeys,
+  overlappingDayKeys,
   parseClockMinutes,
   planBackfillDays,
   validateBackfillInput,
@@ -19,7 +20,7 @@ import {
   PayrollNotFoundError,
   PayrollValidationError,
 } from '../src/payroll/payroll.errors'
-import { zonedMidnightUtc } from '../src/payroll/payroll.calculations'
+import { payrollDayKey, zonedMidnightUtc } from '../src/payroll/payroll.calculations'
 
 /** Hours backfill (POST /payroll/entries/backfill). Pure helpers plus the service with stubbed Prisma, no database. */
 
@@ -77,7 +78,7 @@ function testValidation() {
   rejectsWith({ ...base, startDate: '2026-02-30' }, /real dates/)
   rejectsWith({ ...base, endDate: undefined }, /real dates/)
 
-  // 24 hour cap: both times are on the same day, so 00:00 to 23:59 is the longest window.
+  // 24 hour cap: 00:00 to 23:59 is the longest same-day window; equal times are refused below.
   const longest = validateBackfillInput({ ...base, startTime: '00:00', endTime: '23:59' }, TODAY)
   assert.ok(longest.endMinutes - longest.startMinutes < 24 * 60)
   assert.equal(parseClockMinutes('24:00'), null)
@@ -85,8 +86,11 @@ function testValidation() {
   assert.equal(parseClockMinutes('9:00'), null)
   assert.equal(parseClockMinutes('07:30'), 450)
   rejectsWith({ ...base, endTime: '24:00' }, /HH:MM/)
-  rejectsWith({ ...base, startTime: '18:00', endTime: '09:00' }, /after the start time/)
-  rejectsWith({ ...base, startTime: '09:00', endTime: '09:00' }, /after the start time/)
+  // An end time earlier than the start ends the next day (night shift).
+  const night = validateBackfillInput({ ...base, startTime: '22:00', endTime: '06:00' }, TODAY)
+  assert.deepEqual([night.startMinutes, night.endMinutes], [22 * 60, 6 * 60])
+  validateBackfillInput({ ...base, startTime: '18:00', endTime: '09:00' }, TODAY)
+  rejectsWith({ ...base, startTime: '09:00', endTime: '09:00' }, /cannot be the same as the start time/)
 
   rejectsWith({ ...base, notes: 42 }, /Notes must be text/)
   rejectsWith({ ...base, notes: 'x'.repeat(501) }, /at most 500 characters/)
@@ -120,6 +124,29 @@ function testEntryTimesAndOccupiedDays() {
     '2026-10-11: weekend',
     '2026-10-12: existing entry',
   ])
+}
+
+function testOvernightWindows() {
+  // 22:00 to 06:00 Manila: 8 h, ending the next day, bucketed by its start day.
+  const night = backfillEntryTimes('2026-10-01', 22 * 60, 6 * 60, MANILA)
+  assert.equal(night.start.toISOString(), '2026-10-01T14:00:00.000Z')
+  assert.equal(night.end.toISOString(), '2026-10-01T22:00:00.000Z')
+  assert.equal((night.end.getTime() - night.start.getTime()) / 3_600_000, 8)
+  assert.equal(payrollDayKey(night.start, MANILA), '2026-10-01')
+  assert.equal(payrollDayKey(night.end, MANILA), '2026-10-02')
+
+  // Never 24 hours or more: the longest overnight window is one minute short.
+  const longest = backfillEntryTimes('2026-10-01', 9 * 60, 9 * 60 - 1, MANILA)
+  assert.equal((longest.end.getTime() - longest.start.getTime()) / 60_000, 24 * 60 - 1)
+
+  // An overnight window must not run into an entry on the next morning.
+  const days = ['2026-10-05', '2026-10-06']
+  const nextMorning = [{ start: new Date('2026-10-06T21:00:00Z'), end: new Date('2026-10-07T05:00:00Z') }] // Oct 7, 05:00 to 13:00
+  assert.deepEqual(overlappingDayKeys(days, nextMorning, { startMinutes: 22 * 60, endMinutes: 6 * 60 }, NOW, MANILA), ['2026-10-06'])
+  const laterThatDay = [{ start: new Date('2026-10-07T01:00:00Z'), end: new Date('2026-10-07T09:00:00Z') }] // Oct 7, 09:00 to 17:00
+  assert.deepEqual(overlappingDayKeys(days, laterThatDay, { startMinutes: 22 * 60, endMinutes: 6 * 60 }, NOW, MANILA), [])
+  // Same-day windows only ever clash with entries on their own day, which occupiedDayKeys already skips.
+  assert.deepEqual(overlappingDayKeys(days, nextMorning, { startMinutes: 9 * 60, endMinutes: 18 * 60 }, NOW, MANILA), [])
 }
 
 function testNoteSuffix() {
@@ -238,6 +265,32 @@ async function testServiceDryRunAndCreate() {
   })
 }
 
+async function testServiceOvernight() {
+  const state = freshState()
+  // Oct 14, 05:00 to 09:00 Manila: inside the tail of an Oct 13 night shift.
+  state.entries = [{ start: new Date('2026-10-13T21:00:00Z'), end: new Date('2026-10-14T01:00:00Z') }]
+  await withStubs(serviceStubs(state), async () => {
+    const service = new BackfillService()
+    const night = { ...request, startDate: '2026-10-12', endDate: '2026-10-13', startTime: '22:00', endTime: '06:00' }
+
+    const preview = await service.backfill({ ...night, dryRun: true }, payroll, NOW)
+    assert.deepEqual(preview, { created: 0, days: ['2026-10-12'], skipped: ['2026-10-13: existing entry'] })
+    // The search reaches 06:00 Manila on the day after the range, where the last shift ends.
+    assert.equal(state.entryQueries[0].where.start.lt.toISOString(), '2026-10-13T22:00:00.000Z')
+
+    state.entries = []
+    const result = await service.backfill(night, payroll, NOW)
+    assert.equal(result.created, 2)
+    assert.deepEqual(state.created[0][0], {
+      userId: 'u-emp',
+      start: new Date('2026-10-12T14:00:00Z'),
+      end: new Date('2026-10-12T22:00:00Z'),
+      duration: 480,
+      notes: 'Paper timesheet Backfilled by Pay Roll on 2026-10-14',
+    })
+  })
+}
+
 async function testServiceRefusals() {
   const state = freshState()
   await withStubs(serviceStubs(state), async () => {
@@ -267,8 +320,10 @@ async function main() {
     testWeekends()
     testValidation()
     testEntryTimesAndOccupiedDays()
+    testOvernightWindows()
     testNoteSuffix()
     await testServiceDryRunAndCreate()
+    await testServiceOvernight()
     await testServiceRefusals()
   } finally {
     config.payrollTimezone = savedTimezone

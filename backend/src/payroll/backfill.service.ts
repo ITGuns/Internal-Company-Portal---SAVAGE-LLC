@@ -8,6 +8,7 @@ import {
     backfillNote,
     enumerateDayKeys,
     occupiedDayKeys,
+    overlappingDayKeys,
     planBackfillDays,
     validateBackfillInput,
 } from './backfill.calculations'
@@ -68,8 +69,12 @@ export class BackfillService {
         }
 
         const note = backfillNote(range.notes, actorUser?.name?.trim() || actorUser?.email || 'payroll', todayKey)
+        const dayKeys = enumerateDayKeys(range.startKey, range.endKey)
         const rangeStart = zonedMidnightUtc(range.startKey, timeZone)
-        const rangeEnd = payrollDayWindow(range.endKey, timeZone).end
+        // An overnight window on the last day ends the next morning, so look that far for entries.
+        const lastDayEnd = payrollDayWindow(range.endKey, timeZone).end
+        const lastWindowEnd = backfillEntryTimes(range.endKey, range.startMinutes, range.endMinutes, timeZone).end
+        const rangeEnd = lastWindowEnd > lastDayEnd ? lastWindowEnd : lastDayEnd
 
         // Serializable: a double submit cannot both see an empty day and write it twice.
         return serializable(async (tx) => {
@@ -81,13 +86,15 @@ export class BackfillService {
                 },
                 select: { start: true, end: true },
             })
-            const plan = planBackfillDays(enumerateDayKeys(range.startKey, range.endKey), {
-                skipWeekends,
-                occupied: occupiedDayKeys(existing, now, timeZone),
-            })
+            const occupied = new Set([
+                ...occupiedDayKeys(existing, now, timeZone),
+                ...overlappingDayKeys(dayKeys, existing, range, now, timeZone),
+            ])
+            const plan = planBackfillDays(dayKeys, { skipWeekends, occupied })
             const windows = plan.days.map((day) => backfillEntryTimes(day, range.startMinutes, range.endMinutes, timeZone))
             if (windows.some((window) => window.end > now)) {
-                throw new PayrollValidationError('An entry cannot end in the future. End the range yesterday or pick an earlier end time.')
+                // An overnight entry on yesterday ends this morning, so "end the range earlier", not "yesterday".
+                throw new PayrollValidationError('An entry cannot end in the future. End the range earlier or pick an earlier end time.')
             }
             await assertDaysUnlocked(tx, windows.map((window) => window.start))
 

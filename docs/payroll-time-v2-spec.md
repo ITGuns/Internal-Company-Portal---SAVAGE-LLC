@@ -37,7 +37,9 @@ current when the implementation drifts.
    `MANAGEMENT_ACCESS_ROLES` or `PAYROLL_MANAGEMENT_ROLES` review requests.
    Since 2026-10-14 only `PAYROLL_MANAGEMENT_ROLES` (full access included) edit
    time directly and backfill past days (`POST /payroll/entries/backfill`, see
-   `docs/api.md`); plain managers keep review rights only.
+   `docs/api.md`); plain managers keep review rights only. Since 2026-10-17 a
+   backfill end time earlier than the start time ends on the next day (night
+   shifts); the entry counts on its start day, and equal times are refused.
 5. Payslips in a draft period can be edited (line items replaced, gross and
    net recomputed, note required) or deleted by payroll-management roles.
    Processed (locked) periods are read-only: respond 409.

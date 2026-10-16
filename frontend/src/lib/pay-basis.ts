@@ -83,3 +83,50 @@ export function getEffectiveHourlyRate(
   if (payBasis === "hourly_rate") return Number.isFinite(hourlyRate) && hourlyRate > 0 ? hourlyRate : 0;
   return Number.isFinite(derivedHourlyRate) && derivedHourlyRate > 0 ? derivedHourlyRate : 0;
 }
+
+/** Same default as DEFAULT_MAX_BILLABLE_HOURS_PER_DAY in backend payroll.calculations.ts. */
+const DEFAULT_DAILY_CAP_HOURS = 8;
+
+export interface CalendarPayHeaderInput {
+  payBasis?: string | null;
+  baseSalary?: number | null;
+  hourlyRate?: number | null;
+  maxBillableHoursPerDay?: number | null;
+  /** Logged hours per payroll day of the month shown. */
+  dailyHours: readonly number[];
+}
+
+export interface CalendarPayHeader {
+  /** Money shown next to the logged hours, or null when there is none to show. */
+  amount: number | null;
+  /** What the amount is, in plain words. */
+  label: string;
+}
+
+function formatPeso(value: number): string {
+  return `₱${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/**
+ * Pay figure for the time tracking calendar header. The monthly bases show the
+ * monthly base salary. hourly_rate never shows the salary: it shows each day's
+ * logged hours up to the daily cap times the hourly rate, without overtime.
+ */
+export function getCalendarPayHeader(input: CalendarPayHeaderInput): CalendarPayHeader {
+  const payBasis = isPayBasis(input.payBasis) ? input.payBasis : DEFAULT_PAY_BASIS;
+  if (payBasis !== "hourly_rate") {
+    return { amount: input.baseSalary ?? 0, label: "Monthly base salary" };
+  }
+
+  const rate = input.hourlyRate ?? 0;
+  if (!(rate > 0)) return { amount: null, label: "Paid by the hour" };
+
+  const cap = (input.maxBillableHoursPerDay ?? 0) > 0
+    ? (input.maxBillableHoursPerDay as number)
+    : DEFAULT_DAILY_CAP_HOURS;
+  const billableHours = input.dailyHours.reduce((sum, hours) => sum + Math.min(Math.max(hours, 0), cap), 0);
+  return {
+    amount: billableHours * rate,
+    label: `${formatPeso(rate)} per hour, up to ${cap} h a day, overtime not included`,
+  };
+}

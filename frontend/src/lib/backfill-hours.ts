@@ -47,6 +47,18 @@ function clockMinutes(value: string): number | null {
   return match ? Number(match[1]) * 60 + Number(match[2]) : null;
 }
 
+/**
+ * Length of one day's entry in minutes. An end time earlier than the start
+ * ends on the next day; equal or invalid times give null (the form refuses
+ * them), so an entry is always shorter than 24 hours.
+ */
+export function backfillWindowMinutes(startTime: string, endTime: string): number | null {
+  const start = clockMinutes(startTime);
+  const end = clockMinutes(endTime);
+  if (start === null || end === null || start === end) return null;
+  return end > start ? end - start : 24 * 60 - start + end;
+}
+
 export function addDaysToKey(dayKey: string, days: number): string {
   const [year, month, day] = dayKey.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
@@ -101,7 +113,7 @@ export function validateBackfillForm(form: BackfillForm, todayKey: string): Back
   const end = clockMinutes(form.endTime);
   if (start === null) errors.startTime = "Enter a start time.";
   if (end === null) errors.endTime = "Enter an end time.";
-  if (start !== null && end !== null && end <= start) errors.endTime = "The end time must be after the start time.";
+  if (start !== null && end !== null && end === start) errors.endTime = "The end time cannot be the same as the start time.";
 
   if (form.notes.trim().length > MAX_BACKFILL_NOTE_LENGTH) {
     errors.notes = `Notes can be at most ${MAX_BACKFILL_NOTE_LENGTH} characters.`;
@@ -137,8 +149,24 @@ function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-/** "9 days will be created, 4 skipped (weekends 4, existing 0)." */
-export function backfillPreviewMessage(result: BackfillResult): string {
+/** "8 h each" or, when the end time is earlier than the start, "8 h each, ending the next day". */
+function entryLengthText(times: Pick<BackfillForm, "startTime" | "endTime">): string | null {
+  const minutes = backfillWindowMinutes(times.startTime, times.endTime);
+  if (minutes === null) return null;
+  const overnight = times.endTime < times.startTime ? ", ending the next day" : "";
+  return `${Number((minutes / 60).toFixed(2))} h each${overnight}`;
+}
+
+/**
+ * "9 days will be created, 4 skipped (weekends 4, existing 0)." With the form
+ * times: "9 days will be created (8 h each), 4 skipped (weekends 4, existing 0)."
+ */
+export function backfillPreviewMessage(
+  result: BackfillResult,
+  times?: Pick<BackfillForm, "startTime" | "endTime">,
+): string {
   const { weekends, existing } = countSkipped(result.skipped);
-  return `${plural(result.days.length, "day", "days")} will be created, ${result.skipped.length} skipped (weekends ${weekends}, existing ${existing}).`;
+  const length = times ? entryLengthText(times) : null;
+  const created = `${plural(result.days.length, "day", "days")} will be created${length ? ` (${length})` : ""}`;
+  return `${created}, ${result.skipped.length} skipped (weekends ${weekends}, existing ${existing}).`;
 }

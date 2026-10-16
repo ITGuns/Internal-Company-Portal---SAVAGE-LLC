@@ -64,10 +64,33 @@ test('validation mirrors the server rules', () => {
     'The end date can be at most 62 days after the start date.',
   );
   assert.equal(helpers.validateBackfillForm(form({ startDate: '2026-02-30' }), TODAY).startDate, 'Enter a valid start date.');
-  assert.equal(helpers.validateBackfillForm(form({ startTime: '18:00', endTime: '09:00' }), TODAY).endTime, 'The end time must be after the start time.');
+  assert.deepEqual({ ...helpers.validateBackfillForm(form({ startTime: '18:00', endTime: '09:00' }), TODAY) }, {}, 'ends the next day');
+  assert.equal(
+    helpers.validateBackfillForm(form({ startTime: '09:00', endTime: '09:00' }), TODAY).endTime,
+    'The end time cannot be the same as the start time.',
+  );
   assert.equal(helpers.validateBackfillForm(form({ endTime: '' }), TODAY).endTime, 'Enter an end time.');
   assert.deepEqual({ ...helpers.validateBackfillForm(form({ startTime: '00:00', endTime: '23:59' }), TODAY) }, {}, 'longest same-day window');
   assert.equal(helpers.validateBackfillForm(form({ notes: 'x'.repeat(501) }), TODAY).notes, 'Notes can be at most 500 characters.');
+});
+
+test('an end time earlier than the start ends the next day, never 24 hours', () => {
+  assert.equal(helpers.backfillWindowMinutes('22:00', '06:00'), 8 * 60);
+  assert.deepEqual({ ...helpers.validateBackfillForm(form({ startTime: '22:00', endTime: '06:00' }), TODAY) }, {});
+  assert.equal(helpers.backfillWindowMinutes('09:00', '17:00'), 8 * 60);
+  assert.equal(helpers.backfillWindowMinutes('09:00', '08:59'), 24 * 60 - 1, 'longest overnight window');
+  assert.equal(helpers.backfillWindowMinutes('09:00', '09:00'), null);
+  assert.equal(helpers.backfillWindowMinutes('09:00', ''), null);
+
+  const result = { created: 0, days: ['2026-10-12', '2026-10-13'], skipped: [] };
+  assert.equal(
+    helpers.backfillPreviewMessage(result, { startTime: '22:00', endTime: '06:00' }),
+    '2 days will be created (8 h each, ending the next day), 0 skipped (weekends 0, existing 0).',
+  );
+  assert.equal(
+    helpers.backfillPreviewMessage(result, { startTime: '09:00', endTime: '16:30' }),
+    '2 days will be created (7.5 h each), 0 skipped (weekends 0, existing 0).',
+  );
 });
 
 test('payload trims notes and carries the dry-run flag', () => {

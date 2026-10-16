@@ -140,3 +140,19 @@ test('checks delivery preferences and browser permission states', async () => {
   assert.equal(await requestBrowserNotificationPermission(denied.target), 'denied');
   assert.equal(createBrowserNotification({ type: 'error', title: 'Blocked', message: 'No alert' }, denied.target), false);
 });
+
+test('polled notifications pop up only when new and unread, a few at a time', () => {
+  const { pickPolledPopups, MAX_POLLED_POPUPS } = loadNotificationPreferences();
+  const note = (id, read = false) => ({ id, read, type: 'info', title: `Title ${id}`, message: 'Body' });
+  const fetched = [note('n6'), note('n5'), note('n4', true), note('n3'), note('n2'), note('n1')];
+
+  assert.deepEqual(plain(pickPolledPopups(fetched, null)), [], 'the first load only records what is there');
+  assert.deepEqual(plain(pickPolledPopups(fetched, new Set(['n1', 'n2', 'n3', 'n4', 'n5', 'n6']))), [], 'nothing new');
+  assert.deepEqual(
+    plain(pickPolledPopups(fetched, new Set(['n1', 'n2']))).map((n) => n.id),
+    ['n6', 'n5', 'n3'],
+    'new unread ones, newest first, read ones skipped',
+  );
+  assert.equal(MAX_POLLED_POPUPS, 3);
+  assert.equal(pickPolledPopups(fetched, new Set()).length, 3, 'at most a handful per poll');
+});

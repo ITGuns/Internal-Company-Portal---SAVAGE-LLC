@@ -331,10 +331,10 @@ Payroll and time v2 contract: `docs/payroll-time-v2-spec.md`.
 
 `POST /api/payroll/entries/backfill` (payroll-management only, added 2026-10-14) adds one entry per day for time worked before Deskii was in use.
 
-- Body: `{ userId, startDate: "YYYY-MM-DD", endDate: "YYYY-MM-DD", startTime: "HH:MM", endTime: "HH:MM", skipWeekends: boolean, notes?: string, dryRun?: boolean }`. Dates are calendar days in `PAYROLL_TIMEZONE` (Manila); both times are on the same day, so an entry is at most 23 h 59 min.
+- Body: `{ userId, startDate: "YYYY-MM-DD", endDate: "YYYY-MM-DD", startTime: "HH:MM", endTime: "HH:MM", skipWeekends: boolean, notes?: string, dryRun?: boolean }`. Dates are calendar days in `PAYROLL_TIMEZONE` (Manila). An end time earlier than the start time ends on the next day (night shift) and the entry counts on its start day; equal times are refused, so an entry is at most 23 h 59 min.
 - `200` with `{ created, skipped, days }`. `days` lists the `YYYY-MM-DD` days that get an entry (on a dry run, would get one). `skipped` lists `"YYYY-MM-DD: weekend"` or `"YYYY-MM-DD: existing entry"`. `created` is the number written, always `0` when `dryRun: true` (nothing is written).
-- Days with any time entry touching that payroll day (open entries count until now) are skipped, never merged. With `skipWeekends: true`, Saturdays and Sundays are skipped. Entries are created in one serializable transaction; each gets `notes` = the given note (if any) followed by `Backfilled by <caller name or email> on <YYYY-MM-DD>`.
-- `400`: bad dates or times, `endDate` after today or more than 62 days after `startDate`, end time not after start time, notes over 500 characters, a client-only account, or a day whose end time is still ahead (today).
+- Days with any time entry touching that payroll day (open entries count until now) are skipped, never merged, as are days whose overnight entry would run into an entry the next morning. With `skipWeekends: true`, Saturdays and Sundays are skipped. Entries are created in one serializable transaction; each gets `notes` = the given note (if any) followed by `Backfilled by <caller name or email> on <YYYY-MM-DD>`.
+- `400`: bad dates or times, `endDate` after today or more than 62 days after `startDate`, end time equal to the start time, notes over 500 characters, a client-only account, or an entry that would end in the future (today, or yesterday's overnight shift before it ends).
 - `403`: caller without payroll-management access (`{ error: "Only payroll roles can backfill hours" }`), or a deactivated target when the caller is not full access.
 - `404`: unknown `userId`.
 - `409`: a day to be created is in a processed payroll period, or a concurrent backfill for the same days won the race.

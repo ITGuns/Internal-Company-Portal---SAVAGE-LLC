@@ -1,5 +1,29 @@
 # Development Notes
 
+## 2026-10-17 - Defect batch before the 3-day employee test
+
+### Completed
+- Employee Overview cards at 375 px: the name truncates and the status badge stays inside the card (`EmployeeCard.tsx`). No sideways scroll there or on Payslips Management.
+- Lint is back to 0 problems (unused toggle icons in `AccountControlPanel.tsx`).
+- The Payslips calendar header follows the pay basis (`getCalendarPayHeader` in `lib/pay-basis.ts`). Monthly bases show "Monthly base salary". `hourly_rate` never shows the salary: it shows the rate and the logged hours, each day capped at the daily maximum, times the rate, overtime not included. The rate comes from `GET /payroll/config/:userId` and is fetched again after Set Up Payroll saves.
+- Chat refuses an attachment over 700 KB when it is picked and says so where the attachment chip goes (`MessageInput.tsx`).
+- Polled notifications raise browser pop-ups like socket ones (`SocketContext.tsx`, `pickPolledPopups`): unread and not seen by this tab before, nothing on the first load per user, at most 3 per poll, same preference checks.
+- Backfill takes night shifts: an end time earlier than the start ends the next day (22:00 to 06:00 is 8 h) and counts on its start day; equal times are refused. A day whose overnight entry would run into an entry the next morning is skipped as "existing entry". The preview states the hours per entry.
+- Removed the unused 5 MB `APP_CONFIG.maxFileSize` and `LIMITS.MAX_FILE_SIZE`.
+
+### Decisions Made
+- Chat attachments are capped at 700 KB, not 3 MB: they travel as base64 inside `POST /api/chat/:id/messages`, which uses the 1 MB default JSON parser (`security/json-body-limits.ts`), not the uploads service. Measured locally: a 760 KB file passes the parser, 800 KB gets HTTP 413. Same reasoning as the 700 KB ticket limit.
+- The deployed-employees list still leaves out the hourly rate; the calendar reads it from the payroll config endpoint instead.
+- Pop-ups from polling arrive only while the tab is visible, or right when it becomes visible again, because `useVisiblePolling` pauses hidden tabs.
+
+### How to Test
+- Frontend `npm test` (new cases in `payroll-time-requests`, `upload-limits`, `notification-preferences`, `backfill-hours`); backend `payroll.backfill` covers 22:00 to 06:00, equal times and the next-morning clash.
+- Click-through screenshots in `assets/verify/dry-run-fixes/` (gitignored).
+
+### Next Steps
+- Chat attachments are stored inline as data URIs and every message fetch returns them (50 per page). About five near-limit attachments among a conversation's latest 50 messages would pass the 4.5 MB Vercel response cap and that conversation would stop loading. Sending chat files through the uploads service (a URL in the message) fixes this and lifts the 700 KB cap.
+- Backfill keeps the touch rule, so a second run skips its first day when the previous run's last overnight entry ends on it. Back-to-back night-shift ranges are best done in one run.
+
 ## 2026-10-14 - Backfill hours and serverless hygiene (feat-backfill-hours)
 
 ### Completed

@@ -29,8 +29,7 @@ export const APP_CONFIG = {
   chatConversationPollInterval: 30000, // 30 seconds, conversation list and unread counts
   listPollInterval: 60000, // 60 seconds, tasks, announcements and daily logs
 
-  // UI Configuration
-  maxFileSize: 5 * 1024 * 1024, // 5MB
+  // UI Configuration (file size limits live in lib/upload-limits.ts)
   maxMessageLength: 2000,
   maxAnnouncementBodyLength: 5000,
   

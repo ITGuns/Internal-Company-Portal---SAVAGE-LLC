@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Users, Crown, ToggleLeft, ToggleRight, RefreshCw, ChevronDown, ChevronUp, Building2, Zap, AlertCircle } from "lucide-react";
+import { Users, Crown, RefreshCw, ChevronDown, ChevronUp, Building2, Zap, AlertCircle } from "lucide-react";
 import {
   fetchClientOrganizations,
   fetchClientServiceTiers,

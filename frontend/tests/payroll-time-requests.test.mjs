@@ -196,6 +196,29 @@ test('pay basis validation follows the chosen basis', () => {
   assert.equal(getPayBasisLabel('hourly_rate'), 'Hourly rate');
 });
 
+test('calendar header shows the monthly base only for monthly bases', () => {
+  const { getCalendarPayHeader } = loadHelper('../src/lib/pay-basis.ts');
+  const month = { baseSalary: 30000, hourlyRate: 150, maxBillableHoursPerDay: 8, dailyHours: [10, 6.5, 0] };
+
+  for (const payBasis of ['fixed_monthly', 'hourly_from_monthly', undefined, 'unknown']) {
+    assert.deepEqual(plain(getCalendarPayHeader({ ...month, payBasis })), { amount: 30000, label: 'Monthly base salary' });
+  }
+
+  // hourly_rate: each day capped at 8 h (10 counts as 8), times the rate; never the salary.
+  assert.deepEqual(plain(getCalendarPayHeader({ ...month, payBasis: 'hourly_rate' })), {
+    amount: (8 + 6.5) * 150,
+    label: '₱150.00 per hour, up to 8 h a day, overtime not included',
+  });
+  assert.equal(getCalendarPayHeader({ ...month, payBasis: 'hourly_rate', maxBillableHoursPerDay: 0 }).amount, 14.5 * 150, 'falls back to the 8 h cap');
+  assert.equal(getCalendarPayHeader({ ...month, payBasis: 'hourly_rate', dailyHours: [] }).amount, 0);
+
+  // No rate known (still loading, or never set): no figure at all, and still not the salary.
+  assert.deepEqual(plain(getCalendarPayHeader({ ...month, payBasis: 'hourly_rate', hourlyRate: null })), {
+    amount: null,
+    label: 'Paid by the hour',
+  });
+});
+
 test('hard delete needs the exact typed phrase', () => {
   const { getHardDeleteConfirmationPhrase, isHardDeleteConfirmed, isInactiveMember } = loadHelper('../src/lib/member-status.ts');
   assert.equal(getHardDeleteConfirmationPhrase(' Ana@Example.com '), 'delete ana@example.com');
