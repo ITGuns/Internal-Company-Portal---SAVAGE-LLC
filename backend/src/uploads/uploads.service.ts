@@ -1,5 +1,6 @@
-import type { PrismaClient } from '@prisma/client'
+import type { Prisma, PrismaClient } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
+import { parseStoredChatAttachment } from '../chat/chat.limits'
 import { isAdminEmail } from '../config/env.config'
 import { hasFullAccess, hasInternalDirectoryAccess } from '../org/org-access-policy'
 import { hasClientManagementAccess } from '../clients/clients.access'
@@ -33,6 +34,27 @@ export class UploadsService {
             await this.storage.delete(objectKey).catch(() => undefined)
             throw error
         }
+    }
+
+    /** An upload of this owner that no client asset, folder or ticket uses. */
+    async findUnlinkedForOwner(uploadId: string, ownerId: string) {
+        return this.db.storedUpload.findFirst({
+            where: { id: uploadId, ownerId, clientAsset: null, fileFolder: null, ticketAttachment: null },
+            select: { id: true, originalName: true, contentType: true, sizeBytes: true },
+        })
+    }
+
+    /**
+     * Whether a chat message matching `where` references this upload. Message.attachment is JSON
+     * text, so rows are found by substring and confirmed by parsing.
+     */
+    async hasChatMessageWithUpload(uploadId: string, where: Prisma.MessageWhereInput = {}): Promise<boolean> {
+        const messages = await this.db.message.findMany({
+            where: { ...where, attachment: { contains: `"uploadId":${JSON.stringify(uploadId)}` } },
+            select: { attachment: true },
+            take: 20,
+        })
+        return messages.some((message) => parseStoredChatAttachment(message.attachment)?.uploadId === uploadId)
     }
 
     /** Remove the stored object and its row. Missing rows or objects are not errors. */
@@ -83,6 +105,14 @@ export class UploadsService {
 
         if (!upload) return null
 
+        // Chat: the uploader attached this file to a message in a conversation the requester is in.
+        const ownerId = upload.ownerId
+        const sharedWithRequesterInChat = ownerId !== null && ownerId !== requesterId
+            && await this.hasChatMessageWithUpload(upload.id, {
+                senderId: ownerId,
+                conversation: { participants: { some: { userId: requesterId } } },
+            })
+
         const adminByEmail = isAdminEmail(requesterEmail)
         const allowed = canReadStoredUpload({
             requesterId,
@@ -100,6 +130,7 @@ export class UploadsService {
             ticketAttachment: upload.ticketAttachment
                 ? { organizationId: upload.ticketAttachment.ticket.organizationId }
                 : null,
+            sharedWithRequesterInChat,
         })
 
         if (!allowed) return null

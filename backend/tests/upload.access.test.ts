@@ -24,6 +24,12 @@ function runUploadAccessTests() {
     'an unrelated user cannot read an unlinked upload',
   )
 
+  assert.equal(
+    canReadStoredUpload({ ...ownerAccess, requesterId: 'chat-participant' }, { ownerId: 'owner-user', sharedWithRequesterInChat: true }),
+    true,
+    'a participant can read a file the uploader sent in their conversation',
+  )
+
   const visibleClientUpload = {
     ownerId: 'operations-user',
     clientAsset: {

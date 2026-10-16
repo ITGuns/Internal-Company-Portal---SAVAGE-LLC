@@ -66,6 +66,7 @@ const tests = [
   'workspace.config.test.ts',
   'clients.routes.test.ts',
   'uploads.routes.test.ts',
+  'chat.attachments.test.ts',
 ]
 
 function runTest(test: string): Promise<void> {

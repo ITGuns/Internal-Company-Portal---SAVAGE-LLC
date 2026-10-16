@@ -1,9 +1,15 @@
 import { PrismaClient, Conversation, Message, Participant, User } from '@prisma/client'
-import type { ChatArchiveView } from './chat.limits'
+import { matchesStoredUpload, parseStoredChatAttachment, type ChatArchiveView, type ChatAttachment } from './chat.limits'
 import { prisma } from '../database/prisma.service'
+import { UploadsService } from '../uploads/uploads.service'
+import { createUploadStorage } from '../uploads/upload.storage'
+import { createLogger } from '../observability/logger'
+
+const logger = createLogger('chat.chat.service')
 
 export class ChatService {
     private prisma: PrismaClient
+    private uploads = new UploadsService(createUploadStorage())
 
     constructor() {
         this.prisma = prisma
@@ -220,6 +226,30 @@ export class ChatService {
     }
 
     /**
+     * Checks a new message's attachment against its stored upload: the sender owns it, no client
+     * asset, folder or ticket uses it, and name, type and size match. Returns the JSON to store.
+     */
+    async resolveAttachment(
+        senderId: string,
+        attachment: ChatAttachment,
+    ): Promise<{ value: string } | { status: number; error: string }> {
+        const upload = await this.uploads.findUnlinkedForOwner(attachment.uploadId, senderId)
+        if (!upload) return { status: 404, error: 'Upload not found' }
+        if (!matchesStoredUpload(attachment, upload)) {
+            return { status: 400, error: 'Attachment name, type and size must match the uploaded file' }
+        }
+
+        return {
+            value: JSON.stringify({
+                name: upload.originalName,
+                type: upload.contentType,
+                size: upload.sizeBytes,
+                uploadId: upload.id,
+            }),
+        }
+    }
+
+    /**
      * Add a message to a conversation
      */
     async sendMessage(conversationId: string, senderId: string, content: string, attachment?: string) {
@@ -320,7 +350,7 @@ export class ChatService {
     async deleteMessage(messageId: string, userId: string): Promise<Message | null> {
         const message = await this.prisma.message.findUnique({
             where: { id: messageId },
-            select: { id: true, senderId: true },
+            select: { id: true, senderId: true, attachment: true },
         })
 
         if (!message) return null
@@ -329,9 +359,28 @@ export class ChatService {
             return null
         }
 
-        return this.prisma.message.delete({
+        const deleted = await this.prisma.message.delete({
             where: { id: messageId }
         })
+        await this.deleteAttachmentUpload(message.attachment, message.senderId).catch((error) => {
+            logger.error('Failed to delete chat attachment upload:', error)
+        })
+        return deleted
+    }
+
+    /**
+     * Deletes the stored file of a removed message, unless it is not the sender's or something
+     * else still uses it (another message, a client asset, a folder or a ticket).
+     */
+    private async deleteAttachmentUpload(attachment: string | null, senderId: string) {
+        const stored = parseStoredChatAttachment(attachment)
+        if (!stored) return
+
+        const upload = await this.uploads.findUnlinkedForOwner(stored.uploadId, senderId)
+        if (!upload) return
+        if (await this.uploads.hasChatMessageWithUpload(upload.id)) return
+
+        await this.uploads.deleteUpload(upload.id)
     }
 
     /**

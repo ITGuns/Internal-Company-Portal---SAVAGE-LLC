@@ -430,18 +430,21 @@ Scheduler-management access includes payroll-management roles, including owner/f
 - `POST /api/chat/:id/archive` and `POST /api/chat/:id/unarchive` update the authenticated user's participant archive state without deleting the conversation for other participants.
 - Live chat sends full message events to authorized conversation rooms and lightweight badge events to recipient user rooms.
 - Message edit/delete routes are authenticated and handled through chat service rules.
+- Message attachments (since 2026-10-17): upload the file with `POST /api/uploads` first, then send `POST /api/chat/:id/messages` with `{ content, attachment: { name, type, size, uploadId } }` using the values the upload returned. The upload must belong to the sender and not be linked to a client asset, folder, or ticket (`404` otherwise); name, type, and size must match the stored record and size must be at most 3 MB (`400` otherwise). Inline file data (a data URI string or a `data` field) is refused with `400`.
+- `Message.attachment` in message lists, send responses, and socket events is a string. New messages hold the JSON `{"name","type","size","uploadId"}` with no file data; read the file with `GET /api/uploads/files/:uploadId`. Messages sent before 2026-10-17 hold the file inline as a data URI and are returned unchanged.
+- Deleting a message (sender only) also deletes its stored upload, unless another message, client asset, folder, or ticket still uses it.
 - `POST /api/chat/messages/:id/reactions` toggles one allowed emoji reaction for the authenticated participant and broadcasts `chat:reaction_updated` to the conversation room.
 - Allowed reaction payloads are limited to the built-in quick reaction set for this deploy.
 
 ### Uploads And File Directory
 
 - Upload routes require authentication.
-- `POST /api/uploads` stores a file under a randomized object key, creates owner metadata, and returns `{ id, url, filename, name, type, size }`. Link the returned `id` when creating a file-directory item or uploaded client asset.
+- `POST /api/uploads` stores a file under a randomized object key, creates owner metadata, and returns `{ id, url, filename, name, type, size }`. Link the returned `id` when creating a file-directory item, an uploaded client asset, or a chat message attachment.
 - Upload payloads must be valid base64 and the decoded file signature must match the declared allowed content type. Supported generic uploads are PNG, JPEG, GIF, PDF, plain text, DOC, and DOCX.
 - Files over 3 MB are refused with `400` (`MAX_UPLOAD_BYTES`, since 2026-10-14). Vercel rejects request bodies above 4.5 MB before they reach the app and base64 adds a third, so larger files could never arrive. Gemfield wizard tickets go through the 1 MB JSON parser on `/api/gemfield`, so their attachments share 700 KB per ticket (`400` above that, and nothing is stored). The upload pickers state these limits and refuse larger files before sending.
 - When browsers submit an empty or generic upload MIME type such as `application/octet-stream`, general uploads may infer the canonical content type from a supported filename extension before signature validation. Explicit unsupported MIME types are still rejected.
 - Stored generic upload object keys use a random UUID and canonical extension derived from the validated content type, not the user-supplied filename.
-- `GET /api/uploads/files/:id` returns `404` unless the requester is the uploader, an authorized internal user for the linked file-directory department, client operations, or an active client member reading a client-visible linked asset. Responses use stored canonical content types and `X-Content-Type-Options: nosniff`.
+- `GET /api/uploads/files/:id` returns `404` unless the requester is the uploader, a participant of a conversation where the uploader sent the file in a message, an authorized internal user for the linked file-directory department, client operations, or an active client member reading a client-visible linked asset. Responses use stored canonical content types and `X-Content-Type-Options: nosniff`.
 - Avatar data URI uploads and stored user avatar updates are limited to JPEG, PNG, GIF, and WebP signatures and capped at 3 MB. Stored avatar references are restricted to short initials, safe relative paths, or `http(s)` URLs.
 - File-directory list, children, create, and delete routes require internal directory access; client-only accounts must use client portal storage/resource flows instead.
 - Non-full-access internal users create folders under their own department derived from active server-side roles. Full-access users may choose a department.

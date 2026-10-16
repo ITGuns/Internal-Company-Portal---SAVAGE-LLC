@@ -31,15 +31,12 @@ test('uploads stop at 3 MB, under the 4.5 MB Vercel body cap after base64', () =
   );
 });
 
-test('chat attachments stop at 700 KB, under the 1 MB parser after base64', () => {
-  assert.equal(limits.MAX_CHAT_ATTACHMENT_BYTES, 700 * 1024);
-  assert.ok((limits.MAX_CHAT_ATTACHMENT_BYTES * 4) / 3 + 2000 < 1024 * 1024, 'room left for the message text');
-  const chat = [limits.MAX_CHAT_ATTACHMENT_BYTES, limits.MAX_CHAT_ATTACHMENT_LABEL];
-  assert.equal(limits.fileTooLargeMessage({ name: 'photo.jpg', size: 100 * 1024 }, ...chat), null);
-  assert.equal(limits.fileTooLargeMessage({ name: 'photo.jpg', size: limits.MAX_CHAT_ATTACHMENT_BYTES }, ...chat), null);
+test('chat attachments go through the uploads service, so they share the 3 MB limit', () => {
+  assert.equal(limits.MAX_CHAT_ATTACHMENT_BYTES, undefined, 'no separate chat limit');
+  assert.equal(limits.fileTooLargeMessage({ name: 'photo.png', size: 1.5 * 1024 * 1024 }), null);
   assert.equal(
-    limits.fileTooLargeMessage({ name: 'photo.jpg', size: 4 * 1024 * 1024 }, ...chat),
-    'photo.jpg is larger than 700 KB. Choose a smaller file.',
+    limits.fileTooLargeMessage({ name: 'photo.jpg', size: 4 * 1024 * 1024 }),
+    'photo.jpg is larger than 3 MB. Choose a smaller file.',
   );
 });
 

@@ -4,10 +4,10 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import Header from '@/components/Header'
 import Button from '@/components/Button'
-import { MessageSquare, Paperclip, Trash2, Pencil, Check, X, Search, SmilePlus } from 'lucide-react'
+import { MessageSquare, Trash2, Pencil, Check, X, Search, SmilePlus } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { archiveConversation, fetchConversations, fetchMessages, sendMessage, createConversation, deleteMessage, editMessage, searchMessages, fetchOnlineUsers, markAsRead, toggleMessageReaction, unarchiveConversation, type ChatArchiveView, type Message, type Conversation, type SearchResult, type MessageReaction, type MessageReactionToggleResult } from '@/lib/chat'
+import { archiveConversation, fetchConversations, fetchMessages, sendMessage, createConversation, deleteMessage, editMessage, searchMessages, fetchOnlineUsers, markAsRead, toggleMessageReaction, unarchiveConversation, type ChatArchiveView, type ChatAttachmentFile, type Message, type Conversation, type SearchResult, type MessageReaction, type MessageReactionToggleResult } from '@/lib/chat'
 import { fetchUsers, type User as SystemUser } from '@/lib/users'
 import { useSocket } from '@/context/SocketContext'
 import { useUser } from '@/contexts/UserContext'
@@ -15,6 +15,7 @@ import { isFreeTierUser } from '@/lib/role-access'
 import { ChatWorkspaceSkeleton } from '@/components/ui/FeatureSkeletons'
 import ChatSidebar from '@/components/chat/ChatSidebar'
 import MessageInput from '@/components/chat/MessageInput'
+import MessageAttachment from '@/components/chat/MessageAttachment'
 import NewChatModal from '@/components/chat/NewChatModal'
 import CreateChannelModal from '@/components/chat/CreateChannelModal'
 import { useToast } from '@/components/ToastProvider'
@@ -460,9 +461,9 @@ export default function UnifiedChatPage() {
         setAttachmentPreview(null)
     }
 
-    const handleSend = async (e?: React.FormEvent) => {
-        e?.preventDefault()
-        if ((!newMessage.trim() && !attachment) || !selectedId || sending) return
+    // MessageInput has already stored any attached file and passes what the message carries.
+    const handleSend = async (uploaded?: ChatAttachmentFile) => {
+        if ((!newMessage.trim() && !uploaded) || !selectedId || sending) return
 
         const content = newMessage.trim()
         const tempId = `temp-${Date.now()}`
@@ -474,6 +475,7 @@ export default function UnifiedChatPage() {
             content,
             senderId: myId,
             conversationId: selectedId,
+            attachment: uploaded ? JSON.stringify(uploaded) : undefined,
             createdAt: new Date().toISOString(),
             sender: {
                 id: myId,
@@ -485,12 +487,11 @@ export default function UnifiedChatPage() {
 
         setMessages(prev => [...prev, optimisticMsg])
         setNewMessage('')
-        const curAttachment = attachmentPreview
         clearAttachment()
 
         try {
             setSending(true)
-            const result = await sendMessage(selectedId, content, curAttachment || undefined)
+            const result = await sendMessage(selectedId, content, uploaded)
             // Replace temp with real (a poll may already have added it)
             setMessages(prev => replacePendingMessage(prev, tempId, result))
         } catch (err) {
@@ -900,28 +901,7 @@ export default function UnifiedChatPage() {
                                                             )}
                                                         </>
                                                     )}
-                                                    {msg.attachment && (
-                                                        <div className="mt-2 rounded-lg overflow-hidden border border-[var(--border)] bg-black/10">
-                                                            {msg.attachment.startsWith('data:image/') || msg.attachment.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                                                                <img
-                                                                    src={msg.attachment}
-                                                                    alt="Attachment"
-                                                                    className="max-h-60 w-auto object-contain cursor-pointer transition-transform hover:scale-[1.02]"
-                                                                    onClick={() => window.open(msg.attachment, '_blank')}
-                                                                />
-                                                            ) : (
-                                                                <a
-                                                                    href={msg.attachment}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="flex items-center gap-2 p-3 text-xs bg-[var(--background)] hover:bg-[var(--card-surface)] transition-colors"
-                                                                >
-                                                                    <Paperclip className="w-4 h-4" />
-                                                                    <span className="truncate max-w-[200px]">View Attachment</span>
-                                                                </a>
-                                                            )}
-                                                        </div>
-                                                    )}
+                                                    {msg.attachment && <MessageAttachment attachment={msg.attachment} />}
 
                                                     </div>
                                                     {!isMe && messageActionRail}

@@ -3,12 +3,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Send, Paperclip, Smile, X } from 'lucide-react'
 import { useEscapeToClose } from '@/hooks/useEscapeToClose'
-import { fileTooLargeMessage, MAX_CHAT_ATTACHMENT_BYTES, MAX_CHAT_ATTACHMENT_LABEL } from '@/lib/upload-limits'
+import { fileTooLargeMessage, MAX_UPLOAD_LABEL } from '@/lib/upload-limits'
+import { uploadChatAttachment, type ChatAttachmentFile } from '@/lib/chat'
+
+// The types POST /api/uploads accepts (backend/src/uploads/upload.validation.ts).
+const ACCEPTED_FILE_TYPES = 'image/png,image/jpeg,image/gif,application/pdf,text/plain,.doc,.docx'
 
 interface MessageInputProps {
     newMessage: string
     onMessageChange: (value: string) => void
-    onSend: (e?: React.FormEvent) => void
+    /** Called once any attached file is stored, with what the message should carry. */
+    onSend: (attachment?: ChatAttachmentFile) => void
     sending: boolean
     attachment: File | null
     attachmentPreview: string | null
@@ -34,6 +39,7 @@ export default function MessageInput({
     const emojiPickerRef = useRef<HTMLDivElement>(null)
     const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
     const [fileError, setFileError] = useState<string | null>(null)
+    const [uploading, setUploading] = useState(false)
     const closeEmojiPicker = useCallback(() => setEmojiPickerOpen(false), [])
 
     useEscapeToClose({ isOpen: emojiPickerOpen, onClose: closeEmojiPicker })
@@ -54,9 +60,10 @@ export default function MessageInput({
     }, [closeEmojiPicker, emojiPickerOpen])
 
     // An oversize file is refused here, before it is attached or sent; the server would refuse it anyway.
+    // Chat files go through the uploads service, so the 3 MB upload limit applies.
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
-        const tooLarge = file ? fileTooLargeMessage(file, MAX_CHAT_ATTACHMENT_BYTES, MAX_CHAT_ATTACHMENT_LABEL) : null
+        const tooLarge = file ? fileTooLargeMessage(file) : null
         setFileError(tooLarge)
         if (tooLarge) {
             e.target.value = ''
@@ -66,18 +73,35 @@ export default function MessageInput({
     }
 
     const isSendingRef = useRef(false)
+    const busy = sending || uploading
 
+    // The file is uploaded first; if that fails the error shows here and the draft stays.
     const handleSend = useCallback(
-        (e?: React.FormEvent) => {
-            if (isSendingRef.current || sending) return
+        async (e?: React.FormEvent) => {
+            e?.preventDefault()
+            if (isSendingRef.current || busy) return
             if (!newMessage.trim() && !attachment) return
             isSendingRef.current = true
             setFileError(null)
-            onSend(e)
+            let uploaded: ChatAttachmentFile | undefined
+            if (attachment) {
+                setUploading(true)
+                try {
+                    uploaded = await uploadChatAttachment(attachment)
+                } catch (error) {
+                    setFileError(error instanceof Error ? error.message : 'The file could not be uploaded. Try again.')
+                    // Nothing was sent, so a retry may follow at once.
+                    isSendingRef.current = false
+                    return
+                } finally {
+                    setUploading(false)
+                }
+            }
+            onSend(uploaded)
             // Reset after a short guard window
             setTimeout(() => { isSendingRef.current = false }, 600)
         },
-        [newMessage, attachment, sending, onSend],
+        [newMessage, attachment, busy, onSend],
     )
 
     return (
@@ -99,6 +123,7 @@ export default function MessageInput({
                         )}
                         <button
                             onClick={onClearAttachment}
+                            disabled={busy}
                             className="absolute right-1 top-1 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white transition-colors hover:bg-black/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
                             aria-label="Remove attachment"
                         >
@@ -107,20 +132,24 @@ export default function MessageInput({
                     </div>
                     <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold truncate">{attachment?.name}</p>
-                        <p className="text-[10px] text-[var(--muted)]">
-                            {(attachment!.size / 1024).toFixed(1)} KB
-                            {attachment?.type === 'image/gif' ? ' GIF' : ''}
+                        <p className="text-[10px] text-[var(--muted)]" aria-live="polite">
+                            {uploading ? 'Uploading...' : (
+                                <>
+                                    {(attachment!.size / 1024).toFixed(1)} KB
+                                    {attachment?.type === 'image/gif' ? ' GIF' : ''}
+                                </>
+                            )}
                         </p>
                     </div>
                 </div>
             )}
-            <form onSubmit={handleSend} className="flex min-w-0 items-center gap-3">
+            <form onSubmit={handleSend} aria-busy={busy} className="flex min-w-0 items-center gap-3">
                 <input
                     type="file"
                     ref={fileInputRef}
                     className="hidden"
                     onChange={handleFileChange}
-                    accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
+                    accept={ACCEPTED_FILE_TYPES}
                     aria-label="Attach file"
                 />
                 <button
@@ -128,7 +157,7 @@ export default function MessageInput({
                     onClick={() => fileInputRef.current?.click()}
                     className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--muted)] transition-colors hover:bg-[var(--background)] hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                     aria-label="Attach file, image, or GIF"
-                    title={`Attach file, image, or GIF (up to ${MAX_CHAT_ATTACHMENT_LABEL})`}
+                    title={`Attach file, image, or GIF (up to ${MAX_UPLOAD_LABEL})`}
                 >
                     <Paperclip className="w-5 h-5" />
                 </button>
@@ -175,6 +204,7 @@ export default function MessageInput({
                     <input
                         value={newMessage}
                         onChange={(e) => onMessageChange(e.target.value)}
+                        readOnly={uploading}
                         aria-label="Message"
                         placeholder={placeholder}
                         className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-5 py-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus:border-transparent transition-all"
@@ -188,9 +218,9 @@ export default function MessageInput({
                 </div>
                   <button
                       type="submit"
-                      disabled={(!newMessage.trim() && !attachment) || sending}
+                      disabled={(!newMessage.trim() && !attachment) || busy}
                       className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white transition-all hover:scale-105 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] active:scale-95 disabled:scale-100 disabled:opacity-50"
-                      aria-label="Send message"
+                      aria-label={uploading ? 'Uploading file' : 'Send message'}
                   >
                     <Send className="w-5 h-5" />
                 </button>

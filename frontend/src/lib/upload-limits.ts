@@ -3,9 +3,9 @@
  * Vercel refuses request bodies above 4.5 MB and files travel as base64 JSON
  * (a third larger), so 3 MB is the largest file that reliably arrives.
  * Gemfield tickets go through a 1 MB JSON parser: about 700 KB of files in
- * total. Chat attachments travel inside the message JSON through the same
- * 1 MB default parser (backend/src/security/json-body-limits.ts), so they get
- * the same 700 KB. Mirrors backend/src/uploads/upload.validation.ts and
+ * total. Chat attachments go through POST /api/uploads first (since
+ * 2026-10-17), so they share the 3 MB upload limit. Mirrors
+ * backend/src/uploads/upload.validation.ts and
  * backend/src/clients/gemfield/gemfield-ticket.service.ts.
  * No runtime imports so node --test can load this file directly.
  */
@@ -15,8 +15,6 @@ export const MAX_UPLOAD_LABEL = "3 MB";
 export const MAX_TICKET_ATTACHMENTS = 6;
 export const MAX_TICKET_ATTACHMENTS_BYTES = 700 * 1024;
 export const MAX_TICKET_ATTACHMENTS_LABEL = "700 KB";
-export const MAX_CHAT_ATTACHMENT_BYTES = 700 * 1024;
-export const MAX_CHAT_ATTACHMENT_LABEL = "700 KB";
 
 interface SizedFile {
   name: string;

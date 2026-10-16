@@ -199,7 +199,7 @@ export class ChatController {
                 const userId = (req as AuthRequest).user.userId
                 const conversationId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
                 const content = normalizeMessageContent(req.body?.content)
-                const attachment = normalizeAttachment(req.body?.attachment)
+                const attachmentInput = normalizeAttachment(req.body?.attachment)
 
                 // Verify user is participant
                 const isParticipant = await this.service.isParticipant(conversationId, userId)
@@ -207,8 +207,22 @@ export class ChatController {
                     return res.status(403).json({ error: 'Access denied' })
                 }
 
-                if (!content && !attachment) {
+                if (attachmentInput.error) {
+                    return res.status(400).json({ error: attachmentInput.error })
+                }
+
+                if (!content && !attachmentInput.attachment) {
                     return res.status(400).json({ error: 'Content or attachment required' })
+                }
+
+                // The file is already in the uploads service; the message keeps only its metadata.
+                let attachment: string | undefined
+                if (attachmentInput.attachment) {
+                    const resolved = await this.service.resolveAttachment(userId, attachmentInput.attachment)
+                    if ('error' in resolved) {
+                        return res.status(resolved.status).json({ error: resolved.error })
+                    }
+                    attachment = resolved.value
                 }
 
                 const { message, participantIds } = await this.service.sendMessage(conversationId, userId, content, attachment)

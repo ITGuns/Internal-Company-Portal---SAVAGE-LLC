@@ -20,6 +20,8 @@ export interface StoredUploadAccessRecord {
     ticketAttachment?: {
         organizationId: string
     } | null
+    // Chat: the uploader attached this file to a message in a conversation the requester is in.
+    sharedWithRequesterInChat?: boolean
 }
 
 export function canReadStoredUpload(
@@ -27,6 +29,10 @@ export function canReadStoredUpload(
     upload: StoredUploadAccessRecord,
 ): boolean {
     if (upload.ownerId === access.requesterId) return true
+
+    // Every participant of a conversation can read the files sent in it. The service only sets
+    // this for messages sent by the uploader, so nobody can share someone else's file this way.
+    if (upload.sharedWithRequesterInChat) return true
 
     if (upload.clientAsset) {
         return access.isClientManager || (

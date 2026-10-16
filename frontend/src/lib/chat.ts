@@ -1,5 +1,77 @@
 
 import { apiFetch } from './api';
+import { fileToDataUri } from './gemfield';
+
+/** What a new message stores about its file; the file itself is in the uploads service. */
+export interface ChatAttachmentFile {
+    name: string;
+    type: string;
+    size: number;
+    uploadId: string;
+}
+
+export type ParsedChatAttachment =
+    | { kind: 'stored'; file: ChatAttachmentFile }
+    | { kind: 'inline'; src: string };
+
+/**
+ * New messages carry {"name","type","size","uploadId"} as a JSON string. Older messages carry the
+ * file itself (a data URI) or a URL, which render as before.
+ */
+export function parseChatAttachment(attachment: string | null | undefined): ParsedChatAttachment | null {
+    if (!attachment) return null;
+    if (attachment.startsWith('{')) {
+        try {
+            const value = JSON.parse(attachment);
+            if (
+                value
+                && typeof value.uploadId === 'string' && value.uploadId
+                && typeof value.name === 'string'
+                && typeof value.type === 'string'
+                && typeof value.size === 'number'
+            ) {
+                return { kind: 'stored', file: { name: value.name, type: value.type, size: value.size, uploadId: value.uploadId } };
+            }
+        } catch {
+            // Not JSON: treat it as an older inline value.
+        }
+    }
+    return { kind: 'inline', src: attachment };
+}
+
+export function formatAttachmentSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Stores the file through POST /uploads and returns what the message should carry. */
+export const uploadChatAttachment = async (file: File): Promise<ChatAttachmentFile> => {
+    const res = await apiFetch('/uploads', {
+        method: 'POST',
+        body: JSON.stringify({ name: file.name, type: file.type || 'application/octet-stream', data: await fileToDataUri(file) }),
+    });
+    const uploaded = await res.json() as { id: string; name: string; type: string; size: number };
+    return { name: uploaded.name, type: uploaded.type, size: uploaded.size, uploadId: uploaded.id };
+};
+
+// Stored files need the in-memory access token, so a plain link to the API would 401.
+export const fetchChatAttachmentBlob = async (uploadId: string): Promise<Blob> => {
+    const res = await apiFetch(`/uploads/files/${encodeURIComponent(uploadId)}`);
+    return res.blob();
+};
+
+/** Saves a stored file under its own name through a short-lived blob URL. */
+export const downloadChatAttachment = async (file: ChatAttachmentFile): Promise<void> => {
+    const url = URL.createObjectURL(await fetchChatAttachmentBlob(file.uploadId));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = file.name;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
 
 export interface Message {
     id: string;
@@ -75,7 +147,7 @@ export const fetchMessages = async (conversationId: string, limit = 50, cursor?:
     return Array.isArray(messages) ? messages.reverse() : [];
 };
 
-export const sendMessage = async (conversationId: string, content: string, attachment?: string): Promise<Message> => {
+export const sendMessage = async (conversationId: string, content: string, attachment?: ChatAttachmentFile): Promise<Message> => {
     const res = await apiFetch(`/chat/${conversationId}/messages`, {
         method: 'POST',
         body: JSON.stringify({ content, attachment }),

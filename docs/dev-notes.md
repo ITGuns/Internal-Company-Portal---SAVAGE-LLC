@@ -1,5 +1,12 @@
 # Development Notes
 
+## 2026-10-17 - Chat attachments through the uploads service
+
+- Chat files now go to `POST /api/uploads` first and the message stores only `{"name","type","size","uploadId"}`, so message lists and socket events carry no base64 and the chat cap rises from 700 KB to the 3 MB upload limit. Older messages keep their data URI and render as before (`parseChatAttachment` in `lib/chat.ts`, `MessageAttachment.tsx`).
+- The server refuses inline data on new messages (400), needs an upload the sender owns that no asset, folder or ticket uses (404), and checks name, type and size against it (400). Deleting a message deletes its upload unless something else still uses it.
+- `GET /api/uploads/files/:id` also serves every participant of a conversation where the uploader sent the file (`upload.access.ts`); the browser fetches it with the token into a blob, never a bare link.
+- Tests: backend `chat.attachments` and `chat.limits`, frontend `chat-attachments` and `upload-limits`. Click-through shots in `assets/verify/chat-uploads/` (gitignored).
+
 ## 2026-10-17 - Defect batch before the 3-day employee test
 
 ### Completed
