@@ -34,6 +34,9 @@ import {
     summarizePayrollHours,
 } from './payroll.calculations'
 import { computePayslipTotals } from './payslip-edit.service'
+import { periodOverlapsWindow } from '../scheduler/scheduler.periods'
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
 const logger = createLogger('payroll.service')
 
@@ -549,17 +552,30 @@ export class PayrollService {
      * Auto-create a semi-monthly payroll period for right now
      * Called when no periods exist yet (first-time setup convenience)
      */
+    /**
+     * The period that covers today (payroll-timezone days), created when missing.
+     * Until 20 Oct 2026 this returned the newest period even after it had ended,
+     * so after the 15th or the month end nothing created the next period unless
+     * the cron ran; clock-ins still recorded, but payslips had no period.
+     */
     async ensureCurrentPeriodExists(): Promise<string> {
-        const existing = await this.prisma.payrollPeriod.findFirst({
-            orderBy: { startDate: 'desc' }
-        })
-        if (existing) return existing.id
-
         // Semi-monthly period (1st-15th or 16th-end) in payroll-timezone days.
         const timeZone = config.payrollTimezone
-        const period = await this.createPayrollPeriod(
-            semiMonthlyPeriodForDay(payrollDayKey(new Date(), timeZone), timeZone),
-        )
+        const expected = semiMonthlyPeriodForDay(payrollDayKey(new Date(), timeZone), timeZone)
+
+        // Widened by a day because older periods were stored at UTC midnight;
+        // the calendar-day comparison in periodOverlapsWindow makes the final call.
+        const nearby = await this.prisma.payrollPeriod.findMany({
+            where: {
+                startDate: { lte: new Date(expected.end.getTime() + ONE_DAY_MS) },
+                endDate: { gte: new Date(expected.start.getTime() - ONE_DAY_MS) },
+            },
+            orderBy: { startDate: 'desc' },
+        })
+        const existing = nearby.find((period) => periodOverlapsWindow(period, expected))
+        if (existing) return existing.id
+
+        const period = await this.createPayrollPeriod(expected)
 
         logger.info('Auto-created payroll period', {
             periodId: period.id,

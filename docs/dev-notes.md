@@ -1,5 +1,10 @@
 # Development Notes
 
+## 2026-10-20 - Payroll scenario proof and the current-period fix
+
+- Local-stack scenario (scratch script, output and screenshots in `assets/verify/september-scenario/`, gitignored): a test employee on `hourly_from_monthly` at 28,000 with the weekdays scheme, 8 h backfilled on all 22 weekdays of September 2026, one 10 h day. Result: 1 to 15 Sep 14,000.00 (88 h), 16 to 30 Sep 14,000.00 with 2 h shown as unpaid pending overtime, 14,397.73 once the 2 h were approved (1.25x), a live clock in and out edited to 8 h priced at 1,272.73. Total 28,397.73.
+- `ensureCurrentPeriodExists` returned the newest period even after it had ended, so after the 15th or the month end only the cron could create the next period. It now returns the period covering today or creates it, with the same overlap guard the scheduler uses. Test: `payroll.ensure-period`.
+
 ## 2026-10-17 - Chat attachments through the uploads service
 
 - Chat files now go to `POST /api/uploads` first and the message stores only `{"name","type","size","uploadId"}`, so message lists and socket events carry no base64 and the chat cap rises from 700 KB to the 3 MB upload limit. Older messages keep their data URI and render as before (`parseChatAttachment` in `lib/chat.ts`, `MessageAttachment.tsx`).
