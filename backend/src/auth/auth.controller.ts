@@ -46,6 +46,7 @@ import {
 
 import { config } from '../config/env.config'
 import { createLogger } from '../observability/logger'
+import { payrollOptionsService } from '../payroll/payroll-options.service'
 
 const logger = createLogger('auth.controller')
 
@@ -326,6 +327,10 @@ export class AuthController {
                     return res.status(400).json({ error: 'Invalid role for selected department' })
                 }
 
+                // The default payroll scheme and options, read before the transaction
+                // so a failed read cannot abort it (column defaults apply then).
+                const payrollDefaults = await payrollOptionsService.newProfileDefaults()
+
                 // Create user and pending profile in a transaction. Active authorization
                 // roles are assigned only after manager approval.
                 const user = await prisma.$transaction(async (tx) => {
@@ -348,6 +353,7 @@ export class AuthController {
                     await tx.employeeProfile.create({
                         data: {
                             userId: newUser.id,
+                            ...payrollDefaults,
                             ...buildPendingSignupProfile({ role, departmentId }),
                         }
                     })

@@ -1,5 +1,39 @@
 # Development Notes
 
+## 2026-10-20 - Payroll lists as data, 22 credited days, Set Up Payroll and Employee Overview
+
+Owner request: "make everything CRUD instead of fixed dropdowns; the payroll manager says 22 days are the maximum credited days; enlarge the Payroll Setup; fix the UI/UX of the Employee Overview; make sure everything is connected and reflects on the important pages."
+
+### Completed
+- Salary divisor schemes, employment types and pay frequency labels are rows (`PayrollScheme`, `PayrollOption`, migration `202610200002_payroll_schemes`). The old scheme keys keep their math; the new `fixed_22_days` "22 credited days" (divide by 22, at most 22 credited days a month) is the default for new profiles. Profiles still store the key or value, so no data was rewritten. Rules: `docs/payroll-time-v2-spec.md`, "Salary divisor schemes and credited days"; routes: `docs/api.md`, "Payroll Schemes And Option Lists".
+- Pay math reads the row (`getPayrollRateContext(profile, start, end, scheme)`, `payroll-schemes.ts`). On both hourly bases the paid regular hours stop at `maxCreditedDays x daily cap` per calendar month (`creditedHoursCapForPeriod`); the rest shows as an `uncredited_hours` line at 0 ("Beyond 22 credited days, not paid (8 h)"), never as overtime. Payslip lines name the scheme row. The preview adds `creditedHours`, `uncreditedHours`, `creditedHoursCap`, `maxCreditedDays`, `payrollSchemeName`.
+- Profile updates only accept active list rows when the value changes (`assertProfileSelections`); every profile creation path writes the current defaults (`newProfileDefaults`), so "Set as default" really applies to new employees.
+- From the code review: `PATCH /users/:id` now takes salary, scheme and billable hours from payroll roles only (it let any manager change salaries), checks the scheme before saving anything, and stops resetting the currency to PHP on every Edit employee save. Scheme values below 10 days or 40 hours are refused as typos. Two first reads of a missing profile no longer end in a 500. List and profile queries refetch on focus and every 5 minutes when there is no socket (Vercel).
+- Set Up Payroll rebuilt as one page in two columns (pay basis and live rates left, details right, one column on a phone) with a fixed Cancel / Save footer and one scroll area (`Modal` gained `bodyClassName` and a column layout so its footer never clips). Selects read the lists; the live rate preview mirrors the server (`computeSchemeRates`).
+- Payroll options (payroll roles), from Employee Overview and from the setup dialog: add, edit, set default, archive, restore, delete, "in use by N", inline errors including the server's 409. Opening it from the setup closes the setup and reopens it with the unsaved form afterwards (`usePayrollSetupDialogs`).
+- Employee Overview: search box, "Payroll options" button, cards with one action row (View, Set up payroll, Edit, Reset password, Deactivate; a two-column grid on a phone), a pay summary line from the lists, the badge inside the card, currency-aware salary. Pending cards and stats moved to their own files.
+- Reflected everywhere: calendar header (scheme name and credited cap), profile panel, Edit employee scheme select, generate dialog (credited and uncredited hours), payslip detail dialog and My Payslips (unpaid lines muted, current setup block), payslip PDF (line descriptions under each label), Reports PDF (archive rows now carry `items`). Profile and list reads are React Query keys `payroll-profile` / `payroll-options`; saves set the cache and the backend broadcasts both resources.
+
+### Decisions Made
+- The cap counts per calendar month, not per period share. The brief's `maxCreditedDays x daily cap x periodFraction` is identical for whole-month periods (the default cadence), but cut an uneven semi-monthly month short: March 2026 splits 10 / 12 weekdays, so the 16-31 half would have capped at 88 h and left 8 h of a 22-day month unpaid. Periods across two months still use the share.
+- The credited-days cap applies to `hourly_rate` too (the payroll manager's rule is about credited days of work, not the divisor); on an uncapped scheme hourly-rate pay is unchanged. `fixed_monthly` never caps.
+- Option `value` and scheme `key` never change after creation; renames change labels only. Delete is offered on every non-default row and the server decides (409 while in use), because counts can be stale.
+- No partial unique index for "one default": Prisma cannot model it and `migrate dev` would try to drop it. One serializable transaction per switch instead.
+- Kept the Edit action on the card (it is the only place on this page to change name, role and department); the brief listed four actions.
+
+### How to Test
+- Backend: `payroll.schemes` (pure math, 23 weekdays x 8 h = 176 credited and 8 uncredited, March halves 10 / 12, hourly rate, fixed monthly, legacy keys, wording, rules), `payroll.options.routes` (real test database: role checks, default switching, archive in use, 409 on delete in use, profile validation, new-profile defaults) and new cases in `users.routes-security` (payroll fields guard, validation before save, currency kept). Frontend: `payroll-options`, `payroll-setup`, plus cases in `payslip-edit`, `payslip-generate`, `payslip-utils`.
+- Click-through shots in `assets/verify/payroll-options/` (gitignored).
+
+### Next Steps
+- Production migration before merging (after `202610200001_monthly_default`, whose SQL is in the next entry, if `_prisma_migrations` does not have it yet): paste `backend/prisma/migrations/202610200002_payroll_schemes/migration.sql` into the Supabase SQL editor, then
+  `INSERT INTO "_prisma_migrations" (id, checksum, migration_name, started_at, finished_at, applied_steps_count) VALUES (gen_random_uuid()::text, '29e08a86e80d419ad4de8ec53b1bb9f9393dc2f62b36e175d942594262d5932d', '202610200002_payroll_schemes', now(), now(), 1);`
+  (SHA-256 of the file with LF endings, like the other rows).
+- The local test database had no migration history (it was made with `db push`); it is now baselined at `202610140002_user_notifications` with `migrate resolve --applied`, so `migrate deploy` works on it.
+- Get the payroll manager's yes on the default's effect (divide by 22 and credit at most 22 days: below salary in months with fewer than 22 weekdays on `hourly_from_monthly`), and decide whether to move existing profiles off their old schemes; nothing moves them automatically.
+- A profile save racing a scheme delete can still leave a key that matches no row (it then pays on the default scheme, logged once). Rare; a locked check-and-write would close it.
+- `GeneratePayslipModal` still scrolls inside the dialog body (two scroll areas) and `EmployeeDetailsModal` shows mock tasks; both predate this change.
+
 ## 2026-10-20 - Monthly payroll periods by default
 
 - The company pays once a month, so new payroll periods are one calendar month (1st 00:00 to the last day 23:59:59 in `PAYROLL_TIMEZONE`, pay date 5 days after the end). `PAYROLL_PERIOD_CADENCE=semi_monthly` keeps the old 1-15 and 16-end split; unset or any other value means monthly, and an unknown value logs a warning at startup (`config.payrollPeriodCadence`; `monthlyPeriodForDay` and `payrollPeriodForDay` in `payroll.calculations.ts`; `semiMonthlyPeriodForDay` stays).

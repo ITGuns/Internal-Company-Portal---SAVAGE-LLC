@@ -181,7 +181,7 @@ Payroll Calendar tracks calendar events, employee time entries, and payroll revi
 - Time entry deletion now opens a typed confirmation modal and stays disabled until `DELETE` is typed.
 - Payroll profile compensation and banking fields are protected by backend role checks.
 - Employee add/edit role selectors use Operations department role options. Custom roles must be created in Operations first, then appear in payroll employee forms after the catalog refreshes.
-- Employee payroll setup includes max billable hours per day and a salary divisor scheme: weekdays credited, flat 30 days, flat 20 days, or flat 160 hours.
+- Employee payroll setup includes max billable hours per day and a salary divisor scheme from the managed list: 22 credited days (default), weekdays of month, flat 30 days, flat 20 days, flat 160 hours, or any scheme payroll roles add in Payroll options. Employment types and pay frequency labels are managed lists too.
 - Payslip previews and generation show tracked hours, billable hours, and pending overtime separately. Automatic gross pay excludes time beyond the daily billable cap until a manager manually overrides or approves it.
 - The Payroll Setup Wizard on the employee overview writes the same payroll profile fields used by backend payslip calculation.
 - The Scheduler tab lets payroll-management users manually run payroll period advance, automatic payslip generation, department report, and client invoice generation jobs, then review recent run status.

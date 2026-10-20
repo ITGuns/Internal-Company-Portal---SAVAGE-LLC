@@ -109,3 +109,16 @@ test('legacy items get a type and locked periods are detected', () => {
   assert.equal(isPayrollPeriodLocked(undefined), false);
   assert.equal(getPayrollItemTypeLabel('overtime_approved'), 'Overtime (approved)');
 });
+
+test('uncredited hours are an unpaid, typed line', () => {
+  const { normalizeItemAmount, recomputePayslipTotals, getPayrollItemTypeLabel, isUnpaidItemType, validatePayslipEdit, inferPayrollItemType } = loadPayslipEditHelper();
+  assert.equal(inferPayrollItemType('uncredited_hours', 0), 'uncredited_hours');
+  assert.equal(getPayrollItemTypeLabel('uncredited_hours'), 'Beyond credited days, not paid');
+  assert.equal(normalizeItemAmount('uncredited_hours', 500), 0);
+  assert.equal(isUnpaidItemType('uncredited_hours'), true);
+  assert.equal(isUnpaidItemType('overtime_pending'), true);
+  assert.equal(isUnpaidItemType('regular_hours'), false);
+  assert.deepEqual({ ...recomputePayslipTotals([{ type: 'regular_hours', amount: 22000 }, { type: 'uncredited_hours', amount: 1000 }]) }, { gross: 22000, net: 22000 });
+  const items = [{ key: 'u', type: 'uncredited_hours', description: 'Beyond 22 credited days, not paid (8 h)', amount: '' }];
+  assert.equal(validatePayslipEdit(items, 'checked').valid, true, 'no amount needed on an unpaid line');
+});

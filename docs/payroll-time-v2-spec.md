@@ -25,14 +25,16 @@ current when the implementation drifts.
    OT pay = paid OT hours x hourly rate x `overtimeMultiplier`.
 3. Pay basis per employee (`EmployeeProfile.payBasis`):
    - `hourly_from_monthly` (default, current behaviour): hourly rate =
-     baseSalary / divisor days / cap, per existing `payrollScheme` rules.
-     Gross = billable hours x rate + OT pay.
+     baseSalary / divisor days / cap, per the profile's `payrollScheme` row
+     (see "Salary divisor schemes and credited days").
+     Gross = credited hours x rate + OT pay.
    - `fixed_monthly`: gross = baseSalary x periodFraction + OT pay.
      periodFraction = 0.5 for a semi-monthly window (1-15, 16-end), 1 for a
      whole calendar month, else periodCalendarDays / daysInMonth(periodStart).
      Hourly rate for OT uses the `hourly_from_monthly` formula.
-   - `hourly_rate`: rate = `EmployeeProfile.hourlyRate`. Gross = billable
-     hours x rate + OT pay. baseSalary ignored.
+   - `hourly_rate`: rate = `EmployeeProfile.hourlyRate`. Gross = credited
+     hours x rate + OT pay. baseSalary ignored. Credited hours equal billable
+     hours unless the scheme caps credited days (2026-10-20).
 4. Employees cannot create, edit or delete time entries directly. They clock
    in/out, and file a `TimeEntryAdjustmentRequest` for corrections. Roles in
    `MANAGEMENT_ACCESS_ROLES` or `PAYROLL_MANAGEMENT_ROLES` review requests.
@@ -64,6 +66,86 @@ current when the implementation drifts.
    salary) line; approved and unapproved overtime lines are still added.
    Deductions sent in the body are applied on both the manual and automatic
    paths.
+
+## Salary divisor schemes and credited days (2026-10-20)
+
+Owner request: "make everything CRUD instead of fixed dropdowns; the payroll
+manager says 22 days are the maximum credited days". The salary divisor
+schemes, employment types and pay frequency labels are rows that payroll
+roles manage in Payroll options. Currency stays a fixed list.
+
+- `PayrollScheme { key, name, kind, value, maxCreditedDays, isDefault,
+  sortOrder, archivedAt }`. `EmployeeProfile.payrollScheme` stores the `key`
+  (no foreign key, no data rewrite). Migration `202610200002_payroll_schemes`
+  seeds the old values under their old keys (`weekdays` "Weekdays of month",
+  `flat_30` "Flat 30 days", `flat_20` "Flat 20 days", `flat_160_hours` "Flat
+  160 hours") plus `fixed_22_days` "22 credited days" (kind `fixed_days`,
+  value 22, maxCreditedDays 22), the default for new profiles. The column
+  default is `fixed_22_days`.
+- `PayrollOption { category, value, label, sortOrder, isDefault, archivedAt }`
+  for `employment_type` (Full-Time default, Part-Time, Contractor labelled
+  "Contractor / Freelance", Intern) and `payment_frequency` (Monthly default,
+  Semi-Monthly, Bi-Weekly, Weekly). Profiles store `value`.
+- Divisor (`getPayrollRateContext`, `schemeDivisor` in `payroll-schemes.ts`):
+  `fixed_days` divides the monthly salary by `value` days, `fixed_hours` by
+  `value` hours, `weekdays` by the weekdays of the period's month. Hourly =
+  daily rate / `maxBillableHoursPerDay`. The return shape only grew
+  (`payrollSchemeName`, `payrollSchemeKind`, `maxCreditedDays`);
+  `payrollSchemeLabel` stays and holds the row name.
+- Credited-days cap: on `hourly_from_monthly` and `hourly_rate`, paid regular
+  hours stop at `maxCreditedDays x maxBillableHoursPerDay` per calendar month
+  (2 decimals). A whole-month period gets that cap. A period inside one month
+  that starts after the 1st (a 16-end half, a custom range) gets the month cap
+  minus the billable hours of that month before it, so an uneven split such
+  as March 2026 (10 and 12 weekdays) loses nothing. Only a period that spans
+  two months falls back to `cap x periodFraction`
+  (`creditedHoursCapForPeriod` in `payroll.service.ts`). Hours above the cap
+  become a payslip line of type `uncredited_hours`, amount 0, "Beyond 22
+  credited days, not paid (8 h)". They are not overtime; approved overtime is
+  paid as before. `fixed_monthly` pays the salary whatever the hours, so no
+  cap applies. Example: 23 weekdays of 8 h = 184 billable h, 176 credited, 8
+  uncredited.
+- Business effect to confirm with the payroll manager: the default divides
+  the salary by 22 days and credits at most 22 days, so on
+  `hourly_from_monthly` full attendance in a month with fewer than 22
+  weekdays (February 2027 has 20) pays below the monthly salary, and never
+  above it. Existing profiles keep their old (uncapped) scheme until someone
+  switches them in Set Up Payroll.
+- Line wording names the row: "Billable work hours (176 h credited, 184 h
+  billable, 184 h tracked) - 22 credited days". Without a cap hit the old
+  "(88 h billable, 90 h tracked)" form stays. On `hourly_rate` the suffix is
+  "Hourly rate, <scheme name>" when the scheme has a cap, else "Hourly rate".
+  A hand-entered hours override drops the uncredited line.
+- Resolution: an unknown or empty key resolves to the default row and is
+  logged once per key; archived rows still resolve for the profiles on them;
+  when the table cannot be read, the built-in copy (`BUILT_IN_PAYROLL_SCHEMES`,
+  same keys and math) applies.
+- Defaults: every path that creates a profile (sign-up, employee create,
+  invitation, lazy create on `GET /payroll/config/:userId`) writes the current
+  default scheme, employment type and pay frequency, read before its
+  transaction. The column defaults are the fallback when the lists cannot be
+  read.
+- List rules: names 2 to 60 characters, unique in their list (any case);
+  `kind` is `weekdays`, `fixed_days` or `fixed_hours`; fixed kinds need a value
+  of 10 to 31 days or 40 to 744 hours (lower values are almost surely typos
+  that would multiply everyone's rate); `maxCreditedDays` 1 to 31 or null. A
+  scheme `key` is a slug of the name made on create; an option `value`
+  is set on create (defaults to the label). Neither changes afterwards.
+  Exactly one default per list: setting one clears the old one in the same
+  serializable transaction (a lost race answers 409). The default cannot be
+  archived or deleted (409). A row any profile stores cannot be deleted (409,
+  "Archive it instead"); it can be archived. Archived rows cannot be newly
+  chosen on a profile (400) but stay on the profiles that have them.
+- Profile updates (`POST /payroll/config/:userId`, `PATCH /users/:id`): a
+  changed `payrollScheme`, `employmentType` or `paymentFrequency` must be an
+  active row of its list (400 otherwise); an unchanged value is always kept.
+  `PATCH /users/:id` checks the scheme before it saves anything, accepts
+  `salary`, `payrollScheme` and `maxBillableHoursPerDay` from payroll roles
+  only (403 for other managers, like `POST /payroll/config`), and no longer
+  resets the currency to PHP when a salary is sent.
+- Routes: `docs/api.md`, "Payroll Schemes And Option Lists". Writes broadcast
+  the socket resource `payroll-options`; profile saves broadcast
+  `payroll-profile`, so open pages refetch.
 
 ## Pay periods (2026-10-20)
 
@@ -155,8 +237,10 @@ editNote   String?
 
 Payroll item types: `regular_hours`, `fixed_salary`, `overtime_approved`,
 `overtime_pending` (amount 0, informational, described as "Unapproved
-overtime, not paid"), `allowance`, `deduction`,
-`adjustment`. Net = sum of all item amounts (deductions are negative).
+overtime, not paid"), `uncredited_hours` (amount 0, informational, hours
+beyond the scheme's credited days, since 2026-10-20), `allowance`,
+`deduction`, `adjustment`. Net = sum of all item amounts (deductions are
+negative).
 
 ## Backend routes
 
@@ -178,7 +262,9 @@ All under the existing `/payroll`, `/users` and `/employees` routers. Auth as no
 | POST | /payroll/entries/backfill | payroll management only | `{ userId, startDate, endDate, startTime, endTime, skipWeekends, notes?, dryRun? }` -> `{ created, skipped, days }`; details in `docs/api.md` |
 | PATCH | /payroll/payslips/:id | payroll management | `{ items: [{type, description, amount}], note }` -> replace items, recompute gross/net, set editedBy/At/Note. 409 if period processed. |
 | DELETE | /payroll/payslips/:id | payroll management | 409 if period processed |
-| GET/POST | /payroll/config/:userId | unchanged | now accepts `payBasis`, `hourlyRate`, `overtimeMultiplier` (privileged only, via `filterPayrollProfileUpdate`) |
+| GET/POST | /payroll/config/:userId | unchanged | now accepts `payBasis`, `hourlyRate`, `overtimeMultiplier` (privileged only, via `filterPayrollProfileUpdate`); since 2026-10-20 a changed scheme or option must come from its list |
+| GET | /payroll/schemes, /payroll/options/:category | any signed-in user | `inUseCount` per row for payroll roles only |
+| POST/PATCH/DELETE | /payroll/schemes[/:id], /payroll/options/:category[/:id] | payroll management | see "Salary divisor schemes and credited days" |
 | GET | /payroll/preview-calculation | unchanged | response adds `payBasis`, `overtimeApprovedHours`, `overtimePendingHours`, `overtimePay` |
 | POST | /payroll/periods/:periodId/generate/:userId | unchanged | 409 on a hand-edited payslip unless `{ force: true }`; see rule 9 |
 | POST | /payroll/periods/:periodId/generate-all | unchanged | skips hand-edited payslips; see rule 9 |
@@ -193,7 +279,16 @@ payroll roles. Mirror it in `frontend/src/lib/role-access.ts`.
 ## Frontend
 
 - `PayrollSetupModal`: pay basis select (three options with one-line help),
-  hourly rate field (shown for `hourly_rate`), OT multiplier field.
+  hourly rate field (shown for `hourly_rate`), OT multiplier field. Since
+  2026-10-20 one page in two columns (pay basis and live rates left, details
+  right, one column on a phone), Cancel and Save in a fixed footer, the
+  scheme, employment type and pay frequency selects read the lists, and a
+  "Manage options" link (payroll roles) closes the dialog, opens Payroll
+  options, and reopens the dialog with the unsaved form afterwards.
+- Payroll options (`PayrollOptionsManager`, payroll roles; from Employee
+  Overview and the setup dialog): schemes, employment types and pay frequency
+  labels with add, edit, set default, archive, restore and delete, "in use by
+  N employees", inline validation and server messages.
 - Time clock and calendar: employees see clock in/out, their entries
   read-only, "Request a correction" (opens adjustment modal) and, on a day
   over the cap, "Request overtime". Payroll roles get Manual, Backfill hours,
@@ -205,6 +300,10 @@ payroll roles. Mirror it in `frontend/src/lib/role-access.ts`.
 - Payslips tab: edit (line items CRUD, note required) and delete on draft
   payslips. Locked periods show the lock reason.
 - My payslips: show overtime approved and pending lines and the pay basis.
+- Employee Overview cards (2026-10-20): one action row (View, Set up payroll,
+  Edit, Reset password, Deactivate) that becomes a two-column grid on a phone,
+  a pay summary line (pay basis, scheme name, daily cap, pay frequency from
+  the lists), the status badge inside the card, and a search box.
 - Employee overview tab: "Add employee" opens the admin invite flow (role
   picker + setup link), not the public pending endpoint. "Remove" becomes
   Deactivate with a Reactivate toggle for inactive users; hard delete is a

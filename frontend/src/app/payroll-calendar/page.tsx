@@ -33,8 +33,8 @@ import {
   canReviewTimeRequests,
   hasPayrollManagementAccess as getHasManagementAccess,
 } from "@/lib/role-access";
-import { apiFetch } from "@/lib/api";
 import { useTimeRequests } from "@/components/payroll/useTimeRequests";
+import { usePayrollProfile } from "@/components/payroll/usePayrollOptions";
 import { listOvertimeRequests } from "@/lib/overtime-requests";
 import { listAdjustmentRequests } from "@/lib/adjustment-requests";
 import { countPending, DEFAULT_BILLABLE_CAP_HOURS } from "@/lib/time-requests";
@@ -78,7 +78,6 @@ function PayrollCalendarContent() {
   const canReview = canReviewTimeRequests(user);
   const currentUserId = user?.id != null ? String(user.id) : undefined;
   const [pendingApprovals, setPendingApprovals] = useState(0);
-  const [ownCapHours, setOwnCapHours] = useState(DEFAULT_BILLABLE_CAP_HOURS);
   // Any reviewer may pick a person to audit; only payroll roles can change what they see.
   const targetUserId = canReview && selectedAuditUserId ? selectedAuditUserId : undefined;
   const selectedPayrollUser = payrollUsers.find((payrollUser) => String(payrollUser.id) === targetUserId);
@@ -89,6 +88,12 @@ function PayrollCalendarContent() {
   // Requests of the person whose time is shown (employees always get their own rows).
   const shownUserId = targetUserId ?? currentUserId;
   const timeRequests = useTimeRequests(canReview ? shownUserId : undefined, Boolean(currentUserId));
+  // The daily cap of the person whose time is shown: employees need it for
+  // "Request overtime", reviewers for the billable / overtime split. A query, so a
+  // Set Up Payroll save elsewhere updates it; the server validates overtime anyway.
+  const { data: shownProfile } = usePayrollProfile(shownUserId);
+  const shownCapHours = Number(shownProfile?.maxBillableHoursPerDay);
+  const ownCapHours = Number.isFinite(shownCapHours) && shownCapHours > 0 ? shownCapHours : DEFAULT_BILLABLE_CAP_HOURS;
   const timeEntryRange = useMemo(
     () => getPayrollTimeEntryRange({ startDate: auditStartDate, endDate: auditEndDate }),
     [auditEndDate, auditStartDate],
@@ -154,25 +159,6 @@ function PayrollCalendarContent() {
     if (canReview) void refreshPendingApprovals();
   }, [canReview, refreshPendingApprovals]);
 
-  // The daily cap of the person whose time is shown: employees need it for
-  // "Request overtime", reviewers for the billable / overtime split.
-  useEffect(() => {
-    if (!shownUserId) return;
-    let isMounted = true;
-    setOwnCapHours(DEFAULT_BILLABLE_CAP_HOURS);
-    apiFetch(`/payroll/config/${encodeURIComponent(shownUserId)}`)
-      .then((res) => res.json())
-      .then((profile: { maxBillableHoursPerDay?: number } | null) => {
-        const cap = Number(profile?.maxBillableHoursPerDay);
-        if (isMounted && Number.isFinite(cap) && cap > 0) setOwnCapHours(cap);
-      })
-      .catch(() => {
-        // Fall back to the default cap; the server validates overtime hours anyway.
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [shownUserId]);
 
   useEffect(() => {
     if (!canReview) {

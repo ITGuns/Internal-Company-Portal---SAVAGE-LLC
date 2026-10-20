@@ -21,6 +21,7 @@ import {
   buildGeneratePayslipBody,
   previewBasePay,
   previewGrossPay,
+  previewPaidHours,
   totalDeductions,
   type GenerateDeductionInput,
   type GeneratePayslipBody,
@@ -118,7 +119,7 @@ export default function GeneratePayslipModal({
   // A new employee or period starts from the automatic numbers again.
   useEffect(() => {
     setOverrideHours(false);
-    setHoursWorked(preview?.billableHours ?? 0);
+    setHoursWorked(preview ? previewPaidHours(preview) : 0);
   }, [preview]);
 
   const state = { overrideHours, hoursWorked, deductions };
@@ -126,6 +127,15 @@ export default function GeneratePayslipModal({
   const deductionTotal = totalDeductions(deductions);
   const employee = employees.find((e) => e.id.toString() === employeeId);
   const isFixed = preview?.payBasis === "fixed_monthly";
+  const uncredited = !overrideHours && preview?.uncreditedHours ? preview.uncreditedHours : 0;
+  const schemeName = preview?.payrollSchemeName ?? preview?.payrollSchemeLabel;
+  const hoursDetail = preview
+    ? overrideHours
+      ? `${hrs(hoursWorked)} entered by hand`
+      : uncredited > 0
+        ? `${hrs(preview.creditedHours)} credited of ${hrs(preview.billableHours)} billable, ${hrs(preview.totalHours)} tracked`
+        : `${hrs(preview.billableHours)} billable of ${hrs(preview.totalHours)} tracked`
+    : "";
 
   const updateDeduction = (index: number, patch: Partial<GenerateDeductionInput>) =>
     setDeductions((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -182,9 +192,17 @@ export default function GeneratePayslipModal({
               <div className={`rounded-xl border border-[var(--border)] overflow-hidden ${isLoading ? "opacity-60" : ""}`}>
                 <Row
                   label={isFixed ? "Fixed salary" : "Regular hours"}
-                  detail={`${preview.payBasisLabel ?? "Pay basis"}. ${hrs(overrideHours ? hoursWorked : preview.billableHours)} billable of ${hrs(preview.totalHours)} tracked${isFixed ? "" : ` at ${money(preview.hourlyRate ?? 0)} per hour`}.`}
+                  detail={`${preview.payBasisLabel ?? "Pay basis"}${schemeName ? `, ${schemeName}` : ""}. ${hoursDetail}${isFixed ? "" : ` at ${money(preview.hourlyRate ?? 0)} per hour`}.`}
                   value={money(previewBasePay(preview, state))}
                 />
+                {uncredited > 0 && (
+                  <Row
+                    label={`Beyond ${preview.maxCreditedDays ?? ""} credited days, not paid`}
+                    detail={hrs(uncredited)}
+                    value={money(0)}
+                    tone="text-[var(--muted)]"
+                  />
+                )}
                 <Row
                   label="Approved overtime"
                   detail={`${hrs(preview.overtimeApprovedHours)} at ${preview.overtimeMultiplier ?? 1.25}x`}

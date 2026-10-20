@@ -2,7 +2,7 @@
  * Employee Profile Panel - displays detailed employee information
  */
 
-import React, { useState } from "react";
+import React from "react";
 import Image from "next/image";
 import {
   FileText,
@@ -19,8 +19,14 @@ import {
 import { isPayrollPeriodLocked } from "@/lib/payslip-edit";
 import { formatPayrollDate } from "@/lib/payroll-dates";
 import Button from "@/components/Button";
-import dynamic from "next/dynamic";
-const PayrollSetupModal = dynamic(() => import("./PayrollSetupModal"), { ssr: false });
+import { useUser } from "@/contexts/UserContext";
+import { hasPayrollManagementAccess } from "@/lib/role-access";
+import { getPayBasisLabel } from "@/lib/pay-basis";
+import { describeScheme, findScheme, getOptionLabel } from "@/lib/payroll-options";
+import { formatCapHours, type PayrollProfile } from "@/lib/payroll-setup";
+import PayrollSetupDialogs from "./PayrollSetupDialogs";
+import { usePayrollCatalog, usePayrollProfile } from "./usePayrollOptions";
+import { usePayrollSetupDialogs } from "./usePayrollSetupDialogs";
 import type { Employee, Payslip } from "@/lib/payroll-calendar/types";
 
 
@@ -32,16 +38,9 @@ interface EmployeeProfilePanelProps {
   onDownloadPDF: (payslip: Payslip) => void;
   onEditPayslip?: (payslip: Payslip) => void;
   isPeriodLocked?: boolean;
-  /** Called after Set Up Payroll saves, so views that show pay settings can refetch. */
-  onPayrollSaved?: () => void;
+  /** Called after Set Up Payroll saves, so views that show pay settings can update. */
+  onPayrollSaved?: (employeeId: string, profile: PayrollProfile) => void;
 }
-
-const PAYROLL_SCHEME_LABELS: Record<string, string> = {
-  weekdays: "Weekdays credited",
-  flat_30: "Flat 30 days",
-  flat_20: "Flat 20 days",
-  flat_160_hours: "Flat 160 hours",
-};
 
 export default function EmployeeProfilePanel({
   employee,
@@ -53,7 +52,12 @@ export default function EmployeeProfilePanel({
   isPeriodLocked = false,
   onPayrollSaved,
 }: EmployeeProfilePanelProps) {
-  const [showPayrollSetup, setShowPayrollSetup] = useState(false);
+  const { user } = useUser();
+  const canManagePayroll = hasPayrollManagementAccess(user);
+  const dialogs = usePayrollSetupDialogs();
+  const catalog = usePayrollCatalog(Boolean(employee));
+  // The saved profile, refetched after Set Up Payroll or a list change.
+  const { data: profile } = usePayrollProfile(employee ? String(employee.id) : null);
   if (!employee) {
     return (
       <div className="p-6">
@@ -68,6 +72,17 @@ export default function EmployeeProfilePanel({
       </div>
     );
   }
+
+  const scheme = findScheme(catalog.schemes, profile?.payrollScheme ?? employee.payrollScheme);
+  const payBasis = profile?.payBasis ?? employee.payBasis;
+  const frequency = getOptionLabel(catalog.paymentFrequencies, profile?.paymentFrequency ?? employee.paymentFrequency);
+  const schemeValue = scheme?.name ?? (catalog.error ? "Could not load the scheme list" : catalog.isLoading ? "Loading" : "Not set");
+  const setupRows = [
+    { icon: WalletCards, label: "Pay basis", value: getPayBasisLabel(payBasis) },
+    { icon: WalletCards, label: "Salary divisor scheme", value: schemeValue, detail: scheme ? describeScheme(scheme) : undefined },
+    { icon: Clock, label: "Max billable hours", value: formatCapHours(profile?.maxBillableHoursPerDay ?? employee.maxBillableHoursPerDay) },
+    { icon: Calendar, label: "Pay frequency", value: frequency || "Not set" },
+  ];
 
   return (
     <div className="p-4 space-y-6 overflow-y-auto h-full chat-scroll">
@@ -142,26 +157,27 @@ export default function EmployeeProfilePanel({
         <h4 className="text-sm font-semibold mb-3 text-[var(--foreground)]">
           Payroll Setup
         </h4>
-        <div className="grid grid-cols-1 gap-2">
-          <div className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--card-surface)] p-3 text-sm">
-            <Clock className="w-4 h-4 text-[var(--muted)] mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="text-xs text-[var(--muted)]">Max billable hours / day</div>
-              <div className="font-semibold text-[var(--foreground)]">
-                {employee.maxBillableHoursPerDay || 8} hours
+        <dl className="grid grid-cols-1 gap-2">
+          {setupRows.map((row) => (
+            <div key={row.label} className="flex items-start gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-3 text-sm">
+              <row.icon className="w-4 h-4 text-[var(--muted)] mt-0.5 flex-shrink-0" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <dt className="text-xs text-[var(--muted)]">{row.label}</dt>
+                <dd className="font-semibold text-[var(--foreground)]">{row.value}</dd>
+                {row.detail && <dd className="mt-0.5 text-xs text-[var(--muted)]">{row.detail}</dd>}
               </div>
             </div>
-          </div>
-          <div className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--card-surface)] p-3 text-sm">
-            <WalletCards className="w-4 h-4 text-[var(--muted)] mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="text-xs text-[var(--muted)]">Salary divisor scheme</div>
-              <div className="font-semibold text-[var(--foreground)]">
-                {PAYROLL_SCHEME_LABELS[employee.payrollScheme || "weekdays"] || "Weekdays credited"}
-              </div>
-            </div>
-          </div>
-        </div>
+          ))}
+        </dl>
+        {catalog.error && (
+          <button
+            type="button"
+            onClick={catalog.retry}
+            className="mt-2 inline-flex min-h-9 items-center rounded-[var(--radius-sm)] px-2 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--accent)]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          >
+            Try loading the payroll lists again
+          </button>
+        )}
       </div>
 
       <div>
@@ -244,7 +260,7 @@ export default function EmployeeProfilePanel({
           variant="outline"
           className="w-full h-11 border-2 border-emerald-500/50 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 text-emerald-700 dark:text-emerald-400 transition-colors font-semibold text-sm"
           icon={<Settings2 className="w-4 h-4" />}
-          onClick={() => setShowPayrollSetup(true)}
+          onClick={() => dialogs.openSetup(employee)}
         >
           Set Up Payroll
         </Button>
@@ -272,12 +288,7 @@ export default function EmployeeProfilePanel({
         )}
       </div>
 
-      <PayrollSetupModal
-        isOpen={showPayrollSetup}
-        onClose={() => setShowPayrollSetup(false)}
-        employee={employee}
-        onSaved={onPayrollSaved}
-      />
+      <PayrollSetupDialogs dialogs={dialogs} canManageOptions={canManagePayroll} onSaved={onPayrollSaved} />
     </div>
   );
 }

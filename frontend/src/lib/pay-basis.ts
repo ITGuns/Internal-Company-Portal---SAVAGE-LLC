@@ -92,6 +92,10 @@ export interface CalendarPayHeaderInput {
   baseSalary?: number | null;
   hourlyRate?: number | null;
   maxBillableHoursPerDay?: number | null;
+  /** Name of the employee's salary divisor scheme (managed list), when known. */
+  schemeName?: string | null;
+  /** The scheme's cap on credited days per month, when it has one. */
+  maxCreditedDays?: number | null;
   /** Logged hours per payroll day of the month shown. */
   dailyHours: readonly number[];
 }
@@ -107,15 +111,25 @@ function formatPeso(value: number): string {
   return `₱${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function formatDays(value: number): string {
+  return String(Math.round(value * 100) / 100);
+}
+
 /**
  * Pay figure for the time tracking calendar header. The monthly bases show the
- * monthly base salary. hourly_rate never shows the salary: it shows each day's
- * logged hours up to the daily cap times the hourly rate, without overtime.
+ * monthly base salary, with the scheme name and its credited-days cap when
+ * known. hourly_rate never shows the salary: it shows each day's logged hours
+ * up to the daily cap (and the month up to the credited-days cap) times the
+ * hourly rate, without overtime.
  */
 export function getCalendarPayHeader(input: CalendarPayHeaderInput): CalendarPayHeader {
   const payBasis = isPayBasis(input.payBasis) ? input.payBasis : DEFAULT_PAY_BASIS;
+  const creditedDays = (input.maxCreditedDays ?? 0) > 0 ? (input.maxCreditedDays as number) : null;
   if (payBasis !== "hourly_rate") {
-    return { amount: input.baseSalary ?? 0, label: "Monthly base salary" };
+    const parts = ["Monthly base salary"];
+    if (input.schemeName) parts.push(input.schemeName);
+    if (creditedDays) parts.push(`at most ${formatDays(creditedDays)} days credited a month`);
+    return { amount: input.baseSalary ?? 0, label: parts.join(" · ") };
   }
 
   const rate = input.hourlyRate ?? 0;
@@ -125,8 +139,12 @@ export function getCalendarPayHeader(input: CalendarPayHeaderInput): CalendarPay
     ? (input.maxBillableHoursPerDay as number)
     : DEFAULT_DAILY_CAP_HOURS;
   const billableHours = input.dailyHours.reduce((sum, hours) => sum + Math.min(Math.max(hours, 0), cap), 0);
-  return {
-    amount: billableHours * rate,
-    label: `${formatPeso(rate)} per hour, up to ${cap} h a day, overtime not included`,
-  };
+  const creditedHours = creditedDays ? Math.min(billableHours, creditedDays * cap) : billableHours;
+  // On an hourly rate the scheme matters only through its cap, so it is named only then.
+  const label = creditedDays
+    ? [formatPeso(rate) + " per hour", input.schemeName, `up to ${cap} h a day and ${formatDays(creditedDays)} credited days a month, overtime not included`]
+      .filter(Boolean)
+      .join(" · ")
+    : `${formatPeso(rate)} per hour, up to ${cap} h a day, overtime not included`;
+  return { amount: creditedHours * rate, label };
 }

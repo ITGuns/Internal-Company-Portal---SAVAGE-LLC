@@ -113,7 +113,7 @@ Payroll-sensitive fields also live on `EmployeeProfile`.
 
 - Compensation, currency, payment frequency, bank account, and tax ID are protected fields.
 - Directory serializers must not expose sensitive payroll/profile fields.
-- `EmployeeProfile.payrollScheme` stores the salary divisor rule for payroll calculation. Supported values are `weekdays`, `flat_30`, `flat_20`, and `flat_160_hours`.
+- `EmployeeProfile.payrollScheme` stores the key of a `PayrollScheme` row: the salary divisor and the credited-days cap, managed by payroll roles since 2026-10-20 (migration `202610200002_payroll_schemes`). Seeded keys: `fixed_22_days` (default), `weekdays`, `flat_30`, `flat_20`, `flat_160_hours`. `PayrollOption` rows hold the employment type and pay frequency values profiles store. Rules: `docs/payroll-time-v2-spec.md`.
 - `EmployeeProfile.maxBillableHoursPerDay` stores the daily cap used to split tracked time into billable hours and overtime.
 - `EmployeeProfile.payBasis` (`hourly_from_monthly` default, `fixed_monthly`, `hourly_rate`), `hourlyRate` (nullable, used by `hourly_rate`) and `overtimeMultiplier` (default 1.25) drive gross pay. All three are protected payroll fields.
 - `User.status = "inactive"` marks a deactivated member: data stays, sign-in, refresh and authenticated requests are refused. Hard delete is admin-only and refused while the user has payslips.

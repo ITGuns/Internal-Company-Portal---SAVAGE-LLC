@@ -26,6 +26,11 @@ export interface ModalProps {
   closeOnEsc?: boolean;
   /** Optional custom className for the modal content */
   className?: string;
+  /**
+   * Replaces the body's default max height (a larger dialog with a footer
+   * passes its own so the body is the only scroll area).
+   */
+  bodyClassName?: string;
 }
 
 const sizeClasses = {
@@ -46,6 +51,7 @@ export default function Modal({
   closeOnBackdrop = true,
   closeOnEsc = true,
   className = "",
+  bodyClassName,
 }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
@@ -140,13 +146,14 @@ export default function Modal({
         ref={modalRef}
         tabIndex={-1}
         className={cn(
-          'relative bg-[var(--card-surface)] rounded-xl shadow-2xl ring-1 ring-[var(--border)] w-full max-h-[calc(100vh-1.5rem)] overflow-hidden motion-panel-in',
+          // Column layout: header and footer keep their size, only the body shrinks and scrolls.
+          'relative flex flex-col bg-[var(--card-surface)] rounded-xl shadow-2xl ring-1 ring-[var(--border)] w-full max-h-[calc(100vh-1.5rem)] overflow-hidden motion-panel-in',
           sizeClasses[size],
           className,
         )}
       >
         {/* Header */}
-        <div className="flex items-start justify-between p-6 border-b border-[var(--border)]">
+        <div className="flex shrink-0 items-start justify-between p-6 border-b border-[var(--border)]">
           <div className="flex-1 pr-4">
             <h2
               id="modal-title"
@@ -173,11 +180,11 @@ export default function Modal({
         </div>
 
         {/* Body */}
-        <div className="p-4 sm:p-6 max-h-[calc(100vh-9rem)] sm:max-h-[60vh] overflow-y-auto chat-scroll">{children}</div>
+        <div className={cn("min-h-0 p-4 sm:p-6 overflow-y-auto chat-scroll", bodyClassName ?? "max-h-[calc(100vh-9rem)] sm:max-h-[60vh]")}>{children}</div>
 
         {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[var(--border)] bg-[var(--card-bg)]">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 px-4 py-4 sm:px-6 border-t border-[var(--border)] bg-[var(--card-bg)]">
             {footer}
           </div>
         )}

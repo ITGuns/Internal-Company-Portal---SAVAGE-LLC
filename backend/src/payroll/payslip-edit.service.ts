@@ -18,6 +18,8 @@ export const PAYROLL_ITEM_TYPES = [
     'fixed_salary',
     'overtime_approved',
     'overtime_pending',
+    // Hours above the scheme's credited-days cap (2026-10-20). Informational, amount 0.
+    'uncredited_hours',
     'allowance',
     'deduction',
     'adjustment',
@@ -41,9 +43,12 @@ function isItemType(value: unknown): value is PayrollItemType {
     return typeof value === 'string' && (PAYROLL_ITEM_TYPES as readonly string[]).includes(value)
 }
 
+/** Informational line types: always stored with amount 0. */
+const ZERO_AMOUNT_TYPES: ReadonlySet<string> = new Set(['overtime_pending', 'uncredited_hours'])
+
 /**
- * Validate and normalize line items. Deductions are always stored negative and
- * overtime_pending is informational (amount 0).
+ * Validate and normalize line items. Deductions are always stored negative;
+ * overtime_pending and uncredited_hours are informational (amount 0).
  */
 export function normalizePayslipItems(input: unknown): PayslipItemInput[] {
     if (!Array.isArray(input) || input.length === 0) {
@@ -70,7 +75,7 @@ export function normalizePayslipItems(input: unknown): PayslipItemInput[] {
 
         const normalizedAmount = item.type === 'deduction'
             ? -Math.abs(amount)
-            : item.type === 'overtime_pending' ? 0 : amount
+            : ZERO_AMOUNT_TYPES.has(item.type) ? 0 : amount
         return { type: item.type, description, amount: roundMoney(normalizedAmount) }
     })
 }

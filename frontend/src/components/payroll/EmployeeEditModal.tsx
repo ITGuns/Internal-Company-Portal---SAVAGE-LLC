@@ -20,13 +20,8 @@ import {
   OPERATIONS_CORE_STALE_MS,
   OPERATIONS_QUERY_KEYS,
 } from "@/lib/operations-data";
-
-const PAYROLL_SCHEMES = [
-  { value: "weekdays", label: "Weekdays credited" },
-  { value: "flat_30", label: "Flat 30 days" },
-  { value: "flat_20", label: "Flat 20 days" },
-  { value: "flat_160_hours", label: "Flat 160 hours" },
-];
+import { findScheme, selectableSchemes } from "@/lib/payroll-options";
+import { usePayrollSchemes } from "./usePayrollOptions";
 
 interface EmployeeEditModalProps {
   isOpen: boolean;
@@ -47,7 +42,10 @@ export default function EmployeeEditModal({
   const [department, setDepartment] = useState("");
   const [salary, setSalary] = useState("");
   const [maxBillableHoursPerDay, setMaxBillableHoursPerDay] = useState("8");
-  const [payrollScheme, setPayrollScheme] = useState("weekdays");
+  // Empty until chosen; the select shows the employee's scheme or the list default.
+  const [payrollScheme, setPayrollScheme] = useState("");
+  const schemesQuery = usePayrollSchemes(isOpen);
+  const shownScheme = findScheme(schemesQuery.data, payrollScheme || employee?.payrollScheme);
   const [status, setStatus] = useState<"active" | "vacation" | "leave" | "pending" | "verified">("active");
   const departmentsQuery = useQuery({
     queryKey: OPERATIONS_QUERY_KEYS.departments,
@@ -100,7 +98,7 @@ export default function EmployeeEditModal({
       setDepartment(employee.department);
       setSalary(employee.salary.toString());
       setMaxBillableHoursPerDay(String(employee.maxBillableHoursPerDay || 8));
-      setPayrollScheme(employee.payrollScheme || "weekdays");
+      setPayrollScheme(employee.payrollScheme || "");
       setStatus(employee.status);
     }
   }, [employee]);
@@ -127,12 +125,14 @@ export default function EmployeeEditModal({
     if (!employee) return;
     if (!name.trim() || !email.trim() || !role.trim() || !department.trim() || !salary || !canSubmitRoleAssignment) return;
 
+    const chosenScheme = shownScheme?.key;
     const updates: Partial<Employee> = {
       name: name.trim(),
       email: email.trim(),
       salary: parseFloat(salary) || employee.salary,
       maxBillableHoursPerDay: parseFloat(maxBillableHoursPerDay) || employee.maxBillableHoursPerDay || 8,
-      payrollScheme,
+      // Sent only when it changes, so an unloaded list never resets a scheme.
+      ...(chosenScheme && chosenScheme !== employee.payrollScheme ? { payrollScheme: chosenScheme } : {}),
       status,
     };
 
@@ -289,14 +289,16 @@ export default function EmployeeEditModal({
               Monthly Salary <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted)] font-semibold">
-                ₱
+              {/* The profile's currency (set in Set Up Payroll); saving here keeps it. */}
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-[var(--muted)] font-semibold">
+                {employee.currency || "PHP"}
               </span>
               <input
                 type="number"
                 value={salary}
                 onChange={(e) => setSalary(e.target.value)}
-                className="w-full p-3 pl-8 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+                aria-label={`Monthly salary in ${employee.currency || "PHP"}`}
+                className="w-full p-3 pl-14 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
                 min="0"
                 step="any"
                 required
@@ -324,18 +326,23 @@ export default function EmployeeEditModal({
             </div>
 
             <div>
-              <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
-                Payroll scheme <span className="text-red-500">*</span>
+              <label htmlFor="employee-edit-scheme" className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
+                Salary divisor scheme <span className="text-red-500">*</span>
               </label>
               <select
-                value={payrollScheme}
+                id="employee-edit-scheme"
+                value={shownScheme?.key ?? ""}
                 onChange={(e) => setPayrollScheme(e.target.value)}
+                disabled={!schemesQuery.data}
                 className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
                 required
               >
-                {PAYROLL_SCHEMES.map((scheme) => (
-                  <option key={scheme.value} value={scheme.value}>
-                    {scheme.label}
+                {!schemesQuery.data && (
+                  <option value="">{schemesQuery.error ? "Could not load the schemes" : "Loading the schemes"}</option>
+                )}
+                {selectableSchemes(schemesQuery.data, shownScheme?.key).map((scheme) => (
+                  <option key={scheme.key} value={scheme.key}>
+                    {scheme.name}{scheme.archived ? " (archived)" : ""}
                   </option>
                 ))}
               </select>

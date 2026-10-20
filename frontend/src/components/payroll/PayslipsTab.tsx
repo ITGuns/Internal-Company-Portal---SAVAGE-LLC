@@ -16,6 +16,7 @@ import { createTimeEntry, deleteTimeEntry } from "@/lib/time-entries";
 import { formatPayrollDate, payrollPeriodDayKey } from "@/lib/payroll-dates";
 import { getPayrollDayKey } from "@/lib/time-requests";
 import { isEditedPayslipConflict, type GeneratePayslipBody } from "@/lib/payslip-generate";
+import { applyProfileToEmployee, type PayrollProfile } from "@/lib/payroll-setup";
 
 const REGENERATE_EDITED_CONFIRM = "This payslip was edited by hand. Regenerate and discard the edits?";
 
@@ -121,7 +122,8 @@ export default function PayslipsTab() {
         salary: emp.salary || (emp.employeeProfile?.baseSalary) || 0,
         department: emp.department || (emp.employeeProfile?.department?.name) || "Operations",
         role: emp.role || (emp.employeeProfile?.jobTitle) || "Member",
-        payrollScheme: emp.payrollScheme || emp.employeeProfile?.payrollScheme || "weekdays",
+        // Scheme key; a missing one resolves to the default scheme of the managed list.
+        payrollScheme: emp.payrollScheme || emp.employeeProfile?.payrollScheme || null,
         maxBillableHoursPerDay: emp.maxBillableHoursPerDay || emp.employeeProfile?.maxBillableHoursPerDay || 8,
         payBasis: emp.payBasis || emp.employeeProfile?.payBasis,
         avatar: emp.avatar || (emp.name?.[0] || "U"),
@@ -278,6 +280,14 @@ export default function PayslipsTab() {
       setIsLocking(false);
     }
   };
+  // Set Up Payroll saved: update the lists in place and refetch the calendar.
+  const handlePayrollSaved = (employeeId: string, profile: PayrollProfile) => {
+    const apply = (emp: Employee) => (String(emp.id) === employeeId ? applyProfileToEmployee(emp, profile) : emp);
+    setEmployees((prev) => prev.map(apply));
+    setSelectedEmployee((prev) => (prev ? apply(prev) : prev));
+    setRefreshKey((prev) => prev + 1);
+  };
+
   const handleDownloadPDF = (payslip?: Payslip) => {
     const targetPayslip = payslip || employeePayslips[0];
     if (targetPayslip && selectedEmployee) {
@@ -416,7 +426,7 @@ export default function PayslipsTab() {
             onDownloadPDF={(ps) => handleDownloadPDF(ps)}
             onEditPayslip={setEditingPayslip}
             isPeriodLocked={activePeriod?.status === 'processed'}
-            onPayrollSaved={() => setRefreshKey(prev => prev + 1)}
+            onPayrollSaved={handlePayrollSaved}
           />
         </div>
       </div>

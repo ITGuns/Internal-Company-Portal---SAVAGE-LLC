@@ -116,6 +116,21 @@ async function runUsersRouteSecurityTests() {
     email: client.email,
     name: client.name || undefined,
   })
+  // Management without a payroll role (2026-10-20: payroll fields are payroll roles only).
+  const manager = await prisma.user.create({
+    data: {
+      email: `users-route-manager-${suffix}@example.com`,
+      name: 'Users Route Manager',
+      status: 'verified',
+      isApproved: true,
+      roles: { create: { role: 'project_manager' } },
+    },
+  })
+  const managerToken = JwtService.generateAccessToken({
+    userId: manager.id,
+    email: manager.email,
+    name: manager.name || undefined,
+  })
 
   try {
     await withServer(async (baseUrl) => {
@@ -203,12 +218,47 @@ async function runUsersRouteSecurityTests() {
 
       const changedEmployee = await prisma.user.findUniqueOrThrow({ where: { id: employee.id } })
       assert.equal(changedEmployee.email, changedEmployeeEmail)
+
+      // Payroll fields need a payroll role; managers keep the other fields.
+      const managerSalary = await requestJson(baseUrl, `/api/users/${employee.id}`, {
+        method: 'PATCH',
+        token: managerToken,
+        body: { salary: 99999 },
+      })
+      assert.equal(managerSalary.status, 403)
+      assert.deepEqual(managerSalary.body.fields, ['salary'])
+      const managerName = await requestJson(baseUrl, `/api/users/${employee.id}`, {
+        method: 'PATCH',
+        token: managerToken,
+        body: { name: 'Renamed By Manager' },
+      })
+      assert.equal(managerName.status, 200)
+
+      // A scheme outside the list is refused before anything is saved.
+      const badScheme = await requestJson(baseUrl, `/api/users/${employee.id}`, {
+        method: 'PATCH',
+        token: adminToken,
+        body: { name: 'Should Not Save', payrollScheme: 'no_such_scheme' },
+      })
+      assert.equal(badScheme.status, 400)
+      assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: employee.id } })).name, 'Renamed By Manager')
+
+      // Saving a salary keeps the profile currency (it was forced to PHP before).
+      await prisma.employeeProfile.update({ where: { userId: employee.id }, data: { currency: 'USD' } })
+      const salaryUpdate = await requestJson(baseUrl, `/api/users/${employee.id}`, {
+        method: 'PATCH',
+        token: adminToken,
+        body: { salary: 4200 },
+      })
+      assert.equal(salaryUpdate.status, 200)
+      const profile = await prisma.employeeProfile.findUniqueOrThrow({ where: { userId: employee.id } })
+      assert.deepEqual([profile.baseSalary, profile.currency], [4200, 'USD'])
     })
   } finally {
     await prisma.user.deleteMany({
       where: {
         id: {
-          in: [admin.id, employee.id, client.id],
+          in: [admin.id, employee.id, client.id, manager.id],
         },
       },
     })

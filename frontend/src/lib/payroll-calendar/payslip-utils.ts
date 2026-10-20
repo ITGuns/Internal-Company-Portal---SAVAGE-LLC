@@ -5,13 +5,21 @@ import { getPayBasisLabel } from "../pay-basis";
 
 /**
  * Earning lines for the payslip PDF, labelled by item type (Regular hours, Overtime and so on)
- * so the legacy "Base Salary" wording never shows. Deductions are listed separately.
+ * so the legacy "Base Salary" wording never shows. `detail` is the stored line description,
+ * which names the salary divisor scheme as it was when the payslip was generated.
+ * Deductions are listed separately.
  */
-export function getPayslipEarningLines(payslip: Pick<Payslip, "grossPay" | "items">): Array<{ label: string; amount: number }> {
+export function getPayslipEarningLines(
+  payslip: Pick<Payslip, "grossPay" | "items">,
+): Array<{ label: string; amount: number; detail?: string }> {
   const lines = (payslip.items ?? [])
-    .map((item) => ({ type: inferPayrollItemType(item.type, item.amount), amount: item.amount }))
+    .map((item) => ({ type: inferPayrollItemType(item.type, item.amount), amount: item.amount, description: item.description }))
     .filter((item) => item.type !== "deduction")
-    .map((item) => ({ label: getPayrollItemTypeLabel(item.type), amount: item.amount }));
+    .map((item) => {
+      const label = getPayrollItemTypeLabel(item.type);
+      const detail = item.description?.trim();
+      return detail && detail !== label ? { label, amount: item.amount, detail } : { label, amount: item.amount };
+    });
 
   return lines.length > 0 ? lines : [{ label: "Gross earnings", amount: payslip.grossPay }];
 }
@@ -227,7 +235,18 @@ export function generatePayslipPDF(payslip: Payslip, employee: Employee): void {
     getPayslipEarningLines(payslip).forEach((line) => {
       doc.text(line.label, 20, yPos);
       doc.text(formatCurrency(line.amount), pageWidth - 20, yPos, { align: "right" });
-      yPos += 8;
+      yPos += 5;
+      if (line.detail) {
+        // The stored description (scheme name, hours) in small grey type under the label.
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        const detailLines: string[] = doc.splitTextToSize(line.detail, pageWidth - 80);
+        doc.text(detailLines, 20, yPos);
+        yPos += detailLines.length * 4;
+        doc.setFontSize(10);
+        doc.setTextColor(30, 41, 59);
+      }
+      yPos += 3;
     });
     yPos += 2;
 

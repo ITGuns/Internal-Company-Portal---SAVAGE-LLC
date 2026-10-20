@@ -18,15 +18,17 @@ import { PayrollService } from '../src/payroll/payroll.service'
 const service = new PayrollService() as any
 
 // ---------------------------------------------------------------------------
-// normalizePayrollScheme — only the four known schemes survive; else default.
+// normalizePayrollScheme: built-in keys survive; else the default key.
+// Since 2026-10-20 schemes are rows and the default is fixed_22_days.
 // ---------------------------------------------------------------------------
 assert.equal(service.normalizePayrollScheme('weekdays'), 'weekdays')
 assert.equal(service.normalizePayrollScheme('flat_30'), 'flat_30')
 assert.equal(service.normalizePayrollScheme('flat_20'), 'flat_20')
 assert.equal(service.normalizePayrollScheme('flat_160_hours'), 'flat_160_hours')
-assert.equal(service.normalizePayrollScheme('nonsense'), 'weekdays')
-assert.equal(service.normalizePayrollScheme(undefined), 'weekdays')
-assert.equal(service.normalizePayrollScheme(null), 'weekdays')
+assert.equal(service.normalizePayrollScheme('fixed_22_days'), 'fixed_22_days')
+assert.equal(service.normalizePayrollScheme('nonsense'), 'fixed_22_days')
+assert.equal(service.normalizePayrollScheme(undefined), 'fixed_22_days')
+assert.equal(service.normalizePayrollScheme(null), 'fixed_22_days')
 
 // ---------------------------------------------------------------------------
 // normalizePositiveNumber — positive numbers pass; non-positive/invalid fall back.

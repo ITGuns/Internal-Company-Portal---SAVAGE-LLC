@@ -10,6 +10,7 @@ import {
   PAYROLL_ITEM_TYPES,
   inferPayrollItemType,
   isPayrollPeriodLocked,
+  isUnpaidItemType,
   recomputePayslipTotals,
   toPayslipItemPayload,
   validatePayslipEdit,
@@ -216,11 +217,11 @@ export default function PayslipEditModal({
                       step="0.01"
                       placeholder="0.00"
                       className={`${fieldInputClass} font-mono tabular-nums`}
-                      value={item.type === "overtime_pending" ? "0" : item.amount}
+                      value={isUnpaidItemType(item.type) ? "0" : item.amount}
                       onChange={(event) => updateItem(item.key, { amount: event.target.value })}
                       aria-invalid={Boolean(rowErrors.amount)}
                       aria-describedby={rowErrors.amount ? fieldId(`${item.key}-amount-error`) : undefined}
-                      disabled={busy || item.type === "overtime_pending"}
+                      disabled={busy || isUnpaidItemType(item.type)}
                     />
                     {rowErrors.amount && (
                       <p id={fieldId(`${item.key}-amount-error`)} className={fieldErrorClass}>{rowErrors.amount}</p>

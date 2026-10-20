@@ -20,6 +20,8 @@ const tests = [
   'payroll.v2.routes.test.ts',
   'payroll.backfill.test.ts',
   'payroll.ensure-period.test.ts',
+  'payroll.schemes.test.ts',
+  'payroll.options.routes.test.ts',
   'scheduler.routes.test.ts',
   'scheduler.periods.test.ts',
   'users.security.test.ts',

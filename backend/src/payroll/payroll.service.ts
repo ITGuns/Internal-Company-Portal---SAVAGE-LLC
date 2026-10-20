@@ -32,9 +32,18 @@ import {
     payrollPeriodForDay,
     roundMoney,
     summarizePayrollHours,
+    zonedMidnightUtc,
 } from './payroll.calculations'
 import { computePayslipTotals } from './payslip-edit.service'
 import { periodOverlapsWindow } from '../scheduler/scheduler.periods'
+import {
+    CreditedHoursSplit,
+    creditedHoursCap,
+    PayrollSchemeDefinition,
+    splitCreditedHours,
+    uncreditedHoursDescription,
+} from './payroll-schemes'
+import { PayrollOptionsService, payrollOptionsService } from './payroll-options.service'
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
@@ -130,11 +139,28 @@ function roundHours(value: number): number {
     return Math.round(value * 100) / 100
 }
 
+/** Trimmed text, or null for null / blank. */
+function optionalText(value: unknown): string | null {
+    if (value === null || value === undefined) return null
+    const text = String(value).trim()
+    return text ? text : null
+}
+
+/** Trimmed non-blank text, else a 400 with `message`. */
+function requiredText(value: unknown, message: string): string {
+    const text = optionalText(value)
+    if (!text) throw new PayrollValidationError(message)
+    return text
+}
+
 export class PayrollService {
     private prisma: PrismaClient
+    /** Scheme and option lists; replaced in tests. */
+    options: PayrollOptionsService
 
     constructor() {
         this.prisma = prisma
+        this.options = payrollOptionsService
     }
 
     // PayrollEvent methods
@@ -337,7 +363,8 @@ export class PayrollService {
         const earning = payslip.items.find((item) => item.amount >= 0 && /\(\d+(?:\.\d+)?\s+h(?:rs?)?\b/i.test(item.description))
         if (!earning) return 0
 
-        const match = earning.description.match(/\(([\d.]+)\s+h(?:rs?)?\b/i)
+        // "N h billable" when present: a capped line starts with the credited hours (2026-10-20).
+        const match = earning.description.match(/([\d.]+)\s+h billable/i) ?? earning.description.match(/\(([\d.]+)\s+h(?:rs?)?\b/i)
         return match ? Number(match[1]) || 0 : 0
     }
 
@@ -433,9 +460,17 @@ export class PayrollService {
         })
 
         if (!profile) {
-            profile = await this.prisma.employeeProfile.create({
-                data: { userId }
-            })
+            // The default scheme and options at this moment, not the column defaults.
+            const defaults = await this.options.newProfileDefaults()
+            try {
+                profile = await this.prisma.employeeProfile.create({
+                    data: { userId, ...defaults }
+                })
+            } catch (error) {
+                // Two first reads at once: the other one created it.
+                if ((error as { code?: unknown })?.code !== 'P2002') throw error
+                profile = await this.prisma.employeeProfile.findUniqueOrThrow({ where: { userId } })
+            }
         }
         return profile
     }
@@ -447,18 +482,27 @@ export class PayrollService {
         const current = await this.getEmployeeProfile(userId)
 
         const updateData: Prisma.EmployeeProfileUpdateInput = {}
+        // Scheme and option values must come from the managed lists (2026-10-20).
+        const selections = {
+            payrollScheme: data.payrollScheme === undefined
+                ? undefined
+                : requiredText(data.payrollScheme, 'Choose a salary divisor scheme from the list.'),
+            employmentType: data.employmentType === undefined ? undefined : optionalText(data.employmentType),
+            paymentFrequency: data.paymentFrequency === undefined
+                ? undefined
+                : requiredText(data.paymentFrequency, 'Choose a pay frequency from the list.'),
+        }
+        await this.options.assertProfileSelections(current, selections)
         if (data.jobTitle !== undefined) updateData.jobTitle = data.jobTitle
-        if (data.employmentType !== undefined) updateData.employmentType = data.employmentType
+        if (selections.employmentType !== undefined) updateData.employmentType = selections.employmentType
         if (data.baseSalary !== undefined) {
             const baseSalary = parseFloat(String(data.baseSalary))
             if (Number.isNaN(baseSalary)) throw new Error('Invalid base salary')
             updateData.baseSalary = baseSalary
         }
         if (data.currency !== undefined) updateData.currency = data.currency
-        if (data.paymentFrequency !== undefined) updateData.paymentFrequency = data.paymentFrequency
-        if (data.payrollScheme !== undefined) {
-            updateData.payrollScheme = this.normalizePayrollScheme(data.payrollScheme)
-        }
+        if (selections.paymentFrequency !== undefined) updateData.paymentFrequency = selections.paymentFrequency
+        if (selections.payrollScheme !== undefined) updateData.payrollScheme = selections.payrollScheme
         if (data.maxBillableHoursPerDay !== undefined) {
             const maxBillableHoursPerDay = parseFloat(String(data.maxBillableHoursPerDay))
             if (!Number.isFinite(maxBillableHoursPerDay) || maxBillableHoursPerDay <= 0) {
@@ -673,17 +717,26 @@ export class PayrollService {
     }
 
     /**
-     * Pay for one employee over a window, per Rules 2 and 3.
+     * Pay for one employee over a window, per Rules 2 and 3. The scheme row
+     * sets the salary divisor; its maxCreditedDays caps the paid regular hours
+     * of both hourly bases (fixed_monthly pays the salary whatever the hours).
      */
     async computePeriodPay(userId: string, startDate: Date, endDate: Date) {
         const profile = await this.getEmployeeProfile(userId)
-        const hours = await this.calculateEmployeeHours(userId, startDate, endDate)
-        const rateContext = getPayrollRateContext(profile, startDate, endDate)
+        const [hours, scheme] = await Promise.all([
+            this.calculateEmployeeHours(userId, startDate, endDate),
+            this.options.resolveScheme(profile.payrollScheme),
+        ])
+        const rateContext = getPayrollRateContext(profile, startDate, endDate, scheme)
         const payBasis = normalizePayBasis(profile.payBasis)
         const fraction = periodFraction(startDate, endDate)
+        const cap = payBasis === 'fixed_monthly'
+            ? null
+            : await this.creditedHoursCapForPeriod(userId, startDate, endDate, scheme, hours.maxBillableHoursPerDay, fraction)
+        const credit = splitCreditedHours(hours.billableHours, cap)
         const pay = computeGrossPay({
             payBasis,
-            billableHours: hours.billableHours,
+            billableHours: credit.creditedHours,
             overtimeApprovedHours: hours.overtimeApprovedHours,
             monthlySalary: rateContext.monthlySalary,
             derivedHourlyRate: rateContext.hourlyRate,
@@ -691,7 +744,39 @@ export class PayrollService {
             overtimeMultiplier: profile.overtimeMultiplier,
             periodFraction: fraction,
         })
-        return { profile, hours, rateContext, pay, periodFraction: fraction }
+        return { profile, hours, rateContext, scheme, credit, pay, periodFraction: fraction }
+    }
+
+    /**
+     * Most regular hours the period may credit. maxCreditedDays counts per
+     * calendar month: a period inside one month gets the month's cap
+     * (maxCreditedDays x daily cap) minus the billable hours of that month
+     * before the period, so an uneven semi-monthly split (10 and 12 weekdays)
+     * never loses pay. A whole month gets the full cap. A period that spans two
+     * months falls back to the month share (periodFraction). Null without a cap.
+     */
+    private async creditedHoursCapForPeriod(
+        userId: string,
+        startDate: Date,
+        endDate: Date,
+        scheme: PayrollSchemeDefinition,
+        dailyCap: number,
+        fraction: number,
+    ): Promise<number | null> {
+        const monthCap = creditedHoursCap(scheme.maxCreditedDays, dailyCap, 1)
+        if (monthCap === null) return null
+        const firstDay = periodStartDayKey(startDate)
+        if (firstDay.slice(0, 7) !== periodEndDayKey(endDate).slice(0, 7)) {
+            return creditedHoursCap(scheme.maxCreditedDays, dailyCap, fraction)
+        }
+        if (firstDay.endsWith('-01')) return monthCap
+        const timeZone = config.payrollTimezone
+        const { dailyHours } = await this.loadDailyHours(userId, {
+            start: zonedMidnightUtc(`${firstDay.slice(0, 8)}01`, timeZone),
+            end: zonedMidnightUtc(firstDay, timeZone),
+        })
+        const creditedBefore = Math.min(summarizePayrollHours(dailyHours, dailyCap).billableHours, monthCap)
+        return Math.max(0, roundHours(monthCap - creditedBefore))
     }
 
     private getWeekdaysInMonth(date: Date): number {
@@ -702,12 +787,17 @@ export class PayrollService {
      * Preview a payslip calculation
      */
     async previewPayslip(userId: string, startDate: Date, endDate: Date) {
-        const { profile, hours, rateContext, pay, periodFraction: fraction } =
+        const { profile, hours, rateContext, scheme, credit, pay, periodFraction: fraction } =
             await this.computePeriodPay(userId, startDate, endDate)
 
         return {
             totalHours: hours.totalHours,
             billableHours: hours.billableHours,
+            // Paid regular hours; below billableHours only when the credited-days cap applies.
+            creditedHours: credit.creditedHours,
+            uncreditedHours: credit.uncreditedHours,
+            creditedHoursCap: credit.creditedHoursCap,
+            maxCreditedDays: scheme.maxCreditedDays,
             pendingOvertimeHours: hours.overtimePendingHours,
             overtimeApprovedHours: hours.overtimeApprovedHours,
             overtimePendingHours: hours.overtimePendingHours,
@@ -726,23 +816,35 @@ export class PayrollService {
             monthlySalary: profile.baseSalary,
             payrollScheme: rateContext.payrollScheme,
             payrollSchemeLabel: rateContext.payrollSchemeLabel,
+            payrollSchemeName: scheme.name,
+            payrollSchemeKind: scheme.kind,
             maxBillableHoursPerDay: hours.maxBillableHoursPerDay,
         }
     }
 
     /**
-     * Line items for an automatic payslip (item types per the v2 spec).
+     * Line items for an automatic payslip (item types per the v2 spec). The base
+     * line names the scheme row: always for hourly_from_monthly, and for
+     * hourly_rate when the scheme caps credited days. Hours above that cap get
+     * an uncredited_hours line (amount 0, not paid, not overtime).
      */
     private buildAutomaticPayslipItems(
         hours: Awaited<ReturnType<PayrollService['calculateEmployeeHours']>>,
         pay: ReturnType<typeof computeGrossPay>,
-        schemeLabel: string,
+        scheme: PayrollSchemeDefinition,
+        credit: CreditedHoursSplit,
         fraction: number,
         overtimeMultiplier: number,
     ) {
         const billable = roundHours(hours.billableHours)
         const tracked = roundHours(hours.totalHours)
-        const rateLabel = pay.payBasis === 'hourly_rate' ? 'Hourly rate' : schemeLabel
+        const isCapped = credit.uncreditedHours > 0
+        const hoursLabel = isCapped
+            ? `${roundHours(credit.creditedHours)} h credited, ${billable} h billable, ${tracked} h tracked`
+            : `${billable} h billable, ${tracked} h tracked`
+        const rateLabel = pay.payBasis !== 'hourly_rate'
+            ? scheme.name
+            : scheme.maxCreditedDays ? `Hourly rate, ${scheme.name}` : 'Hourly rate'
         const baseItem = pay.payBasis === 'fixed_monthly'
             ? {
                 type: 'fixed_salary',
@@ -751,9 +853,16 @@ export class PayrollService {
             }
             : {
                 type: 'regular_hours',
-                description: `Billable work hours (${billable} h billable, ${tracked} h tracked) - ${rateLabel}`,
+                description: `Billable work hours (${hoursLabel}) - ${rateLabel}`,
                 amount: roundMoney(pay.basePay),
             }
+        const uncreditedItems = isCapped && scheme.maxCreditedDays
+            ? [{
+                type: 'uncredited_hours',
+                description: uncreditedHoursDescription(scheme.maxCreditedDays, credit.uncreditedHours),
+                amount: 0,
+            }]
+            : []
         const approvedItems = hours.overtimeApprovedHours > 0
             ? [{
                 type: 'overtime_approved',
@@ -768,7 +877,7 @@ export class PayrollService {
                 amount: 0,
             }]
             : []
-        return [baseItem, ...approvedItems, ...pendingItems]
+        return { baseItem, uncreditedItems, overtimeItems: [...approvedItems, ...pendingItems] }
     }
 
     /**
@@ -823,18 +932,20 @@ export class PayrollService {
         period: { startDate: Date; endDate: Date },
         overrideData?: ManualPayslipInput,
     ): Promise<PayslipLine[]> {
-        const { profile, hours, rateContext, pay, periodFraction: fraction } =
+        const { profile, hours, scheme, credit, pay, periodFraction: fraction } =
             await this.computePeriodPay(userId, period.startDate, period.endDate)
-        const [baseItem, ...overtimeItems] = this.buildAutomaticPayslipItems(
+        const { baseItem, uncreditedItems, overtimeItems } = this.buildAutomaticPayslipItems(
             hours,
             pay,
-            rateContext.payrollSchemeLabel,
+            scheme,
+            credit,
             fraction,
             normalizePositiveNumber(profile.overtimeMultiplier, DEFAULT_OVERTIME_MULTIPLIER),
         )
         const isManual = overrideData?.hoursWorked !== undefined && overrideData?.hoursWorked !== null
+        // Hand-entered hours replace the regular line and the uncredited note; overtime stays.
         const base = isManual ? this.buildManualBaseItem(overrideData, pay) : baseItem
-        return [base, ...overtimeItems, ...this.buildDeductionItems(overrideData?.deductions)]
+        return [base, ...(isManual ? [] : uncreditedItems), ...overtimeItems, ...this.buildDeductionItems(overrideData?.deductions)]
     }
 
     /**
@@ -1168,6 +1279,8 @@ export class PayrollService {
             grossPay: ps.grossPay,
             netPay: ps.netPay,
             deductions: this.getPayslipDeductions(ps),
+            // Line items (2026-10-20) so the Reports PDF lists the same lines, scheme name included.
+            items: ps.items.map((item) => ({ id: item.id, type: item.type, description: item.description, amount: item.amount })),
             }
         })
     }

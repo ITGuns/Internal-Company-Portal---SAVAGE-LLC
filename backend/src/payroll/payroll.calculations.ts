@@ -7,8 +7,15 @@
  */
 
 import { PayrollValidationError } from './payroll.errors'
+import {
+    DEFAULT_PAYROLL_SCHEME_KEY,
+    PayrollSchemeDefinition,
+    resolvePayrollScheme,
+    schemeDivisor,
+} from './payroll-schemes'
 
-export type PayrollScheme = 'weekdays' | 'flat_30' | 'flat_20' | 'flat_160_hours'
+/** Key of a PayrollScheme row (schemes are data since 2026-10-20, see payroll-schemes.ts). */
+export type PayrollScheme = string
 export type PayBasis = 'hourly_from_monthly' | 'fixed_monthly' | 'hourly_rate'
 /**
  * Length of new payroll periods (PAYROLL_PERIOD_CADENCE, 2026-10-20). The
@@ -21,14 +28,7 @@ export const PAY_BASES: readonly PayBasis[] = ['hourly_from_monthly', 'fixed_mon
 export const DEFAULT_PAY_BASIS: PayBasis = 'hourly_from_monthly'
 export const DEFAULT_MAX_BILLABLE_HOURS_PER_DAY = 8
 export const DEFAULT_OVERTIME_MULTIPLIER = 1.25
-export const DEFAULT_PAYROLL_SCHEME: PayrollScheme = 'weekdays'
-
-export const PAYROLL_SCHEME_LABELS: Record<PayrollScheme, string> = {
-    weekdays: 'Weekdays of month',
-    flat_30: 'Flat 30 days',
-    flat_20: 'Flat 20 days',
-    flat_160_hours: 'Flat 160 hours',
-}
+export const DEFAULT_PAYROLL_SCHEME: PayrollScheme = DEFAULT_PAYROLL_SCHEME_KEY
 
 export const PAY_BASIS_LABELS: Record<PayBasis, string> = {
     hourly_from_monthly: 'Hourly from monthly salary',
@@ -61,11 +61,9 @@ export function normalizePositiveNumber(value: unknown, fallback: number): numbe
     return parsed
 }
 
+/** A built-in scheme key as is; anything else becomes the built-in default key. */
 export function normalizePayrollScheme(value: unknown): PayrollScheme {
-    if (value === 'flat_30' || value === 'flat_20' || value === 'flat_160_hours' || value === 'weekdays') {
-        return value
-    }
-    return DEFAULT_PAYROLL_SCHEME
+    return resolvePayrollScheme(value).scheme.key
 }
 
 export function isPayBasis(value: unknown): value is PayBasis {
@@ -98,41 +96,50 @@ function getMidpointDate(start: Date, end: Date): Date {
 
 /**
  * Hourly rate derived from a monthly salary (the hourly_from_monthly formula).
- * fixed_monthly also uses it to price approved overtime.
+ * fixed_monthly also uses it to price approved overtime. `scheme` is the
+ * PayrollScheme row; without one the profile's key is resolved against the
+ * built-in copy (payroll-schemes.ts). fixed_days divides by `value` days,
+ * fixed_hours by `value` hours, weekdays by the weekdays of the period's month.
  */
-export function getPayrollRateContext(profile: PayrollRateProfile, startDate: Date, endDate: Date) {
+export function getPayrollRateContext(
+    profile: PayrollRateProfile,
+    startDate: Date,
+    endDate: Date,
+    scheme: PayrollSchemeDefinition = resolvePayrollScheme(profile.payrollScheme).scheme,
+) {
     const monthlySalary = profile.baseSalary || 0
     const maxBillableHoursPerDay = normalizePositiveNumber(
         profile.maxBillableHoursPerDay,
         DEFAULT_MAX_BILLABLE_HOURS_PER_DAY,
     )
-    const payrollScheme = normalizePayrollScheme(profile.payrollScheme)
+    const divisor = schemeDivisor(scheme, getWeekdaysInMonth(getMidpointDate(startDate, endDate)))
+    const schemeFields = {
+        payrollScheme: scheme.key,
+        // payrollSchemeLabel kept for older clients; same value as payrollSchemeName.
+        payrollSchemeLabel: scheme.name,
+        payrollSchemeName: scheme.name,
+        payrollSchemeKind: scheme.kind,
+        maxCreditedDays: scheme.maxCreditedDays,
+    }
 
-    if (payrollScheme === 'flat_160_hours') {
+    if (divisor.unit === 'hours') {
+        const hourlyRate = monthlySalary / divisor.value
         return {
             monthlySalary,
-            payrollScheme,
-            payrollSchemeLabel: PAYROLL_SCHEME_LABELS[payrollScheme],
+            ...schemeFields,
             maxBillableHoursPerDay,
-            divisorHours: 160,
-            hourlyRate: monthlySalary / 160,
-            dailyRate: (monthlySalary / 160) * maxBillableHoursPerDay,
+            divisorHours: divisor.value,
+            hourlyRate,
+            dailyRate: hourlyRate * maxBillableHoursPerDay,
         }
     }
 
-    const divisorDays = payrollScheme === 'flat_30'
-        ? 30
-        : payrollScheme === 'flat_20'
-            ? 20
-            : getWeekdaysInMonth(getMidpointDate(startDate, endDate))
-    const dailyRate = divisorDays > 0 ? monthlySalary / divisorDays : 0
-
+    const dailyRate = divisor.value > 0 ? monthlySalary / divisor.value : 0
     return {
         monthlySalary,
-        payrollScheme,
-        payrollSchemeLabel: PAYROLL_SCHEME_LABELS[payrollScheme],
+        ...schemeFields,
         maxBillableHoursPerDay,
-        divisorDays,
+        divisorDays: divisor.value,
         hourlyRate: maxBillableHoursPerDay > 0 ? dailyRate / maxBillableHoursPerDay : 0,
         dailyRate,
     }

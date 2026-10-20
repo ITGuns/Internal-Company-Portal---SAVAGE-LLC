@@ -4,6 +4,7 @@ import { authenticateToken, requireRole, AuthRequest } from '../auth/auth.middle
 import { serializeAuthUser } from '../auth/auth.security'
 import { emailService, settleEmailSends } from '../email/email.service'
 import { PayrollService } from '../payroll/payroll.service'
+import { PayrollValidationError } from '../payroll/payroll.errors'
 import { DepartmentsService } from '../departments/departments.service'
 import { isAdminEmail } from '../config/env.config'
 import { canRequestAssigneeTasks, hasTaskAssignmentPrivilege } from '../tasks/tasks.permissions'
@@ -11,6 +12,7 @@ import { validateAvatarValue } from '../uploads/upload.validation'
 import { sanitizeUserForDirectory, sanitizeUsersForDirectory } from './users.security'
 import { MemberPasswordResetError, UserOnboardingConflictError, UserOnboardingValidationError } from './users.service'
 import { hasEmployeeManagementAccess } from '../employees/employees.security'
+import { hasPayrollManagementAccess } from '../payroll/payroll.permissions'
 import { hasFullAccess, hasInternalDirectoryAccess } from '../org/org-access-policy'
 import { resolvePaginationQuery } from '../http/pagination'
 import { createLogger } from '../observability/logger'
@@ -406,6 +408,18 @@ export class UsersController {
                     })
                 }
 
+                // Salary, scheme and billable hours are payroll fields: payroll roles only,
+                // the same rule as POST /payroll/config (2026-10-20). Managers keep the rest.
+                const payrollFields = ['salary', 'payrollScheme', 'maxBillableHoursPerDay'].filter((field) =>
+                    Object.prototype.hasOwnProperty.call(req.body, field),
+                )
+                if (payrollFields.length > 0 && !hasPayrollManagementAccess(requesterRoles, isAdminEmail(authReq.user?.email))) {
+                    return res.status(403).json({
+                        error: 'Only payroll roles can change salary, the payroll scheme or billable hours',
+                        fields: payrollFields,
+                    })
+                }
+
                 let normalizedManagerId: string | null | undefined
                 if (managerId !== undefined) {
                     if (!isPrivileged) {
@@ -464,6 +478,14 @@ export class UsersController {
                     }
                 }
 
+                // A scheme outside the list is refused before anything is saved (400).
+                if (payrollScheme !== undefined) {
+                    const currentProfile = await this.payrollService.getEmployeeProfile(id)
+                    await this.payrollService.options.assertProfileSelections(currentProfile, {
+                        payrollScheme: typeof payrollScheme === 'string' ? payrollScheme.trim() : String(payrollScheme ?? ''),
+                    })
+                }
+
                 // Update basic user info
                 await this.service.update(id, {
                     name,
@@ -482,10 +504,13 @@ export class UsersController {
                 if (salary !== undefined || payrollScheme !== undefined || maxBillableHoursPerDay !== undefined) {
                     await this.payrollService.getEmployeeProfile(id) // Ensure profile exists
                     await this.payrollService.updateEmployeeProfile(id, {
-                        ...(salary !== undefined ? { baseSalary: salary, currency: 'PHP' } : {}),
+                        // The currency stays as set in Set Up Payroll (it was forced to PHP before 2026-10-20).
+                        ...(salary !== undefined ? { baseSalary: salary } : {}),
                         ...(payrollScheme !== undefined ? { payrollScheme } : {}),
                         ...(maxBillableHoursPerDay !== undefined ? { maxBillableHoursPerDay } : {}),
                     })
+                    // Open pages showing this person's pay setup refetch it.
+                    notificationService.broadcastDataChange('payroll-profile')
                 }
 
                 // Handle Role / Department Update
@@ -517,6 +542,10 @@ export class UsersController {
                 })
             } catch (error) {
                 logger.error('Update user error:', error)
+                // e.g. a payroll scheme that is not in the managed list (2026-10-20)
+                if (error instanceof PayrollValidationError) {
+                    return res.status(400).json({ error: error.message })
+                }
                 res.status(500).json({ error: 'Failed to update user' })
             }
         })

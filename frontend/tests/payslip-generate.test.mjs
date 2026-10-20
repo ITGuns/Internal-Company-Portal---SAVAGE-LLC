@@ -25,6 +25,7 @@ const {
   previewBasePay,
   totalDeductions,
   isEditedPayslipConflict,
+  previewPaidHours,
 } = loadHelper();
 
 const preview = {
@@ -78,4 +79,10 @@ test('totals and conflict detection', () => {
   assert.equal(totalDeductions([{ type: 'tax', name: 'a', amount: 10.005 }, { type: 'x', name: 'b', amount: -5 }]), 10.01);
   assert.equal(isEditedPayslipConflict('This payslip was edited by hand. Regenerating replaces those edits.'), true);
   assert.equal(isEditedPayslipConflict('Period not found'), false);
+});
+
+test('override hours start from the credited hours', () => {
+  assert.equal(previewPaidHours({ billableHours: 184, creditedHours: 176 }), 176);
+  assert.equal(previewPaidHours({ billableHours: 16 }), 16, 'older servers send no credited hours');
+  assert.equal(previewPaidHours({}), 0);
 });

@@ -6,6 +6,7 @@ import { isAdminEmail } from '../config/env.config'
 import { hasFullAccess } from '../org/org-access-policy'
 import { revokeAllRefreshSessionsForUser } from '../auth/refresh-session.service'
 import { clearAccountStatusCache } from '../auth/account-status'
+import { payrollOptionsService } from '../payroll/payroll-options.service'
 import {
     findMergedSignupRoleById,
     isDefaultSignupRoleId,
@@ -253,6 +254,8 @@ export class UsersService {
         // so this is always a first-time setup - the page words it as one.
         const setupUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${setupToken}&email=${encodeURIComponent(normalizedEmail)}&setup=1`
         const fallbackName = normalizedEmail.split('@')[0]?.replace(/[._-]+/g, ' ').trim() || normalizedEmail
+        // Default payroll scheme and options for a new profile; read outside the transaction.
+        const payrollDefaults = await payrollOptionsService.newProfileDefaults()
 
         const user = await this.prisma.$transaction(async (tx) => {
             const savedUser = existingUser
@@ -285,6 +288,7 @@ export class UsersService {
                 },
                 create: {
                     userId: savedUser.id,
+                    ...payrollDefaults,
                     requestedRole: role.name,
                     requestedDepartmentId: role.departmentId,
                     jobTitle: role.name,

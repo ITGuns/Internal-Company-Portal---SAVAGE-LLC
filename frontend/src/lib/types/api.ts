@@ -152,9 +152,12 @@ export interface ApiEmployee {
   performance?: number | null;
   department?: string;
   role?: string;
-  payrollScheme?: string;
+  payrollScheme?: string | null;
   maxBillableHoursPerDay?: number;
   payBasis?: string;
+  paymentFrequency?: string | null;
+  employmentType?: string | null;
+  currency?: string | null;
   employeeProfile?: ApiEmployeeProfile;
 }
 

@@ -8,6 +8,7 @@ import {
 } from '../auth/signup.requests'
 import { createLogger } from '../observability/logger'
 import { isInternalEmployeeAccount } from './employees.security'
+import { payrollOptionsService } from '../payroll/payroll-options.service'
 
 const logger = createLogger('employees.service')
 const APPROVED_EMPLOYEE_SETUP_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000
@@ -159,6 +160,9 @@ export class EmployeesService {
             throw new EmployeeValidationError('Select a valid employee department')
         }
 
+        // Read outside the transaction so a failed read cannot abort it.
+        const payrollDefaults = await payrollOptionsService.newProfileDefaults()
+
         return this.prisma.$transaction(async (tx) => {
             const user = await tx.user.create({
                 data: {
@@ -174,6 +178,7 @@ export class EmployeesService {
             await tx.employeeProfile.create({
                 data: {
                     userId: user.id,
+                    ...payrollDefaults,
                     ...buildPendingSignupProfile({
                         role,
                         departmentId: department.id,

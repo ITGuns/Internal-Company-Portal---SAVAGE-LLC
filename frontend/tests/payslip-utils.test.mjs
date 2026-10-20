@@ -150,3 +150,20 @@ test('labels PDF earning lines by item type, never with the legacy base salary w
   assert.deepEqual(describe(getPayslipEarningLines({ grossPay: 900, items: [] })), ['Gross earnings: 900']);
   assert.deepEqual(describe(getPayslipEarningLines({ grossPay: 900 })), ['Gross earnings: 900']);
 });
+
+test('PDF earning lines carry the stored description, which names the scheme', () => {
+  const { getPayslipEarningLines } = loadPayslipUtils();
+  const lines = getPayslipEarningLines({
+    grossPay: 22000,
+    items: [
+      { id: 'i1', type: 'regular_hours', description: 'Billable work hours (176 h credited, 184 h billable, 184 h tracked) - 22 credited days', amount: 22000 },
+      { id: 'i2', type: 'uncredited_hours', description: 'Beyond 22 credited days, not paid (8 h)', amount: 0 },
+      { id: 'i3', type: 'allowance', description: 'Allowance', amount: 0 },
+    ],
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(lines)), [
+    { label: 'Regular hours', amount: 22000, detail: 'Billable work hours (176 h credited, 184 h billable, 184 h tracked) - 22 credited days' },
+    { label: 'Beyond credited days, not paid', amount: 0, detail: 'Beyond 22 credited days, not paid (8 h)' },
+    { label: 'Allowance', amount: 0 },
+  ]);
+});

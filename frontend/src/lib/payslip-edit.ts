@@ -9,6 +9,7 @@ export type PayrollItemType =
   | "fixed_salary"
   | "overtime_approved"
   | "overtime_pending"
+  | "uncredited_hours"
   | "allowance"
   | "deduction"
   | "adjustment";
@@ -18,6 +19,8 @@ export const PAYROLL_ITEM_TYPES: Array<{ value: PayrollItemType; label: string }
   { value: "fixed_salary", label: "Fixed salary" },
   { value: "overtime_approved", label: "Overtime (approved)" },
   { value: "overtime_pending", label: "Unapproved overtime, not paid" },
+  // Hours above the scheme's credited-days cap (2026-10-20); amount always 0.
+  { value: "uncredited_hours", label: "Beyond credited days, not paid" },
   { value: "allowance", label: "Allowance" },
   { value: "deduction", label: "Deduction" },
   { value: "adjustment", label: "Adjustment" },
@@ -59,19 +62,24 @@ export function inferPayrollItemType(type: string | null | undefined, amount: nu
   return amount < 0 ? "deduction" : "adjustment";
 }
 
-/**
- * Deductions are always stored negative and pending overtime is always 0.
- * Other types keep the sign the editor typed (adjustments may be negative).
- */
 /** Rounds to cents, half away from zero, so a sign flip never changes the magnitude. */
 function roundMoney(value: number): number {
   return (Math.sign(value) * Math.round(Math.abs(value) * 100)) / 100 || 0;
 }
 
+/** Informational lines: shown on the payslip, never paid. Same set as the server. */
+export function isUnpaidItemType(type?: string | null): boolean {
+  return type === "overtime_pending" || type === "uncredited_hours";
+}
+
+/**
+ * Deductions are always stored negative; pending overtime and uncredited hours
+ * are always 0. Other types keep the sign the editor typed (adjustments may be negative).
+ */
 export function normalizeItemAmount(type: PayrollItemType, amount: number): number {
   if (!Number.isFinite(amount)) return 0;
   const rounded = roundMoney(amount);
-  if (type === "overtime_pending") return 0;
+  if (isUnpaidItemType(type)) return 0;
   if (type === "deduction") return -Math.abs(rounded);
   return rounded;
 }
@@ -114,7 +122,7 @@ export function validatePayslipEdit(items: EditablePayslipItem[], note: string):
     const rowErrors: { description?: string; amount?: string } = {};
     if (!item.description.trim()) rowErrors.description = "Add a description.";
     const amount = Number(item.amount);
-    if (item.type !== "overtime_pending" && (item.amount.trim() === "" || !Number.isFinite(amount))) {
+    if (!isUnpaidItemType(item.type) && (item.amount.trim() === "" || !Number.isFinite(amount))) {
       rowErrors.amount = "Enter an amount.";
     }
     if (rowErrors.description || rowErrors.amount) errors.rows[item.key] = rowErrors;

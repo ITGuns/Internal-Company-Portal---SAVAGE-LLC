@@ -15,9 +15,14 @@ export interface Employee {
   salary: number; // Monthly salary in PHP
   performance: number | null;
   status: "active" | "vacation" | "leave" | "pending" | "verified";
-  payrollScheme?: string;
+  /** PayrollScheme key; resolve the name with findScheme (lib/payroll-options.ts). */
+  payrollScheme?: string | null;
   maxBillableHoursPerDay?: number;
   payBasis?: string;
+  /** Values of the managed option lists (labels via getOptionLabel). */
+  paymentFrequency?: string | null;
+  employmentType?: string | null;
+  currency?: string | null;
   // Extended fields for profile panel
   phone?: string;
   email?: string;

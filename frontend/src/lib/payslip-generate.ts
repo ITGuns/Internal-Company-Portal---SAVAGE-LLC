@@ -23,6 +23,18 @@ export interface PayslipPreview {
   grossPay?: number;
   maxBillableHoursPerDay?: number;
   payrollSchemeLabel?: string;
+  /** Name of the scheme row (2026-10-20); same value as payrollSchemeLabel. */
+  payrollSchemeName?: string;
+  /** Paid regular hours: billable hours up to the scheme's credited-days cap. */
+  creditedHours?: number;
+  /** Billable hours above that cap: shown on the payslip, not paid. */
+  uncreditedHours?: number;
+  maxCreditedDays?: number | null;
+}
+
+/** Hours "Override hours" starts from: the credited (paid) hours, else the billable hours. */
+export function previewPaidHours(preview: PayslipPreview): number {
+  return preview.creditedHours ?? preview.billableHours ?? 0;
 }
 
 export interface GenerateDeductionInput {

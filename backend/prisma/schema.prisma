@@ -1060,7 +1060,9 @@ model EmployeeProfile {
   currency               String  @default("PHP")
   // A label only (pay periods follow PAYROLL_PERIOD_CADENCE). Default "Monthly" since 2026-10-20.
   paymentFrequency       String  @default("Monthly")
-  payrollScheme          String  @default("weekdays")
+  // Key of a PayrollScheme row (no foreign key: unknown keys resolve to the default scheme).
+  // Default "fixed_22_days" since 2026-10-20; creation paths pass the current default row.
+  payrollScheme          String  @default("fixed_22_days")
   maxBillableHoursPerDay Float   @default(8)
   // Pay basis (2026-10-08): hourly_from_monthly | fixed_monthly | hourly_rate
   payBasis               String  @default("hourly_from_monthly")
@@ -1074,6 +1076,45 @@ model EmployeeProfile {
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Salary divisor schemes as data (2026-10-20). EmployeeProfile.payrollScheme holds `key`.
+// Rules: docs/payroll-time-v2-spec.md, "Salary divisor schemes".
+model PayrollScheme {
+  id              String    @id @default(cuid())
+  // Stable slug stored on profiles; never changes after creation.
+  key             String    @unique
+  name            String
+  // weekdays | fixed_days | fixed_hours
+  kind            String
+  // Days (fixed_days) or hours (fixed_hours) the monthly salary is divided by; null for weekdays.
+  value           Float?
+  // Cap on credited days per month for the hourly pay bases; null means no cap.
+  maxCreditedDays Float?
+  isDefault       Boolean   @default(false)
+  sortOrder       Int       @default(0)
+  archivedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Managed dropdown values for EmployeeProfile.employmentType and paymentFrequency (2026-10-20).
+model PayrollOption {
+  id         String    @id @default(cuid())
+  // employment_type | payment_frequency
+  category   String
+  // Stored on profiles; never changes after creation.
+  value      String
+  label      String
+  sortOrder  Int       @default(0)
+  isDefault  Boolean   @default(false)
+  archivedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([category, value])
 }
 
 model PayrollPeriod {

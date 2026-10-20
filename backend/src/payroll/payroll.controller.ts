@@ -26,6 +26,8 @@ import { registerTimeRequestRoutes } from './time-requests.routes'
 import { PayslipEditService } from './payslip-edit.service'
 import { TimeRequestsService } from './time-requests.service'
 import { BackfillService } from './backfill.service'
+import { registerPayrollOptionRoutes } from './payroll-options.routes'
+import { payrollOptionsService } from './payroll-options.service'
 
 const logger = createLogger('payroll.payroll.controller')
 
@@ -47,6 +49,7 @@ export class PayrollController {
     private payslipEdits = new PayslipEditService()
     private timeRequests = new TimeRequestsService()
     private backfills = new BackfillService()
+    private options = payrollOptionsService
 
     private getParam(value: string | string[]): string {
         return Array.isArray(value) ? value[0] : value
@@ -458,6 +461,8 @@ export class PayrollController {
 
                 const profile = await this.service.updateEmployeeProfile(targetUserId, filteredUpdate.data)
                 res.json(profile)
+                // Open pages showing this person's pay setup refetch it (calendar header, payslips).
+                notificationService.broadcastDataChange('payroll-profile')
             } catch (e) {
                 logger.error('Error updating payroll config:', e)
                 this.sendPayrollError(res, e, 'Failed to update profile')
@@ -635,6 +640,13 @@ export class PayrollController {
 
         registerTimeRequestRoutes(router, {
             service: this.timeRequests,
+            getAccess: (req) => this.getPayrollAccess(req),
+            sendError: (res, error, fallback) => this.sendPayrollError(res, error, fallback),
+        })
+
+        // Managed lists: salary divisor schemes, employment types, pay frequencies (2026-10-20).
+        registerPayrollOptionRoutes(router, {
+            service: this.options,
             getAccess: (req) => this.getPayrollAccess(req),
             sendError: (res, error, fallback) => this.sendPayrollError(res, error, fallback),
         })

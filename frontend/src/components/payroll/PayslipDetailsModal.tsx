@@ -8,7 +8,7 @@ import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import type { Payslip, PayslipLineItem } from "@/lib/payroll-calendar/types";
 import { formatPayrollDate } from "@/lib/payroll-dates";
-import { getPayrollItemTypeLabel, inferPayrollItemType } from "@/lib/payslip-edit";
+import { getPayrollItemTypeLabel, inferPayrollItemType, isUnpaidItemType } from "@/lib/payslip-edit";
 import { getPayBasisLabel } from "@/lib/pay-basis";
 
 interface PayslipDetailsModalProps {
@@ -23,12 +23,19 @@ interface PayslipDetailsModalProps {
 const peso = (value: number) =>
   `₱${value.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-/** Earning lines (everything but deductions), typed so legacy rows still read correctly. */
-function earningLines(payslip: Payslip): Array<PayslipLineItem & { typeLabel: string }> {
+/**
+ * Earning lines (everything but deductions), typed so legacy rows still read correctly.
+ * Unpaid lines (unapproved overtime, hours beyond the credited days) are shown muted.
+ */
+function earningLines(payslip: Payslip): Array<PayslipLineItem & { typeLabel: string; unpaid: boolean }> {
   return (payslip.items ?? [])
     .map((item) => ({ ...item, resolvedType: inferPayrollItemType(item.type, item.amount) }))
     .filter((item) => item.resolvedType !== "deduction")
-    .map(({ resolvedType, ...item }) => ({ ...item, typeLabel: getPayrollItemTypeLabel(resolvedType) }));
+    .map(({ resolvedType, ...item }) => ({
+      ...item,
+      typeLabel: getPayrollItemTypeLabel(resolvedType),
+      unpaid: isUnpaidItemType(resolvedType),
+    }));
 }
 
 export default function PayslipDetailsModal({
@@ -114,7 +121,7 @@ export default function PayslipDetailsModal({
                       <div className="font-medium">{item.typeLabel}</div>
                       <div className="text-xs text-[var(--muted)]">{item.description}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm font-medium text-right text-[var(--foreground)] whitespace-nowrap">
+                    <td className={`px-4 py-3 text-sm font-medium text-right whitespace-nowrap ${item.unpaid ? "text-[var(--muted)]" : "text-[var(--foreground)]"}`}>
                       {peso(item.amount)}
                     </td>
                   </tr>

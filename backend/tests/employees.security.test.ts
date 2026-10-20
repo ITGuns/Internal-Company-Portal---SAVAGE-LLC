@@ -88,8 +88,14 @@ assert.deepEqual(deployed, {
   payrollScheme: 'flat_160_hours',
   maxBillableHoursPerDay: 7.5,
   payBasis: 'hourly_from_monthly',
+  paymentFrequency: null,
+  employmentType: 'Full Time',
+  currency: null,
   hoursThisWeek: 8,
   performance: 0,
 })
+
+// No payroll profile yet: no scheme key (the default scheme applies once one is created).
+assert.equal(serializeDeployedEmployee({ id: 'user-3', employeeProfile: null }).payrollScheme, null)
 
 console.log('employees.security tests passed')

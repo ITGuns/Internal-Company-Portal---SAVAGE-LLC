@@ -73,6 +73,7 @@ User directory endpoints sanitize sensitive fields before returning data to the 
 - Full-access administrators may update `managerId` through `PATCH /api/users/:id` to maintain Operations org-chart reporting lines. The backend rejects self-manager assignments and manager cycles.
 - User avatar writes through `POST /api/users`, `PATCH /api/users/:id`, and `POST /api/users/:id/avatar` accept only http(s) URLs, relative paths, empty removal values where profile updates allow them, or supported image data URIs that pass signature validation and the 3 MB avatar limit.
 - Non-privileged users cannot update protected fields such as `status`, `appliedDate`, `salary`, `role`, `department`, `departmentId`, `managerId`, `payrollScheme`, `maxBillableHoursPerDay`, or `isApproved`.
+- Since 2026-10-20 `salary`, `payrollScheme` and `maxBillableHoursPerDay` on `PATCH /api/users/:id` also need payroll-management access (`403` with `{ error, fields }` for other managers), the same rule as `POST /api/payroll/config/:userId`. A scheme outside the managed list answers `400` before any field is saved, and sending a salary no longer resets the profile currency to PHP.
 - `POST /api/users/:id/deactivate` (admin or operations manager) sets `status: "inactive"`, revokes every refresh session and keeps all data. Self-deactivation returns `400`, an already inactive member returns `409`, and only full-access admins can deactivate another full-access account (`403`). Response: `{ success, user }`.
 - `POST /api/users/:id/reactivate` (same roles) restores `status: "active"`. It does not change `isApproved`, so a never-approved account stays blocked. A member who is not inactive returns `409`.
 - `POST /api/users/:id/reset-password` (same roles and full-access target guard as deactivate) sets a new password from `{ newPassword }`: 8 to 72 characters, an uppercase letter and a number (the signup and `/auth/reset-password` rules), never the member's email. It clears any pending reset or setup token and revokes every refresh session; open access tokens run out on their own (`JWT_EXPIRES_IN`, default 15 minutes). Resetting your own password returns `400`, a missing user `404`, an operations manager targeting a full-access account `403`. Response: `{ ok: true, revokedSessions }`. The audit log line carries the actor and target ids only. This is the recovery path while `/auth/forgot-password` has no email delivery.
@@ -106,6 +107,7 @@ User directory endpoints sanitize sensitive fields before returning data to the 
 
 - `GET /api/employees/pending` requires employee-management access.
 - `GET /api/employees/deployed` requires employee-management access and excludes client-only accounts from internal employee/payroll workflows. `?includeInactive=true` also returns deactivated members (`status: "inactive"`) so the UI can offer Reactivate.
+- Deployed rows carry `payrollScheme` (a scheme key, `null` when the member has no payroll profile yet), `maxBillableHoursPerDay`, `payBasis`, and since 2026-10-20 `paymentFrequency`, `employmentType` and `currency` (list values and a code, no rates).
 - `POST /api/employees/approve/:id` approves a pending employee application when the requester has employee-management access.
 - `POST /api/employees/reject/:id` rejects a pending employee application when the requester has employee-management access.
 
@@ -366,6 +368,8 @@ Request rows include `user { id, name, email }` and `reviewedBy { id, name }`. P
 - `POST /api/payroll/config/:userId` allows self access only for permitted non-sensitive fields.
 - Protected payroll profile fields are manager-only: `jobTitle`, `employmentType`, `baseSalary`, `currency`, `paymentFrequency`, `payrollScheme`, `maxBillableHoursPerDay`, `payBasis`, `hourlyRate`, `overtimeMultiplier`, `bankAccount`, and `taxId`.
 - `payBasis` is `hourly_from_monthly` (default), `fixed_monthly` or `hourly_rate` (`400` otherwise). `hourlyRate` is a number of 0 or more, or `null`. `overtimeMultiplier` must be between 1 and 5 (default 1.25).
+- Since 2026-10-20 a changed `payrollScheme` must be the `key` of an active scheme, and a changed `employmentType` or `paymentFrequency` the `value` of an active option of its list (`400` otherwise, also through `PATCH /api/users/:id`). Sending the value the profile already has is always accepted, archived or not.
+- A profile created on first read gets the current default scheme, employment type and pay frequency. Saves broadcast the socket resource `payroll-profile`.
 - Non-privileged updates containing protected fields return `403` with the rejected field names.
 - Empty or unknown payroll profile updates return `400`.
 
@@ -378,15 +382,34 @@ Request rows include `user { id, name, email }` and `reviewedBy { id, name }`. P
 - `POST /api/payroll/periods/:periodId/generate-all` requires payroll-management access and generates only for internal employee accounts. It includes deactivated members who tracked time or had overtime approved inside the period. Hand-edited payslips are kept and reported as `{ userId, success: true, skipped: true, reason }`.
 - Pay periods cover whole payroll-timezone days: hours, daily logs and approved overtime are loaded from Manila midnight of the period's first calendar day up to (not including) Manila midnight after its last calendar day. Each payroll day belongs to exactly one period and gets one daily cap.
 - Payslip preview/generation separates tracked hours from billable hours. Hours beyond the employee's `maxBillableHoursPerDay` are overtime; only approved overtime is paid.
-- Gross by pay basis: `hourly_from_monthly` = billable hours x (salary / scheme divisor / cap) + OT pay; `fixed_monthly` = salary x period fraction (0.5 for 1-15 or 16-end, 1 for a whole month, else calendar days / days in the start month) + OT pay; `hourly_rate` = billable hours x `hourlyRate` + OT pay. `hourly_rate` needs `hourlyRate > 0`: setting it without one returns `400`, and preview or generation for such a profile returns `400` instead of paying 0.
-- `GET /api/payroll/preview-calculation?userId=&startDate=&endDate=` returns `totalHours`, `billableHours`, `pendingOvertimeHours` (legacy alias of `overtimePendingHours`), `overtimeApprovedHours`, `overtimePendingHours`, `source`, `payBasis`, `payBasisLabel`, `hourlyRate`, `dailyRate`, `basePay`, `overtimeRate`, `overtimeMultiplier`, `overtimePay`, `grossPay`, `periodFraction`, `monthlySalary`, `payrollScheme`, `payrollSchemeLabel`, `maxBillableHoursPerDay`.
-- Generated payslip item types: `regular_hours`, `fixed_salary`, `overtime_approved`, `overtime_pending` (amount 0, informational), plus `allowance`, `deduction`, `adjustment` from edits. Older payslips may still carry `earning` / `deduction`.
+- Gross by pay basis: `hourly_from_monthly` = credited hours x (salary / scheme divisor / cap) + OT pay; `fixed_monthly` = salary x period fraction (0.5 for 1-15 or 16-end, 1 for a whole month, else calendar days / days in the start month) + OT pay; `hourly_rate` = credited hours x `hourlyRate` + OT pay. Credited hours are the billable hours up to the scheme's `maxCreditedDays x maxBillableHoursPerDay` per calendar month: a period that starts after the 1st gets what the earlier days of that month left, a period across two months gets the month share (no cap when the scheme has none). `hourly_rate` needs `hourlyRate > 0`: setting it without one returns `400`, and preview or generation for such a profile returns `400` instead of paying 0.
+- `GET /api/payroll/preview-calculation?userId=&startDate=&endDate=` returns `totalHours`, `billableHours`, `creditedHours`, `uncreditedHours`, `creditedHoursCap`, `maxCreditedDays`, `pendingOvertimeHours` (legacy alias of `overtimePendingHours`), `overtimeApprovedHours`, `overtimePendingHours`, `source`, `payBasis`, `payBasisLabel`, `hourlyRate`, `dailyRate`, `basePay`, `overtimeRate`, `overtimeMultiplier`, `overtimePay`, `grossPay`, `periodFraction`, `monthlySalary`, `payrollScheme` (the scheme key used), `payrollSchemeLabel` and `payrollSchemeName` (both the row name), `payrollSchemeKind`, `maxBillableHoursPerDay`.
+- Generated payslip item types: `regular_hours`, `fixed_salary`, `overtime_approved`, `overtime_pending` (amount 0, informational), `uncredited_hours` (amount 0, hours beyond the credited days, since 2026-10-20), plus `allowance`, `deduction`, `adjustment` from edits. Older payslips may still carry `earning` / `deduction`. The regular line names the scheme row, for example `Billable work hours (176 h credited, 184 h billable, 184 h tracked) - 22 credited days`.
 - `PATCH /api/payroll/payslips/:id` (payroll management) takes `{ items: [{ type, description, amount }], note }`, replaces all line items, and recomputes `grossPay` (sum of non-deduction amounts) and `netPay` (sum of all amounts). Deduction amounts are stored negative whatever sign is sent; `overtime_pending` is stored as 0; amounts round to cents. `note` is required (max 500 chars), 1 to 50 items. Sets `editedById`, `editedAt`, `editNote`. `409` when the period is not `draft` (checked inside the write, so a period processed mid-request cannot be edited). `403` on your own payslip. Money rounds half away from zero, same as the frontend editor.
 - `DELETE /api/payroll/payslips/:id` (payroll management) deletes a draft-period payslip; `409` when the period is processed, `403` on your own payslip.
-- Payroll schemes currently supported are `weekdays`, `flat_30`, `flat_20`, and `flat_160_hours`.
+- Payroll schemes are rows since 2026-10-20 (next section). The keys `weekdays`, `flat_30`, `flat_20` and `flat_160_hours` keep their old math; `fixed_22_days` is the default.
 - `GET /api/payroll/my-payslips` returns self payslips by default and allows privileged `userId` review.
 - `GET /api/payroll/reports` requires payroll-management access.
-- `GET /api/payroll/payslips/all` requires payroll-management access.
+- `GET /api/payroll/payslips/all` requires payroll-management access. Rows include `items` (`id`, `type`, `description`, `amount`) since 2026-10-20 so the Reports PDF lists the same lines.
+
+### Payroll Schemes And Option Lists
+
+Added 2026-10-20 (migration `202610200002_payroll_schemes`). Rules and pay math: `docs/payroll-time-v2-spec.md`, "Salary divisor schemes and credited days".
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `/api/payroll/schemes` | any signed-in user | All rows, archived ones included, by `sortOrder`: `{ id, key, name, kind, value, maxCreditedDays, isDefault, sortOrder, archived, archivedAt }`. Payroll roles also get `inUseCount` (profiles storing the key). |
+| POST | `/api/payroll/schemes` | payroll management | `{ name, kind, value?, maxCreditedDays?, sortOrder?, isDefault? }`. `kind` is `weekdays`, `fixed_days` or `fixed_hours`; fixed kinds need `value` of 10 to 31 days or 40 to 744 hours, `weekdays` stores `value: null`; `maxCreditedDays` 1 to 31 or null; `name` 2 to 60 characters, unique in the list (any case, `409`). `key` is made from the name and never changes. `201` with the row. |
+| PATCH | `/api/payroll/schemes/:id` | payroll management | Any of the create fields, plus `isDefault: true` (the old default is cleared in the same transaction; `false` is refused with `400`) and `archived: true \| false`. The default cannot be archived (`409`); an archived row must be restored before it becomes the default (`409`). `404` for an unknown id. |
+| DELETE | `/api/payroll/schemes/:id` | payroll management | Only when no profile stores the key and it is not the default; otherwise `409` (`"<name>" is used by N employees, so it cannot be deleted. Archive it instead; ...`). |
+| GET | `/api/payroll/options/:category` | any signed-in user | `category` is `employment_type` or `payment_frequency` (`404` otherwise). Rows `{ id, category, value, label, isDefault, sortOrder, archived, archivedAt }`, plus `inUseCount` for payroll roles. |
+| POST | `/api/payroll/options/:category` | payroll management | `{ label, value?, sortOrder?, isDefault? }`. `value` defaults to the label; label and value 2 to 60 characters and unique in the list (`409`). |
+| PATCH | `/api/payroll/options/:category/:id` | payroll management | `label`, `sortOrder`, `isDefault: true`, `archived`. Changing `value` answers `400` (profiles store it). Same default and archive rules as schemes. |
+| DELETE | `/api/payroll/options/:category/:id` | payroll management | Same rule as schemes: `409` while any profile stores the value or it is the default. |
+
+- Writes run in a serializable transaction; a lost race answers `409` ("Someone else changed this list at the same moment").
+- Every write broadcasts the socket resource `payroll-options`; the frontend refetches every React Query key that starts with it.
+- Unknown keys on profiles resolve to the default scheme for pay (logged once per key). Archived rows keep resolving for the profiles on them.
 
 ## Scheduler
 

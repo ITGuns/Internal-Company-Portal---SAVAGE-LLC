@@ -7,6 +7,8 @@ import { useToast } from "@/components/ToastProvider";
 import type { DayTask } from "@/lib/types/api";
 import { PAYROLL_TIME_ZONE, getPayrollDayKey } from "@/lib/time-requests";
 import { getCalendarPayHeader } from "@/lib/pay-basis";
+import { findScheme } from "@/lib/payroll-options";
+import { usePayrollProfile, usePayrollSchemes } from "./usePayrollOptions";
 
 import DayDetailsModal, { type DayTimeEntry } from "./DayDetailsModal";
 
@@ -20,13 +22,6 @@ interface RawApiTask {
   department?: { name: string };
 }
 
-/** Pay settings from GET /payroll/config/:userId; the employee list leaves out the hourly rate. */
-interface PayProfile {
-  payBasis?: string | null;
-  baseSalary?: number | null;
-  hourlyRate?: number | null;
-  maxBillableHoursPerDay?: number | null;
-}
 
 interface TimeTrackingCalendarProps {
   employee: Employee | null;
@@ -75,7 +70,10 @@ export default function TimeTrackingCalendar({
   const [isFetching, setIsFetching] = useState(false);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [tasks, setTasks] = useState<RawApiTask[]>([]);
-  const [payProfile, setPayProfile] = useState<{ userId: string; profile: PayProfile } | null>(null);
+  // Pay settings from GET /payroll/config/:userId (the employee list leaves out the hourly
+  // rate); refetched after Set Up Payroll saves, and the scheme names from the managed list.
+  const { data: payProfile } = usePayrollProfile(employee ? String(employee.id) : null);
+  const { data: schemes } = usePayrollSchemes(Boolean(employee));
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -112,23 +110,6 @@ export default function TimeTrackingCalendar({
     fetchData();
   }, [employee, month, year, refreshKey, toast]);
 
-  // Pay basis, rate and daily cap for the header. refreshKey refetches after Set Up Payroll saves.
-  useEffect(() => {
-    if (!employee) return;
-    const userId = String(employee.id);
-    let active = true;
-    apiFetch(`/payroll/config/${encodeURIComponent(userId)}`)
-      .then((res) => res.json())
-      .then((profile: PayProfile) => {
-        if (active) setPayProfile({ userId, profile });
-      })
-      .catch(() => {
-        // The header falls back to the pay basis and salary from the employee list.
-      });
-    return () => {
-      active = false;
-    };
-  }, [employee, refreshKey]);
 
   // Leave records — no mock data; real API to be wired later
   const employeeLeaveRecords = useMemo(() => {
@@ -146,12 +127,15 @@ export default function TimeTrackingCalendar({
     return { totalHours: days.reduce((sum, hours) => sum + hours, 0), dailyHours: days };
   }, [timeEntries]);
 
-  const loadedProfile = employee && payProfile?.userId === String(employee.id) ? payProfile.profile : null;
+  // Until the profile loads the header falls back to the employee list.
+  const scheme = findScheme(schemes, payProfile?.payrollScheme ?? employee?.payrollScheme);
   const payHeader = getCalendarPayHeader({
-    payBasis: loadedProfile?.payBasis ?? employee?.payBasis,
-    baseSalary: loadedProfile?.baseSalary ?? employee?.salary,
-    hourlyRate: loadedProfile?.hourlyRate,
-    maxBillableHoursPerDay: loadedProfile?.maxBillableHoursPerDay ?? employee?.maxBillableHoursPerDay,
+    payBasis: payProfile?.payBasis ?? employee?.payBasis,
+    baseSalary: payProfile?.baseSalary ?? employee?.salary,
+    hourlyRate: payProfile?.hourlyRate,
+    maxBillableHoursPerDay: payProfile?.maxBillableHoursPerDay ?? employee?.maxBillableHoursPerDay,
+    schemeName: scheme?.name,
+    maxCreditedDays: scheme?.maxCreditedDays,
     dailyHours,
   });
 

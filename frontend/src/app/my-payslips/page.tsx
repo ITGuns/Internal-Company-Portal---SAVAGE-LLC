@@ -19,7 +19,9 @@ import {
 import type { Payslip } from "@/lib/payroll-calendar/types";
 import type { ApiPayslip, ApiPayslipItem } from "@/lib/types/api";
 import { getPayBasisLabel } from "@/lib/pay-basis";
-import { getPayrollItemTypeLabel } from "@/lib/payslip-edit";
+import { getPayrollItemTypeLabel, isUnpaidItemType } from "@/lib/payslip-edit";
+import { describeScheme, findScheme, getOptionLabel } from "@/lib/payroll-options";
+import { usePayrollCatalog, usePayrollProfile } from "@/components/payroll/usePayrollOptions";
 import { formatPayrollDate, payrollPeriodDayKey } from "@/lib/payroll-dates";
 import { getPayrollDayKey } from "@/lib/time-requests";
 import {
@@ -65,8 +67,12 @@ function mapApiPayslip(raw: ApiPayslip): Payslip {
     };
 }
 
-function isOvertimeItem(type?: string): boolean {
-    return type === "overtime_approved" || type === "overtime_pending";
+/** Badge for overtime and other informational lines; null for plain earnings. */
+function lineBadge(type?: string): { text: string; unpaid: boolean } | null {
+    if (type === "overtime_approved") return { text: "Approved overtime", unpaid: false };
+    if (type === "overtime_pending") return { text: "Unapproved overtime, not paid", unpaid: true };
+    if (type === "uncredited_hours") return { text: "Beyond credited days, not paid", unpaid: true };
+    return null;
 }
 
 // ─── stat card ───────────────────────────────────────────────────────────────
@@ -195,14 +201,15 @@ function PayslipModal({
                             </div>
                         ) : (
                             earningItems.map((item) => {
-                                const pending = item.type === "overtime_pending";
+                                const badge = lineBadge(item.type);
+                                const pending = isUnpaidItemType(item.type);
                                 return (
                                     <div key={item.id} className="flex justify-between gap-3 text-sm">
                                         <span className="min-w-0 text-[var(--foreground)]">
                                             {item.description || getPayrollItemTypeLabel(item.type)}
-                                            {isOvertimeItem(item.type) && (
-                                                <span className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${pending ? "bg-amber-500/10 text-amber-700 dark:text-amber-300" : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"}`}>
-                                                    {pending ? "Unapproved overtime, not paid" : "Approved overtime"}
+                                            {badge && (
+                                                <span className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.unpaid ? "bg-amber-500/10 text-amber-700 dark:text-amber-300" : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"}`}>
+                                                    {badge.text}
                                                 </span>
                                             )}
                                         </span>
@@ -280,9 +287,14 @@ export default function MyPayslipsPage() {
     const [payslips, setPayslips] = useState<Payslip[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
-    const [payBasisLabel, setPayBasisLabel] = useState<string | null>(null);
     const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
     const userId = user?.id != null ? String(user.id) : null;
+    // The current pay setup, with names from the managed lists. Hidden while it cannot be read.
+    const { data: profile } = usePayrollProfile(userId);
+    const catalog = usePayrollCatalog(Boolean(userId));
+    const payBasisLabel = profile ? getPayBasisLabel(profile.payBasis) : null;
+    const scheme = profile ? findScheme(catalog.schemes, profile.payrollScheme) : undefined;
+    const frequencyLabel = profile ? getOptionLabel(catalog.paymentFrequencies, profile.paymentFrequency) : "";
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -302,22 +314,6 @@ export default function MyPayslipsPage() {
         void load();
     }, [load]);
 
-    // Pay basis comes from the payroll profile. Leave it hidden if it cannot be read.
-    useEffect(() => {
-        if (!userId) return;
-        let mounted = true;
-        apiFetch(`/payroll/config/${encodeURIComponent(userId)}`)
-            .then((res) => res.json())
-            .then((profile: { payBasis?: string } | null) => {
-                if (mounted && profile) setPayBasisLabel(getPayBasisLabel(profile.payBasis));
-            })
-            .catch(() => {
-                if (mounted) setPayBasisLabel(null);
-            });
-        return () => {
-            mounted = false;
-        };
-    }, [userId]);
 
     // YTD stats
     const currentYear = new Date().getFullYear();
@@ -402,9 +398,28 @@ export default function MyPayslipsPage() {
                 ) : (
                     <div className="max-w-4xl mx-auto space-y-8">
                         {payBasisLabel && (
-                            <p className="text-sm text-[var(--muted)]">
-                                Pay basis: <span className="font-medium text-[var(--foreground)]">{payBasisLabel}</span>. Overtime is paid only after it is approved.
-                            </p>
+                            <section aria-label="Your pay setup" className="space-y-2">
+                                <dl className="grid grid-cols-1 gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] p-4 text-sm sm:grid-cols-3">
+                                    <div className="min-w-0">
+                                        <dt className="text-xs text-[var(--muted)]">Pay basis</dt>
+                                        <dd className="font-medium text-[var(--foreground)]">{payBasisLabel}</dd>
+                                    </div>
+                                    {scheme && (
+                                        <div className="min-w-0">
+                                            <dt className="text-xs text-[var(--muted)]">Salary scheme</dt>
+                                            <dd className="font-medium text-[var(--foreground)]">{scheme.name}</dd>
+                                            <dd className="text-xs text-[var(--muted)]">{describeScheme(scheme)}</dd>
+                                        </div>
+                                    )}
+                                    {frequencyLabel && (
+                                        <div className="min-w-0">
+                                            <dt className="text-xs text-[var(--muted)]">Pay frequency</dt>
+                                            <dd className="font-medium text-[var(--foreground)]">{frequencyLabel}</dd>
+                                        </div>
+                                    )}
+                                </dl>
+                                <p className="text-xs text-[var(--muted)]">Overtime is paid only after it is approved. Each payslip line shows the scheme used when it was made.</p>
+                            </section>
                         )}
                         {/* Stats strip */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

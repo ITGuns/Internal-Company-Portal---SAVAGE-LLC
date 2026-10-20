@@ -124,10 +124,15 @@ export function serializeDeployedEmployee(employee: EmployeeLike) {
     role: employee.role || employee.employeeProfile?.jobTitle || primaryRole?.role || 'Member',
     department: employee.department || primaryRole?.department?.name || 'Operations',
     salary: employee.salary ?? employee.employeeProfile?.baseSalary ?? 0,
-    payrollScheme: employee.employeeProfile?.payrollScheme ?? 'weekdays',
+    // Scheme key; null until the member has a payroll profile (the default scheme applies then).
+    payrollScheme: employee.employeeProfile?.payrollScheme ?? null,
     maxBillableHoursPerDay: employee.employeeProfile?.maxBillableHoursPerDay ?? 8,
     // Shown on the admin payslip view (payroll v2). Not sensitive: no rates or salary detail.
     payBasis: employee.employeeProfile?.payBasis ?? 'hourly_from_monthly',
+    // Labels for the Employee Overview pay summary (2026-10-20); values of the managed lists.
+    paymentFrequency: employee.employeeProfile?.paymentFrequency ?? null,
+    employmentType: employee.employeeProfile?.employmentType ?? null,
+    currency: employee.employeeProfile?.currency ?? null,
     hoursThisWeek: employee.hoursThisWeek ?? 0,
     performance: employee.performance ?? null,
   }
