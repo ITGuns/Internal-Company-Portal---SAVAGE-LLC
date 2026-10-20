@@ -1,5 +1,21 @@
 # Development Notes
 
+## 2026-10-20 - Monthly payroll periods by default
+
+- The company pays once a month, so new payroll periods are one calendar month (1st 00:00 to the last day 23:59:59 in `PAYROLL_TIMEZONE`, pay date 5 days after the end). `PAYROLL_PERIOD_CADENCE=semi_monthly` keeps the old 1-15 and 16-end split; unset or any other value means monthly, and an unknown value logs a warning at startup (`config.payrollPeriodCadence`; `monthlyPeriodForDay` and `payrollPeriodForDay` in `payroll.calculations.ts`; `semiMonthlyPeriodForDay` stays).
+- Stored periods are not touched. Production's two October halves stay; while a half overlaps the month, `period-advance` skips and `ensureCurrentPeriodExists` returns the half, so November 2026 is the first whole month, created on 1 Nov. `period-advance` run summaries now include `cadence`.
+- Vercel crons stay `0 0 1 * *` and `0 0 16 * *` (00:00 UTC, 08:00 Manila; Hobby allows two). Under the monthly cadence the 16th run is a harmless retry for payroll: period-advance skips, and auto-payslip regenerates the period that just ended, keeps hand-edited payslips and sends no second email (the email goes out only when a payslip is first created). Lock a period once it is paid so a later run cannot change it. Client invoices and the Gemfield digest keep their 1st and 16th timing.
+- Frontend: `NEXT_PUBLIC_PAYROLL_PERIOD_CADENCE` (`APP_CONFIG.payrollPeriodCadence`, monthly default) sets the generate-payslip fallback range when no period exists (`currentPeriodDayKeys` in `lib/payroll-dates.ts`). Set Up Payroll lists Monthly first and defaults to it. The Scheduler tab says the jobs run on the 1st and 16th, the 16th also retrying payroll.
+- `EmployeeProfile.paymentFrequency` defaults to "Monthly" (migration `202610200001_monthly_default`, column default only, existing rows keep their value). Every path that creates a profile leaves the field to the database default, so changing the form default alone would have changed nothing for new employees. It stays a label; the period length comes from the cadence.
+- Tests: backend `payroll.cadence` (new: month shapes, cadence choice, env parsing, periodFraction 1, same pay as two halves, auto-payslip picks), `scheduler.periods` (both cadences), `scheduler.routes` (cron schedule; period-advance skips over a half, creates the month, the retry skips), `payroll.ensure-period` (both cadences, half reused); frontend `payroll-dates`.
+
+### Next steps
+- Production migration before merging: the `migrate-production.yml` workflow, or by hand in the Supabase SQL editor (the checksum is the SHA-256 of the file with LF endings, the same way the existing rows were written):
+  `ALTER TABLE "EmployeeProfile" ALTER COLUMN "paymentFrequency" SET DEFAULT 'Monthly';`
+  `INSERT INTO "_prisma_migrations" (id, checksum, migration_name, started_at, finished_at, applied_steps_count) VALUES (gen_random_uuid()::text, 'b2b6b75c606df66db83b51f8d5e3e56469a5314f9bfd316411c999c317abce7d', '202610200001_monthly_default', now(), now(), 1);`
+- Nothing to set on Vercel for monthly. Going back to semi-monthly needs `PAYROLL_PERIOD_CADENCE` and `NEXT_PUBLIC_PAYROLL_PERIOD_CADENCE` set to `semi_monthly` and a `0 0 16 * *` cron again.
+- Switch cadence only when the current month has both halves or neither (see "Pay periods" in `docs/payroll-time-v2-spec.md`).
+
 ## 2026-10-20 - Payroll scenario proof and the current-period fix
 
 - Local-stack scenario (scratch script, output and screenshots in `assets/verify/september-scenario/`, gitignored): a test employee on `hourly_from_monthly` at 28,000 with the weekdays scheme, 8 h backfilled on all 22 weekdays of September 2026, one 10 h day. Result: 1 to 15 Sep 14,000.00 (88 h), 16 to 30 Sep 14,000.00 with 2 h shown as unpaid pending overtime, 14,397.73 once the 2 h were approved (1.25x), a live clock in and out edited to 8 h priced at 1,272.73. Total 28,397.73.

@@ -3,6 +3,8 @@
  * All environment-dependent values are defined here
  */
 
+import { parsePayrollPeriodCadence } from './payroll-dates';
+
 export const APP_CONFIG = {
   // API Configuration
   apiUrl: process.env.NEXT_PUBLIC_API_URL || '/api',
@@ -20,7 +22,10 @@ export const APP_CONFIG = {
   enableRealtime:
     process.env.NEXT_PUBLIC_ENABLE_REALTIME !== 'false'
     && (process.env.NODE_ENV !== 'production' || Boolean(process.env.NEXT_PUBLIC_WS_URL)),
-  
+
+  // Payroll period length; keep it equal to the backend PAYROLL_PERIOD_CADENCE (monthly by default).
+  payrollPeriodCadence: parsePayrollPeriodCadence(process.env.NEXT_PUBLIC_PAYROLL_PERIOD_CADENCE),
+
   // Polling Intervals (milliseconds)
   userPollInterval: 30000, // 30 seconds
   // Fallback polls, used only while enableRealtime is false (lib/realtime-fallback.ts).

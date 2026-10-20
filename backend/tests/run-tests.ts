@@ -16,6 +16,7 @@ const tests = [
   'payroll.permissions.test.ts',
   'payroll.calculations.test.ts',
   'payroll.v2.calculations.test.ts',
+  'payroll.cadence.test.ts',
   'payroll.v2.routes.test.ts',
   'payroll.backfill.test.ts',
   'payroll.ensure-period.test.ts',

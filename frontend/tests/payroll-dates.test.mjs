@@ -74,3 +74,27 @@ test('currentSemiMonthlyDayKeys splits on the 15th in Manila', () => {
   assert.deepEqual({ ...currentSemiMonthlyDayKeys(new Date('2026-10-15T17:00:00Z')) }, { start: '2026-10-16', end: '2026-10-31' });
   assert.deepEqual({ ...currentSemiMonthlyDayKeys(new Date('2024-02-20T04:00:00Z')) }, { start: '2024-02-16', end: '2024-02-29' });
 });
+
+test('currentMonthlyDayKeys covers the whole Manila calendar month', () => {
+  const { currentMonthlyDayKeys } = loadPayrollDates();
+  assert.deepEqual({ ...currentMonthlyDayKeys(new Date('2026-10-20T04:00:00Z')) }, { start: '2026-10-01', end: '2026-10-31' });
+  assert.deepEqual({ ...currentMonthlyDayKeys(new Date('2026-11-15T04:00:00Z')) }, { start: '2026-11-01', end: '2026-11-30' });
+  // 15:00 UTC on Oct 31 is 23:00 in Manila, still October; 17:00 UTC is already Nov 1.
+  assert.deepEqual({ ...currentMonthlyDayKeys(new Date('2026-10-31T15:00:00Z')) }, { start: '2026-10-01', end: '2026-10-31' });
+  assert.deepEqual({ ...currentMonthlyDayKeys(new Date('2026-10-31T17:00:00Z')) }, { start: '2026-11-01', end: '2026-11-30' });
+  assert.deepEqual({ ...currentMonthlyDayKeys(new Date('2026-02-10T04:00:00Z')) }, { start: '2026-02-01', end: '2026-02-28' });
+  assert.deepEqual({ ...currentMonthlyDayKeys(new Date('2024-02-10T04:00:00Z')) }, { start: '2024-02-01', end: '2024-02-29' });
+});
+
+test('currentPeriodDayKeys follows the cadence, monthly unless semi_monthly', () => {
+  const { currentPeriodDayKeys, parsePayrollPeriodCadence } = loadPayrollDates();
+  const now = new Date('2026-10-20T04:00:00Z');
+  assert.deepEqual({ ...currentPeriodDayKeys('monthly', now) }, { start: '2026-10-01', end: '2026-10-31' });
+  assert.deepEqual({ ...currentPeriodDayKeys('semi_monthly', now) }, { start: '2026-10-16', end: '2026-10-31' });
+  assert.equal(parsePayrollPeriodCadence(undefined), 'monthly');
+  assert.equal(parsePayrollPeriodCadence(''), 'monthly');
+  assert.equal(parsePayrollPeriodCadence('monthly'), 'monthly');
+  assert.equal(parsePayrollPeriodCadence('semi_monthly'), 'semi_monthly');
+  assert.equal(parsePayrollPeriodCadence(' Semi-Monthly '), 'semi_monthly');
+  assert.equal(parsePayrollPeriodCadence('weekly'), 'monthly');
+});

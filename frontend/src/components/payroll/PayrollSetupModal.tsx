@@ -71,9 +71,12 @@ const CURRENCIES = [
   { value: "GBP", label: "GBP, British Pound (£)" },
 ];
 
+// A label on the employee profile only; pay periods follow the server cadence (monthly by default).
+const DEFAULT_PAYMENT_FREQUENCY = "Monthly";
+
 const PAYMENT_FREQUENCIES = [
-  { value: "Semi-Monthly", label: "Semi-Monthly (twice a month)" },
   { value: "Monthly", label: "Monthly (once a month)" },
+  { value: "Semi-Monthly", label: "Semi-Monthly (twice a month)" },
   { value: "Bi-Weekly", label: "Bi-Weekly (every 2 weeks)" },
   { value: "Weekly", label: "Weekly" },
 ];
@@ -180,7 +183,7 @@ export default function PayrollSetupModal({
     employmentType: "Full-Time",
     baseSalary: "",
     currency: "PHP",
-    paymentFrequency: "Semi-Monthly",
+    paymentFrequency: DEFAULT_PAYMENT_FREQUENCY,
     payrollScheme: "weekdays",
     maxBillableHoursPerDay: "8",
     bankAccount: "",
@@ -203,7 +206,7 @@ export default function PayrollSetupModal({
           employmentType: data.employmentType || "Full-Time",
           baseSalary: data.baseSalary != null ? String(data.baseSalary) : "",
           currency: data.currency || "PHP",
-          paymentFrequency: data.paymentFrequency || "Semi-Monthly",
+          paymentFrequency: data.paymentFrequency || DEFAULT_PAYMENT_FREQUENCY,
           payrollScheme: data.payrollScheme || "weekdays",
           maxBillableHoursPerDay: data.maxBillableHoursPerDay != null ? String(data.maxBillableHoursPerDay) : "8",
           bankAccount: data.bankAccount || "",

@@ -17,6 +17,7 @@ import {
     validateSocketRedisAdapterConfig,
 } from '../notifications/socket.adapter'
 import { resolveUploadStorageConfig, type UploadStorageDriver } from '../uploads/upload.storage'
+import type { PayrollPeriodCadence } from '../payroll/payroll.calculations'
 
 const logger = createLogger('config.env')
 
@@ -112,6 +113,9 @@ interface EnvConfig {
 
     // Payroll day bucketing timezone (payroll v2): PAYROLL_TIMEZONE, then DAILY_DIGEST_TIMEZONE, then Asia/Manila
     payrollTimezone: string
+
+    // Length of new payroll periods: PAYROLL_PERIOD_CADENCE, monthly (default) or semi_monthly
+    payrollPeriodCadence: PayrollPeriodCadence
 }
 
 function getEnvVar(key: string, defaultValue?: string): string {
@@ -143,6 +147,15 @@ export function resolvePayrollTimezone(env: NodeJS.ProcessEnv = process.env): st
         .map((value) => (value || '').trim())
         .filter(Boolean)
     return candidates.find(isValidTimeZoneName) || DEFAULT_PAYROLL_TIMEZONE
+}
+
+function normalizeCadenceName(value: string | undefined): string {
+    return (value || '').trim().toLowerCase().replace(/-/g, '_')
+}
+
+/** PAYROLL_PERIOD_CADENCE: semi_monthly keeps the 1-15 and 16-end split; anything else is monthly. */
+export function resolvePayrollPeriodCadence(env: NodeJS.ProcessEnv = process.env): PayrollPeriodCadence {
+    return normalizeCadenceName(env.PAYROLL_PERIOD_CADENCE) === 'semi_monthly' ? 'semi_monthly' : 'monthly'
 }
 
 function getPositiveIntegerEnvVar(key: string, defaultValue: number): number {
@@ -281,6 +294,7 @@ export const config: EnvConfig = {
     schedulerSecret: getOptionalEnvVar('CRON_SECRET') || getOptionalEnvVar('SCHEDULER_SECRET'),
 
     payrollTimezone: resolvePayrollTimezone(),
+    payrollPeriodCadence: resolvePayrollPeriodCadence(),
 }
 
 /**
@@ -315,6 +329,14 @@ export function validateConfig(): void {
         enabled: config.socketRedisAdapterEnabled,
         redisUrl: config.redisUrl,
     })
+
+    // A misspelt cadence falls back to monthly; say so instead of failing quietly.
+    const cadenceName = normalizeCadenceName(process.env.PAYROLL_PERIOD_CADENCE)
+    if (cadenceName && cadenceName !== config.payrollPeriodCadence) {
+        logger.warn('PAYROLL_PERIOD_CADENCE is not monthly or semi_monthly; using monthly', {
+            value: process.env.PAYROLL_PERIOD_CADENCE,
+        })
+    }
 
     if (config.nodeEnv === 'production' && config.commercialReadinessMode) {
         validateCommercialReadinessConfig({

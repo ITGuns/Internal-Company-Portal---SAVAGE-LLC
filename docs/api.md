@@ -372,7 +372,7 @@ Request rows include `user { id, name, email }` and `reviewedBy { id, name }`. P
 ### Payroll Periods And Payslips
 
 - `GET /api/payroll/periods` lists payroll periods.
-- `POST /api/payroll/periods/ensure` ensures a period exists for a supplied date range.
+- `POST /api/payroll/periods/ensure` takes no body and returns `{ periodId }` for the period that covers today in `PAYROLL_TIMEZONE`. When no stored period overlaps today's expected period it creates one: the whole month by default, the current half with `PAYROLL_PERIOD_CADENCE=semi_monthly`. A stored half that overlaps the month is returned as is.
 - `POST /api/payroll/periods` requires payroll-management access.
 - `POST /api/payroll/periods/:periodId/generate/:userId` requires payroll-management access. A payslip that was edited by hand answers `409` unless the body has `force: true`, which regenerates it and clears `editedById` / `editedAt` / `editNote`. With `hoursWorked` in the body (manual path) `grossPay` and `netPay` are recomputed from the line items; a `netPay` in the body is ignored.
 - `POST /api/payroll/periods/:periodId/generate-all` requires payroll-management access and generates only for internal employee accounts. It includes deactivated members who tracked time or had overtime approved inside the period. Hand-edited payslips are kept and reported as `{ userId, success: true, skipped: true, reason }`.
@@ -392,12 +392,12 @@ Request rows include `user { id, name, email }` and `reviewedBy { id, name }`. P
 
 Scheduler endpoints require protection because they can create payroll periods, generate payslips, produce payroll reports, and generate client invoices.
 
-- `GET /api/scheduler/cron` is the Vercel Cron entrypoint. Vercel sends this as a GET request with `Authorization: Bearer <CRON_SECRET>`. The backend also accepts legacy `SCHEDULER_SECRET` for manual deployments.
+- `GET /api/scheduler/cron` is the Vercel Cron entrypoint. Vercel sends this as a GET request with `Authorization: Bearer <CRON_SECRET>`. The backend also accepts legacy `SCHEDULER_SECRET` for manual deployments. `vercel.json` schedules it at 00:00 UTC on the 1st and the 16th of each month; under the monthly cadence (default since 2026-10-20) the 16th run only retries payroll and runs the billing jobs.
 - `POST /api/scheduler/cron` remains available for local/manual cron compatibility and uses the same bearer-secret check.
 - `POST /api/scheduler/run/:jobType` manually runs one scheduler job and requires an authenticated scheduler-management role. Valid job types are `period-advance`, `auto-payslip`, `dept-report`, `client-invoices`, and `all`.
 - `GET /api/scheduler/runs?limit=:limit` returns recent scheduler runs for scheduler-management users. `limit` is capped at 100.
 Scheduler-management access includes payroll-management roles, including owner/founder, contractor salary payments, payroll assistant, and payroll finance.
-- `period-advance` ensures a semi-monthly draft payroll period exists for the current half-month.
+- `period-advance` creates the draft payroll period for the current month (`PAYROLL_PERIOD_CADENCE`, default `monthly`; `semi_monthly` uses the current half) unless a stored period already shares a calendar day with it, in which case it skips. The run summary includes `cadence`.
 - `auto-payslip` bulk-generates payslips for the draft period that most recently ended (`endDate < now`), never the still-open newest period. An ended period is generated right away; the pay-date gate (2 days before pay date) only applies to a period that has not ended.
 - `dept-report` stores a payroll report summary for the latest available payroll period.
 - `client-invoices` scans active/trial/past-due monthly billing records and creates draft manual invoices when due.

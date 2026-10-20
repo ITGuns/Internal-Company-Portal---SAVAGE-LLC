@@ -1,9 +1,9 @@
 /**
- * SchedulerTab — Payroll automation scheduler panel.
+ * SchedulerTab: payroll automation scheduler panel.
  *
  * Shows recent job run history and lets admins manually trigger:
- *   • Period Advance (create next payroll period)
- *   • Auto Payslip Generation (bulk-generate payslips for current draft period)
+ *   • Period Advance (create the current payroll period, monthly by default)
+ *   • Auto Payslip Generation (bulk-generate payslips for the period that just ended)
  *   • Department Report (aggregate cost summary)
  *   • Client Invoice Generation (create due draft client invoices)
  */
@@ -28,6 +28,7 @@ import {
 import Button from "@/components/Button";
 import { PayrollSchedulerRunsSkeleton } from "@/components/ui/FeatureSkeletons";
 import { apiFetch } from "@/lib/api";
+import { APP_CONFIG } from "@/lib/config";
 import { useToast } from "@/components/ToastProvider";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -50,8 +51,9 @@ const JOB_DEFINITIONS = [
   {
     type: "period-advance",
     label: "Period Advance",
-    description:
-      "Creates a new payroll period for the current half of the month if one does not exist. Safe to run at any time — idempotent.",
+    description: `Creates the payroll period for the current ${
+      APP_CONFIG.payrollPeriodCadence === "semi_monthly" ? "half of the month" : "month"
+    } if one does not exist yet. Safe to run at any time; a second run changes nothing.`,
     icon: CalendarDays,
     color: "text-blue-500",
     bg: "bg-blue-50 dark:bg-blue-900/20",
@@ -61,7 +63,7 @@ const JOB_DEFINITIONS = [
     type: "auto-payslip",
     label: "Auto Payslip Generation",
     description:
-      "Bulk-generates payslips for all active employees in the most recent draft period. Only runs on or near the period pay date.",
+      "Bulk-generates payslips for all active employees in the draft period that most recently ended. Hand-edited payslips are kept.",
     icon: FileText,
     color: "text-emerald-500",
     bg: "bg-emerald-50 dark:bg-emerald-900/20",
@@ -211,7 +213,7 @@ export default function SchedulerTab() {
         <div>
           <h2 className="text-lg font-bold text-[var(--foreground)]">Payroll Scheduler</h2>
           <p className="text-sm text-[var(--muted)] mt-0.5">
-            Automated payroll and billing jobs run on the 1st and 16th of each month via Vercel Cron. You can also trigger them manually below.
+            Automated payroll and billing jobs run on the 1st and 16th of each month (the 16th run also retries payroll) via Vercel Cron. You can also trigger them manually below.
           </p>
         </div>
         <div className="flex gap-2">
@@ -320,7 +322,7 @@ export default function SchedulerTab() {
           <PayrollSchedulerRunsSkeleton />
         ) : runs.length === 0 ? (
           <div className="rounded-xl border border-dashed border-[var(--border)] p-8 text-center text-sm text-[var(--muted)]">
-            No job runs yet. Payroll and billing jobs run automatically on the 1st and 16th, or you can trigger them manually above.
+            No job runs yet. Payroll and billing jobs run automatically on the 1st and 16th of each month (the 16th run also retries payroll), or you can trigger them manually above.
           </div>
         ) : (
           <div className="rounded-xl border border-[var(--border)] overflow-hidden">

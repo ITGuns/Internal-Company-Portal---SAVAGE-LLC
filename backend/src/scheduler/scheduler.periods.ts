@@ -1,8 +1,9 @@
 import {
     payrollDayKey,
+    payrollPeriodForDay,
     periodEndDayKey,
     periodStartDayKey,
-    semiMonthlyPeriodForDay,
+    type PayrollPeriodCadence,
 } from '../payroll/payroll.calculations'
 
 export interface PayrollPeriodWindow {
@@ -12,18 +13,22 @@ export interface PayrollPeriodWindow {
 }
 
 /**
- * Compute the semi-monthly payroll period window that contains `now`, in
- * calendar days of `timeZone` (PAYROLL_TIMEZONE, Asia/Manila by default).
+ * Compute the payroll period window that contains `now`, in calendar days of
+ * `timeZone` (PAYROLL_TIMEZONE, Asia/Manila by default).
  *
- * - First half of the month: 1st 00:00:00 to 15th 23:59:59.
- * - Second half: 16th 00:00:00 to last day of month 23:59:59.
+ * - monthly (the default cadence): 1st 00:00:00 to last day of month 23:59:59.
+ * - semi_monthly: 1st to 15th, or 16th to last day of month.
  * - Pay date is 5 days after the period end.
  *
- * Pure: depends only on the provided clock value and zone, never the server
- * timezone. The scheduler passes `new Date()`.
+ * Pure: depends only on the provided clock value, zone and cadence, never the
+ * server timezone. The scheduler passes `new Date()` and config values.
  */
-export function computeExpectedPeriodWindow(now: Date, timeZone: string): PayrollPeriodWindow {
-    return semiMonthlyPeriodForDay(payrollDayKey(now, timeZone), timeZone)
+export function computeExpectedPeriodWindow(
+    now: Date,
+    timeZone: string,
+    cadence: PayrollPeriodCadence,
+): PayrollPeriodWindow {
+    return payrollPeriodForDay(payrollDayKey(now, timeZone), timeZone, cadence)
 }
 
 /**

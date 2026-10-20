@@ -96,16 +96,19 @@ export class SchedulerService {
     }
 
     // ─── Period Advance ──────────────────────────────────────────────────────
-    // Auto-creates a new semi-monthly PayrollPeriod when none exists for the
-    // current half of the month. Safe to call repeatedly — idempotent.
+    // Creates today's PayrollPeriod (the whole month, or the current half with
+    // PAYROLL_PERIOD_CADENCE=semi_monthly) when no stored period overlaps it.
+    // Safe to call repeatedly: a second run, like the mid-month cron on the 16th,
+    // skips. Stored periods are never changed (October 2026 stays in halves).
 
     async runPeriodAdvance(triggeredBy: TriggerSource = 'cron'): Promise<JobResult> {
         const run = await this.startRun('period-advance', triggeredBy)
         const t0 = Date.now()
 
         try {
-            // Determine the expected semi-monthly period window for today.
-            const expected = computeExpectedPeriodWindow(new Date(), config.payrollTimezone)
+            // The expected period window for today at the configured cadence.
+            const cadence = config.payrollPeriodCadence
+            const expected = computeExpectedPeriodWindow(new Date(), config.payrollTimezone, cadence)
             const { start: expectedStart, end: expectedEnd, payDate } = expected
 
             // A period already covering any of these calendar days blocks creation.
@@ -121,7 +124,7 @@ export class SchedulerService {
 
             let summary: Record<string, unknown>
             if (existing) {
-                summary = { skipped: true, reason: 'Period already exists', periodId: existing.id }
+                summary = { skipped: true, reason: 'Period already exists', periodId: existing.id, cadence }
                 return await this.finishRun(run.id, 'skipped', Date.now() - t0, summary)
             }
 
@@ -134,6 +137,7 @@ export class SchedulerService {
                 periodId: period.id,
                 startDate: periodStartDayKey(period.startDate),
                 endDate: periodEndDayKey(period.endDate),
+                cadence,
             }
             return await this.finishRun(run.id, 'success', Date.now() - t0, summary)
         } catch (err) {
@@ -144,7 +148,9 @@ export class SchedulerService {
     }
 
     // ─── Auto Payslip Generation ──────────────────────────────────────────────
-    // Runs bulk payslip generation for the most recent draft payroll period.
+    // Runs bulk payslip generation for the draft period that most recently
+    // ended, whatever its length (a month, or a half month from before
+    // 2026-10-20). A second run regenerates unedited payslips and keeps edits.
 
     async runAutoPayslip(triggeredBy: TriggerSource = 'cron'): Promise<JobResult> {
         const run = await this.startRun('auto-payslip', triggeredBy)

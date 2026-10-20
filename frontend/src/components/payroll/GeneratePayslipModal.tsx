@@ -15,7 +15,8 @@ import { CalendarDays, ChevronDown, Loader2, PhilippinePeso, Plus, Save, User, X
 import Modal from "@/components/Modal";
 import type { Employee } from "@/lib/payroll-calendar/types";
 import { apiFetch } from "@/lib/api";
-import { currentSemiMonthlyDayKeys, formatPayrollDate, payrollPeriodDayKey } from "@/lib/payroll-dates";
+import { APP_CONFIG } from "@/lib/config";
+import { currentPeriodDayKeys, formatPayrollDate, payrollPeriodDayKey } from "@/lib/payroll-dates";
 import {
   buildGeneratePayslipBody,
   previewBasePay,
@@ -47,10 +48,11 @@ function hrs(value?: number) {
   return `${(value ?? 0).toLocaleString("en-US", { maximumFractionDigits: 2 })} h`;
 }
 
+/** The active period's days, else the period the server would create for today. */
 function periodDayKeys(period: GeneratePayslipModalProps["period"]) {
   const start = payrollPeriodDayKey(period?.startDate, "start");
   const end = payrollPeriodDayKey(period?.endDate, "end");
-  return start && end ? { start, end } : currentSemiMonthlyDayKeys();
+  return start && end ? { start, end } : currentPeriodDayKeys(APP_CONFIG.payrollPeriodCadence);
 }
 
 function Row({ label, detail, value, tone }: { label: string; detail?: string; value: string; tone?: string }) {

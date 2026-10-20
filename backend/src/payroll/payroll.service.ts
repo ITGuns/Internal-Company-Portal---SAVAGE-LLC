@@ -29,8 +29,8 @@ import {
     periodEndDayKey,
     periodFraction,
     periodStartDayKey,
+    payrollPeriodForDay,
     roundMoney,
-    semiMonthlyPeriodForDay,
     summarizePayrollHours,
 } from './payroll.calculations'
 import { computePayslipTotals } from './payslip-edit.service'
@@ -549,19 +549,17 @@ export class PayrollService {
     }
 
     /**
-     * Auto-create a semi-monthly payroll period for right now
-     * Called when no periods exist yet (first-time setup convenience)
-     */
-    /**
      * The period that covers today (payroll-timezone days), created when missing.
      * Until 20 Oct 2026 this returned the newest period even after it had ended,
      * so after the 15th or the month end nothing created the next period unless
      * the cron ran; clock-ins still recorded, but payslips had no period.
+     * A stored period that overlaps the expected window is returned as is, so a
+     * semi-monthly half from before the monthly switch is reused, never doubled.
      */
     async ensureCurrentPeriodExists(): Promise<string> {
-        // Semi-monthly period (1st-15th or 16th-end) in payroll-timezone days.
+        // The month (or half month with PAYROLL_PERIOD_CADENCE=semi_monthly) in payroll-timezone days.
         const timeZone = config.payrollTimezone
-        const expected = semiMonthlyPeriodForDay(payrollDayKey(new Date(), timeZone), timeZone)
+        const expected = payrollPeriodForDay(payrollDayKey(new Date(), timeZone), timeZone, config.payrollPeriodCadence)
 
         // Widened by a day because older periods were stored at UTC midnight;
         // the calendar-day comparison in periodOverlapsWindow makes the final call.

@@ -1058,7 +1058,8 @@ model EmployeeProfile {
   requestedDepartmentId  String?
   baseSalary             Float?  @default(0)
   currency               String  @default("PHP")
-  paymentFrequency       String  @default("Semi-Monthly")
+  // A label only (pay periods follow PAYROLL_PERIOD_CADENCE). Default "Monthly" since 2026-10-20.
+  paymentFrequency       String  @default("Monthly")
   payrollScheme          String  @default("weekdays")
   maxBillableHoursPerDay Float   @default(8)
   // Pay basis (2026-10-08): hourly_from_monthly | fixed_monthly | hourly_rate

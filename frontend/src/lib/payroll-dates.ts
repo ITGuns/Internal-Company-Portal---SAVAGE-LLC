@@ -65,10 +65,18 @@ export function payrollPeriodDayKey(value: string | Date | null | undefined, edg
 }
 
 /**
- * First and last day (YYYY-MM-DD) of the semi-monthly period (1-15 or 16-end)
- * that contains `now` in Manila. Same split as the backend period scheduler.
+ * Length of payroll periods, as the backend PAYROLL_PERIOD_CADENCE sets it:
+ * monthly (1st to last day, the default) or semi_monthly (1-15 and 16-end).
  */
-export function currentSemiMonthlyDayKeys(now: Date = new Date()): { start: string; end: string } {
+export type PayrollPeriodCadence = "monthly" | "semi_monthly";
+
+/** Reads a cadence setting the way the backend does: semi_monthly when it says so, else monthly. */
+export function parsePayrollPeriodCadence(value: string | null | undefined): PayrollPeriodCadence {
+  return (value ?? "").trim().toLowerCase().replace(/-/g, "_") === "semi_monthly" ? "semi_monthly" : "monthly";
+}
+
+/** Year, month (1 to 12), day and length of the month of `now` in Manila. */
+function manilaMonthParts(now: Date) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: PAYROLL_DATE_TIME_ZONE,
     year: "numeric",
@@ -77,10 +85,32 @@ export function currentSemiMonthlyDayKeys(now: Date = new Date()): { start: stri
   }).formatToParts(now);
   const read = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
   const [year, month, day] = [read("year"), read("month"), read("day")];
+  return { year, month, day, lastDay: new Date(Date.UTC(year, month, 0)).getUTCDate() };
+}
+
+function monthDayKeys(year: number, month: number, first: number, last: number): { start: string; end: string } {
   const pad = (value: number) => String(value).padStart(2, "0");
-  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  const [first, last] = day <= 15 ? [1, 15] : [16, lastDay];
   return { start: `${year}-${pad(month)}-${pad(first)}`, end: `${year}-${pad(month)}-${pad(last)}` };
+}
+
+/**
+ * First and last day (YYYY-MM-DD) of the semi-monthly period (1-15 or 16-end)
+ * that contains `now` in Manila. Same split as the backend period scheduler.
+ */
+export function currentSemiMonthlyDayKeys(now: Date = new Date()): { start: string; end: string } {
+  const { year, month, day, lastDay } = manilaMonthParts(now);
+  return day <= 15 ? monthDayKeys(year, month, 1, 15) : monthDayKeys(year, month, 16, lastDay);
+}
+
+/** First and last day (YYYY-MM-DD) of the calendar month that contains `now` in Manila. */
+export function currentMonthlyDayKeys(now: Date = new Date()): { start: string; end: string } {
+  const { year, month, lastDay } = manilaMonthParts(now);
+  return monthDayKeys(year, month, 1, lastDay);
+}
+
+/** The period that contains `now` for a cadence, the same days the backend creates. */
+export function currentPeriodDayKeys(cadence: PayrollPeriodCadence, now: Date = new Date()): { start: string; end: string } {
+  return cadence === "semi_monthly" ? currentSemiMonthlyDayKeys(now) : currentMonthlyDayKeys(now);
 }
 
 /** "Oct 1 to Oct 15, 2026" for a period whose edges may be day keys or stored instants. */

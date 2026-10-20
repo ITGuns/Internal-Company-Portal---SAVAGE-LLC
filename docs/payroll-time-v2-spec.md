@@ -15,10 +15,11 @@ current when the implementation drifts.
    `PAYROLL_TIMEZONE` (env, default `Asia/Manila`, fall back to
    `DAILY_DIGEST_TIMEZONE`), never UTC. Pay periods follow the same zone:
    new periods start at midnight and end at 23:59:59 in `PAYROLL_TIMEZONE`
-   (`semiMonthlyPeriodForDay` and `periodBoundsFromInput` in
-   `payroll.calculations.ts`). Older rows stored at UTC midnight are read
-   through `periodStartDayKey` and `periodEndDayKey`, which return the same
-   calendar day for both, so no backfill is needed.
+   (`payrollPeriodForDay` and `periodBoundsFromInput` in
+   `payroll.calculations.ts`; period length under "Pay periods" below).
+   Older rows stored at UTC midnight are read through `periodStartDayKey`
+   and `periodEndDayKey`, which return the same calendar day for both, so no
+   backfill is needed.
 2. Overtime is paid only when an `OvertimeRequest` for that day is approved.
    Paid OT hours for a day = `min(approvedHours, actualHours - cap)`.
    OT pay = paid OT hours x hourly rate x `overtimeMultiplier`.
@@ -63,6 +64,38 @@ current when the implementation drifts.
    salary) line; approved and unapproved overtime lines are still added.
    Deductions sent in the body are applied on both the manual and automatic
    paths.
+
+## Pay periods (2026-10-20)
+
+The company pays once a month. New periods are one calendar month by default
+(1st 00:00 to the last day 23:59:59 in `PAYROLL_TIMEZONE`, pay date 5 days
+after the end). `PAYROLL_PERIOD_CADENCE=semi_monthly` brings back the 1-15 and
+16-end split; any other value, or none, means monthly
+(`config.payrollPeriodCadence`, `payrollPeriodForDay`).
+
+- Stored periods are never rewritten. Production keeps October 2026 as two
+  halves (1-15 and 16-31); November 2026 is the first whole month.
+- `period-advance` and `POST /payroll/periods/ensure` create the expected
+  period only when no stored period shares a calendar day with it. A half
+  that overlaps the month is returned (ensure) or makes the job skip.
+- Vercel Cron runs the scheduler at 00:00 UTC (08:00 Manila) on the 1st and
+  the 16th (Hobby allows two crons; the 16th keeps client invoices and the
+  digest on their old timing). For payroll the 16th run is a harmless retry:
+  period-advance skips, and auto-payslip regenerates the same ended period,
+  keeping hand-edited payslips and sending no second email. Lock a period
+  once it is paid so a later run cannot change it.
+- `periodFraction` is 1 for a whole month, so `fixed_monthly` pays the full
+  salary; `hourly_from_monthly` pays the same total as the two halves did.
+- The frontend reads `NEXT_PUBLIC_PAYROLL_PERIOD_CADENCE` (same values, monthly
+  default) for the generate-payslip fallback range and the scheduler copy.
+- Going back to semi-monthly is an env change on both apps (the 16th cron is
+  already in place).
+- Switch to monthly only when the current month has both halves or neither.
+  With only the 1-15 half stored, ensure keeps returning it after the 15th
+  and no period covers 16-end, so create that half by hand first
+  (`POST /payroll/periods`).
+- `EmployeeProfile.paymentFrequency` is a label only; its default is
+  `"Monthly"` since migration `202610200001_monthly_default`.
 
 ## Schema additions (Prisma, one migration `202610080001_payroll_time_v2`)
 

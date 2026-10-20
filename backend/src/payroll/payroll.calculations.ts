@@ -10,6 +10,12 @@ import { PayrollValidationError } from './payroll.errors'
 
 export type PayrollScheme = 'weekdays' | 'flat_30' | 'flat_20' | 'flat_160_hours'
 export type PayBasis = 'hourly_from_monthly' | 'fixed_monthly' | 'hourly_rate'
+/**
+ * Length of new payroll periods (PAYROLL_PERIOD_CADENCE, 2026-10-20). The
+ * company pays once a month, so monthly (1st to last day) is the default;
+ * semi_monthly keeps the old 1-15 and 16-end split.
+ */
+export type PayrollPeriodCadence = 'monthly' | 'semi_monthly'
 
 export const PAY_BASES: readonly PayBasis[] = ['hourly_from_monthly', 'fixed_monthly', 'hourly_rate']
 export const DEFAULT_PAY_BASIS: PayBasis = 'hourly_from_monthly'
@@ -447,6 +453,21 @@ export function semiMonthlyPeriodForDay(dayKey: string, timeZone: string): Perio
     const startKey = partsToDayKey({ year, month, day: firstHalf ? 1 : 16 })
     const endKey = partsToDayKey({ year, month, day: firstHalf ? 15 : daysInMonth(year, month) })
     return periodBoundsForDays(startKey, endKey, timeZone)
+}
+
+/** The calendar month (1st to last day) that contains the payroll day dayKey. */
+export function monthlyPeriodForDay(dayKey: string, timeZone: string): PeriodBounds {
+    const { year, month } = dayKeyParts(dayKey)
+    const startKey = partsToDayKey({ year, month, day: 1 })
+    const endKey = partsToDayKey({ year, month, day: daysInMonth(year, month) })
+    return periodBoundsForDays(startKey, endKey, timeZone)
+}
+
+/** The period of the given cadence that contains the payroll day dayKey. */
+export function payrollPeriodForDay(dayKey: string, timeZone: string, cadence: PayrollPeriodCadence): PeriodBounds {
+    return cadence === 'semi_monthly'
+        ? semiMonthlyPeriodForDay(dayKey, timeZone)
+        : monthlyPeriodForDay(dayKey, timeZone)
 }
 
 export interface DurationEntry {
