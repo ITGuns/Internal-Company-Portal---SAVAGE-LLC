@@ -5,6 +5,7 @@ import AdminClientProjectsPanel from "@/components/client-portal/AdminClientProj
 import AdminClientUpdatesPanel from "@/components/client-portal/AdminClientUpdatesPanel";
 import ClientOperationsPanel from "@/components/client-portal/ClientOperationsPanel";
 import ClientOperationsShell from "@/components/client-portal/ClientOperationsShell";
+import GemfieldPhaseControl from "@/components/client-portal/GemfieldPhaseControl";
 import EmptyState from "@/components/ui/EmptyState";
 import WorkItemsPanel from "@/components/client-portal/production-records/WorkItemsPanel";
 import { formatClientPortalDate } from "@/lib/client-portal-display";
@@ -21,6 +22,13 @@ export default function ClientDeliveryPage() {
 
         return (
           <div className="space-y-5">
+            {/* Gemfield build phase - the timeline the client watches. Gated on the
+                entitlement flag because the staff phase route 404s for any org
+                that is not a Gemfield client, exactly as the client-side card is. */}
+            {workspace.selectedOrganization?.gemfieldClient ? (
+              <GemfieldPhaseControl organizationId={workspace.selectedId} />
+            ) : null}
+
             <div className="grid gap-5 xl:grid-cols-2">
               <AdminClientProjectsPanel
                 organizationId={workspace.selectedId}

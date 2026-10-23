@@ -67,6 +67,39 @@ export async function classifyGemfieldTicket(ticketId: string, changeClass: stri
   });
 }
 
+export interface SetGemfieldPhaseInput {
+  phase: string;
+  /** Milestone state; defaults to 'complete' server-side. */
+  status?: string;
+  /** Becomes the body of a CLIENT-VISIBLE activity. Never put internal notes here. */
+  note?: string;
+  stagingUrl?: string;
+  liveUrl?: string;
+}
+
+/**
+ * Staff phase editor. Hits the entitlement-guarded staff route, which 404s for a
+ * non-Gemfield org or a non-privileged caller - so only call it for an org with
+ * gemfieldClient true.
+ *
+ * Forward-only by design: the backend sets the project's current phase to the
+ * furthest phase it has ever seen, so recording an earlier phase backfills that
+ * milestone without regressing the build.
+ */
+export async function setGemfieldProjectPhase(
+  organizationId: string,
+  projectId: string,
+  input: SetGemfieldPhaseInput,
+): Promise<void> {
+  await apiFetch(
+    `/gemfield/organizations/${encodeURIComponent(organizationId)}/projects/${encodeURIComponent(projectId)}/phase`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
 export interface GemfieldEntitlement {
   id: string;
   gemfieldClient: boolean;
