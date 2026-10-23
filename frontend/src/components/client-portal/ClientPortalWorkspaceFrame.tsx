@@ -3,6 +3,8 @@
 import React from "react";
 import { Activity, BriefcaseBusiness, CheckCircle2, FileText, Gauge } from "lucide-react";
 import EmptyState from "@/components/ui/EmptyState";
+import ClientTourRunner from "@/components/tour/ClientTourRunner";
+import GettingStartedChecklist from "@/components/tour/GettingStartedChecklist";
 import { ClientPortalSkeleton } from "@/components/ui/FeatureSkeletons";
 import { ProductionMetricStrip, type ProductionMetricItem } from "@/components/workspace/ProductionWorkspace";
 import {
@@ -58,6 +60,10 @@ export default function ClientPortalWorkspaceFrame({
             />
           ) : (
             <>
+              {/* First-run guidance. The checklist is the part a client can come
+                  back to; ClientTourRunner shows each page's one-shot guide. Both
+                  live here rather than per page so every route is covered. */}
+              <GettingStartedChecklist />
               {workspace.overview ? (
                 <ClientRouteSummary
                   title={title}
@@ -66,6 +72,7 @@ export default function ClientPortalWorkspaceFrame({
                 />
               ) : null}
               {children(workspace)}
+              <ClientTourRunner />
             </>
           )}
         </div>
