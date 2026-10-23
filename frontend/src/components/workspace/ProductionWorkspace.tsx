@@ -59,20 +59,22 @@ function MetricCell({ item, compact = false }: { item: ProductionMetricItem; com
 
   return (
     <div className={cn("min-w-0 border-l border-[var(--border)] pl-4 first:border-l-0 first:pl-0", compact && "border-l-0 pl-0")}>
-      <div className="flex min-w-0 items-center gap-2">
+      {/* Label spans the full cell. It used to sit in a column beside the icon,
+          which cost it ~36px and clipped ordinary labels to "OPEN W..." — an
+          uppercase, letter-spaced label has no room to spare. The icon now
+          pairs with the value instead, where a fixed-width glyph belongs. */}
+      <div className="text-[11px] font-semibold uppercase leading-4 tracking-[0.08em] text-[var(--muted)]">{item.label}</div>
+      <div className="mt-1.5 flex min-w-0 items-center gap-2">
         {Icon ? (
           <span className={cn("inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-md)] border", toneClasses[tone].soft, toneClasses[tone].border)}>
             <Icon className={cn("h-3.5 w-3.5", toneClasses[tone].text)} />
           </span>
         ) : null}
-        <div className="min-w-0">
-          <div className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">{item.label}</div>
-          <div className={cn("mt-1 truncate font-semibold tabular-nums text-[var(--foreground)]", compact ? "text-lg" : "text-2xl")}>
-            {item.value}
-          </div>
+        <div className={cn("min-w-0 truncate font-semibold tabular-nums text-[var(--foreground)]", compact ? "text-lg" : "text-2xl")}>
+          {item.value}
         </div>
       </div>
-      {item.caption ? <div className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--muted)]">{item.caption}</div> : null}
+      {item.caption ? <div className="mt-1.5 text-xs leading-5 text-[var(--muted)]">{item.caption}</div> : null}
     </div>
   );
 }
@@ -226,7 +228,10 @@ export function ProductionMetricStrip({
           <h2 className="mt-1 text-base font-semibold">{title}</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{description}</p>
         </div>
-        <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Four across only once there is genuinely room. Beside a 260px title
+            column, a 4-up grid left each cell too narrow for its own caption,
+            so captions clipped to "Client asks needing...". 2x2 until 2xl. */}
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
           {metrics.map((metric) => (
             <MetricCell key={metric.label} item={metric} />
           ))}

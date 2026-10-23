@@ -264,11 +264,9 @@ function ClientOperationsClientHeader({ workspace }: { workspace: ClientOperatio
 
 function ClientOperationsRouteSummary({
   pathname,
-  routeTitle,
   workspace,
 }: {
   pathname: string;
-  routeTitle: { title: string; subtitle?: string };
   workspace: ClientOperationsWorkspace;
 }) {
   const currentOverview = workspace.overview;
@@ -369,19 +367,24 @@ function ClientOperationsRouteSummary({
       ];
     }
 
+    // Overview. Four things a team actually acts on, ordered by who is blocked:
+    // us, then them, then the trend. "Reports" lives on its own route and is a
+    // record count, not an action, so it does not earn a slot here.
     return [
-      { label: "Open work", value: openWork.length, caption: "Client-visible production items", icon: Activity, tone: "info" },
-      { label: "Open requests", value: workspace.summary.openTicketCount, caption: "Client asks needing handling", icon: Ticket, tone: "warning" },
-      { label: "Approvals", value: openApprovals.length, caption: "Waiting on decisions", icon: CheckCircle2, tone: "success" },
-      { label: "Reports", value: reports.length, caption: "Client performance records", icon: BarChart3, tone: "accent" },
+      { label: "Open work", value: openWork.length, caption: "In production now", icon: Activity, tone: "info" },
+      { label: "Open requests", value: workspace.summary.openTicketCount, caption: "Client is waiting on us", icon: Ticket, tone: "warning" },
+      { label: "Approvals", value: openApprovals.length, caption: "We are waiting on them", icon: CheckCircle2, tone: "success" },
+      { label: "Progress", value: `${command.averageProgress}%`, caption: "Average across projects", icon: Gauge, tone: "accent" },
     ];
   }
 
   return (
     <ProductionMetricStrip
-      eyebrow="Control surface"
-      title={`${routeTitle.title} for ${currentOverview.organization.name}`}
-      description={routeTitle.subtitle || "Client operations control route."}
+      eyebrow="Overview"
+      title={currentOverview.organization.name}
+      // Deliberately not routeTitle.subtitle - the page Header directly above
+      // already shows it, and repeating it here was pure noise.
+      description="What is open, who is blocked, and how delivery is tracking."
       metrics={metricsForRoute(currentOverview)}
     />
   );
@@ -441,7 +444,7 @@ export default function ClientOperationsShell({
                 {showOverviewBanners ? (
                   <>
                     <ClientOperationsClientHeader workspace={workspace} />
-                    <ClientOperationsRouteSummary pathname={pathname} routeTitle={routeTitle} workspace={workspace} />
+                    <ClientOperationsRouteSummary pathname={pathname} workspace={workspace} />
                   </>
                 ) : null}
                 {children(workspace)}

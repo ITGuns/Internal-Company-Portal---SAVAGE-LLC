@@ -5,11 +5,9 @@ import {
   Activity,
   BarChart3,
   BriefcaseBusiness,
-  CheckCircle2,
   Clock,
   FileText,
   FolderOpen,
-  Gauge,
   Ticket,
   UserPlus,
 } from "lucide-react";
@@ -19,11 +17,9 @@ import ClientOperationsPanel from "@/components/client-portal/ClientOperationsPa
 import ClientOperationsShell from "@/components/client-portal/ClientOperationsShell";
 import EmptyState from "@/components/ui/EmptyState";
 import StatusBadge from "@/components/ui/StatusBadge";
-import { ProductionMetricStrip, type ProductionMetricItem } from "@/components/workspace/ProductionWorkspace";
 import { withClientOperationsClientParam } from "@/lib/client-operations-navigation";
 import { getClientPortalOptionLabel, CLIENT_PROJECT_STATUSES } from "@/lib/client-portal-options";
 import { formatClientPortalDate, getClientBillingTierLabel } from "@/lib/client-portal-display";
-import { buildClientCommandCenter } from "@/lib/client-portal-command";
 
 const quickLinks = [
   {
@@ -77,28 +73,16 @@ export default function ClientOperationsOverviewPage() {
         }
 
         const overview = workspace.overview;
-        const commandCenter = buildClientCommandCenter(overview);
-        const openApprovals = (overview.approvals || []).filter((approval) => approval.status === "pending");
-        const openWork = (overview.workItems || []).filter((item) => !["completed", "archived"].includes(item.status));
         const latestUpdate = overview.updates[0] || null;
         const latestReport = overview.reports?.[0] || null;
         const billingStatus = overview.billingStatus;
-        const operationsMetrics: ProductionMetricItem[] = [
-          { label: "Open work", value: openWork.length, caption: "Client-visible production items", icon: Activity, tone: "info" },
-          { label: "Open requests", value: workspace.summary.openTicketCount, caption: "Client asks needing handling", icon: Ticket, tone: "warning" },
-          { label: "Approvals", value: openApprovals.length, caption: "Waiting on client decisions", icon: CheckCircle2, tone: "success" },
-          { label: "Progress", value: `${commandCenter.averageProgress}%`, caption: "Average project completion", icon: Gauge, tone: "accent" },
-        ];
 
+        // No metric strip here: the shell already renders one for this route
+        // (ClientOperationsRouteSummary). Rendering a second stacked one meant
+        // Open work / Open requests / Approvals appeared twice with identical
+        // values, so the page read as two competing dashboards.
         return (
           <div className="space-y-5">
-            <ProductionMetricStrip
-              eyebrow="Operations signal"
-              title="Team-facing client command picture"
-              description="Route the next admin action from real requests, approvals, work items, reports, and progress instead of a disconnected dashboard."
-              metrics={operationsMetrics}
-            />
-
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
               <ClientOperationsPanel icon={Clock} title="Action Queue" count={workspace.queueItems.length}>
                 <ClientActionQueue items={workspace.queueItems} showOrganization={false} />
