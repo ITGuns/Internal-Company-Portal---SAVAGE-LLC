@@ -208,7 +208,8 @@ async function runApprovalSetupEmailTest() {
   let sentTemplate: string | undefined
   let sentResetUrl: string | undefined
 
-  ;(controller as any).authorizeBypass = async () => true
+  // A management requester without payroll access (review fix 2026-10-28: pay fields stay out).
+  ;(controller as any).resolveEmployeeAccess = async () => ({ allowed: true, visibility: { includePay: false } })
   ;(controller as any).employeesService = {
     approve: async () => ({
       user: {
@@ -254,6 +255,7 @@ async function runApprovalSetupEmailTest() {
       assert.equal(response.status, 200)
       assert.equal(response.body.success, true)
       assert.equal(response.body.user.email, 'approved.employee@example.com')
+      assert.equal('salary' in response.body.user, false, 'no pay fields without payroll access')
       assert.equal(response.body.onboarding.setupRequired, true)
       assert.equal(response.body.onboarding.emailSent, true)
       assert.equal(Object.prototype.hasOwnProperty.call(response.body.onboarding, 'setupUrl'), false)

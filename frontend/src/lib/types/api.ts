@@ -111,6 +111,13 @@ export interface ApiPayslip {
   editedById?: string | null;
   editedAt?: string | null;
   editNote?: string | null;
+  // Disbursement sign-off (2026-10-28).
+  approvalStatus?: string | null;
+  approvedById?: string | null;
+  approvedAt?: string | null;
+  approvalSignerName?: string | null;
+  approvalSignature?: string | null;
+  approvalNote?: string | null;
 }
 
 export interface ApiPayrollEvent {
@@ -158,6 +165,7 @@ export interface ApiEmployee {
   paymentFrequency?: string | null;
   employmentType?: string | null;
   currency?: string | null;
+  taxRule?: string | null;
   employeeProfile?: ApiEmployeeProfile;
 }
 

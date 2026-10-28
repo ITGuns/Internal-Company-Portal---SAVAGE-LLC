@@ -1,5 +1,6 @@
 import {
   hasManagementAccess,
+  hasPayrollManagementAccess,
   isClientDirectoryOnlyRoleName,
   normalizeOrgRoleName,
 } from '../org/org-access-policy'
@@ -22,6 +23,7 @@ type EmployeeProfileLike = {
   taxId?: string | null
   currency?: string | null
   paymentFrequency?: string | null
+  taxRule?: string | null
 }
 
 type ClientMembershipLike = {
@@ -66,6 +68,20 @@ export function hasEmployeeManagementAccess(
   return hasManagementAccess(roles)
 }
 
+/** Whether the employee lists may carry pay fields for this requester. */
+export interface EmployeePayVisibility {
+  includePay: boolean
+}
+
+/**
+ * Salary, scheme, pay basis, tax rule and the other pay fields go to payroll
+ * roles and configured admins only; other managers get the list without them
+ * (review fix 2026-10-28, the same rule as GET /payroll/config).
+ */
+export function employeePayVisibility(roles: RoleLike[] = [], isConfiguredAdminEmail = false): EmployeePayVisibility {
+  return { includePay: hasPayrollManagementAccess(roles, isConfiguredAdminEmail) }
+}
+
 function hasClientMembership(clientMemberships: ClientMembershipLike[] = []): boolean {
   return clientMemberships.length > 0
 }
@@ -106,10 +122,15 @@ export function serializeEmployeeApplication(employee: EmployeeLike) {
   }
 }
 
-export function serializeDeployedEmployee(employee: EmployeeLike) {
+/**
+ * One employee for the management lists. Pay fields are left out unless
+ * `visibility.includePay` (payroll roles; employeePayVisibility). The default
+ * leaves them out, so a caller that forgets the requester's access leaks nothing.
+ */
+export function serializeDeployedEmployee(employee: EmployeeLike, visibility: EmployeePayVisibility = { includePay: false }) {
   const primaryRole = employee.roles?.[0]
 
-  return {
+  const base = {
     id: employee.id,
     email: employee.email ?? '',
     name: employee.name ?? '',
@@ -123,21 +144,29 @@ export function serializeDeployedEmployee(employee: EmployeeLike) {
     appliedDate: serializeDate(employee.appliedDate) ?? null,
     role: employee.role || employee.employeeProfile?.jobTitle || primaryRole?.role || 'Member',
     department: employee.department || primaryRole?.department?.name || 'Operations',
+    // Employee category (2026-10-28); a label, not pay.
+    employmentType: employee.employeeProfile?.employmentType ?? null,
+    hoursThisWeek: employee.hoursThisWeek ?? 0,
+    performance: employee.performance ?? null,
+  }
+  if (!visibility.includePay) return base
+
+  return {
+    ...base,
     salary: employee.salary ?? employee.employeeProfile?.baseSalary ?? 0,
     // Scheme key; null until the member has a payroll profile (the default scheme applies then).
     payrollScheme: employee.employeeProfile?.payrollScheme ?? null,
     maxBillableHoursPerDay: employee.employeeProfile?.maxBillableHoursPerDay ?? 8,
-    // Shown on the admin payslip view (payroll v2). Not sensitive: no rates or salary detail.
+    // Shown on the admin payslip view (payroll v2).
     payBasis: employee.employeeProfile?.payBasis ?? 'hourly_from_monthly',
     // Labels for the Employee Overview pay summary (2026-10-20); values of the managed lists.
     paymentFrequency: employee.employeeProfile?.paymentFrequency ?? null,
-    employmentType: employee.employeeProfile?.employmentType ?? null,
     currency: employee.employeeProfile?.currency ?? null,
-    hoursThisWeek: employee.hoursThisWeek ?? 0,
-    performance: employee.performance ?? null,
+    // Withholding tax choice (2026-10-28): null = workspace default, 'none', or a rule key.
+    taxRule: employee.employeeProfile?.taxRule ?? null,
   }
 }
 
-export function serializeEmployeesForManagement(employees: EmployeeLike[]) {
-  return employees.map(serializeDeployedEmployee)
+export function serializeEmployeesForManagement(employees: EmployeeLike[], visibility: EmployeePayVisibility = { includePay: false }) {
+  return employees.map((employee) => serializeDeployedEmployee(employee, visibility))
 }

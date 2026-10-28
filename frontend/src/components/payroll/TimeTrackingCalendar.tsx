@@ -1,11 +1,20 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Cake, CheckCircle2, Calendar, Loader2 } from "lucide-react";
 import type { Employee, LeaveRecord } from "@/lib/payroll-calendar/types";
-import { fetchTimeEntries, type TimeEntry } from "@/lib/time-entries";
+import { fetchTimeEntriesOrThrow, type TimeEntry } from "@/lib/time-entries";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
+import { useUser } from "@/contexts/UserContext";
+import { hasManagementAccess } from "@/lib/role-access";
 import type { DayTask } from "@/lib/types/api";
-import { PAYROLL_TIME_ZONE, getPayrollDayKey } from "@/lib/time-requests";
+import {
+  manilaDayBounds,
+  manilaDayKey,
+  manilaTimeInput,
+  manilaTodayKey,
+  monthDayKeysFor,
+  shiftMonth,
+} from "@/lib/payroll-dates";
 import { getCalendarPayHeader } from "@/lib/pay-basis";
 import { findScheme } from "@/lib/payroll-options";
 import { usePayrollProfile, usePayrollSchemes } from "./usePayrollOptions";
@@ -30,15 +39,13 @@ interface TimeTrackingCalendarProps {
   refreshKey?: number;
 }
 
-// ... helper functions omitted for brevity in instruction, but kept in replacement if possible ...
-
-// Helper to get days in month
+// Calendar math on year / month numbers (month 0 to 11) in UTC, so the browser zone never shifts a day.
 const getDaysInMonth = (year: number, month: number) => {
-  return new Date(year, month + 1, 0).getDate();
+  return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
 };
 
 const getFirstDayOfMonth = (year: number, month: number) => {
-  return new Date(year, month, 1).getDay();
+  return new Date(Date.UTC(year, month, 1)).getUTCDay();
 };
 
 const formatDate = (year: number, month: number, day: number) => {
@@ -47,12 +54,15 @@ const formatDate = (year: number, month: number, day: number) => {
 
 const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-/** Clock time in the payroll timezone (Manila), whatever the browser zone is. */
-const formatClockTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: PAYROLL_TIME_ZONE });
+/** Clock time (24 hour) in the payroll timezone (Manila), whatever the browser zone is. */
+const formatClockTime = (iso: string) => manilaTimeInput(iso) ?? "";
 
-/** Manila midnight of a YYYY-MM-DD day (Manila has no daylight saving). */
-const manilaMidnightIso = (dateKey: string) => new Date(`${dateKey}T00:00:00+08:00`).toISOString();
+/** The Manila month (month 0 to 11) that contains today. */
+function currentManilaMonth(): { year: number; month: number } {
+  const [year, month] = manilaTodayKey().split("-").map(Number);
+  return { year, month: month - 1 };
+}
+
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
@@ -64,7 +74,13 @@ export default function TimeTrackingCalendar({
   refreshKey = 0,
 }: TimeTrackingCalendarProps) {
   const toast = useToast();
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const { user } = useUser();
+  // GET /tasks/assignee/:id is for management roles or your own tasks
+  // (backend canRequestAssigneeTasks); payroll-only roles skip it.
+  const canViewTasks = Boolean(employee) && (
+    hasManagementAccess(user) || (user?.id != null && String(user.id) === String(employee?.id))
+  );
+  const [viewMonth, setViewMonth] = useState(currentManilaMonth);
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
   const [showDayDetails, setShowDayDetails] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
@@ -75,40 +91,41 @@ export default function TimeTrackingCalendar({
   const { data: payProfile } = usePayrollProfile(employee ? String(employee.id) : null);
   const { data: schemes } = usePayrollSchemes(Boolean(employee));
 
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
+  const { year, month } = viewMonth;
+  const employeeId = employee ? String(employee.id) : null;
 
-  // Fetch real time entries from API
+  // Time entries (required) and completed tasks (optional) for the month shown.
   useEffect(() => {
+    if (!employeeId) return;
+    let cancelled = false;
     const fetchData = async () => {
-      if (!employee) return;
       setIsFetching(true);
-      try {
-        // Whole Manila days of the month; entries are bucketed by Manila day below.
-        const startOfMonth = manilaMidnightIso(formatDate(year, month, 1));
-        const nextMonth = new Date(year, month + 1, 1);
-        const endOfMonth = manilaMidnightIso(formatDate(nextMonth.getFullYear(), nextMonth.getMonth(), 1));
-
-        // 1. Fetch Time Entries
-        const entries = await fetchTimeEntries(startOfMonth, endOfMonth, String(employee.id));
-        setTimeEntries(entries);
-
-        // 2. Fetch Tasks for this employee
-        const tasksRes = await apiFetch(`/tasks/assignee/${employee.id}`);
-        if (tasksRes.ok) {
-          const tasksData = await tasksRes.json();
-          setTasks(tasksData);
-        }
-      } catch (err) {
-        console.error("Failed to fetch calendar data", err);
+      // Whole Manila days of the month; entries are bucketed by Manila day below.
+      const days = monthDayKeysFor(year, month + 1);
+      const [entriesResult, tasksResult] = await Promise.allSettled([
+        fetchTimeEntriesOrThrow(manilaDayBounds(days.start)?.startIso, manilaDayBounds(days.end)?.endIso, employeeId),
+        canViewTasks
+          ? apiFetch(`/tasks/assignee/${employeeId}`).then((res) => res.json() as Promise<RawApiTask[]>)
+          : Promise.resolve([] as RawApiTask[]),
+      ]);
+      if (cancelled) return;
+      if (entriesResult.status === "fulfilled") {
+        setTimeEntries(entriesResult.value);
+      } else {
+        // Never leave another month's or person's hours on screen after a failure.
+        setTimeEntries([]);
         toast.error("Failed to load calendar data");
-      } finally {
-        setIsFetching(false);
       }
+      // The task list only adds badges: a refusal or failure leaves it empty, never the calendar.
+      setTasks(tasksResult.status === "fulfilled" && Array.isArray(tasksResult.value) ? tasksResult.value : []);
+      setIsFetching(false);
     };
 
-    fetchData();
-  }, [employee, month, year, refreshKey, toast]);
+    void fetchData();
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId, canViewTasks, month, year, refreshKey, toast]);
 
 
   // Leave records — no mock data; real API to be wired later
@@ -120,7 +137,7 @@ export default function TimeTrackingCalendar({
   const { totalHours, dailyHours } = useMemo(() => {
     const byDay = new Map<string, number>();
     for (const entry of timeEntries) {
-      const day = getPayrollDayKey(entry.start) ?? entry.start;
+      const day = manilaDayKey(entry.start) ?? entry.start;
       byDay.set(day, (byDay.get(day) ?? 0) + (entry.durationMin || 0) / 60);
     }
     const days = [...byDay.values()];
@@ -129,8 +146,9 @@ export default function TimeTrackingCalendar({
 
   // Until the profile loads the header falls back to the employee list.
   const scheme = findScheme(schemes, payProfile?.payrollScheme ?? employee?.payrollScheme);
+  const payBasis = payProfile?.payBasis ?? employee?.payBasis;
   const payHeader = getCalendarPayHeader({
-    payBasis: payProfile?.payBasis ?? employee?.payBasis,
+    payBasis,
     baseSalary: payProfile?.baseSalary ?? employee?.salary,
     hourlyRate: payProfile?.hourlyRate,
     maxBillableHoursPerDay: payProfile?.maxBillableHoursPerDay ?? employee?.maxBillableHoursPerDay,
@@ -138,16 +156,16 @@ export default function TimeTrackingCalendar({
     maxCreditedDays: scheme?.maxCreditedDays,
     dailyHours,
   });
+  // A fixed monthly salary is paid whatever the hours; the scheme only prices
+  // overtime, so the header names the basis (the payslip line says the same).
+  const payLabel = payHeader.label;
 
-  // Navigate to previous month
-  const handlePrevMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1));
+  const moveMonth = (delta: number) => {
+    const next = shiftMonth(year, month + 1, delta);
+    setViewMonth({ year: next.year, month: next.month - 1 });
   };
-
-  // Navigate to next month
-  const handleNextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1));
-  };
+  const handlePrevMonth = () => moveMonth(-1);
+  const handleNextMonth = () => moveMonth(1);
 
 
   // Check if date is within a leave period
@@ -157,17 +175,15 @@ export default function TimeTrackingCalendar({
     }) || null;
   };
 
-  // Check if it's employee's birthday
-  const isBirthday = (day: number): boolean => {
-    if (!employee?.birthday) return false;
-    const birthday = new Date(employee.birthday);
-    return birthday.getMonth() === month && birthday.getDate() === day;
-  };
+  // Birthday as "MM-DD"; a date-only birthday is that day, never UTC midnight shown in the browser zone.
+  const birthdayMonthDay = manilaDayKey(employee?.birthday)?.slice(5) ?? null;
+  const isBirthday = (day: number): boolean =>
+    birthdayMonthDay === formatDate(year, month, day).slice(5);
 
   // Get aggregated time entry for a specific date (sums all sessions that day)
   const getTimeEntry = (dateStr: string): DayTimeEntry | null => {
     // Bucket by the Manila day of the entry start, like the server does.
-    const dayEntries = timeEntries.filter((e) => getPayrollDayKey(e.start) === dateStr);
+    const dayEntries = timeEntries.filter((e) => manilaDayKey(e.start) === dateStr);
     if (dayEntries.length === 0) return null;
 
     const totalMinutes = dayEntries.reduce((sum, e) => sum + (e.durationMin || 0), 0);
@@ -188,7 +204,7 @@ export default function TimeTrackingCalendar({
   // Tasks — show real tasks from API
   const getTasksForDate = (dateStr: string): DayTask[] => {
     return tasks
-      .filter((t) => t.status === "completed" && t.dueDate?.startsWith(dateStr))
+      .filter((t) => t.status === "completed" && manilaDayKey(t.dueDate) === dateStr)
       .map(t => ({
         id: t.id,
         title: t.title,
@@ -204,6 +220,7 @@ export default function TimeTrackingCalendar({
   };
 
   // Generate calendar grid
+  const todayKey = manilaTodayKey();
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(year, month);
     const firstDay = getFirstDayOfMonth(year, month);
@@ -231,7 +248,7 @@ export default function TimeTrackingCalendar({
       const timeEntry = getTimeEntry(dateStr);
       const leaveRecord = getLeaveForDate(dateStr);
       const tasksForDay = getTasksForDate(dateStr);
-      const isToday = getPayrollDayKey(new Date()) === dateStr;
+      const isToday = todayKey === dateStr;
       const hasBirthday = isBirthday(day);
 
       // Determine cell background
@@ -371,7 +388,7 @@ export default function TimeTrackingCalendar({
             {payHeader.amount !== null && <> / ₱{payHeader.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</>}
           </div>
           <div className="text-xs text-[var(--muted)] mt-1 font-medium">
-            ({payHeader.label})
+            ({payLabel})
           </div>
         </div>
 
@@ -435,6 +452,7 @@ export default function TimeTrackingCalendar({
           date={selectedDayDate}
           timeEntry={getTimeEntry(selectedDayDate)}
           tasks={getTasksForDate(selectedDayDate)}
+          tasksHiddenNote={canViewTasks ? undefined : "Completed tasks are shown to managers."}
           employeeName={employee?.name || ""}
           onDeleteSession={onDeleteTimeEntry}
         />

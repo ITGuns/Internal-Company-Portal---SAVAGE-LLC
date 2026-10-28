@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict'
 import {
+  employeePayVisibility,
   hasEmployeeManagementAccess,
   isClientOnlyAccount,
   isInternalEmployeeAccount,
   serializeDeployedEmployee,
   serializeEmployeeApplication,
+  serializeEmployeesForManagement,
 } from '../src/employees/employees.security'
 
 assert.equal(hasEmployeeManagementAccess([{ role: 'Operations Manager' }]), true)
@@ -43,7 +45,7 @@ assert.deepEqual(application, {
   avatar: null,
 })
 
-const deployed = serializeDeployedEmployee({
+const deployedEmployee = {
   id: 'user-2',
   email: 'employee@example.com',
   name: 'Employee',
@@ -63,10 +65,21 @@ const deployed = serializeDeployedEmployee({
     maxBillableHoursPerDay: 7.5,
     bankAccount: '456',
     taxId: 'TIN',
+    taxRule: 'withholding_5',
   },
   hoursThisWeek: 8,
   performance: 0,
-})
+}
+
+// Pay fields go to payroll roles and configured admins only (review fix 2026-10-28).
+const payrollView = employeePayVisibility([{ role: 'Bookkeeping' }])
+const managerView = employeePayVisibility([{ role: 'Project Manager' }])
+assert.deepEqual(payrollView, { includePay: true })
+assert.deepEqual(managerView, { includePay: false }, 'a manager without a payroll role gets no pay fields')
+assert.deepEqual(employeePayVisibility([{ role: 'Operations Manager' }]), { includePay: true }, 'operations managers are payroll roles')
+assert.deepEqual(employeePayVisibility([], true), { includePay: true }, 'configured admin emails')
+
+const deployed = serializeDeployedEmployee(deployedEmployee, payrollView)
 
 assert.equal('password' in deployed, false)
 assert.equal('employeeProfile' in deployed, false)
@@ -91,11 +104,33 @@ assert.deepEqual(deployed, {
   paymentFrequency: null,
   employmentType: 'Full Time',
   currency: null,
+  taxRule: 'withholding_5',
   hoursThisWeek: 8,
   performance: 0,
 })
 
+// A manager without a payroll role: the same row without salary, scheme, pay basis, tax or cap.
+const managerRow = serializeDeployedEmployee(deployedEmployee, managerView)
+for (const field of ['salary', 'payrollScheme', 'maxBillableHoursPerDay', 'payBasis', 'paymentFrequency', 'currency', 'taxRule']) {
+  assert.equal(field in managerRow, false, `${field} is left out for a manager without a payroll role`)
+}
+assert.equal(managerRow.employmentType, 'Full Time', 'the category is a label, not pay')
+assert.equal(managerRow.role, 'Designer')
+assert.equal('salary' in serializeDeployedEmployee(deployedEmployee), false, 'without a visibility no pay fields leave')
+assert.deepEqual(
+  serializeEmployeesForManagement([deployedEmployee], managerView).map((row) => 'salary' in row),
+  [false],
+)
+assert.deepEqual(
+  serializeEmployeesForManagement([deployedEmployee], payrollView).map((row) => (row as { salary?: number }).salary),
+  [75000],
+)
+
 // No payroll profile yet: no scheme key (the default scheme applies once one is created).
-assert.equal(serializeDeployedEmployee({ id: 'user-3', employeeProfile: null }).payrollScheme, null)
+const payOf = (employee: Parameters<typeof serializeDeployedEmployee>[0]) =>
+  serializeDeployedEmployee(employee, payrollView) as { payrollScheme?: string | null; taxRule?: string | null }
+assert.equal(payOf({ id: 'user-3', employeeProfile: null }).payrollScheme, null)
+// The withholding tax choice (2026-10-28): null follows the workspace default.
+assert.equal(payOf({ id: 'user-4', employeeProfile: { taxRule: 'none' } }).taxRule, 'none')
 
 console.log('employees.security tests passed')

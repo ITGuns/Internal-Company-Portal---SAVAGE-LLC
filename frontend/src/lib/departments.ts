@@ -55,6 +55,8 @@ export const DEPARTMENT_ROLES: Record<string, string[]> = {
   'Payroll / Finance': [
     'Bookkeeping',
     'Contractor & Salary Payments',
+    // Signs off payslips for disbursement (2026-10-28).
+    'Disbursement Officer',
   ],
 };
 

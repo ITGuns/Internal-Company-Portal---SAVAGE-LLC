@@ -6,6 +6,7 @@ import { PayrollNotFoundError } from './payroll.errors'
 import { PayrollAccess, PAYROLL_MANAGEMENT_ROUTE_ROLES } from './payroll.permissions'
 import { isPayrollOptionCategory, PayrollOptionCategory } from './payroll-options.validation'
 import { PayrollOptionsService, payrollOptionsService } from './payroll-options.service'
+import { PayrollTaxRulesService, payrollTaxRulesService } from './payroll-tax-rules.service'
 
 const logger = createLogger('payroll.options.routes')
 
@@ -16,6 +17,7 @@ export interface PayrollOptionRouteDeps {
     getAccess: (req: Request) => Promise<PayrollAccess | null>
     sendError: (res: Response, error: unknown, fallback: string) => unknown
     service?: PayrollOptionsService
+    taxRules?: PayrollTaxRulesService
 }
 
 function param(req: Request, name: string): string {
@@ -31,12 +33,14 @@ function categoryOf(req: Request): PayrollOptionCategory {
 
 /**
  * Managed payroll lists (2026-10-20), registered on the /payroll router:
- * /schemes and /options/:category (employment_type | payment_frequency).
+ * /schemes, /options/:category (employment_type | payment_frequency) and,
+ * since 2026-10-28, /tax-rules (withholding tax).
  * Reads: any signed-in user (pages show scheme names and labels); usage counts
  * only for payroll roles. Writes: PAYROLL_MANAGEMENT_ROUTE_ROLES.
  */
 export function registerPayrollOptionRoutes(router: Router, deps: PayrollOptionRouteDeps): Router {
     const service = deps.service || payrollOptionsService
+    const taxRules = deps.taxRules || payrollTaxRulesService
     const manage = requireRole([...PAYROLL_MANAGEMENT_ROUTE_ROLES])
     const broadcast = () => notificationService.broadcastDataChange(PAYROLL_OPTIONS_RESOURCE)
 
@@ -88,6 +92,25 @@ export function registerPayrollOptionRoutes(router: Router, deps: PayrollOptionR
     }))
     router.delete('/options/:category/:id', authenticateToken, manage, withAccess('Failed to delete the option', async (req, res) => {
         await service.deleteOption(categoryOf(req), param(req, 'id'))
+        broadcast()
+        return res.json({ success: true })
+    }))
+
+    router.get('/tax-rules', authenticateToken, withAccess('Failed to load tax rules', async (_req, res, access) => {
+        return res.json(await taxRules.listRules({ includeUsage: access.isPrivileged }))
+    }))
+    router.post('/tax-rules', authenticateToken, manage, withAccess('Failed to add the tax rule', async (req, res) => {
+        const created = await taxRules.createRule(req.body || {})
+        broadcast()
+        return res.status(201).json(created)
+    }))
+    router.patch('/tax-rules/:id', authenticateToken, manage, withAccess('Failed to update the tax rule', async (req, res) => {
+        const updated = await taxRules.updateRule(param(req, 'id'), req.body || {})
+        broadcast()
+        return res.json(updated)
+    }))
+    router.delete('/tax-rules/:id', authenticateToken, manage, withAccess('Failed to delete the tax rule', async (req, res) => {
+        await taxRules.deleteRule(param(req, 'id'))
         broadcast()
         return res.json({ success: true })
     }))

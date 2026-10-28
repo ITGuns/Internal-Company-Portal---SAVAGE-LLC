@@ -129,7 +129,8 @@ test('calendar header names the scheme and its credited cap', () => {
   });
   assert.equal(
     getCalendarPayHeader({ ...month, payBasis: 'fixed_monthly', schemeName: 'Weekdays of month', maxCreditedDays: null }).label,
-    'Monthly base salary · Weekdays of month',
+    'Fixed monthly salary',
+    'a fixed salary is paid as is, so the scheme is not named',
   );
   // hourly_rate: 23 days x 8 h = 184 h, credited up to 22 x 8 = 176 h.
   assert.deepEqual(plain(getCalendarPayHeader({ ...month, payBasis: 'hourly_rate', schemeName: '22 credited days', maxCreditedDays: 22 })), {

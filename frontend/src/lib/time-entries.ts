@@ -44,28 +44,38 @@ const mapBackendToFrontend = (data: ApiTimeEntry): TimeEntry => {
 }
 
 /**
- * Fetch time entries from API
- * @param startDate - ISO string for range start
- * @param endDate - ISO string for range end
+ * Fetch time entries, throwing when the server refuses or fails (the payroll
+ * calendar shows that with a retry instead of an empty grid).
+ * @param startDate - ISO string for range start (inclusive)
+ * @param endDate - ISO string for range end (inclusive)
  * @param userId - Optional: target a specific user (for admin/manager views)
+ */
+export async function fetchTimeEntriesOrThrow(startDate?: string, endDate?: string, userId?: string): Promise<TimeEntry[]> {
+  const query = new URLSearchParams();
+  if (startDate) query.append('start', startDate);
+  if (endDate) query.append('end', endDate);
+  if (userId) query.append('userId', userId);
+
+  // apiFetch throws with the server's message on any non-2xx response.
+  const res = await apiFetch(`/payroll/time-entries?${query.toString()}`);
+  if (res.status !== 200) throw new Error(`Could not load time entries (status ${res.status})`);
+  const data: unknown = await res.json();
+  if (!Array.isArray(data)) throw new Error('Could not load time entries (unexpected response)');
+  return data.filter(isApiTimeEntry).map(mapBackendToFrontend);
+}
+
+/**
+ * Fetch time entries, or an empty list on any failure. For surfaces that treat
+ * time entries as optional (useTimeEntriesQuery); the payroll calendar uses
+ * fetchTimeEntriesOrThrow.
  */
 export async function fetchTimeEntries(startDate?: string, endDate?: string, userId?: string): Promise<TimeEntry[]> {
   try {
-    const query = new URLSearchParams();
-    if (startDate) query.append('start', startDate);
-    if (endDate) query.append('end', endDate);
-    if (userId) query.append('userId', userId);
-
-    const res = await apiFetch(`/payroll/time-entries?${query.toString()}`);
-    if (res.status === 200) {
-      const data = await res.json();
-      if (!Array.isArray(data)) return [];
-      return data.filter(isApiTimeEntry).map(mapBackendToFrontend);
-    }
+    return await fetchTimeEntriesOrThrow(startDate, endDate, userId);
   } catch (error) {
     console.error('Failed to fetch time entries:', error);
+    return [];
   }
-  return [];
 }
 
 /**

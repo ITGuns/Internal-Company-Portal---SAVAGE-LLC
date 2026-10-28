@@ -17,6 +17,7 @@ import { useToast } from "@/components/ToastProvider";
 import type { Employee } from "@/lib/payroll-calendar/types";
 import { validatePayBasisConfig } from "@/lib/pay-basis";
 import { findScheme } from "@/lib/payroll-options";
+import { resolveTaxRule } from "@/lib/payroll-tax";
 import {
   PAYROLL_OPTIONS_QUERY_KEY,
   PAYROLL_PROFILE_QUERY_KEY,
@@ -137,6 +138,8 @@ export default function PayrollSetupModal({
   // An unknown or deleted scheme key shows (and saves) the default scheme.
   const scheme = form ? findScheme(catalog.schemes, form.payrollScheme) : undefined;
   const schemeKey = scheme?.key ?? "";
+  // The rule the Tax choice applies (null: no tax), for the rate preview.
+  const taxRule = form && catalog.taxRules ? resolveTaxRule(catalog.taxRules, form.taxRule) : undefined;
   const payBasisCheck = form ? validatePayBasisConfig(form) : null;
   const capError = form ? validateCapHours(form.maxBillableHoursPerDay) : undefined;
   const canSave = Boolean(form && payBasisCheck?.valid && !capError && schemeKey && !isSaving);
@@ -211,13 +214,13 @@ export default function PayrollSetupModal({
                   onChange={updateForm}
                 />
               </section>
-              <PayrollRatePreview form={form} scheme={scheme} referenceDate={referenceDate} />
+              <PayrollRatePreview form={form} scheme={scheme} referenceDate={referenceDate} taxRule={taxRule} />
             </div>
 
             <div className="min-w-0 space-y-5">
               {onManageOptions && (
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-md)] border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted)]">
-                  <span>Employment types, pay frequencies and schemes are lists you can change.</span>
+                  <span>Employment types, pay frequencies, schemes and tax rules are lists you can change.</span>
                   <button
                     type="button"
                     onClick={onManageOptions}
@@ -235,6 +238,7 @@ export default function PayrollSetupModal({
                 schemes={catalog.schemes}
                 employmentTypes={catalog.employmentTypes}
                 paymentFrequencies={catalog.paymentFrequencies}
+                taxRules={catalog.taxRules}
                 listsLoading={!catalog.isReady}
                 errors={{
                   baseSalary: payBasisCheck?.errors.baseSalary,

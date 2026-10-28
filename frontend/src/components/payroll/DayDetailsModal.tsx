@@ -7,6 +7,7 @@ import React from "react";
 import { Clock, CheckCircle2, Trash2 } from "lucide-react";
 import Modal from "@/components/Modal";
 import type { DayTask } from "@/lib/types/api";
+import { formatPayrollDate, formatPayrollTime } from "@/lib/payroll-dates";
 
 /** One session row (from the actual backend TimeEntry) */
 export interface DayTimeSession {
@@ -30,18 +31,14 @@ interface DayDetailsModalProps {
   date: string;
   timeEntry: DayTimeEntry | null;
   tasks: DayTask[];
+  /** Shown instead of "No tasks completed" when the viewer cannot read this person's tasks. */
+  tasksHiddenNote?: string;
   employeeName: string;
   onDeleteSession?: (id: string) => void;
 }
 
-// Format an ISO string to a readable time e.g. "09:32 AM"
-function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
+// Clock time in Manila, the payroll zone, e.g. "09:32 AM".
+const fmtTime = (iso: string): string => formatPayrollTime(iso);
 
 // Format minutes to "Xh Ym"
 function fmtDuration(minutes: number): string {
@@ -58,18 +55,13 @@ export default function DayDetailsModal({
   date,
   timeEntry,
   tasks,
+  tasksHiddenNote,
   employeeName,
   onDeleteSession,
 }: DayDetailsModalProps) {
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
+  // `date` is a Manila day key; new Date("YYYY-MM-DD") would be UTC midnight, a day early west of UTC.
+  const formatDate = (dateStr: string) =>
+    formatPayrollDate(dateStr, { format: { weekday: "long", year: "numeric", month: "long", day: "numeric" } });
 
   const hasSessions = timeEntry && timeEntry.sessions.length > 0;
 
@@ -220,7 +212,7 @@ export default function DayDetailsModal({
               </div>
             ) : (
               <p className="text-sm text-[var(--muted)] text-center py-4">
-                No tasks completed for this day
+                {tasksHiddenNote ?? "No tasks completed for this day"}
               </p>
             )}
           </div>

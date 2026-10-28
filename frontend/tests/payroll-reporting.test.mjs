@@ -114,7 +114,7 @@ test('builds department cost summaries and CSV exports', () => {
   );
 
   assert.match(buildPayslipArchiveCsv(payslips), /Payroll Lead/);
-  assert.match(buildDepartmentSummaryCsv(summary), /Website Developers,24000,1000,23000,1/);
+  assert.match(buildDepartmentSummaryCsv(summary), /Website Developers,24000\.00,1000\.00,23000\.00,1/);
 });
 
 test('builds batch report files and a ZIP archive', () => {

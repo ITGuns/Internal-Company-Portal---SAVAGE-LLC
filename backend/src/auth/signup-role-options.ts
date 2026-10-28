@@ -1,6 +1,6 @@
-import { DEFAULT_SIGNUP_ROLE_OPTIONS } from '../org/org-access-policy'
+import { DEFAULT_SIGNUP_ROLE_OPTIONS, isSignupRequestableRole } from '../org/org-access-policy'
 
-export { DEFAULT_SIGNUP_ROLE_OPTIONS }
+export { DEFAULT_SIGNUP_ROLE_OPTIONS, isSignupRequestableRole }
 
 export interface SignupRoleOption {
   id: string

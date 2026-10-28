@@ -171,7 +171,9 @@ test('datetime-local helpers round-trip and reject blanks', () => {
   assert.equal(localInputToIso(''), undefined);
   assert.equal(localInputToIso('not a date'), undefined);
   const iso = localInputToIso('2026-10-07T09:15');
+  assert.equal(iso, '2026-10-07T01:15:00.000Z', 'datetime-local values are Manila wall clock time');
   assert.equal(isoToLocalInput(iso), '2026-10-07T09:15');
+  assert.equal(localInputToIso('2026-02-30T09:00'), undefined, 'an impossible day is rejected');
   assert.equal(isoToLocalInput(null), '');
 });
 
@@ -200,7 +202,9 @@ test('calendar header shows the monthly base only for monthly bases', () => {
   const { getCalendarPayHeader } = loadHelper('../src/lib/pay-basis.ts');
   const month = { baseSalary: 30000, hourlyRate: 150, maxBillableHoursPerDay: 8, dailyHours: [10, 6.5, 0] };
 
-  for (const payBasis of ['fixed_monthly', 'hourly_from_monthly', undefined, 'unknown']) {
+  // A fixed salary is paid as is, so its header names no scheme.
+  assert.deepEqual(plain(getCalendarPayHeader({ ...month, payBasis: 'fixed_monthly' })), { amount: 30000, label: 'Fixed monthly salary' });
+  for (const payBasis of ['hourly_from_monthly', undefined, 'unknown']) {
     assert.deepEqual(plain(getCalendarPayHeader({ ...month, payBasis })), { amount: 30000, label: 'Monthly base salary' });
   }
 

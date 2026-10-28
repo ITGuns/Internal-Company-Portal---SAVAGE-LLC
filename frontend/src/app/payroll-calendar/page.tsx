@@ -102,6 +102,8 @@ function PayrollCalendarContent() {
   // Custom hooks for data management
   const {
     loading,
+    refreshing,
+    loadError,
     clockedIn,
     timeEntries,
     customEvents,
@@ -337,39 +339,28 @@ function PayrollCalendarContent() {
     }
   };
 
+  // Every calendar event is a PayrollEvent row (customId); there are no built-in ones.
   const handleEditEvent = (event: CalendarEvent) => {
-    if (event.extendedProps?.custom && event.extendedProps.customId) {
-      // Edit custom event
-      const ev = customEvents.find((e) => e.id === event.extendedProps.customId);
-      if (ev) {
-        setEditingEvent({
-          id: ev.id,
-          title: ev.title,
-          date: ev.date,
-          type: ev.type,
-          description: ev.description,
-        });
-        setShowEventModal(true);
-      }
-    } else {
-      // Edit built-in event (creates a copy)
-      // Re-add as custom if needed, but we removed the hiding logic
-      setShowEventModal(true);
-    }
+    const ev = customEvents.find((e) => e.id === event.extendedProps.customId);
+    if (!ev) return;
+    setEditingEvent({
+      id: ev.id,
+      title: ev.title,
+      date: ev.date,
+      type: ev.type,
+      description: ev.description,
+    });
+    setShowEventModal(true);
   };
 
   const handleDeleteEvent = async (event: CalendarEvent) => {
-    if (event.extendedProps?.custom && event.extendedProps.customId) {
-      // Delete custom event
-      const success = await deleteCustomEvent(event.extendedProps.customId);
-      if (success) {
-        toast.success("Event deleted");
-      } else {
-        toast.error("Failed to delete event");
-      }
+    const customId = event.extendedProps.customId;
+    if (!customId) return;
+    const success = await deleteCustomEvent(customId);
+    if (success) {
+      toast.success("Event deleted");
     } else {
-      // No-op for built-in as they are gone/managed elsewhere
-      toast.success("Event removed from calendar");
+      toast.error("Failed to delete event");
     }
   };
 
@@ -485,9 +476,12 @@ function PayrollCalendarContent() {
                 stats={stats}
                 timeEntries={timeEntries}
                 clockedIn={clockedIn}
-                onTitleChange={() => {/* Calendar updates its own title */ }}
-                onEditEvent={handleEditEvent}
-                onDeleteEvent={handleDeleteEvent}
+                loadError={loadError}
+                isRefreshing={refreshing}
+                onRetry={() => void reloadPayrollData()}
+                // PATCH / DELETE /payroll/events/:id are payroll roles only (403 otherwise).
+                onEditEvent={hasManagementAccess ? handleEditEvent : undefined}
+                onDeleteEvent={hasManagementAccess ? handleDeleteEvent : undefined}
                 onClockIn={handleClockInClick}
                 onClockOut={handleClockOutClick}
                 onAddManualEntry={() => setShowAddModal(true)}

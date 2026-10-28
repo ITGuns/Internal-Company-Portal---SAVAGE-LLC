@@ -12,7 +12,8 @@ export type PayrollItemType =
   | "uncredited_hours"
   | "allowance"
   | "deduction"
-  | "adjustment";
+  | "adjustment"
+  | "tax";
 
 export const PAYROLL_ITEM_TYPES: Array<{ value: PayrollItemType; label: string }> = [
   { value: "regular_hours", label: "Regular hours" },
@@ -24,6 +25,8 @@ export const PAYROLL_ITEM_TYPES: Array<{ value: PayrollItemType; label: string }
   { value: "allowance", label: "Allowance" },
   { value: "deduction", label: "Deduction" },
   { value: "adjustment", label: "Adjustment" },
+  // Withholding tax from a tax rule (2026-10-28): a deduction, editable and removable.
+  { value: "tax", label: "Withholding tax" },
 ];
 
 const ITEM_TYPE_VALUES = new Set<string>(PAYROLL_ITEM_TYPES.map((type) => type.value));
@@ -72,19 +75,25 @@ export function isUnpaidItemType(type?: string | null): boolean {
   return type === "overtime_pending" || type === "uncredited_hours";
 }
 
+/** Lines subtracted from net pay and left out of gross: deductions and withholding tax. */
+export function isDeductionItemType(type?: string | null): boolean {
+  return type === "deduction" || type === "tax";
+}
+
 /**
- * Deductions are always stored negative; pending overtime and uncredited hours
- * are always 0. Other types keep the sign the editor typed (adjustments may be negative).
+ * Deductions and tax are always stored negative; pending overtime and
+ * uncredited hours are always 0. Other types keep the sign the editor typed
+ * (adjustments may be negative).
  */
 export function normalizeItemAmount(type: PayrollItemType, amount: number): number {
   if (!Number.isFinite(amount)) return 0;
   const rounded = roundMoney(amount);
   if (isUnpaidItemType(type)) return 0;
-  if (type === "deduction") return -Math.abs(rounded);
+  if (isDeductionItemType(type)) return -Math.abs(rounded);
   return rounded;
 }
 
-/** Gross = every item except deductions. Net = sum of all items. */
+/** Gross = every item except deductions and tax. Net = sum of all items. */
 export function recomputePayslipTotals(items: Array<{ type: PayrollItemType; amount: number | string }>): {
   gross: number;
   net: number;
@@ -94,7 +103,7 @@ export function recomputePayslipTotals(items: Array<{ type: PayrollItemType; amo
   for (const item of items) {
     const amount = normalizeItemAmount(item.type, Number(item.amount));
     net += amount;
-    if (item.type !== "deduction") gross += amount;
+    if (!isDeductionItemType(item.type)) gross += amount;
   }
   return {
     gross: roundMoney(gross),

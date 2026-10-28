@@ -30,6 +30,8 @@ export interface PayslipPreview {
   /** Billable hours above that cap: shown on the payslip, not paid. */
   uncreditedHours?: number;
   maxCreditedDays?: number | null;
+  /** The withholding tax line the payslip gets (2026-10-28), or null without a rule. */
+  tax?: { ruleKey: string; ruleName: string; rate: number; amount: number } | null;
 }
 
 /** Hours "Override hours" starts from: the credited (paid) hours, else the billable hours. */
@@ -92,6 +94,18 @@ export function previewBasePay(preview: PayslipPreview, state: Pick<GeneratePays
 export function previewGrossPay(preview: PayslipPreview, state: Pick<GeneratePayslipFormState, "overrideHours" | "hoursWorked">): number {
   if (!state.overrideHours) return preview.grossPay ?? 0;
   return roundMoney(previewBasePay(preview, state) + roundMoney(preview.overtimePay ?? 0));
+}
+
+/**
+ * Withholding for the gross shown in the modal: the preview's own amount, or
+ * gross x rate when the hours are overridden (same rounding as the server).
+ */
+export function previewTaxAmount(preview: PayslipPreview, grossPay: number): number {
+  const tax = preview.tax;
+  if (!tax) return 0;
+  if (grossPay === preview.grossPay) return tax.amount;
+  if (!(grossPay > 0) || !(tax.rate > 0)) return 0;
+  return roundMoney((grossPay * tax.rate) / 100);
 }
 
 export function totalDeductions(deductions: GenerateDeductionInput[]): number {

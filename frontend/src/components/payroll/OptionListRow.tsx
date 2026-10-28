@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Archive, ArchiveRestore, Pencil, Star, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Pencil, Star, StarOff, Trash2 } from "lucide-react";
 import Button from "@/components/Button";
 import { inUseLabel } from "@/lib/payroll-options";
 
@@ -18,6 +18,8 @@ interface OptionListRowProps {
   error?: string;
   onEdit: () => void;
   onSetDefault: () => void;
+  /** Lists that may have no default (tax rules) offer "Remove as default". */
+  onClearDefault?: () => void;
   onArchive: () => void;
   onRestore: () => void;
   onDelete: () => void;
@@ -46,6 +48,7 @@ export default function OptionListRow({
   error,
   onEdit,
   onSetDefault,
+  onClearDefault,
   onArchive,
   onRestore,
   onDelete,
@@ -93,6 +96,11 @@ export default function OptionListRow({
             {!archived && !isDefault && (
               <Button size="sm" variant="ghost" icon={<Star className="h-3.5 w-3.5" aria-hidden="true" />} onClick={onSetDefault} disabled={disabled} aria-label={`Set ${title} as default`}>
                 Set as default
+              </Button>
+            )}
+            {isDefault && onClearDefault && (
+              <Button size="sm" variant="ghost" icon={<StarOff className="h-3.5 w-3.5" aria-hidden="true" />} onClick={onClearDefault} disabled={disabled} aria-label={`Remove ${title} as default`}>
+                Remove as default
               </Button>
             )}
             {!archived && !isDefault && (

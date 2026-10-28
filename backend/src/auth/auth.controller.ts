@@ -21,6 +21,7 @@ import { RefreshSessionService } from './refresh-session.service'
 import {
     hasConfiguredSignupRolesForDepartment,
     isDefaultSignupRoleAllowed,
+    isSignupRequestableRole,
     normalizeSignupOption,
 } from './signup-role-options'
 import { createAuthRateLimiters, type AuthRateLimiters } from '../security/rate-limits'
@@ -323,7 +324,9 @@ export class AuthController {
                 )
                 const hasDepartmentRoles = hasConfiguredSignupRolesForDepartment(availableRoles, departmentId)
                 const usesFallbackRole = !hasDepartmentRoles && isDefaultSignupRoleAllowed(department.name, role)
-                if (!availableRole && !usesFallbackRole) {
+                // Approval assigns the requested role as it is, so a role Operations assigns
+                // (Disbursement Officer) is refused even though its AvailableRole row exists (review fix 2026-10-28).
+                if ((!availableRole && !usesFallbackRole) || !isSignupRequestableRole(role)) {
                     return res.status(400).json({ error: 'Invalid role for selected department' })
                 }
 

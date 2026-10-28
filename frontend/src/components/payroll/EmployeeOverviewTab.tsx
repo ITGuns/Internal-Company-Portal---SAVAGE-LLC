@@ -18,8 +18,11 @@ import { fetchInactiveMembers } from "@/lib/users-admin";
 import { getPayBasisLabel } from "@/lib/pay-basis";
 import { findScheme, getOptionLabel } from "@/lib/payroll-options";
 import { applyProfileToEmployee, buildPaySummary, type PayrollProfile } from "@/lib/payroll-setup";
+import { taxChoiceLabel } from "@/lib/payroll-tax";
 import { matchesEmployeeSearch } from "@/lib/employee-search";
+import { ALL_CATEGORIES, categoryCounts, categoryLabel, matchesCategory } from "@/lib/employee-history";
 import EmployeeCard from "./EmployeeCard";
+import EmployeeCategoryFilter from "./EmployeeCategoryFilter";
 import EmployeeOverviewStats from "./EmployeeOverviewStats";
 import EmployeeOverviewToolbar, { type EmployeeView } from "./EmployeeOverviewToolbar";
 import InactiveMembersPanel from "./InactiveMembersPanel";
@@ -73,6 +76,8 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
     const dialogs = usePayrollSetupDialogs();
     const [view, setView] = useState<EmployeeView>(initialView);
     const [query, setQuery] = useState("");
+    // Employment type filter for the deployed list (2026-10-28).
+    const [category, setCategory] = useState(ALL_CATEGORIES);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [pendingEmployees, setPendingEmployees] = useState<Employee[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -153,6 +158,8 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
         setPendingEmployees((prev) => prev.map((emp) => (String(emp.id) === id ? update(emp) : emp)));
     };
 
+    // Throws on failure: EmployeeEditModal shows the message inline and stays open.
+    // apiFetch throws the server's message on any non-2xx answer.
     const handleSaveEmployee = async (employeeId: string | number, updates: Partial<Employee>) => {
         try {
             await apiFetch(`/users/${employeeId}`, {
@@ -165,7 +172,7 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
             toast.success("Employee updated successfully");
         } catch (err) {
             console.error("Update failed", err);
-            toast.error(err instanceof Error ? err.message : "Failed to update employee");
+            throw err instanceof Error ? err : new Error("Failed to update employee");
         }
     };
 
@@ -232,9 +239,14 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
         schemeName: findScheme(catalog.schemes, employee.payrollScheme)?.name,
         capHours: employee.maxBillableHoursPerDay,
         frequencyLabel: getOptionLabel(catalog.paymentFrequencies, employee.paymentFrequency),
+        // Shown only when the person is not on the workspace default tax rule.
+        taxLabel: taxChoiceLabel(catalog.taxRules, employee.taxRule),
     });
 
-    const shownDeployed = employees.filter((emp) => matchesEmployeeSearch(emp, query));
+    // Category chips: every employment type from Payroll options, with counts (2026-10-28).
+    const categoryChips = categoryCounts(employees.map((emp) => emp.employmentType), catalog.employmentTypes);
+    const selectedCategory = category === ALL_CATEGORIES ? null : categoryChips.find((chip) => chip.value === category)?.label ?? "this category";
+    const shownDeployed = employees.filter((emp) => matchesEmployeeSearch(emp, query) && matchesCategory(emp.employmentType, category));
     const shownPending = pendingEmployees.filter((emp) => matchesEmployeeSearch(emp, query));
     const shownInactive = inactiveMembers.filter((member) => matchesEmployeeSearch(member, query));
 
@@ -242,6 +254,15 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
         <div className="col-span-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] py-10 text-center">
             <p className="text-sm text-[var(--muted)]">No one matches &quot;{query.trim()}&quot;.</p>
             <Button size="sm" variant="outline" className="mt-3" onClick={() => setQuery("")}>Clear search</Button>
+        </div>
+    );
+
+    const noDeployedMatches = !selectedCategory ? noMatches : (
+        <div className="col-span-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-bg)] py-10 text-center">
+            <p className="text-sm text-[var(--muted)]">
+                {query.trim() ? <>No one in {selectedCategory} matches &quot;{query.trim()}&quot;.</> : <>No employees in {selectedCategory}.</>}
+            </p>
+            <Button size="sm" variant="outline" className="mt-3" onClick={() => { setQuery(""); setCategory(ALL_CATEGORIES); }}>Clear filters</Button>
         </div>
     );
 
@@ -256,6 +277,9 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                 onAddEmployee={isAdmin ? () => setShowInviteModal(true) : undefined}
                 query={query}
                 onQueryChange={setQuery}
+                filters={view === "deployed" && employees.length > 0 ? (
+                    <EmployeeCategoryFilter counts={categoryChips} total={employees.length} value={category} onChange={setCategory} />
+                ) : undefined}
             />
 
             {isLoading && employees.length === 0 ? (
@@ -283,6 +307,7 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                             key={employee.id}
                             employee={employee}
                             paySummary={paySummaryFor(employee)}
+                            categoryLabel={categoryLabel(catalog.employmentTypes, employee.employmentType)}
                             onViewDetails={() => openDetails(employee)}
                             onEdit={() => openEdit(employee)}
                             onSetUpPayroll={canManagePayroll ? () => dialogs.openSetup(employee) : undefined}
@@ -299,7 +324,7 @@ export default function EmployeeOverviewTab({ initialView = "deployed" }: Employ
                             <p className="text-[var(--muted)]">No deployed employees yet. Approve an application or add an employee.</p>
                         </div>
                     )}
-                    {employees.length > 0 && shownDeployed.length === 0 && noMatches}
+                    {employees.length > 0 && shownDeployed.length === 0 && noDeployedMatches}
                 </div>
             )}
 

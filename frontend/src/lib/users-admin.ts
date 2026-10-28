@@ -1,7 +1,8 @@
 /**
  * Member status API client (docs/payroll-time-v2-spec.md rule 6).
  * Deactivate / reactivate: admin or operations_manager.
- * Hard delete: admin only, needs ?confirm=hard, 409 while the user has payslips.
+ * Hard delete: admin only, needs ?confirm=hard, 409 while the user has payslips,
+ * employee history rows or concerns (2026-10-28 review fix).
  * Reset password: same roles as deactivate, never your own account.
  */
 

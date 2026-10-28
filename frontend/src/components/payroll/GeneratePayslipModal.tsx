@@ -22,6 +22,7 @@ import {
   previewBasePay,
   previewGrossPay,
   previewPaidHours,
+  previewTaxAmount,
   totalDeductions,
   type GenerateDeductionInput,
   type GeneratePayslipBody,
@@ -125,6 +126,9 @@ export default function GeneratePayslipModal({
   const state = { overrideHours, hoursWorked, deductions };
   const grossPay = preview ? previewGrossPay(preview, state) : 0;
   const deductionTotal = totalDeductions(deductions);
+  // Withholding tax from the person's tax rule (2026-10-28); the server adds the same line.
+  const taxAmount = preview ? previewTaxAmount(preview, grossPay) : 0;
+  const taxLine = preview?.tax ?? null;
   const employee = employees.find((e) => e.id.toString() === employeeId);
   const isFixed = preview?.payBasis === "fixed_monthly";
   const uncredited = !overrideHours && preview?.uncreditedHours ? preview.uncreditedHours : 0;
@@ -210,6 +214,14 @@ export default function GeneratePayslipModal({
                 />
                 <Row label="Unapproved overtime, not paid" detail={hrs(preview.overtimePendingHours)} value={money(0)} tone="text-[var(--muted)]" />
                 <Row label="Gross pay" value={money(grossPay)} tone="text-emerald-700 dark:text-emerald-400" />
+                {taxLine && (
+                  <Row
+                    label="Withholding tax"
+                    detail={`${taxLine.ruleName}, ${taxLine.rate}% of gross`}
+                    value={`-${money(taxAmount)}`}
+                    tone="text-red-600 dark:text-red-400"
+                  />
+                )}
               </div>
             )}
 
@@ -274,11 +286,11 @@ export default function GeneratePayslipModal({
 
             <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-4 py-3 flex items-center justify-between">
               <div className="text-xs text-blue-700 dark:text-blue-300">
-                Gross {money(grossPay)}{deductionTotal > 0 ? `, less ${money(deductionTotal)} deductions` : ""}
+                Gross {money(grossPay)}{taxLine ? `, less ${money(taxAmount)} tax` : ""}{deductionTotal > 0 ? `, less ${money(deductionTotal)} deductions` : ""}
               </div>
               <div className="text-right">
-                <p className="text-[11px] font-semibold uppercase text-blue-700 dark:text-blue-300">Net pay</p>
-                <p className="text-xl font-extrabold text-blue-600 dark:text-blue-400">{money(grossPay - deductionTotal)}</p>
+                <p className="text-[11px] font-semibold uppercase text-blue-700 dark:text-blue-300">{taxLine ? "Net pay after tax" : "Net pay"}</p>
+                <p className="text-xl font-extrabold text-blue-600 dark:text-blue-400">{money(grossPay - taxAmount - deductionTotal)}</p>
               </div>
             </div>
           </div>

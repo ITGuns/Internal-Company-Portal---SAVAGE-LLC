@@ -15,7 +15,9 @@ import {
   Home,
   Megaphone,
   Menu,
+  MessageCircleQuestionMark,
   MessageSquare,
+  Network,
   ShieldCheck,
   Ticket,
   UserCircle,
@@ -279,6 +281,9 @@ export default function Sidebar() {
           : [
               { href: '/chat', icon: MessageSquare, label: 'Messages & Chat', badge: unreadChatCount },
               { href: '/file-directory', icon: Folder, label: 'File Directory' },
+              // Every internal member; the API refuses client-only accounts (internal directory rule).
+              { href: '/org-chart', icon: Network, label: 'Org Chart' },
+              { href: '/concerns', icon: MessageCircleQuestionMark, label: 'Concerns' },
             ]),
       ];
 

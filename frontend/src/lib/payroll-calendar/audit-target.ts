@@ -1,3 +1,5 @@
+import { formatPayrollDate, manilaDayBounds, manilaDayKey, manilaTodayKey } from "../payroll-dates";
+
 interface GetPayrollAuditTargetParams {
   searchParams: URLSearchParams;
   currentUserId?: string;
@@ -19,15 +21,9 @@ interface PayrollAuditSummaryParams extends PayrollAuditDateRange {
   selectedUser?: PayrollAuditUser | null;
 }
 
-const auditDateFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-  timeZone: "UTC",
-});
-
+/** A real YYYY-MM-DD day (a ?start=2026-02-30 link is ignored instead of breaking the labels). */
 function isDateInput(value?: string | null): value is string {
-  return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+  return Boolean(value) && manilaDayKey(value) === value;
 }
 
 function getPayrollAuditUserLabel(user?: PayrollAuditUser | null): string {
@@ -85,23 +81,24 @@ export function getPayrollAuditDateRange(searchParams: URLSearchParams): Payroll
   };
 }
 
+/** Whole Manila days: from the first millisecond of the start day to the last of the end day. */
 export function getPayrollTimeEntryRange(range: PayrollAuditDateRange): {
   startIso?: string;
   endIso?: string;
 } {
   return {
-    startIso: range.startDate ? new Date(`${range.startDate}T00:00:00.000Z`).toISOString() : undefined,
-    endIso: range.endDate ? new Date(`${range.endDate}T23:59:59.999Z`).toISOString() : undefined,
+    startIso: range.startDate ? manilaDayBounds(range.startDate)?.startIso : undefined,
+    endIso: range.endDate ? manilaDayBounds(range.endDate)?.endIso : undefined,
   };
 }
 
 export function getPayrollAuditTodayDateInput(now = new Date()): string {
-  return now.toISOString().slice(0, 10);
+  return manilaTodayKey(now);
 }
 
 export function formatPayrollAuditDateLabel(dateInput: string): string {
   if (!isDateInput(dateInput)) return "";
-  return auditDateFormatter.format(new Date(`${dateInput}T00:00:00.000Z`));
+  return formatPayrollDate(dateInput, {}, "");
 }
 
 export function getPayrollAuditSummary({

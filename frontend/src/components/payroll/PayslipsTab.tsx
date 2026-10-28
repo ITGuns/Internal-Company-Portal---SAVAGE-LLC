@@ -4,19 +4,25 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { Search, Loader2, Zap, Sparkles, LockKeyhole } from "lucide-react";
-import Button from "@/components/Button";
+import { Search } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
+import { useUser } from "@/contexts/UserContext";
 import EmployeeSidebarItem from "./EmployeeSidebarItem";
 import TimeTrackingCalendar from "./TimeTrackingCalendar";
 import EmployeeProfilePanel from "./EmployeeProfilePanel";
+import ActivePeriodPanel from "./ActivePeriodPanel";
+import { confirmAndLockPeriod, usePeriodApproval } from "./usePeriodApproval";
+import type { SignOffResult, SignOffTarget } from "./SignOffModal";
 import { PayrollPayslipsManagementSkeleton } from "@/components/ui/FeatureSkeletons";
 import { createTimeEntry, deleteTimeEntry } from "@/lib/time-entries";
-import { formatPayrollDate, payrollPeriodDayKey } from "@/lib/payroll-dates";
-import { getPayrollDayKey } from "@/lib/time-requests";
+import { formatPayrollDate } from "@/lib/payroll-dates";
 import { isEditedPayslipConflict, type GeneratePayslipBody } from "@/lib/payslip-generate";
 import { applyProfileToEmployee, type PayrollProfile } from "@/lib/payroll-setup";
+import { canSignDisbursement } from "@/lib/role-access";
+import { toPayslipView } from "@/lib/payslip-view";
+import { revokePayslipApproval } from "@/lib/payslip-approval-api";
+import { plural } from "@/lib/payslip-approval";
 
 const REGENERATE_EDITED_CONFIRM = "This payslip was edited by hand. Regenerate and discard the edits?";
 
@@ -25,14 +31,20 @@ const GeneratePayslipModal = dynamic(() => import("./GeneratePayslipModal"), { s
 const PayslipDetailsModal = dynamic(() => import("./PayslipDetailsModal"), { ssr: false });
 const AddTimeEntryModal = dynamic(() => import("./AddTimeEntryModal"), { ssr: false });
 const PayslipEditModal = dynamic(() => import("./PayslipEditModal"), { ssr: false });
+const SignOffModal = dynamic(() => import("./SignOffModal"), { ssr: false });
 
 import { generatePayslipPDF } from "@/lib/payroll-calendar/payslip-utils";
 import type { Employee, Payslip } from "@/lib/payroll-calendar/types";
-import type { ApiPayslip, ApiPayslipItem, ApiEmployee } from "@/lib/types/api";
+import type { ApiPayslip, ApiEmployee } from "@/lib/types/api";
+
+const viewOf = (ps: ApiPayslip, employee: Employee | null) =>
+  toPayslipView(ps, { employeeName: employee?.name ?? "Employee", payBasis: employee?.payBasis, missing: "N/A" });
 
 export default function PayslipsTab() {
   const toast = useToast();
   const showToastError = toast.error;
+  const { user } = useUser();
+  const canSign = canSignDisbursement(user);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -51,42 +63,21 @@ export default function PayslipsTab() {
 
   const [activePeriod, setActivePeriod] = useState<any | null>(null);
   const [isLocking, setIsLocking] = useState(false);
+  // Disbursement sign-off (2026-10-28): counts for the period header and the open dialog.
+  const approval = usePeriodApproval(activePeriod?.id, true);
+  const [signOff, setSignOff] = useState<SignOffTarget | null>(null);
 
-  const fetchPayslips = async (employee: Employee) => {
+  const fetchPayslips = useCallback(async (employee: Employee) => {
     try {
       const res = await apiFetch(`/payroll/my-payslips?userId=${employee.id}`);
       if (res.ok) {
         const data = await res.json();
-        setEmployeePayslips(data.map((ps: ApiPayslip) => ({
-          id: ps.id,
-          employeeId: ps.userId,
-          employeeName: employee.name,
-          // Manila calendar days (period rows may be stored at UTC or Manila midnight).
-          payPeriodStart: payrollPeriodDayKey(ps.period?.startDate, 'start') ?? 'N/A',
-          payPeriodEnd: payrollPeriodDayKey(ps.period?.endDate, 'end') ?? 'N/A',
-          issueDate: (ps.generatedAt && getPayrollDayKey(ps.generatedAt)) || 'N/A',
-          status: ps.status || "issued",
-          hoursWorked: 0, // not stored on payslip; the line items carry the hours
-          payBasis: employee.payBasis,
-          grossPay: ps.grossPay,
-          netPay: ps.netPay,
-          deductions: ps.items.filter((i: ApiPayslipItem) => i.amount < 0).map((i: ApiPayslipItem) => ({
-            id: i.id,
-            type: 'other',
-            name: i.description,
-            amount: Math.abs(i.amount)
-          })),
-          items: ps.items,
-          periodId: ps.period?.id ?? ps.periodId,
-          periodStatus: ps.period?.status,
-          editedAt: ps.editedAt,
-          editNote: ps.editNote,
-        })));
+        setEmployeePayslips(data.map((ps: ApiPayslip) => viewOf(ps, employee)));
       }
     } catch (err) {
       console.error("Failed to fetch payslips", err);
     }
-  };
+  }, []);
 
   const fetchPeriods = useCallback(async () => {
     try {
@@ -153,7 +144,7 @@ export default function PayslipsTab() {
     if (selectedEmployee) {
       fetchPayslips(selectedEmployee);
     }
-  }, [selectedEmployee, refreshKey]);
+  }, [selectedEmployee, refreshKey, fetchPayslips]);
 
   // Filter employees based on search
   const filteredEmployees = employees.filter((emp) =>
@@ -211,6 +202,7 @@ export default function PayslipsTab() {
       toast.success(`Payslip generated for ${selectedEmployee.name}`);
       fetchData();
       setRefreshKey(prev => prev + 1);
+      void approval.reload();
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       if (!body.force && isEditedPayslipConflict(message)) {
@@ -242,6 +234,7 @@ export default function PayslipsTab() {
         // Refresh data
         fetchData();
         setRefreshKey(prev => prev + 1); // Refresh current employee view
+        void approval.reload();
       } else {
         throw new Error("Bulk generation failed");
       }
@@ -253,32 +246,58 @@ export default function PayslipsTab() {
     }
   };
 
-  // Handle lock/finalize payroll period
+  const activePeriodLabel = activePeriod
+    ? `${formatPayrollDate(activePeriod.startDate, { edge: 'start' })} to ${formatPayrollDate(activePeriod.endDate, { edge: 'end' })}`
+    : "";
+
+  // Lock & Finalize. Signers see the unapproved payslips in the prompt and may lock anyway;
+  // anyone else gets the server's 409 message as the error toast (review fix 2026-10-28).
   const handleLockPeriod = async () => {
     if (!activePeriod) return;
-    const periodLabel = `${formatPayrollDate(activePeriod.startDate, { edge: 'start' })} to ${formatPayrollDate(activePeriod.endDate, { edge: 'end' })}`;
-    if (!window.confirm(`Lock the payroll period ${periodLabel}? Its status becomes processed and its payslips and time can no longer change.`)) {
-      return;
-    }
     try {
       setIsLocking(true);
-      const res = await apiFetch(`/payroll/periods/${activePeriod.id}/lock`, {
-        method: 'POST',
-      });
-      if (res.ok) {
-        toast.success("Payroll period finalized and locked.");
-        await fetchPeriods();
-        setRefreshKey(prev => prev + 1);
-      } else {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Lock failed");
-      }
+      const locked = await confirmAndLockPeriod(activePeriod.id, activePeriodLabel, approval.summary?.unapproved ?? 0, canSign);
+      if (!locked) return;
+      toast.success("Payroll period finalized and locked.");
+      await fetchPeriods();
+      setRefreshKey(prev => prev + 1);
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : "Failed to lock period");
     } finally {
       setIsLocking(false);
     }
+  };
+
+  // Disbursement sign-off: one payslip from its row or details, or the whole period.
+  const handleApprovePayslip = (payslip: Payslip) => {
+    setShowDetailsModal(false);
+    setSignOff({ kind: "single", payslip, employeeName: payslip.employeeName || selectedEmployee?.name || "this employee" });
+  };
+
+  const handleApproveAll = () => {
+    if (!activePeriod || !approval.summary) return;
+    setSignOff({ kind: "all", periodId: activePeriod.id, periodLabel: activePeriodLabel, summary: approval.summary });
+  };
+
+  const handleSigned = (result: SignOffResult) => {
+    toast.success(result.kind === "single" ? "Payslip approved for disbursement." : `Approved ${plural(result.result.approved, "payslip")} for disbursement.`);
+    setRefreshKey(prev => prev + 1);
+    void approval.reload();
+  };
+
+  const handleViewSigned = (payslip: ApiPayslip) => {
+    setSignOff(null);
+    setSelectedPayslip(viewOf(payslip, selectedEmployee));
+    setShowDetailsModal(true);
+  };
+
+  const handleRevoke = async (payslip: Payslip) => {
+    const updated = await revokePayslipApproval(payslip.id);
+    setSelectedPayslip(viewOf(updated, selectedEmployee));
+    toast.success("Approval revoked. The payslip can be changed again.");
+    setRefreshKey(prev => prev + 1);
+    void approval.reload();
   };
   // Set Up Payroll saved: update the lists in place and refetch the calendar.
   const handlePayrollSaved = (employeeId: string, profile: PayrollProfile) => {
@@ -314,62 +333,17 @@ export default function PayslipsTab() {
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[260px_1fr] 2xl:grid-cols-[280px_1fr_320px] gap-6 min-h-0">
         {/* Left Column - Employee Sidebar */}
         <div className="flex flex-col bg-[var(--card-bg)] rounded-lg border border-[var(--border)] overflow-hidden shadow-sm lg:row-span-2 2xl:row-span-1">
-          {/* Action Area - Automated Payroll */}
-          <div className="p-4 border-b border-[var(--border)] bg-gray-50/50 dark:bg-black/20">
-            {activePeriod && (
-              <div className="mb-3 px-1">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Active Payroll Period</div>
-                <div className="text-xs font-semibold text-[var(--foreground)] mt-0.5">
-                  {formatPayrollDate(activePeriod.startDate, { edge: 'start', format: { month: 'short', day: 'numeric' } })} to {formatPayrollDate(activePeriod.endDate, { edge: 'end' })}
-                </div>
-                <div className="mt-1 flex items-center gap-1.5">
-                  <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${
-                    activePeriod.status === 'processed'
-                      ? 'bg-emerald-500/10 text-emerald-600 ring-1 ring-inset ring-emerald-500/20'
-                      : 'bg-amber-500/10 text-amber-600 ring-1 ring-inset ring-amber-500/20'
-                  }`}>
-                    {activePeriod.status}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={handleBulkGenerate}
-              disabled={isBulkGenerating || activePeriod?.status === 'processed'}
-              className={`w-full group relative overflow-hidden flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-[11px] font-extrabold transition-all shadow-[0_4px_12px_rgba(37,99,235,0.2)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.3)] hover:-translate-y-0.5 active:scale-[0.98] ${(isBulkGenerating || activePeriod?.status === 'processed') ? 'opacity-70 cursor-not-allowed' : ''}`}
-              title={activePeriod?.status === 'processed' ? "Cannot run payroll for a processed cycle" : "Calculates payroll based on work hours/timers for all Deployed employees"}
-            >
-              {/* Shine effect overlay */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
-
-              {isBulkGenerating ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Zap className="w-3.5 h-3.5 fill-current" />
-              )}
-
-              <span className="relative z-10">
-                {isBulkGenerating ? 'Calculating Payroll...' : 'Run Automated Payroll'}
-              </span>
-
-              {!isBulkGenerating && (
-                <Sparkles className="w-3 h-3 text-amber-300 animate-pulse relative z-10" />
-              )}
-            </button>
-
-            {activePeriod && activePeriod.status === 'draft' && (
-              <Button
-                variant="outline"
-                onClick={handleLockPeriod}
-                disabled={isLocking}
-                className="w-full mt-2 border-[var(--border)] hover:bg-[var(--card-surface)] text-[11px] font-extrabold h-10 flex items-center justify-center gap-2"
-                icon={<LockKeyhole className="w-3.5 h-3.5" />}
-              >
-                {isLocking ? 'Locking Period...' : 'Lock & Finalize Period'}
-              </Button>
-            )}
-          </div>
+          {/* Action Area - Automated Payroll, sign-off and lock */}
+          <ActivePeriodPanel
+            period={activePeriod}
+            summary={approval.summary}
+            canSign={canSign}
+            isBulkGenerating={isBulkGenerating}
+            isLocking={isLocking}
+            onBulkGenerate={handleBulkGenerate}
+            onLock={handleLockPeriod}
+            onApproveAll={handleApproveAll}
+          />
 
           {/* Search Header */}
           <div className="p-4 border-b border-[var(--border)]">
@@ -425,6 +399,7 @@ export default function PayslipsTab() {
             }}
             onDownloadPDF={(ps) => handleDownloadPDF(ps)}
             onEditPayslip={setEditingPayslip}
+            onApprovePayslip={handleApprovePayslip}
             isPeriodLocked={activePeriod?.status === 'processed'}
             onPayrollSaved={handlePayrollSaved}
           />
@@ -447,6 +422,19 @@ export default function PayslipsTab() {
         payslip={selectedPayslip}
         payBasis={selectedEmployee?.payBasis}
         onDownloadPDF={handleDownloadPDF}
+        canSign={canSign}
+        isOwnPayslip={user?.id != null && String(user.id) === String(selectedPayslip?.employeeId)}
+        onApprove={handleApprovePayslip}
+        onRevoke={handleRevoke}
+      />
+
+      <SignOffModal
+        target={signOff}
+        defaultSignerName={user?.name || user?.email || ""}
+        onClose={() => setSignOff(null)}
+        onSigned={handleSigned}
+        onFailed={() => { setRefreshKey(prev => prev + 1); void approval.reload(); }}
+        onViewPayslip={handleViewSigned}
       />
 
       <PayslipEditModal

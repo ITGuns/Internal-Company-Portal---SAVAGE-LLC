@@ -11,15 +11,17 @@ import {
 } from "@/lib/payroll-calendar/day-audit";
 import type { OvertimeRequest } from "@/lib/overtime-requests";
 import type { AdjustmentRequest } from "@/lib/adjustment-requests";
-import { DEFAULT_BILLABLE_CAP_HOURS, PAYROLL_TIME_ZONE, claimedOvertimeHours } from "@/lib/time-requests";
+import { DEFAULT_BILLABLE_CAP_HOURS, claimedOvertimeHours } from "@/lib/time-requests";
+import { formatPayrollDate, formatPayrollTime } from "@/lib/payroll-dates";
 import { CorrectionRequestItem, OvertimeRequestItem } from "./TimeRequestItems";
 
 interface PayrollDayDetailPanelProps {
   selectedDate: string | null;
   audit: PayrollDayAudit | null;
   events: CalendarEvent[];
-  onEditEvent: (event: CalendarEvent) => void;
-  onDeleteEvent: (event: CalendarEvent) => void;
+  /** Payroll roles only; without them the event cards are read-only. */
+  onEditEvent?: (event: CalendarEvent) => void;
+  onDeleteEvent?: (event: CalendarEvent) => void;
   onRequestEditEntry: (entry: PayrollAuditEntry) => void;
   onRequestDeleteEntry: (entry: PayrollAuditEntry) => void;
   /** False for employees: entries are read-only and changes go through requests. */
@@ -40,23 +42,12 @@ function roundHours(value: number) {
   return Math.round(value * 100) / 100;
 }
 
-// Payroll days are Manila days; noon keeps a bare date on the same day in any zone.
+// Payroll days are Manila day keys; the shared helpers format them in Manila.
 function formatDate(dateStr: string) {
-  return new Date(`${dateStr}T12:00:00+08:00`).toLocaleDateString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    timeZone: PAYROLL_TIME_ZONE,
-  });
+  return formatPayrollDate(dateStr, { format: { weekday: "long", month: "long", day: "numeric" } });
 }
 
-function formatTime(value: string) {
-  return new Date(value).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: PAYROLL_TIME_ZONE,
-  });
-}
+const formatTime = (value: string) => formatPayrollTime(value);
 
 function formatMinutes(minutes: number) {
   const safeMinutes = Math.max(0, Math.round(minutes));
@@ -325,8 +316,8 @@ export default function PayrollDayDetailPanel({
             <EventCard
               key={event.id}
               event={event}
-              onEdit={() => onEditEvent(event)}
-              onDelete={() => onDeleteEvent(event)}
+              onEdit={onEditEvent ? () => onEditEvent(event) : undefined}
+              onDelete={onDeleteEvent ? () => onDeleteEvent(event) : undefined}
             />
           ))
         ) : (

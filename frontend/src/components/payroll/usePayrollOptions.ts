@@ -16,9 +16,11 @@ import {
   fetchPayrollOptionList,
   fetchPayrollProfile,
   fetchPayrollSchemes,
+  fetchPayrollTaxRules,
   payrollOptionListQueryKey,
   payrollProfileQueryKey,
   payrollSchemesQueryKey,
+  payrollTaxRulesQueryKey,
 } from "@/lib/payroll-options-api";
 import {
   getDefaultOption,
@@ -28,6 +30,7 @@ import {
   type PayrollSchemeRow,
 } from "@/lib/payroll-options";
 import type { PayrollSetupDefaults } from "@/lib/payroll-setup";
+import type { PayrollTaxRuleRow } from "@/lib/payroll-tax";
 
 const LIST_STALE_MS = 5 * 60 * 1000;
 // Without a socket (production on Vercel) nothing pushes "payroll-options" or
@@ -54,11 +57,23 @@ export function usePayrollOptionList(category: PayrollOptionCategory, enabled = 
   });
 }
 
+/** Withholding tax rules (2026-10-28), same refresh rules as the other lists. */
+export function usePayrollTaxRules(enabled = true) {
+  return useQuery({
+    queryKey: payrollTaxRulesQueryKey(),
+    queryFn: fetchPayrollTaxRules,
+    staleTime: LIST_STALE_MS,
+    enabled,
+    ...LIST_REFRESH,
+  });
+}
+
 export interface PayrollCatalog {
   schemes?: PayrollSchemeRow[];
   employmentTypes?: PayrollOptionRow[];
   paymentFrequencies?: PayrollOptionRow[];
-  /** True once all three lists have loaded. */
+  taxRules?: PayrollTaxRuleRow[];
+  /** True once all four lists have loaded. */
   isReady: boolean;
   isLoading: boolean;
   error: string | null;
@@ -66,12 +81,13 @@ export interface PayrollCatalog {
   retry: () => void;
 }
 
-/** All three lists, their defaults, and one loading / error state. */
+/** All four lists, their defaults, and one loading / error state. */
 export function usePayrollCatalog(enabled = true): PayrollCatalog {
   const schemes = usePayrollSchemes(enabled);
   const employmentTypes = usePayrollOptionList("employment_type", enabled);
   const paymentFrequencies = usePayrollOptionList("payment_frequency", enabled);
-  const failure = schemes.error ?? employmentTypes.error ?? paymentFrequencies.error;
+  const taxRules = usePayrollTaxRules(enabled);
+  const failure = schemes.error ?? employmentTypes.error ?? paymentFrequencies.error ?? taxRules.error;
   const defaults = useMemo<PayrollSetupDefaults>(() => ({
     payrollScheme: getDefaultScheme(schemes.data)?.key ?? "",
     employmentType: getDefaultOption(employmentTypes.data)?.value ?? "",
@@ -80,18 +96,21 @@ export function usePayrollCatalog(enabled = true): PayrollCatalog {
   const { refetch: refetchSchemes } = schemes;
   const { refetch: refetchTypes } = employmentTypes;
   const { refetch: refetchFrequencies } = paymentFrequencies;
+  const { refetch: refetchTaxRules } = taxRules;
   const retry = useCallback(() => {
     void refetchSchemes();
     void refetchTypes();
     void refetchFrequencies();
-  }, [refetchSchemes, refetchTypes, refetchFrequencies]);
+    void refetchTaxRules();
+  }, [refetchSchemes, refetchTypes, refetchFrequencies, refetchTaxRules]);
 
   return {
     schemes: schemes.data,
     employmentTypes: employmentTypes.data,
     paymentFrequencies: paymentFrequencies.data,
-    isReady: Boolean(schemes.data && employmentTypes.data && paymentFrequencies.data),
-    isLoading: schemes.isLoading || employmentTypes.isLoading || paymentFrequencies.isLoading,
+    taxRules: taxRules.data,
+    isReady: Boolean(schemes.data && employmentTypes.data && paymentFrequencies.data && taxRules.data),
+    isLoading: schemes.isLoading || employmentTypes.isLoading || paymentFrequencies.isLoading || taxRules.isLoading,
     error: failure ? (failure instanceof Error ? failure.message : "Could not load the payroll lists.") : null,
     defaults,
     retry,

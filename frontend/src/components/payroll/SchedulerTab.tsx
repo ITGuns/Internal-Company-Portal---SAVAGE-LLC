@@ -341,12 +341,14 @@ export default function SchedulerTab() {
                 {runs.map((run) => {
                   const result = parseResult(run.resultJson);
                   const isExpanded = expandedRun === run.id;
+                  const toggleRun = () => setExpandedRun(isExpanded ? null : run.id);
+                  const detailsId = `scheduler-run-details-${run.id}`;
 
                   return (
                     <React.Fragment key={run.id}>
                       <tr
                         className="hover:bg-[var(--card-surface)] transition-colors cursor-pointer"
-                        onClick={() => setExpandedRun(isExpanded ? null : run.id)}
+                        onClick={toggleRun}
                       >
                         <td className="px-4 py-3 font-medium text-[var(--foreground)]">
                           {jobLabel(run.jobType)}
@@ -367,7 +369,17 @@ export default function SchedulerTab() {
                           {run.errorMsg ? (
                             <span className="text-red-500">{run.errorMsg}</span>
                           ) : result ? (
-                            <button className="text-blue-500 hover:underline">
+                            // Its own handler (the row click is a mouse shortcut), so keyboard and screen reader users get a real toggle.
+                            <button
+                              type="button"
+                              aria-expanded={isExpanded}
+                              aria-controls={detailsId}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                toggleRun();
+                              }}
+                              className="rounded text-blue-500 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                            >
                               {isExpanded ? "Hide" : "View"} details
                             </button>
                           ) : (
@@ -376,7 +388,7 @@ export default function SchedulerTab() {
                         </td>
                       </tr>
                       {isExpanded && result && (
-                        <tr className="bg-[var(--card-surface)]">
+                        <tr id={detailsId} className="bg-[var(--card-surface)]">
                           <td colSpan={6} className="px-4 py-3">
                             <pre className="text-xs text-[var(--foreground)] bg-[var(--background)] rounded-lg p-3 overflow-x-auto max-h-48 font-mono">
                               {JSON.stringify(result, null, 2)}

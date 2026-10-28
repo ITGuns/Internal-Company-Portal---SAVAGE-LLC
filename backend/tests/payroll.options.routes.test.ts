@@ -157,25 +157,27 @@ async function runOptionRoutes(baseUrl: string) {
   const path = '/payroll/options/employment_type'
 
   const list = await expectStatus(baseUrl, 'employee lists employment types', 'GET', path, employee, 200)
-  assert.deepEqual(list.map((row: JsonRecord) => row.value), ['Full-Time', 'Part-Time', 'Contractor', 'Intern'])
+  // Probationary and Temporary Hire are seeded since migration 202610280003_employment_categories.
+  assert.deepEqual(list.map((row: JsonRecord) => row.value), ['Full-Time', 'Probationary', 'Temporary Hire', 'Part-Time', 'Contractor', 'Intern'])
   assert.equal(list.find((row: JsonRecord) => row.isDefault)?.value, 'Full-Time')
   const frequencies = await expectStatus(baseUrl, 'pay frequencies', 'GET', '/payroll/options/payment_frequency', payroll, 200)
   assert.equal(frequencies.find((row: JsonRecord) => row.isDefault)?.value, 'Monthly', 'Monthly stays the default')
   await expectStatus(baseUrl, 'unknown list', 'GET', '/payroll/options/currency', payroll, 404)
 
-  await expectStatus(baseUrl, 'manager cannot add', 'POST', path, manager, 403, { label: 'Probationary' })
-  const created = await expectStatus(baseUrl, 'payroll adds', 'POST', path, payroll, 201, { label: 'Probationary' })
-  assert.deepEqual([created.value, created.label, created.isDefault], ['Probationary', 'Probationary', false])
-  await expectStatus(baseUrl, 'duplicate label', 'POST', path, payroll, 409, { label: 'probationary' })
-  const relabelled = await expectStatus(baseUrl, 'relabel', 'PATCH', `${path}/${created.id}`, payroll, 200, { label: 'Probationary (6 months)' })
-  assert.equal(relabelled.value, 'Probationary', 'the stored value never changes')
+  await expectStatus(baseUrl, 'manager cannot add', 'POST', path, manager, 403, { label: 'Seasonal' })
+  const created = await expectStatus(baseUrl, 'payroll adds', 'POST', path, payroll, 201, { label: 'Seasonal' })
+  assert.deepEqual([created.value, created.label, created.isDefault], ['Seasonal', 'Seasonal', false])
+  await expectStatus(baseUrl, 'duplicate label', 'POST', path, payroll, 409, { label: 'seasonal' })
+  await expectStatus(baseUrl, 'seeded label is taken too', 'POST', path, payroll, 409, { label: 'probationary' })
+  const relabelled = await expectStatus(baseUrl, 'relabel', 'PATCH', `${path}/${created.id}`, payroll, 200, { label: 'Seasonal (3 months)' })
+  assert.equal(relabelled.value, 'Seasonal', 'the stored value never changes')
   await expectStatus(baseUrl, 'value is locked', 'PATCH', `${path}/${created.id}`, payroll, 400, { value: 'Trial' })
   await expectStatus(baseUrl, 'wrong list for the id', 'PATCH', `/payroll/options/payment_frequency/${created.id}`, payroll, 404, { label: 'Moved' })
 
   await expectStatus(baseUrl, 'set default', 'PATCH', `${path}/${created.id}`, payroll, 200, { isDefault: true })
   let rows = await expectStatus(baseUrl, 'list after default switch', 'GET', path, payroll, 200)
-  assert.deepEqual(rows.filter((row: JsonRecord) => row.isDefault).map((row: JsonRecord) => row.value), ['Probationary'])
-  assert.equal((await payrollOptionsService.newProfileDefaults()).employmentType, 'Probationary')
+  assert.deepEqual(rows.filter((row: JsonRecord) => row.isDefault).map((row: JsonRecord) => row.value), ['Seasonal'])
+  assert.equal((await payrollOptionsService.newProfileDefaults()).employmentType, 'Seasonal')
   const fullTime = rows.find((row: JsonRecord) => row.value === 'Full-Time')
   await expectStatus(baseUrl, 'default back', 'PATCH', `${path}/${fullTime.id}`, payroll, 200, { isDefault: true })
 
@@ -191,7 +193,7 @@ async function runOptionRoutes(baseUrl: string) {
 
   await expectStatus(baseUrl, 'delete unused', 'DELETE', `${path}/${created.id}`, payroll, 200)
   rows = await expectStatus(baseUrl, 'list after delete', 'GET', path, payroll, 200)
-  assert.equal(rows.some((row: JsonRecord) => row.value === 'Probationary'), false)
+  assert.equal(rows.some((row: JsonRecord) => row.value === 'Seasonal'), false)
 }
 
 async function snapshotLists() {

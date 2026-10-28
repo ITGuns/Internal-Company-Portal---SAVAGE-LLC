@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useId, useMemo, useState } from "react";
-import { LockKeyhole, Plus, Trash2 } from "lucide-react";
+import { BadgeCheck, LockKeyhole, Plus, Trash2 } from "lucide-react";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import { useToast } from "@/components/ToastProvider";
@@ -21,6 +21,7 @@ import {
 import { formatCurrency, formatPayPeriod } from "@/lib/payroll-calendar/payslip-utils";
 import type { Payslip } from "@/lib/payroll-calendar/types";
 import { getPayBasisLabel } from "@/lib/pay-basis";
+import { approvedByLine, isPayslipApproved } from "@/lib/payslip-approval";
 import {
   fieldErrorClass,
   fieldHelpClass,
@@ -48,7 +49,7 @@ function toEditableItems(payslip: Payslip | null): EditablePayslipItem[] {
     key: item.id || nextRowKey(),
     type: inferPayrollItemType(item.type, item.amount),
     description: item.description,
-    amount: String(item.type === "deduction" || item.amount < 0 ? Math.abs(item.amount) : item.amount),
+    amount: String(item.type === "deduction" || item.type === "tax" || item.amount < 0 ? Math.abs(item.amount) : item.amount),
   }));
 }
 
@@ -69,6 +70,8 @@ export default function PayslipEditModal({
   const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // The server's refusal (409 on an approved or locked payslip), shown in the dialog.
+  const [serverError, setServerError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -76,6 +79,7 @@ export default function PayslipEditModal({
       setNote("");
       setErrors(EMPTY_ERRORS);
       setConfirmingDelete(false);
+      setServerError(null);
     }
   }, [isOpen, payslip]);
 
@@ -105,13 +109,14 @@ export default function PayslipEditModal({
     if (!result.valid) return;
 
     setSaving(true);
+    setServerError(null);
     try {
       await updatePayslip(payslip.id, { items: toPayslipItemPayload(items), note });
       toast.success(`Payslip updated for ${employeeName}.`);
       onChanged();
       onClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not update the payslip.");
+      setServerError(error instanceof Error ? error.message : "Could not update the payslip.");
     } finally {
       setSaving(false);
     }
@@ -120,13 +125,14 @@ export default function PayslipEditModal({
   async function handleDelete() {
     if (!payslip || locked) return;
     setDeleting(true);
+    setServerError(null);
     try {
       await deletePayslip(payslip.id);
       toast.success(`Payslip deleted for ${employeeName}.`);
       onChanged();
       onClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not delete the payslip.");
+      setServerError(error instanceof Error ? error.message : "Could not delete the payslip.");
     } finally {
       setDeleting(false);
       setConfirmingDelete(false);
@@ -152,6 +158,14 @@ export default function PayslipEditModal({
         </div>
       ) : (
         <form onSubmit={handleSave} className="grid gap-4" noValidate>
+          {isPayslipApproved(payslip) && (
+            <div role="status" className="flex items-start gap-2 rounded-[var(--radius-md)] border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm">
+              <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-300" aria-hidden="true" />
+              <p>
+                {approvedByLine(payslip)}. Approved payslips cannot be changed; a signer revokes the approval in the payslip details first.
+              </p>
+            </div>
+          )}
           {payslip.editedAt && (
             <p className="text-xs text-[var(--muted)]">
               Last edited {new Date(payslip.editedAt).toLocaleString()}
@@ -162,7 +176,7 @@ export default function PayslipEditModal({
           <fieldset className="grid gap-3">
             <legend className={fieldLabelClass}>Line items</legend>
             <p className={fieldHelpClass}>
-              Enter deductions as positive numbers. They are subtracted from net pay. Unapproved overtime is shown at 0 and is not paid.
+              Enter deductions and withholding tax as positive numbers. They are subtracted from net pay. Unapproved overtime is shown at 0 and is not paid.
             </p>
             {items.length === 0 && (
               <p className="rounded-[var(--radius-md)] border border-dashed border-[var(--border)] p-3 text-sm text-[var(--muted)]">
@@ -289,6 +303,12 @@ export default function PayslipEditModal({
             />
             {errors.note && <p id={fieldId("note-error")} className={fieldErrorClass}>{errors.note}</p>}
           </div>
+
+          {serverError && (
+            <p role="alert" className="rounded-[var(--radius-md)] border border-red-500/40 bg-red-500/10 p-3 text-sm font-medium text-[var(--foreground)]">
+              {serverError}
+            </p>
+          )}
 
           {confirmingDelete ? (
             <div role="alert" className="rounded-[var(--radius-md)] border border-red-500/30 bg-red-500/10 p-3 text-sm">

@@ -1,21 +1,19 @@
 /**
- * Custom hook for managing calendar events (built-in, custom, hidden, aggregated)
+ * Calendar events for the payroll grid: the payroll events from the API and
+ * the clock-in / clock-out markers of the time entries, both on Manila days.
  */
 
 import { useMemo } from "react";
 import type { TimeEntry } from "../time-entries";
 import type { PayrollEvent } from "../payroll-events";
 import type { EventType, CalendarEvent, PayrollStats } from "./types";
-import { getLocalDateString } from "./utils";
+import { formatPayrollTime, manilaDayKey } from "../payroll-dates";
 
 export function useCalendarEvents(
   timeEntries: TimeEntry[],
   customEvents: PayrollEvent[]
 ) {
-  // Built-in events (cleared - no longer hardcoded)
-  const builtInEvents: CalendarEvent[] = [];
-
-  // Merge custom events
+  // Every event comes from the API (PayrollEvent rows); there are no built-in ones.
   const events: CalendarEvent[] = useMemo(() => {
     return customEvents.map((e) => ({
       id: `custom-${e.id}`,
@@ -38,7 +36,9 @@ export function useCalendarEvents(
     const dayMap = new Map<string, { entries: typeof timeEntries; totalMins: number }>();
 
     timeEntries.forEach((e) => {
-      const date = getLocalDateString(e.start);
+      // The Manila day of the start, the day the server pays the entry on.
+      const date = manilaDayKey(e.start);
+      if (!date) return;
       const mins =
         e.durationMin != null
           ? e.durationMin
@@ -56,7 +56,7 @@ export function useCalendarEvents(
     dayMap.forEach(({ entries, totalMins }, date) => {
       entries.forEach((e, idx) => {
         const sessionNum = entries.length > 1 ? ` #${idx + 1}` : "";
-        const inTime = new Date(e.start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+        const inTime = formatPayrollTime(e.start);
 
         // Clock-in event
         sessionEvents.push({
@@ -73,7 +73,7 @@ export function useCalendarEvents(
 
         // Clock-out event (only if session ended)
         if (e.end) {
-          const outTime = new Date(e.end).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+          const outTime = formatPayrollTime(e.end);
           sessionEvents.push({
             id: `clockout-${e.id}`,
             title: `🔴 OUT${sessionNum} ${outTime}`,
@@ -121,7 +121,6 @@ export function useCalendarEvents(
   }, [events]);
 
   return {
-    builtInEvents,
     events,
     displayEvents,
     stats,

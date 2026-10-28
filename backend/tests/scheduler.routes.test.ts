@@ -95,7 +95,7 @@ assert.ok(
   'Scheduler config prefers CRON_SECRET and falls back to SCHEDULER_SECRET',
 )
 
-for (const payrollRole of ['payroll_assistant', 'payroll_finance', 'contractor_salary_payments']) {
+for (const payrollRole of ['payroll_assistant', 'payroll_finance', 'contractor_salary_payments', 'disbursement_officer']) {
   assert.ok(
     schedulerControllerSource.includes(`'${payrollRole}'`),
     `Scheduler manual routes allow payroll-management role ${payrollRole}`,

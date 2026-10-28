@@ -22,6 +22,9 @@ const tests = [
   'payroll.ensure-period.test.ts',
   'payroll.schemes.test.ts',
   'payroll.options.routes.test.ts',
+  'payroll.approval.routes.test.ts',
+  'payroll.tax.test.ts',
+  'payroll.roster.test.ts',
   'scheduler.routes.test.ts',
   'scheduler.periods.test.ts',
   'users.security.test.ts',
@@ -71,6 +74,8 @@ const tests = [
   'clients.routes.test.ts',
   'uploads.routes.test.ts',
   'chat.attachments.test.ts',
+  'org-chart.routes.test.ts',
+  'concerns.routes.test.ts',
 ]
 
 function runTest(test: string): Promise<void> {

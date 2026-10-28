@@ -1,5 +1,189 @@
 # Development Notes
 
+## 2026-10-28 - Review fixes: concerns, sign-off, pay and delete guards
+
+An independent review of the day's uncommitted work (payslip sign-off and tax, org chart and concerns, employee categories and history, calendar fixes) listed 13 must-fix items. This entry covers them; nothing was committed.
+
+### Completed
+- Concerns: the All box is full access only (`canListAllTickets`, 403 "Only admins can see every concern"); the All tab shows only for `hasFullAccess` (`ConcernsListView`). Managers used to see the subject, requester and assignee of every concern.
+- Lock & Finalize: only a signer (`canSignDisbursement`: Disbursement Officer or full access) may force the lock. Anyone else gets 409 "N payslips are not approved. A Disbursement Officer or an admin can lock anyway." (`UnapprovedPayslipsError.signerOnlyMessage`), and `confirmAndLockPeriod` shows it after the plain confirmation, never a force prompt.
+- Payslips of a processed period that were never signed (all payslips from before the sign-off release start as draft) show no "Awaiting approval" chip or block in My Payslips; the Payslips Management details show a muted "Locked without sign-off" (`approvalDisplayState`, `PayslipApprovalBlock` `periodLocked` / `showLockedNote`).
+- `GET /employees/deployed`, `/employees/pending` and the approve response carry salary, scheme, billable cap, pay basis, pay frequency, currency and tax rule only for payroll roles and `ADMIN_EMAILS` admins (`employeePayVisibility`, default off); the category (`employmentType`) stays for every caller.
+- Whoever edited a payslip never signs it: approve checks `editedById` inside the conditional write (403 "You edited this payslip; another officer or an admin must sign it."); approve all and the approval summary leave those payslips out (`skippedEdited`, `editedPending`, shown in the sign-off dialog and its result line).
+- Own pay setup: `POST /payroll/config/:userId` on your own profile without full access refuses `baseSalary`, `hourlyRate`, `payrollScheme`, `payBasis`, `taxRule`, `maxBillableHoursPerDay`, `overtimeMultiplier` (403 "You cannot change your own pay setup"); generating your own payslip with `hoursWorked` is 403. Full access is exempt (`getRefusedOwnPayFields`, `isOwnHoursOverride`).
+- Hard delete answers 409 while the member has payslips, employee history rows or concerns (raised, assigned or replied to), with `payslipCount`, `historyCount`, `concernCount` and a message that names them and says to deactivate instead (`countKeptRecords`, `keptRecordsRefusal`).
+- The payslip archive and report stats queries leave `approvalSignature` out (Prisma `omit`); `GET /payroll/my-payslips` and the approve response keep it. The Reports PDF prints "Approved by NAME on DATE" without the image (`drawPdfApprovalBlock` already skipped a missing image).
+- `PATCH /users/:id` status: the activation target guard (`isProtectedAdminTarget`, now shared with deactivate and reactivate) covers a status change, so only full access changes the status of a full-access account.
+- Disbursement Officer is not requestable at signup: left out of `DEFAULT_SIGNUP_ROLE_OPTIONS`, refused by `POST /auth/signup` (`isSignupRequestableRole`) even though its `AvailableRole` row exists, and hidden on the signup form (`getSignupRoleOptions`). It stays in the role catalog for Operations.
+- Regenerate checks `period: { status: 'draft' }` inside its write: a lock that lands while the pay is computed answers 409 and changes nothing.
+- Cleanup: the dead `payslip-utils` helpers (`generatePayslipId`, `getCurrentPayPeriod`, `validatePayslip`, `calculateYTDEarnings`, `calculateYTDTaxes`) and their tests are gone; the archive, department and period CSVs write money and hours with 2 decimals and counts as whole numbers, like the server CSV; the dead `res.ok` branch in `EmployeeOverviewTab.handleSaveEmployee` is gone (`apiFetch` throws on every non-2xx answer).
+- Tax rules help text: "A flat rate on gross earnings before deductions, as used for contractors' expanded withholding. Graduated employee withholding is not computed."
+
+### Decisions Made
+- The signup fix needed more than the default list: approving a signup assigns the requested role as it is, and the migration's `AvailableRole` row made Disbursement Officer valid at signup whatever `DEFAULT_SIGNUP_ROLE_OPTIONS` said. So the server refuses it and the signup form hides it; `GET /departments` and `GET /roles` still list it because Operations reads them.
+- Own pay setup is refused by presence, not by change. Set Up Payroll sends the whole form, so a payroll role cannot save their own record from it at all; another officer or an admin does. Non-pay fields sent alone (bank account, tax ID, job title) still save.
+- A non-signer's lock still confirms and then asks the server instead of refusing from the cached count, so a period whose payslips were all signed meanwhile locks normally.
+- The approval summary uses the same split as approve all (own payslip, payslips the caller edited), so the dialog's expected count matches. For a payroll role who cannot sign, `toApprove` now leaves out what they edited; nothing they can press reads it.
+- Refusal order on approve: own payslip (403), locked period (409), edited by the signer (403).
+- `hasManagementAccess` was dropped from the concern actor; it only granted the All box.
+
+### Known gaps
+Deferred by the review (not built):
+- Revoke overwrites the earlier sign-off record; there is no approval audit history.
+- The lock confirmation sends a cached unapproved count (mitigated: only signers can force).
+- `time-requests.ts` and `BackfillHoursModal` duplicate the Manila helpers of `payroll-dates.ts`.
+- ACTIVE status lists are declared in four modules.
+- `payroll.service.ts` (about 1360 lines) and `ReportsTab.tsx` (914) are over the 800-line limit.
+- The create path of `generatePayslip` has no in-transaction period re-check (the update path has one now).
+
+Seen while fixing (not in the brief):
+- Approve for disbursement stays enabled on a payslip you edited; the server refuses and the dialog shows the message.
+- A self-regenerate with `force: true` still discards another officer's hand edits of your own payslip.
+- `Owner / Founder` and `Operations Manager` are still requestable at signup; manager approval is the only gate.
+- Generating in a period that is already locked still answers 500 with the "Cycle must be draft" message (only the race path is 409).
+
+### How to Test
+- Backend: `concerns.routes` (manager 403 on All, admin 200, `canListAll` false for managers), `payroll.approval.routes` (signer edits then approves 403, summary `editedPending`, approve all `skippedEdited`; lock: non-signer with force 409 and the message, signer with force 200; regenerate race 409 with the payslip unchanged), `payroll.v2.routes` (status on an admin 403 for an operations and a project manager, a no-op status still saves; own pay fields and own hours 403, other people and full access 200; hard delete 409 for history and for concerns), `payroll.permissions` (own pay helpers), `employees.security` (a manager without a payroll role gets no salary, a payroll role does), `employees.routes` (approve response without pay fields), `users.routes-security` (test database: project manager on an admin's status 403; delete refused while on a concern), `signup.requests` (default list and the requestable check), `payroll.roster` (approved by someone other than the editor; the lock forced by a signer).
+- Frontend: `payslip-approval` (display state, a non-signer's 409 is not read as a count, the `skippedEdited` line), `signup-options` (Disbursement Officer hidden), `payroll-csv-escaping` and `payroll-reporting` (2 decimals, whole counts).
+- Click-through: shots and `results.json` in `assets/verify/review-fixes/` (gitignored), 24 checks, all passing: Karl (operations manager) has no All tab and gets 403 on `box=all`; Jade (Bookkeeping) gets one plain confirmation and the 409 message, and her forced API lock is 409; Demo Admin still gets the "Lock it anyway?" prompt; Nate's locked-period payslip shows no "Awaiting approval"; the Payslips Management details say "Locked without sign-off"; the signup form hides Disbursement Officer; a project manager's `GET /api/employees/deployed` has no pay fields; the tax rules sentence shows; the archive CSV has 2 decimals.
+- No passwords in the click-through: `assets/verify/review-fixes/scripts/mint-tokens.ts` mints 15-minute access tokens with the dev backend's own secret (run from `backend/` with `node -r dotenv/config -r ts-node/register`), and the Playwright scripts answer `/backend-auth/refresh` with that token, so every other call hits the real backend. The token file stays in the session scratchpad and is deleted after.
+
+### Next Steps
+- Dev database (local `portal_db`) changes left by the click-through: the Oct 1 to 15, 2026 period (`cmuzt0f1p001aycjus5qbfqo8`) was locked by Demo Admin with force (its 12 payslips unsigned) and left processed, which also captured its roster rows. Revert if unwanted: `UPDATE "PayrollPeriod" SET status = 'draft' WHERE id = 'cmuzt0f1p001aycjus5qbfqo8';`. Demo Project Manager was set active for one check and restored to pending, unapproved.
+- No migration in these fixes; the production steps of the earlier entries still apply.
+
+## 2026-10-28 - Payroll calendar: month navigation, Manila days everywhere, controls that work
+
+Owner request: "fix the payroll like calendar pls and make sure buttons actually works". A read-only audit of the 169 controls on `/payroll-calendar` listed 18 items; this entry covers them.
+
+### Completed
+- Month navigation above the grid (`CalendarMonthNav`): month title, Previous, Today and Next through the FullCalendar API (`prev`, `today`, `next`, title from `datesSet`). Today is disabled while the current Manila month is shown. The page's no-op `onTitleChange` prop is gone.
+- One set of Manila helpers in `lib/payroll-dates.ts` (still import-free): `manilaDayKey`, `manilaTodayKey`, `manilaInstant(dayKey, "HH:mm")`, `manilaDayBounds` (first and last millisecond, for the inclusive gte / lte of `GET /payroll/time-entries`), `manilaTimeInput`, `formatPayrollTime`, `monthDayKeysFor`, `shiftMonth`. They now drive the grid's opening month and today highlight (FullCalendar `initialDate` / `now`), day bucketing (`useCalendarEvents`, `day-audit`), the audit range and its Today buttons, the manual entry form (date, times, future check, edit defaults), the Add Event default and stored date, the upcoming events labels, the day panel, the Payslips Management calendar (month, fetch window, today, birthday, task days) and its day modal, and the PDF filename month and footer time.
+- Out-of-month cells are blank and not clickable (`showNonCurrentDates={false}`; FullCalendar ignores hits outside the active range).
+- A failed load (time entries or events) shows `CalendarLoadAlert` with Try again instead of an empty grid. `fetchTimeEntriesOrThrow` is the strict fetch; `fetchTimeEntries` still returns `[]` for `useTimeEntriesQuery`; `fetchPayrollEvents` now throws (its only caller is the calendar).
+- `usePayrollData`: the skeleton shows on the first load only; later reloads (backfill, audit filters, retry, clock out) keep the calendar mounted with its selected day and open editors, with an "Updating" status by the month title. Only the latest request writes state.
+- Dead code removed: `lib/payroll-calendar/time-utils.ts` and its test, the built-in events plumbing and the unreachable edit / delete branches in the page.
+- Event Edit and Delete render only for payroll roles (`hasPayrollManagementAccess`), matching the 403 on PATCH / DELETE `/payroll/events/:id`.
+- Payslips Management calendar: `GET /tasks/assignee/:id` runs only for management roles or your own tasks (mirrors backend `canRequestAssigneeTasks`); a refusal or failure never fails the calendar, and the day modal says completed tasks are shown to managers.
+- `PATCH /users/:id` saves `status` for the working states (`active`, `verified`, `vacation`, `leave`; `memberStatusPatchError` in `users.service.ts`). Edit Employee offers only those, sends the status only when it changes, waits for the save and shows a failure inside the dialog when `onSave` throws or returns false.
+- Scheduler View details has its own toggle (`aria-expanded`, `aria-controls`, `stopPropagation`), so it works from the keyboard.
+- The payslip PDF prints amounts as "PHP 1,234.00" (`formatPdfMoney`); jsPDF's Helvetica has no peso sign and printed "±". Screens keep the sign.
+- The Payslips Management calendar header says "Fixed monthly salary" for a fixed monthly profile; the monthly-from-salary label still names the scheme.
+
+### Decisions Made
+- PATCH never accepts `pending`: it blocks sign-in (`canLoginApprovedUser`), so it would be a lockout without the deactivate guard. A status change for an `inactive` or `pending` member is refused (reactivate or approve first). Sending the current status is a no-op, so the dialog may send the whole form.
+- Event dates are stored at Manila noon (04:00 UTC). A plain UTC date split elsewhere still reads the same day, and rows saved before today at UTC midnight read as the same Manila day.
+- `getLocalDateString` in `payroll-calendar/utils.tsx` now returns the Manila day; the name stays because `OvertimeRequestModal` (outside this change) imports it.
+- The fixed monthly header label is resolved in `TimeTrackingCalendar` because `lib/pay-basis.ts` belongs to another change; moving the rule into `getCalendarPayHeader` (and its two tests) is a follow-up.
+- FullCalendar keeps `timeZone: 'local'` (no named-zone plugin): every date it gets is a Manila day key, so its cells are Manila days.
+
+### How to Test
+- Frontend: `payroll-dates` (Manila helpers and a cross-check with `time-requests`), `payroll-audit-target` (Manila bounds and today, impossible days), `payroll-day-audit` (Manila bucketing), `payroll-time-entry-form` (Manila payload, defaults, future check), `payslip-pdf-money`. `tests/helpers/load-ts.mjs` loads TS modules with relative imports; `dashboard-summary` uses it for the new day-audit import. Run the date tests once with `$env:TZ="America/Los_Angeles"` in PowerShell (Git Bash does not pass TZ to node on Windows).
+- Backend: `users.routes-security` (status saves, manager may set it, refusals, no-op, inactive member, employee 403); the `payroll.v2.routes` case that expected PATCH to ignore `status: 'inactive'` now expects 400 with nothing saved, and a `vacation` save.
+- Click-through with the browser zone set to America/Los_Angeles (where the browser date was a day behind Manila): shots and `results.json` in `assets/verify/calendar-fixes/` (gitignored).
+
+### Next Steps
+- `EmployeeOverviewTab.handleSaveEmployee` catches and toasts its own errors, so Edit Employee still closes after a failed save; it should rethrow (or return false) for the dialog's inline error to show.
+- `dashboard/page.tsx` computes "today" in the browser zone while `day-audit` now buckets by Manila day; switch it to `manilaTodayKey`.
+- `AdjustmentRequestModal` datetime-local inputs (`time-requests.ts` `localInputToIso` / `isoToLocalInput`) are still browser-local.
+- `PayslipsTab.tsx:147` exhaustive-deps warning: `fetchPayslips` needs `useCallback` and `viewOf` hoisted, more than a one-line change.
+- ReportsTab View Details (:799) and the role gate on `POST /payroll/periods/ensure` were reported to the other worker.
+
+## 2026-10-28 - Employee categories, automatic employee history
+
+Payroll manager request (Abigail Padua): "You can categorize employee to become full time, temporary hire, probationary, or intern." and "Number/list of employees must have historical records (automated generated report)."
+
+### Completed
+- Categories are the existing employment types. Migration `202610280003_employment_categories` seeds Probationary and Temporary Hire, so the list reads Full-Time (default), Probationary, Temporary Hire, Part-Time, Contractor, Intern. Employee Overview: a badge on every card and filter chips with counts (`EmployeeCategoryFilter`, helpers in `frontend/src/lib/employee-history.ts`); the profile panel lists the category. It is edited in Set Up Payroll (Employment type); a type added in Payroll options appears there and as a chip without a reload (the existing `payroll-options` query invalidation).
+- History: `PayrollRosterSnapshot` (same migration), one row per person per pay period. `RosterSnapshotService.captureSafely` runs after generate, regenerate, bulk generation (so the auto-payslip job too), payslip edit and delete, approve, revoke, approve all, and for the whole roster when a period is locked (every active internal employee, payslip or not). Pure rules in `backend/src/payroll/roster-snapshot.ts`, routes in `roster-snapshot.routes.ts`: `GET /api/payroll/reports/roster?periodId=|userId=` and `roster.csv` (payroll-management roles).
+- Lazy backfill: a read adds a row for every payslip that has none yet, from the payslip and the current profile. On the local dev database the four existing periods (12, 12, 8 and 8 payslips) filled in on the first read.
+- Reports > Employee History (`EmployeeHistoryReport`, `RosterTable`): period select, headcount by category and status, pay totals, roster table with a sticky name column, Download CSV; a name opens `EmployeeHistoryDialog` (the person across periods, own CSV), also reachable from Payroll history on the Payslips Management profile panel.
+- Reports sub-tab bar: below `xl` it now stacks; on a phone the period navigator and the spacer used to squeeze the Summary / Detailed / Payslip Archive tabs to zero width.
+- Follow-ups the same day: a payroll profile save refreshes the person's rows in open periods (`refreshOpenPeriods`); Reports Summary "View Details" now selects that period and opens Detailed with its row marked; `POST /payroll/periods/ensure` needs a payroll-management role (it was any signed-in account; its only caller is Payslips Management); the Payslip Archive, department and period CSVs (`payroll-reporting.ts` `csvCell`) prefix formula-looking text with `'` like the history CSV, numbers untouched (written with 2 decimals since the review fixes entry above).
+
+### Decisions Made
+- Rows are snapshots: a capture rewrites the row from the current user, profile and payslip, and the scheme name and tax rule label are stored as text so a later rename never rewrites history. A profile save rewrites only the person's rows in periods that are still draft, with the draft check inside the write, so a locked period's history never changes and a save never creates a row.
+- The roster of a period is the people captured for it: payslip holders, plus every active internal employee once the period is locked. The lazy backfill only knows payslips, so an old period lists its payslip holders.
+- `payslipStatus` is `draft` / `approved` from the sign-off while the period is open and `locked` once it is processed; the API reports `locked` for any payslip of a processed period even if the lock-time capture failed. `payslipId` is a plain id (no foreign key); a delete is followed by a capture that clears it and the pay fields (delete was not in the brief's list; without it the history would show pay that no longer exists).
+- A missing employment type stays "Not set"; no default is assumed on the card, the chips or the history.
+- The migration's insert skips a type the list already has by value or label in any case (`ON CONFLICT DO NOTHING` plus a `NOT EXISTS`), not only by id, so a "Probationary" a payroll role added by hand on production cannot make the deploy fail on the `(category, value)` unique index. Part-Time, Contractor and Intern move down only while they keep their seeded order.
+- No built-in fallback list of employment types exists (only `BUILT_IN_PAYROLL_SCHEMES` for schemes), so there was nothing to extend; when the options table cannot be read, profile saves accept the value as sent (unchanged behaviour).
+- CSV: UTF-8 with a byte order mark (names with accents open correctly in Excel), CRLF, text cells starting with `=`, `+`, `-`, `@`, tab or carriage return prefixed with `'`. Numbers are written by the server with 2 decimals and are not prefixed, so negative amounts stay numbers. Filenames are ASCII slugs. Responses are `Cache-Control: no-store` (salaries).
+- Hard delete is refused (409) while a member has history rows, like payslips (review fixes entry above; it used to cascade them). Deactivating keeps everything.
+
+### How to Test
+- Backend: `payroll.roster` (pure rules: CSV escaping, query validation, row mapping, headcount, labels, file names; test database: 401 / 403 / 400 / 404 guards, ensure-period 403 for an employee, capture after generate, regenerate after a category change, edit, approve, revoke, delete, lazy backfill once, one person across periods, both CSVs, the lock roster, the profile-save refresh: open period rewritten, locked period untouched, no row created), listed in `tests/run-tests.ts`. `payroll.options.routes` now expects the six seeded types and adds "Seasonal" instead of "Probationary". `payroll.permissions` checks the role guard on `POST /periods`, `POST /periods/ensure` and both roster routes.
+- Frontend: `employee-history.test.mjs` (labels, filter matching, chips order and counts, headcount order, status words, queries, download names), `payroll-csv-escaping.test.mjs` (archive, department and period CSV cells).
+- Click-through (Playwright, local stack, a locally minted admin token instead of a typed password): shots, both CSVs and `clickthrough-results.json` in `assets/verify/employee-history/` (gitignored). It set Genrou Josh Catacutan's category to Probationary on the dev database (left that way for the demo; change it back in Set Up Payroll if not wanted) and added then deleted a "Seasonal" type.
+
+### Next Steps
+- Production migration before merging (after `202610280001` and `202610280002`): paste `backend/prisma/migrations/202610280003_employment_categories/migration.sql` into the Supabase SQL editor, then
+  `INSERT INTO "_prisma_migrations" (id, checksum, migration_name, started_at, finished_at, applied_steps_count) VALUES (gen_random_uuid()::text, '57afa400f3d46d7007bedf5e54279b4add021f9e6a817eb93af4670886f98f29', '202610280003_employment_categories', now(), now(), 1);`
+  (SHA-256 of the file with LF endings.)
+- The first open of Employee History on production backfills every period from its payslips; nothing else to run.
+
+## 2026-10-28 - Payslip sign-off by the Disbursement Officer, withholding tax rules
+
+Payroll manager request (Abigail Padua): "Approval of payslips triggers a pop-up window for signing of the Disbursement officer" and "Add a tax option for organizations that tax their employees automatically; it must be seen on the payslip."
+
+### Completed
+- New role "Disbursement Officer" (`disbursement_officer`, Payroll / Finance) in `ORG_DEPARTMENT_ROLE_CATALOG`, the frontend `DEPARTMENT_ROLES`, `scripts/setup-ceo.mjs` and an `AvailableRole` row from the migration, so Operations can assign it. It has payroll-management access. Signers: the role or full access (`canSignDisbursement`, backend `payroll.permissions.ts`, frontend `role-access.ts`).
+- Payslip sign-off (migration `202610280001_payslip_approval_tax`): `Payslip.approvalStatus` (`draft` | `approved`), `approvedById`, `approvedAt`, `approvalSignerName`, `approvalSignature` (PNG data URL, at most 64 KB), `approvalNote`. Routes `POST /payroll/payslips/:id/approve`, `/revoke-approval`, `POST /payroll/periods/:periodId/approve-all`, `GET /payroll/periods/:periodId/approval-summary` (`payslip-approval.service.ts`, `payslip-approval.routes.ts`). An approved payslip is frozen: generate (even forced), edit and delete answer 409 until revoked; bulk generation skips it. Lock & Finalize answers 409 with `unapprovedCount` unless `force: true` (from a signer only since the review fixes entry above).
+- Sign-off dialog (`SignOffModal`, `SignaturePad`): signer name prefilled from the login, a canvas with pointer events (mouse, pen, touch), Clear, "Type my name instead" (cursive system font, also the keyboard path), the gross and net (or count and totals for approve all), "I have checked these amounts", then "Approved by NAME on DATE" with View payslip. Approve for disbursement on each draft payslip row and in the details dialog (every payroll role sees it, signers can press it, others get the reason), Approve all and "N of M approved" on the period header (`ActivePeriodPanel`), Revoke in the details for signers, the green approval block in the details, My Payslips and both PDFs (`drawPdfApprovalBlock`), the editor's 409 shown in the dialog.
+- Withholding tax: `PayrollTaxRule` (key, name, rate %, isDefault, sortOrder, archivedAt), managed in Payroll options ("Tax rules": add, edit, set or remove default, archive, restore, delete, in-use counts), routes `/payroll/tax-rules`. `EmployeeProfile.taxRule`: null follows the default, `none` is no tax, else a rule key. Generation adds `Withholding tax (NAME, R%)` = round(gross x rate / 100, 2) as a `tax` line after overtime and before other deductions; gross leaves `tax` out; the editor treats it as a deduction. Nothing is seeded, so nothing changes until a rule is added.
+- Tax shown in Set Up Payroll (Tax select, estimated tax on a full month in the rate preview), the profile panel, the Employee Overview pay line (only when not the default), the generate dialog, payslip details, PDF, My Payslips (net pay after tax, setup line) and Reports (Tax column in the archive; the breakdown counts `tax` lines).
+- Shared payslip mapping `lib/payslip-view.ts` (Payslips Management and My Payslips), payslip rows split into `PayslipHistoryItem`, the period header into `ActivePeriodPanel`; `PayslipsTab` and My Payslips got shorter.
+
+### Decisions Made
+- Nobody signs off or revokes their own payslip (403), the same rule as edits; approve all leaves the signer's own payslip for another signer and reports it as `skippedOwn`. The brief did not ask for it; segregation of duties on pay is the reason.
+- Delete is frozen too (the brief named regenerate and edit): deleting an approved payslip would drop a signed amount silently.
+- Lock & Finalize shows the unapproved count in its one confirmation (from the new period summary) and sends `force` when the user agrees; a 409 from a count that changed meanwhile asks again. The 409 message starts with the count because `apiFetch` only passes the message on. Since the review fixes (entry above) only signers get this prompt; other payroll roles see the server's 409 message.
+- Tax rules may have no default, unlike schemes (`isDefault: false` clears it), because "seed nothing as default" must stay reachable after a default was set. A tax line is added even when it rounds to 0, so the payslip shows which rule applied.
+- Signatures are stored per payslip as the brief asked (a few KB each from the 600 x 200 canvas, 64 KB at most). My Payslips carries them; since the review fixes (entry above) the archive and report stats queries leave them out.
+- The signature must decode to PNG bytes (prefix and the PNG signature checked on the server), so the field cannot carry other content.
+- What the signer saw is what gets signed: the dialog sends the amounts it showed (`expectedGrossPay` / `expectedNetPay`, or `expectedCount` / `expectedNet` for approve all) and the server refuses (409) when the payslips changed in between. Regenerate also re-checks the approval inside its write (it used to delete and recreate the lines outside a transaction).
+
+### How to Test
+- Backend: `payroll.approval.routes` (test database: who signs, input rules, stale amounts 409, approve, double approve 409, edit / delete / forced regenerate 409, revoke and its note, own payslip 403, summary, approve all with stale totals 409 then counts, admin signs, lock 409 with the count then force, locked period 409; bulk skip with stubs), `payroll.tax` (pure rules and rounding, tax rule CRUD and default switching, profile choices, generated payslips: no default no tax, default applies, `none` and own rule override, 7.5% rounding, regeneration after a rate change, archived rule still applies, the tax line removable in the editor, line order with stubs), cases in `payroll.permissions`, `signup.requests`, `scheduler.routes`.
+- Frontend: `payslip-approval` (signature size check, form rules, button state, labels, lock prompt, PDF block), `payroll-tax` (resolution, rounding, select options, labels, full-month estimate, drafts), cases in `payslip-edit`, `payslip-generate`, `payslip-utils`, `payroll-setup`, `role-access`, `departments-catalog`.
+- Click-through shots in `assets/verify/payslip-approval/` (gitignored).
+
+### Next Steps
+- Production migration before merging: paste `backend/prisma/migrations/202610280001_payslip_approval_tax/migration.sql` into the Supabase SQL editor, then
+  `INSERT INTO "_prisma_migrations" (id, checksum, migration_name, started_at, finished_at, applied_steps_count) VALUES (gen_random_uuid()::text, 'ba6cf71c99d93ca7742db7456ed84b2b4fcaca355ce8abf2e17acd69ad65f6f1', '202610280001_payslip_approval_tax', now(), now(), 1);`
+  (SHA-256 of the file with LF endings, like the other rows). If production has no "Payroll / Finance" department the role row is skipped; run the org-catalog sync (`POST /api/departments/org-catalog/sync`) after.
+- Assign the Disbursement Officer role to the person who signs (Operations, member roles), and add the tax rule the organization uses in Payroll options; until then no payslip is taxed.
+- Existing payslips start unapproved, so the first Lock & Finalize after the release asks a signer to confirm (other payroll roles are refused) unless they are approved first. Locked periods never show them as awaiting approval.
+
+## 2026-10-28 - Org chart for every member, concerns (internal tickets)
+
+Owner request (payroll manager): "an organizational chart of employees where you can contact specific supervisors via a ticketing system for concerns or clarifications."
+
+### Completed
+- `/org-chart` (Company section, every internal member) on `GET /api/org-chart` (`backend/src/org-chart`): active, approved internal members with role label, department, manager, direct report count and a supervisor flag, plus what the viewer may do. The tree is built in `frontend/src/lib/org-chart.ts` (roots by department, loop-safe), drawn with CSS connectors (`components/org-chart/org-chart.module.css`, a stacked list with indent lines at phone width), foldable, searchable, with a Me badge. Change manager and Set as root use the existing `PATCH /api/users/:id { managerId }`; its guard and cycle check were already there and are now covered by `org-chart.routes`.
+- Concerns: `InternalTicket` and `InternalTicketMessage` (migration `202610280002_internal_tickets`), routes in `backend/src/concerns` (rules in `concerns.rules.ts`), pages `/concerns` and `/concerns/[id]`, and the New concern dialog from Contact on the chart or from the list. Routes and rules: `docs/api.md`, "Org Chart And Concerns".
+- Each change notifies the other people on the concern by socket, a stored `UserNotification` row (the bell, also on Vercel) and a `data:changed` hint to their user rooms.
+- Dashboard: Needs Attention leads with "Concerns waiting for you" and the open inbox count.
+
+### Decisions Made
+- Supervisor = a direct report on the chart or a management role (`MANAGEMENT_ACCESS_ROLES`, so admins and owners count). Full access may raise a concern with any member; reassigning always needs a supervisor, as the brief says.
+- Who opens a concern: the requester, the assignee and full access. All box: full access only (the review fixes entry above; management roles first got the list of subjects and people). Close and reopen belong to the two people on it.
+- A reply to a closed concern is refused (`409`) rather than silently reopening it; the guarded update means a close that lands first wins.
+- Client-only accounts are left off the chart and refused by both APIs (the user directory rule). Free-tier accounts do not see the two nav items, like Messages & Chat and File Directory, because the API refuses accounts without a role.
+- Hard delete is refused (409) while a member is on a concern (the review fixes entry above; it used to cascade the concerns and messages); deactivation keeps everything.
+- The Operations `Org Chart` tab stays as the admin editor; the member chart has its own lib and components, so neither changes the other.
+
+### How to Test
+- Backend: `org-chart.routes` and `concerns.routes` (real test database), both listed in `tests/run-tests.ts`. Frontend: `org-chart.test.mjs`, `concerns.test.mjs`.
+- Click-through (Playwright on the local stack): shots and `results.json` in `assets/verify/org-chart/` (gitignored). Worker two's password is not the seed password, so that check signs in with a refresh session minted locally by the app's own token service and revoked afterwards.
+
+### Next Steps
+- Production migration before merging: paste `backend/prisma/migrations/202610280002_internal_tickets/migration.sql` into the Supabase SQL editor, then
+  `INSERT INTO "_prisma_migrations" (id, checksum, migration_name, started_at, finished_at, applied_steps_count) VALUES (gen_random_uuid()::text, '18bf9205640d32ac0a89758d3d02d7fe625f7cd726337619ca9d0ce8cfb7d5ef', '202610280002_internal_tickets', now(), now(), 1);`
+  (SHA-256 of the file with LF endings, like the other rows). It does not touch the tables of `202610280001_payslip_approval_tax`; when both are pending, apply 0001 first to keep the folder order.
+- Lists stop at the 200 newest concerns per box; add paging if a team outgrows that.
+- Concerns notify in the bell only, no email yet.
+
 ## 2026-10-20 - Payroll lists as data, 22 credited days, Set Up Payroll and Employee Overview
 
 Owner request: "make everything CRUD instead of fixed dropdowns; the payroll manager says 22 days are the maximum credited days; enlarge the Payroll Setup; fix the UI/UX of the Employee Overview; make sure everything is connected and reflects on the important pages."

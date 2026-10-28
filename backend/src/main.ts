@@ -22,6 +22,8 @@ import { GemfieldController } from './clients/gemfield/gemfield.controller'
 import { SearchController } from './search/search.controller'
 import { WorkspaceController } from './workspace/workspace.controller'
 import { SchedulerController } from './scheduler/scheduler.controller'
+import { OrgChartController } from './org-chart/org-chart.controller'
+import { ConcernsController } from './concerns/concerns.controller'
 import { resolveCorsResponseOrigin } from './config/cors.config'
 import { config as appConfig, validateConfig } from './config/env.config'
 import { PrismaService } from './database/prisma.service'
@@ -199,6 +201,10 @@ async function bootstrap() {
 
   const schedulerController = new SchedulerController()
   app.use('/api/scheduler', schedulerController.router())
+
+  // Member-facing org chart and concerns (internal tickets), 2026-10-28
+  app.use('/api/org-chart', new OrgChartController().router())
+  app.use('/api/concerns', new ConcernsController().router())
 
 
   // Expose app for Vercel

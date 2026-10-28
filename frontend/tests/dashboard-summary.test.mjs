@@ -5,6 +5,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { loadTsModule } from './helpers/load-ts.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -42,6 +43,11 @@ function loadDashboardSummaryHelper() {
     module: dayAuditModule,
     exports: dayAuditModule.exports,
     console,
+    // day-audit buckets by Manila day through lib/payroll-dates.ts (2026-10-28).
+    require: (specifier) => {
+      if (specifier === '../payroll-dates') return loadTsModule(path.resolve(__dirname, '../src/lib/payroll-dates.ts'));
+      throw new Error(`Unexpected require: ${specifier}`);
+    },
   }, { filename: dayAuditPath });
 
   const deepLinkModule = { exports: {} };

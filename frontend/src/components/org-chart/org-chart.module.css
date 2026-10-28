@@ -1,0 +1,161 @@
+/*
+ * Org chart connectors. Desktop: each parent sits above a row of its reports,
+ * joined by a vertical line and a horizontal bar. Phone width: the rows become a
+ * stacked list with indent lines. Lines are borders on pseudo-elements, no images.
+ */
+
+.canvas {
+  width: max-content;
+  min-width: 100%;
+}
+
+.roots,
+.children {
+  display: flex;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roots {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1.5rem 2.5rem;
+}
+
+.children {
+  position: relative;
+  padding-top: 1rem;
+}
+
+/* Line from the parent card down to the bar. */
+.children::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 1rem;
+  border-left: 1px solid var(--border);
+}
+
+/* A card centred above its own row of reports. */
+.branch {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.children > .branch {
+  padding: 1rem 0.375rem 0;
+}
+
+/* Two halves of the bar above each report; the right half also drops the stub. */
+.children > .branch::before,
+.children > .branch::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 50%;
+  width: 50%;
+  height: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.children > .branch::after {
+  right: auto;
+  left: 50%;
+  border-left: 1px solid var(--border);
+}
+
+.children > .branch:first-child::before,
+.children > .branch:last-child::after {
+  border-top: 0;
+}
+
+.children > .branch:last-child::before {
+  border-right: 1px solid var(--border);
+  border-top-right-radius: 6px;
+}
+
+.children > .branch:first-child::after {
+  border-top-left-radius: 6px;
+}
+
+.children > .branch:only-child {
+  padding-top: 0;
+}
+
+.children > .branch:only-child::before,
+.children > .branch:only-child::after {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  .canvas {
+    width: 100%;
+  }
+
+  .roots,
+  .children {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .children {
+    gap: 0;
+    padding: 0 0 0 0.75rem;
+  }
+
+  .branch {
+    align-items: stretch;
+  }
+
+  .children::before {
+    display: none;
+  }
+
+  .children > .branch,
+  .children > .branch:only-child {
+    padding: 0.5rem 0 0 1rem;
+  }
+
+  /* Tick from the indent line to the card (listed per child kind to beat the desktop rules). */
+  .children > .branch::before,
+  .children > .branch:first-child::before,
+  .children > .branch:last-child::before,
+  .children > .branch:only-child::before {
+    display: block;
+    top: 2.25rem;
+    right: auto;
+    left: 0;
+    width: 0.875rem;
+    height: 0;
+    border: 0;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+  }
+
+  /* Indent line; the last report's line stops at its tick. */
+  .children > .branch::after,
+  .children > .branch:first-child::after,
+  .children > .branch:last-child::after,
+  .children > .branch:only-child::after {
+    display: block;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: auto;
+    border: 0;
+    border-left: 1px solid var(--border);
+    border-radius: 0;
+  }
+
+  .children > .branch:last-child::after {
+    bottom: auto;
+    height: 2.25rem;
+  }
+}

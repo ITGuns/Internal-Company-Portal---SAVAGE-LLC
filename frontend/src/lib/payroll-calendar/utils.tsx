@@ -5,16 +5,16 @@
 import React from "react";
 import { DollarSign, X, Clock, Calendar as CalendarIcon } from "lucide-react";
 import type { EventType } from "./types";
+import { manilaDayKey } from "../payroll-dates";
 
 /**
- * Get local date string from ISO timestamp (handles timezone conversion)
+ * Payroll (Manila) day of an instant. Until 2026-10-28 this was the browser
+ * day, which put "today" on a different day than the server for viewers
+ * outside Manila. The name stays for OvertimeRequestModal; new code calls
+ * manilaDayKey / manilaTodayKey from lib/payroll-dates.
  */
 export function getLocalDateString(isoOrDate: string | Date): string {
-  const date = typeof isoOrDate === "string" ? new Date(isoOrDate) : isoOrDate;
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return manilaDayKey(isoOrDate) ?? "";
 }
 
 /**

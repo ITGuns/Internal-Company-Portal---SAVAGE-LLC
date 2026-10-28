@@ -87,6 +87,10 @@ model User {
   adjustmentRequests          TimeEntryAdjustmentRequest[] @relation("AdjustmentRequests")
   adjustmentReviews           TimeEntryAdjustmentRequest[] @relation("AdjustmentReviews")
   notifications               UserNotification[]
+  internalTicketsRaised       InternalTicket[]             @relation("InternalTicketRequester")
+  internalTicketsAssigned     InternalTicket[]             @relation("InternalTicketAssignee")
+  internalTicketMessages      InternalTicketMessage[]      @relation("InternalTicketMessageAuthor")
+  payrollRosterSnapshots      PayrollRosterSnapshot[]
 
   @@index([email])
   @@index([managerId])
@@ -1070,6 +1074,9 @@ model EmployeeProfile {
   overtimeMultiplier     Float   @default(1.25)
   bankAccount            String?
   taxId                  String?
+  // Withholding tax (2026-10-28): null = the workspace default rule, 'none' = no tax,
+  // else a PayrollTaxRule key (no foreign key, like payrollScheme).
+  taxRule                String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1117,6 +1124,24 @@ model PayrollOption {
   @@unique([category, value])
 }
 
+// Withholding tax rules (2026-10-28), managed like PayrollScheme. EmployeeProfile.taxRule holds `key`.
+// No row is seeded and none is the default: a workspace without a default applies no tax.
+// Rules: docs/payroll-time-v2-spec.md, "Withholding tax".
+model PayrollTaxRule {
+  id         String    @id @default(cuid())
+  // Stable slug stored on profiles; never changes after creation. 'none' is reserved.
+  key        String    @unique
+  name       String
+  // Percent of gross pay, 0 to 100.
+  rate       Float
+  isDefault  Boolean   @default(false)
+  sortOrder  Int       @default(0)
+  archivedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model PayrollPeriod {
   id          String    @id @default(cuid())
   startDate   DateTime
@@ -1129,24 +1154,34 @@ model PayrollPeriod {
   updatedAt DateTime @updatedAt
 
   // Relations
-  payslips Payslip[]
+  payslips        Payslip[]
+  rosterSnapshots PayrollRosterSnapshot[]
 
   @@index([startDate])
   @@index([status])
 }
 
 model Payslip {
-  id          String    @id @default(cuid())
-  periodId    String
-  userId      String
-  grossPay    Float     @default(0)
-  netPay      Float     @default(0)
-  status      String    @default("draft")
-  notes       String?
-  generatedAt DateTime  @default(now())
-  editedById  String?
-  editedAt    DateTime?
-  editNote    String?
+  id                 String    @id @default(cuid())
+  periodId           String
+  userId             String
+  grossPay           Float     @default(0)
+  netPay             Float     @default(0)
+  status             String    @default("draft")
+  notes              String?
+  generatedAt        DateTime  @default(now())
+  editedById         String?
+  editedAt           DateTime?
+  editNote           String?
+  // Disbursement sign-off (2026-10-28). 'draft' | 'approved'; `status` above is kept as is.
+  // An approved payslip is frozen: regenerate, edit and delete answer 409 until revoked.
+  approvalStatus     String    @default("draft")
+  approvedById       String?
+  approvedAt         DateTime?
+  approvalSignerName String?
+  // PNG data URL drawn on the sign-off canvas, at most 64 KB.
+  approvalSignature  String?
+  approvalNote       String?
 
   // Relations
   period PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
@@ -1376,4 +1411,87 @@ model SchedulerJobRun {
   @@index([jobType])
   @@index([status])
   @@index([startedAt])
+}
+
+// ============================================
+// INTERNAL TICKETS (CONCERNS)
+// ============================================
+
+// A concern a member raises with a supervisor from the org chart (2026-10-28).
+// Status: 'open' (waiting on the assignee) | 'answered' (assignee replied) | 'closed'.
+model InternalTicket {
+  id          String    @id @default(cuid())
+  number      Int       @unique @default(autoincrement())
+  requesterId String
+  assigneeId  String
+  subject     String
+  status      String    @default("open")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  closedAt    DateTime?
+
+  requester User                    @relation("InternalTicketRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  assignee  User                    @relation("InternalTicketAssignee", fields: [assigneeId], references: [id], onDelete: Cascade)
+  messages  InternalTicketMessage[]
+
+  @@index([assigneeId])
+  @@index([requesterId])
+  @@index([status])
+}
+
+model InternalTicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  ticket InternalTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User           @relation("InternalTicketMessageAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@index([authorId])
+}
+
+// ============================================
+// EMPLOYEE HISTORY
+// ============================================
+
+// Who was on payroll in a pay period and what they were paid (2026-10-28, payroll
+// manager request). Written by the payroll service on every payslip write and when
+// the period is locked; never edited by hand. Rules: docs/payroll-time-v2-spec.md,
+// "Employee history".
+model PayrollRosterSnapshot {
+  id             String   @id @default(cuid())
+  periodId       String
+  userId         String
+  // Time of the last capture (each capture rewrites the row).
+  capturedAt     DateTime @default(now())
+  name           String
+  email          String
+  department     String
+  roleTitle      String
+  // EmployeeProfile.employmentType value (the category); null when none is stored.
+  employmentType String?
+  memberStatus   String
+  // Scheme name and tax rule label at capture time, so a later rename never rewrites history.
+  payrollScheme  String?
+  payBasis       String?
+  baseSalary     Float?
+  taxRule        String?
+  // Pay fields are null when the person had no payslip in the period.
+  hoursWorked    Float?
+  grossPay       Float?
+  taxAmount      Float?
+  netPay         Float?
+  // Plain id, no foreign key: the capture after a payslip delete clears it.
+  payslipId      String?
+  // draft | approved | locked; null without a payslip.
+  payslipStatus  String?
+
+  period PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([periodId, userId])
+  @@index([userId])
 }

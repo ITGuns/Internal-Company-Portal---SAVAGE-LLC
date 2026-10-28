@@ -20,6 +20,7 @@ const SCHEDULER_MANAGEMENT_ROLES = [
     'financial_controller',
     'payroll_assistant',
     'payroll_finance',
+    'disbursement_officer',
 ]
 
 /**

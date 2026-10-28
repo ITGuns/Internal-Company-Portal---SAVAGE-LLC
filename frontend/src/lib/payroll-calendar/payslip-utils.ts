@@ -1,20 +1,21 @@
 import { Payslip, Deduction, PayPeriod, Employee } from "./types";
-import { formatPayrollDate, formatPayrollPeriod } from "../payroll-dates";
-import { getPayrollItemTypeLabel, inferPayrollItemType } from "../payslip-edit";
+import { formatPayrollDate, formatPayrollPeriod, formatPayrollTime } from "../payroll-dates";
+import { getPayrollItemTypeLabel, inferPayrollItemType, isDeductionItemType } from "../payslip-edit";
 import { getPayBasisLabel } from "../pay-basis";
+import { drawPdfApprovalBlock } from "../payslip-approval";
 
 /**
  * Earning lines for the payslip PDF, labelled by item type (Regular hours, Overtime and so on)
  * so the legacy "Base Salary" wording never shows. `detail` is the stored line description,
  * which names the salary divisor scheme as it was when the payslip was generated.
- * Deductions are listed separately.
+ * Deductions and withholding tax are listed separately.
  */
 export function getPayslipEarningLines(
   payslip: Pick<Payslip, "grossPay" | "items">,
 ): Array<{ label: string; amount: number; detail?: string }> {
   const lines = (payslip.items ?? [])
     .map((item) => ({ type: inferPayrollItemType(item.type, item.amount), amount: item.amount, description: item.description }))
-    .filter((item) => item.type !== "deduction")
+    .filter((item) => !isDeductionItemType(item.type))
     .map((item) => {
       const label = getPayrollItemTypeLabel(item.type);
       const detail = item.description?.trim();
@@ -101,63 +102,15 @@ export function formatCurrency(amount: number): string {
 }
 
 /**
- * Generate unique payslip ID
+ * Money for the payslip PDF: "PHP 1,234.00" (or "-PHP 1,234.00"). jsPDF's
+ * built-in Helvetica has no peso sign and prints "±" for it, so the PDF spells
+ * the currency out; screens keep formatCurrency with the sign.
  */
-export function generatePayslipId(): string {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 9);
-  return `PAY-${timestamp}-${random}`.toUpperCase();
-}
-
-/**
- * Get pay period dates for current month
- */
-export function getCurrentPayPeriod(): { start: string; end: string } {
-  const today = new Date();
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-
-  return {
-    start: firstDay.toISOString().split("T")[0],
-    end: lastDay.toISOString().split("T")[0],
-  };
-}
-
-/**
- * Validate payslip data
- */
-export function validatePayslip(payslip: Partial<Payslip>): string[] {
-  const errors: string[] = [];
-
-  if (!payslip.employeeId) {
-    errors.push("Employee ID is required");
-  }
-
-  if (!payslip.payPeriodStart) {
-    errors.push("Pay period start date is required");
-  }
-
-  if (!payslip.payPeriodEnd) {
-    errors.push("Pay period end date is required");
-  }
-
-  if (
-    payslip.payPeriodStart &&
-    payslip.payPeriodEnd &&
-    new Date(payslip.payPeriodStart) > new Date(payslip.payPeriodEnd)
-  ) {
-    errors.push("Pay period start must be before end date");
-  }
-
-  if (payslip.grossPay && payslip.grossPay < 0) {
-    errors.push("Gross pay cannot be negative");
-  }
-
-  if (payslip.netPay && payslip.netPay < 0) {
-    errors.push("Net pay cannot be negative");
-  }
-
-  return errors;
+export function formatPdfMoney(amount: number, currency = "PHP"): string {
+  const value = Number.isFinite(amount) ? amount : 0;
+  const digits = Math.abs(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const sign = value < 0 && digits !== "0.00" ? "-" : "";
+  return `${sign}${currency} ${digits}`;
 }
 
 /**
@@ -234,7 +187,7 @@ export function generatePayslipPDF(payslip: Payslip, employee: Employee): void {
     }
     getPayslipEarningLines(payslip).forEach((line) => {
       doc.text(line.label, 20, yPos);
-      doc.text(formatCurrency(line.amount), pageWidth - 20, yPos, { align: "right" });
+      doc.text(formatPdfMoney(line.amount), pageWidth - 20, yPos, { align: "right" });
       yPos += 5;
       if (line.detail) {
         // The stored description (scheme name, hours) in small grey type under the label.
@@ -262,7 +215,7 @@ export function generatePayslipPDF(payslip: Payslip, employee: Employee): void {
     } else {
       payslip.deductions.forEach(d => {
         doc.text(d.name, 20, yPos);
-        doc.text(`-${formatCurrency(d.amount)}`, pageWidth - 20, yPos, { align: "right" });
+        doc.text(formatPdfMoney(-d.amount), pageWidth - 20, yPos, { align: "right" });
         yPos += 8;
       });
     }
@@ -277,16 +230,16 @@ export function generatePayslipPDF(payslip: Payslip, employee: Employee): void {
 
     doc.setFont("helvetica", "normal");
     doc.text("Total Gross:", 115, yPos + 8);
-    doc.text(formatCurrency(payslip.grossPay), 190, yPos + 8, { align: "right" });
+    doc.text(formatPdfMoney(payslip.grossPay), 190, yPos + 8, { align: "right" });
 
     doc.text("Total Deductions:", 115, yPos + 16);
     const totalDeductions = calculateTotalDeductions(payslip.deductions);
-    doc.text(`-${formatCurrency(totalDeductions)}`, 190, yPos + 16, { align: "right" });
+    doc.text(formatPdfMoney(-totalDeductions), 190, yPos + 16, { align: "right" });
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.text("NET PAY:", 115, yPos + 25);
-    doc.text(formatCurrency(payslip.netPay), 190, yPos + 25, { align: "right" });
+    doc.text((payslip.items ?? []).some((item) => item.type === "tax") ? "NET (AFTER TAX):" : "NET PAY:", 115, yPos + 25);
+    doc.text(formatPdfMoney(payslip.netPay), 190, yPos + 25, { align: "right" });
 
     yPos += 50;
 
@@ -296,8 +249,8 @@ export function generatePayslipPDF(payslip: Payslip, employee: Employee): void {
     doc.line(15, yPos, 85, yPos);
     doc.text("Employee Signature", 15, yPos + 5);
 
-    doc.line(110, yPos, 190, yPos);
-    doc.text("Authorized Signature", 110, yPos + 5);
+    // Disbursement sign-off (2026-10-28): the approval block, or the plain signature line.
+    drawPdfApprovalBlock(doc, payslip, 110, yPos, 80);
 
     // Reset text color for footer
     doc.setTextColor(148, 163, 184);
@@ -309,19 +262,20 @@ export function generatePayslipPDF(payslip: Payslip, employee: Employee): void {
       doc.internal.pageSize.getHeight() - 15,
       { align: "center" }
     );
+    // Manila date and time, like every other payroll date. ICU puts a narrow
+    // no-break space before AM / PM, which Helvetica cannot print either.
+    const generatedAt = new Date();
     doc.text(
-      `Generated on ${new Date().toLocaleDateString("en-US")} at ${new Date().toLocaleTimeString("en-US")}`,
+      `Generated on ${formatPayrollDate(generatedAt)} at ${formatPayrollTime(generatedAt).replace(/\s/g, " ")}`,
       pageWidth / 2,
       doc.internal.pageSize.getHeight() - 10,
       { align: "center" }
     );
 
-    // Generate filename
-    const monthYear = new Date(payslip.payPeriodStart).toLocaleDateString(
-      "en-US",
-      { month: "short", year: "numeric" }
-    );
-    const filename = `payslip-${employee.name.replace(/\s+/g, "-")}-${monthYear}.pdf`;
+    // Generate filename (the period's Manila month; new Date("YYYY-MM-01") is a day early west of UTC)
+    const monthYear = formatPayrollDate(payslip.payPeriodStart, { edge: "start", format: { month: "short", year: "numeric" } }, "");
+    const employeePart = employee.name.replace(/\s+/g, "-");
+    const filename = monthYear ? `payslip-${employeePart}-${monthYear}.pdf` : `payslip-${employeePart}.pdf`;
 
     // Save the PDF
     doc.save(filename);
@@ -353,42 +307,3 @@ export function calculateTotalDeductions(deductions: Deduction[]): number {
 
 /** Pay period label in Manila days. Same helper as every other payroll date label. */
 export const formatPayPeriod = formatPayrollPeriod;
-
-/**
- * Get year-to-date earnings for employee
- */
-export function calculateYTDEarnings(
-  payslips: Payslip[],
-  employeeId: number
-): number {
-  const currentYear = new Date().getFullYear();
-
-  return payslips
-    .filter((p) => {
-      const payslipYear = new Date(p.payPeriodStart).getFullYear();
-      return p.employeeId === employeeId && payslipYear === currentYear;
-    })
-    .reduce((sum, p) => sum + p.grossPay, 0);
-}
-
-/**
- * Get year-to-date taxes for employee
- */
-export function calculateYTDTaxes(
-  payslips: Payslip[],
-  employeeId: number
-): number {
-  const currentYear = new Date().getFullYear();
-
-  return payslips
-    .filter((p) => {
-      const payslipYear = new Date(p.payPeriodStart).getFullYear();
-      return p.employeeId === employeeId && payslipYear === currentYear;
-    })
-    .reduce((sum, p) => {
-      const taxDeductions = p.deductions
-        .filter((d) => d.type === "tax")
-        .reduce((taxSum, d) => taxSum + d.amount, 0);
-      return sum + taxDeductions;
-    }, 0);
-}

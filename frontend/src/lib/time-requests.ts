@@ -141,8 +141,9 @@ export function validateAdjustmentRequestForm(
   }
 
   if (form.action !== "delete") {
-    const start = new Date(form.proposedStart);
-    const end = form.proposedEnd ? new Date(form.proposedEnd) : null;
+    // datetime-local values are payroll-zone wall clock time (see localInputToIso).
+    const start = new Date(localInputToIso(form.proposedStart) ?? NaN);
+    const end = form.proposedEnd ? new Date(localInputToIso(form.proposedEnd) ?? NaN) : null;
 
     if (!form.proposedStart || Number.isNaN(start.getTime())) {
       errors.proposedStart = "Enter the correct start time.";
@@ -182,23 +183,59 @@ export function validateAdjustmentRequestForm(
   return { valid: Object.keys(errors).length === 0, errors };
 }
 
-/**
- * Converts a datetime-local value (YYYY-MM-DDTHH:mm, local time) to an ISO string.
- * Returns undefined for blank or invalid input.
- */
-export function localInputToIso(value: string): string | undefined {
-  if (!value) return undefined;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+const DATE_TIME_INPUT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
+
+function zonedClockParts(instant: Date, timeZone: string): Record<string, string> {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(instant);
+  return Object.fromEntries(parts.map((part) => [part.type, part.value]));
 }
 
-/** Formats an ISO instant for a datetime-local input in the browser's zone. */
+/** Offset of the payroll zone from UTC at an instant, in milliseconds (Manila: 8 hours). */
+function payrollZoneOffsetMs(instant: Date, timeZone: string = PAYROLL_TIME_ZONE): number {
+  const clock = zonedClockParts(instant, timeZone);
+  const wall = Date.UTC(
+    Number(clock.year), Number(clock.month) - 1, Number(clock.day),
+    Number(clock.hour), Number(clock.minute), Number(clock.second),
+  );
+  return wall - Math.floor(instant.getTime() / 1000) * 1000;
+}
+
+/**
+ * Converts a datetime-local value (YYYY-MM-DDTHH:mm) read as payroll-zone wall
+ * clock time to an ISO instant: "2026-10-07T09:15" is 09:15 in Manila, so
+ * "2026-10-07T01:15:00.000Z", whatever the browser's zone. Undefined for blank,
+ * malformed or impossible input (such as 30 February).
+ */
+export function localInputToIso(value: string): string | undefined {
+  const match = DATE_TIME_INPUT.exec(value ?? "");
+  if (!match) return undefined;
+  const [year, month, day, hour, minute] = match.slice(1, 6).map(Number);
+  const second = match[6] ? Number(match[6]) : 0;
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59) return undefined;
+  const naive = Date.UTC(year, month - 1, day, hour, minute, second);
+  const guess = naive - payrollZoneOffsetMs(new Date(naive));
+  const instant = new Date(naive - payrollZoneOffsetMs(new Date(guess)));
+  // Date.UTC rolls an impossible day into the next month; the day key would no longer match.
+  if (getPayrollDayKey(instant) !== `${match[1]}-${match[2]}-${match[3]}`) return undefined;
+  return instant.toISOString();
+}
+
+/** Formats an ISO instant for a datetime-local input as payroll-zone wall clock time. */
 export function isoToLocalInput(value?: string | null): string {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  const clock = zonedClockParts(date, PAYROLL_TIME_ZONE);
+  return `${clock.year}-${clock.month}-${clock.day}T${clock.hour}:${clock.minute}`;
 }
 
 export interface TimeRequestFilter {

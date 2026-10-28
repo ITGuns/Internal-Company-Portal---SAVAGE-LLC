@@ -2,13 +2,13 @@
  * Custom hook for managing payroll data (time entries, events, clock state)
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 // Must match the key used in TimeClock.tsx so both surfaces stay in sync
 const ACTIVE_TIME_ENTRY_QUERY_KEY = ['time-entries', 'active'] as const;
 import {
-  fetchTimeEntries,
+  fetchTimeEntriesOrThrow,
   getActiveEntry,
   clockIn as clockInAPI,
   clockOut as clockOutAPI,
@@ -27,30 +27,44 @@ import {
 
 export function usePayrollData(targetUserId?: string, startIso?: string, endIso?: string) {
   const queryClient = useQueryClient();
+  // True until the first load settles. Later reloads (backfill, filters, retry)
+  // set `refreshing` instead, so the calendar stays mounted with its selected day.
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [clockedIn, setClockedIn] = useState(false);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [customEvents, setCustomEvents] = useState<PayrollEvent[]>([]);
+  const settledOnceRef = useRef(false);
+  // Only the latest request may write state (filters can change mid-flight).
+  const requestIdRef = useRef(0);
 
   const loadData = useCallback(async () => {
-    setLoading(true);
+    const requestId = ++requestIdRef.current;
+    if (settledOnceRef.current) setRefreshing(true);
     try {
-      // Fetch both time entries and events from API/localStorage
       const [entries, events] = await Promise.all([
-        fetchTimeEntries(startIso, endIso, targetUserId),
+        fetchTimeEntriesOrThrow(startIso, endIso, targetUserId),
         fetchPayrollEvents(),
       ]);
+      if (requestId !== requestIdRef.current) return;
       setTimeEntries(entries);
       setCustomEvents(events);
+      setLoadError(null);
 
       // Update clocked in state and keep Header's TimeClock cache in sync
       const active = getActiveEntry(entries);
       setClockedIn(!!active);
       queryClient.setQueryData(ACTIVE_TIME_ENTRY_QUERY_KEY, active ?? null);
     } catch (error) {
-      console.error("Failed to load payroll data:", error);
+      if (requestId !== requestIdRef.current) return;
+      setLoadError(error instanceof Error && error.message ? error.message : "Could not load payroll data.");
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        settledOnceRef.current = true;
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [endIso, queryClient, startIso, targetUserId]);
 
@@ -80,11 +94,12 @@ export function usePayrollData(targetUserId?: string, startIso?: string, endIso?
     try {
       const entry = await clockOutAPI();
       if (entry) {
-        const updatedEntries = await fetchTimeEntries(startIso, endIso, targetUserId);
-        setTimeEntries(updatedEntries);
         setClockedIn(false);
         // Keep Header's TimeClock widget in sync
         queryClient.setQueryData(ACTIVE_TIME_ENTRY_QUERY_KEY, null);
+        // Show the closed entry now; the reload brings the server's duration.
+        setTimeEntries((prev) => prev.map((x) => (x.id === entry.id ? entry : x)));
+        void loadData();
         return { success: true };
       }
       return { success: false };
@@ -161,6 +176,8 @@ export function usePayrollData(targetUserId?: string, startIso?: string, endIso?
 
   return {
     loading,
+    refreshing,
+    loadError,
     clockedIn,
     timeEntries,
     customEvents,

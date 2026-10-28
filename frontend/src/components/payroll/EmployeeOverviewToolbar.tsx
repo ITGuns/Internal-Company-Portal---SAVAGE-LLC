@@ -17,6 +17,8 @@ interface EmployeeOverviewToolbarProps {
   onAddEmployee?: () => void;
   query: string;
   onQueryChange: (query: string) => void;
+  /** Shown under the search, e.g. the category chips of the deployed list (2026-10-28). */
+  filters?: React.ReactNode;
 }
 
 export default function EmployeeOverviewToolbar({
@@ -28,6 +30,7 @@ export default function EmployeeOverviewToolbar({
   onAddEmployee,
   query,
   onQueryChange,
+  filters,
 }: EmployeeOverviewToolbarProps) {
   const viewButton = (target: EmployeeView, label: string, icon: React.ReactNode, badge?: number) => (
     <Button variant={view === target ? "primary" : "ghost"} size="sm" icon={icon} onClick={() => onViewChange(target)} aria-pressed={view === target}>
@@ -78,6 +81,7 @@ export default function EmployeeOverviewToolbar({
           </button>
         )}
       </div>
+      {filters}
     </div>
   );
 }

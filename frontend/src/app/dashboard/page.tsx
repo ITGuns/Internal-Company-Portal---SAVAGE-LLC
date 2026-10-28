@@ -42,6 +42,7 @@ import {
   type DashboardAttentionItem,
 } from '@/lib/dashboard-summary'
 import { isFreeTierUser } from '@/lib/role-access'
+import { CONCERNS_INBOX_OPEN_KEY, fetchOpenInboxConcernCount, withOpenConcernsAttention } from '@/lib/concerns'
 
 const dashboardNumberFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 0,
@@ -122,26 +123,16 @@ function AttentionRow({ item }: { item: DashboardAttentionItem }) {
 }
 
 import { useUser } from '@/contexts/UserContext'
+import { manilaDayBounds, manilaTodayKey } from '@/lib/payroll-dates'
 
+// Payroll days are Manila days (the server buckets time entries by Manila day key).
 function getTodayDateInput() {
-  const now = new Date();
-  return [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, '0'),
-    String(now.getDate()).padStart(2, '0'),
-  ].join('-');
+  return manilaTodayKey();
 }
 
 function getTodayDateRangeInput() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const end = new Date(start);
-  end.setDate(start.getDate() + 1);
-
-  return {
-    start: start.toISOString(),
-    end: end.toISOString(),
-  };
+  const bounds = manilaDayBounds(manilaTodayKey());
+  return bounds ? { start: bounds.startIso, end: bounds.endIso } : { start: '', end: '' };
 }
 
 function DashboardListSkeleton({ rows = 3 }: { rows?: number }) {
@@ -174,6 +165,13 @@ export default function DashboardPage() {
     enabled: authReady && isManagementDashboard,
     staleTime: 60 * 1000,
   });
+  // Open concerns waiting in my inbox lead the Needs Attention list.
+  const { data: openConcernCount = 0 } = useQuery({
+    queryKey: CONCERNS_INBOX_OPEN_KEY,
+    queryFn: fetchOpenInboxConcernCount,
+    enabled: authReady && !isFreeTier,
+    staleTime: 60 * 1000,
+  });
 
   const allAnnouncements = useMemo(() => announcementsPage?.data ?? [], [announcementsPage?.data]);
   const summaryLoading = tasksLoading || timeLoading || dailyLogsLoading || (isManagementDashboard && pendingEmployeesLoading);
@@ -188,6 +186,10 @@ export default function DashboardPage() {
       isManagement: isManagementDashboard,
     }),
     [allTasks, dailyLogs, isManagementDashboard, pendingEmployees.length, timeEntries, today, user?.id],
+  );
+  const attentionItems: DashboardAttentionItem[] = useMemo(
+    () => withOpenConcernsAttention(dashboardSummary.attentionItems, openConcernCount),
+    [dashboardSummary.attentionItems, openConcernCount],
   );
   const recentAnnouncements = useMemo(() => {
     const sorted = [...allAnnouncements].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -457,19 +459,19 @@ export default function DashboardPage() {
               <div>
                 <h3 className="text-sm font-semibold">Needs Attention</h3>
                 <div className="mt-1 text-xs text-[var(--muted)]">
-                  {dashboardSummary.attentionItems.length} open item{dashboardSummary.attentionItems.length === 1 ? '' : 's'}
+                  {attentionItems.length} open item{attentionItems.length === 1 ? '' : 's'}
                 </div>
               </div>
             </Card.Header>
             <Card.Content className="space-y-2">
               {summaryLoading ? (
                 <DashboardListSkeleton rows={3} />
-              ) : dashboardSummary.attentionItems.length === 0 ? (
+              ) : attentionItems.length === 0 ? (
                 <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--border)] bg-[var(--card-bg)] p-4 text-sm text-[var(--muted)]">
                   Nothing needs immediate review.
                 </div>
               ) : (
-                dashboardSummary.attentionItems.slice(0, 4).map((item) => (
+                attentionItems.slice(0, 4).map((item) => (
                   <AttentionRow key={item.id} item={item} />
                 ))
               )}

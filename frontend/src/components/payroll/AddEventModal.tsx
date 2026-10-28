@@ -7,6 +7,7 @@ import { Plus, Edit2 } from "lucide-react";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import type { PayrollEventType } from "@/lib/payroll-events";
+import { manilaTodayKey } from "@/lib/payroll-dates";
 
 interface EditingEvent {
   id: string;
@@ -39,9 +40,8 @@ export default function AddEventModal({
   onError,
 }: AddEventModalProps) {
   const [eventTitle, setEventTitle] = useState("");
-  const [eventDate, setEventDate] = useState<string>(
-    new Date().toISOString().slice(0, 10)
-  );
+  // Event days are Manila days; the UTC date is still yesterday before 08:00 in Manila.
+  const [eventDate, setEventDate] = useState<string>(() => manilaTodayKey());
   const [eventType, setEventType] = useState<PayrollEventType>("payday");
   const [eventDescription, setEventDescription] = useState("");
   const [eventErrors, setEventErrors] = useState<Record<string, string>>({});
@@ -49,7 +49,7 @@ export default function AddEventModal({
   // Reset form to initial state
   const resetForm = useCallback(() => {
     setEventTitle("");
-    setEventDate(new Date().toISOString().slice(0, 10));
+    setEventDate(manilaTodayKey());
     setEventType("payday");
     setEventDescription("");
     setEventErrors({});
@@ -59,7 +59,7 @@ export default function AddEventModal({
   useEffect(() => {
     if (editingEvent) {
       setEventTitle(editingEvent.title || "");
-      setEventDate(editingEvent.date || new Date().toISOString().slice(0, 10));
+      setEventDate(editingEvent.date || manilaTodayKey());
       setEventType(editingEvent.type || "payday");
       setEventDescription(editingEvent.description || "");
       setEventErrors({});

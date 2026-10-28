@@ -99,6 +99,56 @@ export function memberPasswordError(password: unknown, email: string): string | 
     return null
 }
 
+/**
+ * Statuses PATCH /users/:id may set (2026-10-28): the working states of an
+ * approved member. 'pending' blocks sign-in and belongs to the approval flow
+ * (POST /employees/approve/:id); 'inactive' belongs to POST /:id/deactivate
+ * and /:id/reactivate, which carry the full-access target guard.
+ */
+export const PATCHABLE_MEMBER_STATUSES: readonly string[] = ['active', 'verified', 'vacation', 'leave']
+
+/**
+ * Why PATCH /users/:id refuses a status change, or null when it may be saved.
+ * Sending the current status is always fine (the edit dialog sends the form).
+ */
+export function memberStatusPatchError(requested: unknown, currentStatus: string | null | undefined): string | null {
+    if (typeof requested !== 'string') return 'Status must be a string'
+    if (requested === currentStatus) return null
+    if (requested === 'inactive') return 'Use deactivate to make a member inactive'
+    if (!PATCHABLE_MEMBER_STATUSES.includes(requested)) {
+        return `Status must be one of: ${PATCHABLE_MEMBER_STATUSES.join(', ')}`
+    }
+    if (currentStatus === 'inactive') return 'Reactivate the member before changing their status'
+    if (!PATCHABLE_MEMBER_STATUSES.includes(currentStatus ?? '')) {
+        return 'Approve the member before changing their status'
+    }
+    return null
+}
+
+/**
+ * Records a hard delete would cascade away with the member (review fix
+ * 2026-10-28). DELETE /users/:id refuses while any exist; deactivation keeps them.
+ */
+export interface KeptMemberRecords {
+    payslips: number
+    /** PayrollRosterSnapshot rows (employee history). */
+    historyRows: number
+    /** Concerns the member raised, was assigned or replied to. */
+    concerns: number
+}
+
+/** The 409 message for a hard delete with records to keep, or null when nothing stands in the way. */
+export function keptRecordsRefusal(kept: KeptMemberRecords): string | null {
+    const found = [
+        kept.payslips > 0 ? 'payslips' : null,
+        kept.historyRows > 0 ? 'employee history' : null,
+        kept.concerns > 0 ? 'concerns' : null,
+    ].filter((label): label is string => label !== null)
+    if (found.length === 0) return null
+    const list = found.length === 1 ? found[0] : `${found.slice(0, -1).join(', ')} and ${found[found.length - 1]}`
+    return `This member has ${list}, so their records must be kept. Deactivate them instead.`
+}
+
 export interface ResetMemberPasswordInput {
     requesterId: string
     requesterEmail?: string
@@ -115,7 +165,7 @@ export interface UpdateUserDto {
     address?: string     // Street address
     city?: string        // City name
     citizenship?: string // Country of citizenship
-    status?: string      // active, pending, vacation, leave
+    status?: string      // PATCH /users/:id: active, verified, vacation, leave (memberStatusPatchError)
     appliedDate?: string // ISO date string
     isApproved?: boolean
     managerId?: string | null
@@ -447,8 +497,16 @@ export class UsersService {
         return { revokedSessions: await revokeAllRefreshSessionsForUser(target.id) }
     }
 
-    async countPayslips(userId: string): Promise<number> {
-        return this.prisma.payslip.count({ where: { userId } })
+    /** What a hard delete would cascade away (payslips, employee history, concerns). */
+    async countKeptRecords(userId: string): Promise<KeptMemberRecords> {
+        const [payslips, historyRows, concerns] = await Promise.all([
+            this.prisma.payslip.count({ where: { userId } }),
+            this.prisma.payrollRosterSnapshot.count({ where: { userId } }),
+            this.prisma.internalTicket.count({
+                where: { OR: [{ requesterId: userId }, { assigneeId: userId }, { messages: { some: { authorId: userId } } }] },
+            }),
+        ])
+        return { payslips, historyRows, concerns }
     }
 
     /**

@@ -30,6 +30,14 @@ const PAYROLL_MANAGEMENT_ROLES = new Set([
   "financial_controller",
   "payroll_assistant",
   "payroll_finance",
+  "disbursement_officer",
+]);
+
+// Payslip sign-off (2026-10-28): the Disbursement Officer or full access.
+// Mirrors backend canSignDisbursement in payroll.permissions.ts.
+const DISBURSEMENT_SIGNER_ROLES = new Set([
+  ...FULL_ACCESS_ROLES,
+  "disbursement_officer",
 ]);
 
 const CLIENT_OPERATIONS_ROLES = new Set([
@@ -90,6 +98,12 @@ export function hasPayrollManagementAccess(user?: RoleAccessUser | null): boolea
 // (manual entry, backfill, edit, delete) needs hasPayrollManagementAccess.
 export function canReviewTimeRequests(user?: RoleAccessUser | null): boolean {
   return hasManagementAccess(user) || hasPayrollManagementAccess(user);
+}
+
+// Approve payslips for disbursement. Payroll managers without the role still
+// generate and edit payslips; they see the approve button disabled with a hint.
+export function canSignDisbursement(user?: RoleAccessUser | null): boolean {
+  return getUserRoleNames(user).some((role) => DISBURSEMENT_SIGNER_ROLES.has(role));
 }
 
 // POST /users/:id/deactivate and /reactivate: admin-class or operations_manager.

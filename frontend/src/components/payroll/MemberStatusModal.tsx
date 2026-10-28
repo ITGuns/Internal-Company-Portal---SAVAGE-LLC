@@ -43,7 +43,7 @@ const COPY: Record<MemberStatusAction, { title: string; body: string; confirm: s
   },
   hard_delete: {
     title: "Delete permanently",
-    body: "This removes the account and its records for good. It is refused while the member has any payslip. Deactivate instead if you only need to block access.",
+    body: "This removes the account and its records for good. It is refused while the member has payslips, employee history or concerns. Deactivate instead if you only need to block access.",
     confirm: "Delete permanently",
     success: "deleted",
   },

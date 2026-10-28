@@ -120,6 +120,8 @@ function buildApp() {
     addManualEntry: record('addManualEntry'),
     updateTimeEntry: record('updateTimeEntry'),
     deleteTimeEntry: record('deleteTimeEntry'),
+    updateEmployeeProfile: record('updateEmployeeProfile'),
+    generatePayslip: record('generatePayslip'),
   }
   ;(payroll as any).backfills = {
     backfill: async (_body: unknown, actor: JsonRecord) => {
@@ -144,7 +146,12 @@ function buildApp() {
       calls.push(active ? 'reactivate' : 'deactivate')
       return { id, email: byId.get(id)?.email, status: active ? 'active' : 'inactive' }
     },
-    countPayslips: async (id: string) => (id === users.employee.id ? 2 : 0),
+    // Payslips (employee), employee history (bookkeeper), concerns (inactive member).
+    countKeptRecords: async (id: string) => ({
+      payslips: id === users.employee.id ? 2 : 0,
+      historyRows: id === users.bookkeeper.id ? 3 : 0,
+      concerns: id === users.inactive.id ? 1 : 0,
+    }),
     delete: record('hardDelete'),
   }
 
@@ -224,15 +231,53 @@ async function runRouteGuardTests() {
     }
     assert.equal(backfillActors.length, 2, 'denied callers never reach the service')
 
-    // PATCH /users/:id ignores status: deactivate/reactivate own it (with the admin guard).
+    // PATCH /users/:id saves status for the working states only (2026-10-28, memberStatusPatchError).
+    // Activation stays with deactivate/reactivate (with the admin guard); a refused status saves nothing.
     userUpdates.length = 0
-    await expectStatus(baseUrl, 'ops PATCH status', `/users/${admin.id}`, 'PATCH', opsManager, 200, { status: 'inactive', name: 'Renamed' })
+    const activationCallsBefore = calls.length
+    await expectStatus(baseUrl, 'ops PATCH status inactive', `/users/${admin.id}`, 'PATCH', opsManager, 400, { status: 'inactive', name: 'Renamed' })
+    await expectStatus(baseUrl, 'ops PATCH revives inactive', `/users/${inactive.id}`, 'PATCH', opsManager, 400, { status: 'active' })
+    assert.equal(userUpdates.length, 0, 'a refused status saves nothing')
+    await expectStatus(baseUrl, 'ops PATCH status vacation', `/users/${manager.id}`, 'PATCH', opsManager, 200, { status: 'vacation', name: 'Renamed' })
     assert.equal(userUpdates.length, 1)
     assert.equal(userUpdates[0].data.name, 'Renamed')
-    assert.ok(!('status' in userUpdates[0].data) || userUpdates[0].data.status === undefined, 'status is stripped')
+    assert.equal(userUpdates[0].data.status, 'vacation')
     assert.ok(!('isApproved' in userUpdates[0].data) || userUpdates[0].data.isApproved === undefined, 'isApproved is not derived from status')
-    assert.ok(!calls.includes('deactivate'), 'PATCH never deactivates')
+    assert.equal(calls.length, activationCallsBefore, 'PATCH never deactivates or reactivates')
     await expectStatus(baseUrl, 'employee PATCH status', `/users/${employee.id}`, 'PATCH', employee, 403, { status: 'inactive' })
+    // Review fix 2026-10-28: a full-access account's status needs full access, like deactivate.
+    // A no-op status (the current one) is not a change, so the rest of the edit still saves.
+    userUpdates.length = 0
+    const adminOnLeave = await expectStatus(baseUrl, 'ops PATCH admin status', `/users/${admin.id}`, 'PATCH', opsManager, 403, { status: 'leave', name: 'Renamed' })
+    assert.equal(adminOnLeave.body.error, 'Only an administrator can change this account')
+    await expectStatus(baseUrl, 'manager PATCH admin status', `/users/${admin.id}`, 'PATCH', manager, 403, { status: 'vacation' })
+    await expectStatus(baseUrl, 'ops PATCH ADMIN_EMAILS admin status', `/users/${users.emailAdmin.id}`, 'PATCH', opsManager, 403, { status: 'leave' })
+    assert.equal(userUpdates.length, 0, 'a refused status change saves nothing')
+    await expectStatus(baseUrl, 'ops PATCH admin same status', `/users/${admin.id}`, 'PATCH', opsManager, 200, { status: 'active', name: 'Renamed' })
+    await expectStatus(baseUrl, 'admin PATCH another admin-class status', `/users/${users.emailAdmin.id}`, 'PATCH', admin, 200, { status: 'vacation' })
+    assert.equal(userUpdates.length, 2)
+
+    // Review fix 2026-10-28: nobody without full access changes their own pay setup or
+    // enters their own hours by hand; other people's records and full access are unchanged.
+    const ownSalary = await expectStatus(baseUrl, 'bookkeeper own salary', `/payroll/config/${bookkeeper.id}`, 'POST', bookkeeper, 403, { baseSalary: 999999 })
+    assert.equal(ownSalary.body.error, 'You cannot change your own pay setup')
+    assert.deepEqual(ownSalary.body.fields, ['baseSalary'])
+    for (const field of ['hourlyRate', 'payrollScheme', 'payBasis', 'taxRule', 'maxBillableHoursPerDay', 'overtimeMultiplier']) {
+      await expectStatus(baseUrl, `bookkeeper own ${field}`, `/payroll/config/${bookkeeper.id}`, 'POST', bookkeeper, 403, { [field]: null })
+    }
+    await expectStatus(baseUrl, 'ops own salary', `/payroll/config/${opsManager.id}`, 'POST', opsManager, 403, { baseSalary: 1 })
+    const profileCallsBefore = calls.filter((name) => name === 'updateEmployeeProfile').length
+    await expectStatus(baseUrl, 'bookkeeper own bank account', `/payroll/config/${bookkeeper.id}`, 'POST', bookkeeper, 200, { bankAccount: '0001' })
+    await expectStatus(baseUrl, "bookkeeper employee's salary", `/payroll/config/${employee.id}`, 'POST', bookkeeper, 200, { baseSalary: 30000 })
+    await expectStatus(baseUrl, 'admin own salary', `/payroll/config/${admin.id}`, 'POST', admin, 200, { baseSalary: 50000 })
+    assert.equal(calls.filter((name) => name === 'updateEmployeeProfile').length, profileCallsBefore + 3, 'refused saves never reach the service')
+    const ownHours = await expectStatus(baseUrl, 'bookkeeper own hours override', `/payroll/periods/per1/generate/${bookkeeper.id}`, 'POST', bookkeeper, 403, { hoursWorked: 200 })
+    assert.equal(ownHours.body.error, 'You cannot enter your own hours by hand. Another payroll officer or an admin can.')
+    const generateCallsBefore = calls.filter((name) => name === 'generatePayslip').length
+    await expectStatus(baseUrl, 'bookkeeper own payslip from time', `/payroll/periods/per1/generate/${bookkeeper.id}`, 'POST', bookkeeper, 200, {})
+    await expectStatus(baseUrl, "bookkeeper employee's hours override", `/payroll/periods/per1/generate/${employee.id}`, 'POST', bookkeeper, 200, { hoursWorked: 80 })
+    await expectStatus(baseUrl, 'admin own hours override', `/payroll/periods/per1/generate/${admin.id}`, 'POST', admin, 200, { hoursWorked: 160 })
+    assert.equal(calls.filter((name) => name === 'generatePayslip').length, generateCallsBefore + 3)
 
     // Requests: employees file and withdraw; reviewers approve and reject.
     for (const kind of ['overtime-requests', 'adjustment-requests']) {
@@ -268,7 +313,17 @@ async function runRouteGuardTests() {
     await expectStatus(baseUrl, 'ops reactivate active', `/users/${employee.id}/reactivate`, 'POST', opsManager, 409)
     await expectStatus(baseUrl, 'ops hard delete', `/users/${manager.id}?confirm=hard`, 'DELETE', opsManager, 403)
     await expectStatus(baseUrl, 'admin delete without confirm', `/users/${manager.id}`, 'DELETE', admin, 400)
-    await expectStatus(baseUrl, 'admin delete with payslips', `/users/${employee.id}?confirm=hard`, 'DELETE', admin, 409)
+    const withPayslips = await expectStatus(baseUrl, 'admin delete with payslips', `/users/${employee.id}?confirm=hard`, 'DELETE', admin, 409)
+    assert.equal(withPayslips.body.error, 'This member has payslips, so their records must be kept. Deactivate them instead.')
+    assert.equal(withPayslips.body.payslipCount, 2)
+    // Review fix 2026-10-28: employee history rows and concerns would cascade too.
+    const withHistory = await expectStatus(baseUrl, 'admin delete with employee history', `/users/${bookkeeper.id}?confirm=hard`, 'DELETE', admin, 409)
+    assert.equal(withHistory.body.error, 'This member has employee history, so their records must be kept. Deactivate them instead.')
+    assert.deepEqual([withHistory.body.payslipCount, withHistory.body.historyCount, withHistory.body.concernCount], [0, 3, 0])
+    const withConcerns = await expectStatus(baseUrl, 'admin delete with concerns', `/users/${inactive.id}?confirm=hard`, 'DELETE', admin, 409)
+    assert.equal(withConcerns.body.concernCount, 1)
+    assert.match(withConcerns.body.error, /has concerns, .*Deactivate them instead/)
+    assert.ok(!calls.includes('hardDelete'), 'nothing was deleted yet')
     await expectStatus(baseUrl, 'admin hard delete', `/users/${manager.id}?confirm=hard`, 'DELETE', admin, 200)
 
     // Rule 6: inactive users are refused by authenticateToken on every route.
@@ -421,6 +476,8 @@ async function runManualGenerateKeepsOvertimeTest() {
     [emailService, 'sendPayslipNotification', async () => undefined],
   ], async () => {
     const service = new PayrollService()
+    // No withholding tax rule here (tax: payroll.tax.test.ts).
+    ;(service as any).taxRules = { resolveForProfile: async () => null }
     await service.generatePayslip('per-ot', 'u1', { hoursWorked: 12 })
     const items = created[0].items.create as Array<{ type: string; amount: number; description: string }>
     const byType = (type: string) => items.find((item) => item.type === type)

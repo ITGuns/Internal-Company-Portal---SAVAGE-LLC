@@ -6,7 +6,7 @@
 
 import React from "react";
 import Image from "next/image";
-import { Check, Coffee, Eye, KeyRound, Pencil, Plane, Settings2, TrendingUp, UserX } from "lucide-react";
+import { Check, Coffee, Eye, KeyRound, Pencil, Plane, Settings2, Tag, TrendingUp, UserX } from "lucide-react";
 import Button from "@/components/Button";
 import type { Employee } from "@/lib/payroll-calendar/types";
 import { formatPayAmount } from "@/lib/payroll-setup";
@@ -15,6 +15,8 @@ interface EmployeeCardProps {
   employee: Employee;
   /** Pay basis, scheme name, daily cap and pay frequency (buildPaySummary). */
   paySummary: string[];
+  /** Employment type label, e.g. "Probationary" or "Not set" (2026-10-28). */
+  categoryLabel?: string;
   onViewDetails: () => void;
   onEdit: () => void;
   /** Payroll roles only. */
@@ -48,6 +50,7 @@ function Avatar({ employee }: { employee: Employee }) {
 export default function EmployeeCard({
   employee,
   paySummary,
+  categoryLabel,
   onViewDetails,
   onEdit,
   onSetUpPayroll,
@@ -69,6 +72,15 @@ export default function EmployeeCard({
           <p className="truncate text-xs text-[var(--muted)]">
             {employee.role}{employee.department ? ` · ${employee.department}` : ""}
           </p>
+          {categoryLabel && (
+            <p className="mt-1.5 flex">
+              <span className="inline-flex min-w-0 items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--card-surface)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]">
+                <Tag className="h-3 w-3 shrink-0 text-[var(--muted)]" aria-hidden="true" />
+                <span className="sr-only">Category: </span>
+                <span className="truncate">{categoryLabel}</span>
+              </span>
+            </p>
+          )}
         </div>
         {badge && (
           <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${badge.className}`}>

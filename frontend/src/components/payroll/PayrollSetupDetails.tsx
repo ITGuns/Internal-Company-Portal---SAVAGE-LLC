@@ -10,6 +10,7 @@ import {
   type PayrollSchemeRow,
 } from "@/lib/payroll-options";
 import { MAX_CAP_HOURS, MIN_CAP_HOURS, type PayrollSetupForm } from "@/lib/payroll-setup";
+import { NO_TAX, taxSelectOptions, type PayrollTaxRuleRow } from "@/lib/payroll-tax";
 import { cn } from "@/lib/utils";
 import { fieldErrorClass, fieldHelpClass, fieldInputClass, fieldLabelClass } from "./form-styles";
 
@@ -35,6 +36,7 @@ interface PayrollSetupDetailsProps {
   schemes?: PayrollSchemeRow[];
   employmentTypes?: PayrollOptionRow[];
   paymentFrequencies?: PayrollOptionRow[];
+  taxRules?: PayrollTaxRuleRow[];
   listsLoading: boolean;
   errors: PayrollSetupErrors;
   disabled?: boolean;
@@ -76,6 +78,7 @@ export default function PayrollSetupDetails({
   schemes,
   employmentTypes,
   paymentFrequencies,
+  taxRules,
   listsLoading,
   errors,
   disabled,
@@ -274,6 +277,28 @@ export default function PayrollSetupDetails({
               autoComplete="off"
             />
           </div>
+        </div>
+        <div>
+          <label htmlFor="payroll-tax-rule" className={fieldLabelClass}>Tax</label>
+          <select
+            id="payroll-tax-rule"
+            value={listsLoading ? "" : form.taxRule}
+            disabled={disabled || listsLoading}
+            onChange={(event) => onChange("taxRule", event.target.value)}
+            className={fieldInputClass}
+            aria-describedby="payroll-tax-rule-help"
+          >
+            {listsLoading
+              ? <option value="">Loading the list</option>
+              : taxSelectOptions(taxRules, form.taxRule).map((option) => (
+                <option key={option.value || "workspace-default"} value={option.value}>{option.label}</option>
+              ))}
+          </select>
+          <p id="payroll-tax-rule-help" className={fieldHelpClass}>
+            {form.taxRule === NO_TAX
+              ? "No withholding on this person's payslips."
+              : "Withholding taken from gross pay on each payslip generated from now on. Rules are managed in Payroll options."}
+          </p>
         </div>
       </section>
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatPayrollDate, formatPayrollTime } from "@/lib/payroll-dates";
 import React, { useEffect, useId, useState } from "react";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
@@ -53,13 +54,11 @@ function buildInitialForm(entry: PayrollAuditEntry | null, defaultDate?: string 
   };
 }
 
+// Shown in Manila, the zone the entry was recorded and is paid in.
 function formatEntry(entry: PayrollAuditEntry): string {
-  const start = new Date(entry.start);
-  const date = start.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-  const from = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  const to = entry.end
-    ? new Date(entry.end).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : "still open";
+  const date = formatPayrollDate(entry.start, { format: { weekday: "short", month: "short", day: "numeric" } });
+  const from = formatPayrollTime(entry.start);
+  const to = entry.end ? formatPayrollTime(entry.end) : "still open";
   return `${date}, ${from} to ${to}`;
 }
 

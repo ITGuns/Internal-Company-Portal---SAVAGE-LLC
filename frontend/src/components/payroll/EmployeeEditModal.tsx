@@ -27,8 +27,26 @@ interface EmployeeEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   employee: Employee | null;
-  onSave: (employeeId: string | number, updates: Partial<Employee>) => void;
+  /**
+   * Saves the changes. The dialog waits for it and stays open, showing the
+   * error, when it throws or returns false.
+   */
+  onSave: (employeeId: string | number, updates: Partial<Employee>) => void | boolean | Promise<void | boolean>;
 }
+
+// The statuses PATCH /users/:id accepts (backend PATCHABLE_MEMBER_STATUSES).
+// Pending applicants and inactive members have their own flows (approve,
+// deactivate, reactivate), so they are never offered here.
+const EDITABLE_STATUSES = [
+  { value: "verified", label: "Verified" },
+  { value: "active", label: "Active" },
+  { value: "vacation", label: "On Vacation" },
+  { value: "leave", label: "On Leave" },
+] as const;
+
+const isEditableStatus = (value: string) => EDITABLE_STATUSES.some((option) => option.value === value);
+
+const SAVE_FAILED = "The changes were not saved. Check the details and try again.";
 
 export default function EmployeeEditModal({
   isOpen,
@@ -46,7 +64,10 @@ export default function EmployeeEditModal({
   const [payrollScheme, setPayrollScheme] = useState("");
   const schemesQuery = usePayrollSchemes(isOpen);
   const shownScheme = findScheme(schemesQuery.data, payrollScheme || employee?.payrollScheme);
-  const [status, setStatus] = useState<"active" | "vacation" | "leave" | "pending" | "verified">("active");
+  const [status, setStatus] = useState<Employee["status"]>("active");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const canEditStatus = employee ? isEditableStatus(employee.status) : false;
   const departmentsQuery = useQuery({
     queryKey: OPERATIONS_QUERY_KEYS.departments,
     queryFn: fetchOperationsDepartments,
@@ -103,6 +124,11 @@ export default function EmployeeEditModal({
     }
   }, [employee]);
 
+  // A new edit starts without the last attempt's error.
+  useEffect(() => {
+    if (isOpen) setSaveError(null);
+  }, [isOpen, employee]);
+
   useEffect(() => {
     if (!isOpen || !employee) return;
 
@@ -120,9 +146,9 @@ export default function EmployeeEditModal({
     }
   }, [availableRoles, department, employee, employeeDepartments, isOpen, role]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!employee) return;
+    if (!employee || saving) return;
     if (!name.trim() || !email.trim() || !role.trim() || !department.trim() || !salary || !canSubmitRoleAssignment) return;
 
     const chosenScheme = shownScheme?.key;
@@ -133,17 +159,25 @@ export default function EmployeeEditModal({
       maxBillableHoursPerDay: parseFloat(maxBillableHoursPerDay) || employee.maxBillableHoursPerDay || 8,
       // Sent only when it changes, so an unloaded list never resets a scheme.
       ...(chosenScheme && chosenScheme !== employee.payrollScheme ? { payrollScheme: chosenScheme } : {}),
-      status,
+      // Sent only when it changes; PATCH /users/:id saves it since 2026-10-28.
+      ...(canEditStatus && status !== employee.status ? { status } : {}),
+      ...(hasCatalogAssignment ? { role: role.trim(), department: department.trim() } : {}),
     };
 
-    if (hasCatalogAssignment) {
-      updates.role = role.trim();
-      updates.department = department.trim();
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const saved = await onSave(employee.id, updates);
+      if (saved === false) {
+        setSaveError(SAVE_FAILED);
+        return;
+      }
+      onClose();
+    } catch (err) {
+      setSaveError(err instanceof Error && err.message ? err.message : SAVE_FAILED);
+    } finally {
+      setSaving(false);
     }
-
-    onSave(employee.id, updates);
-
-    onClose();
   };
 
   if (!employee) return null;
@@ -350,22 +384,37 @@ export default function EmployeeEditModal({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
+            <label htmlFor="employee-edit-status" className="block text-sm font-semibold mb-2 text-[var(--foreground)]">
               Status <span className="text-red-500">*</span>
             </label>
             <select
+              id="employee-edit-status"
               value={status}
-              onChange={(e) => setStatus(e.target.value as any)}
-              className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+              onChange={(e) => setStatus(e.target.value as Employee["status"])}
+              disabled={!canEditStatus}
+              aria-describedby={canEditStatus ? undefined : "employee-edit-status-hint"}
+              className="w-full p-3 rounded-xl border-2 border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all disabled:cursor-not-allowed disabled:opacity-60"
               required
             >
-              <option value="verified">Verified</option>
-              <option value="active">Active</option>
-              <option value="vacation">On Vacation</option>
-              <option value="leave">On Leave</option>
-              <option value="pending">Pending Approval</option>
+              {!canEditStatus && (
+                <option value={employee.status}>{employee.status === "pending" ? "Pending Approval" : employee.status}</option>
+              )}
+              {EDITABLE_STATUSES.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
             </select>
+            {!canEditStatus && (
+              <p id="employee-edit-status-hint" className="mt-1.5 text-xs text-[var(--muted)]">
+                Approve the application first. Deactivate and reactivate are on the member card.
+              </p>
+            )}
           </div>
+
+          {saveError && (
+            <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-[var(--foreground)]">
+              {saveError}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3 justify-end pt-4 border-t border-[var(--border)]">
@@ -380,6 +429,7 @@ export default function EmployeeEditModal({
               type="submit"
               variant="primary"
               icon={<Save className="w-4 h-4" />}
+              loading={saving}
             >
               Save Changes
             </Button>

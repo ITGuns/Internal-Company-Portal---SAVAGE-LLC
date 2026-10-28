@@ -158,3 +158,17 @@ test('canReviewTimeRequests mirrors backend: management or payroll roles', () =>
   assert.equal(canManageMemberStatus({ role: 'Manager' }), false);
   assert.equal(canManageMemberStatus({ role: 'Bookkeeping' }), false);
 });
+
+test('disbursement officers have payroll access and are the only non-admin signers', () => {
+  const { canSignDisbursement, hasPayrollManagementAccess } = loadRoleAccessHelper();
+
+  assert.equal(hasPayrollManagementAccess({ role: 'Disbursement Officer' }), true);
+  assert.equal(canSignDisbursement({ role: 'Disbursement Officer' }), true);
+  assert.equal(canSignDisbursement({ role: 'employee', roles: [{ role: 'Disbursement Officer' }] }), true);
+  assert.equal(canSignDisbursement({ role: 'admin' }), true);
+  assert.equal(canSignDisbursement({ role: 'Owner / Founder' }), true);
+  assert.equal(canSignDisbursement({ role: 'Bookkeeping' }), false, 'payroll managers do not sign');
+  assert.equal(canSignDisbursement({ role: 'Operations Manager' }), false);
+  assert.equal(canSignDisbursement({ role: 'Frontend Developer' }), false);
+  assert.equal(canSignDisbursement(null), false);
+});

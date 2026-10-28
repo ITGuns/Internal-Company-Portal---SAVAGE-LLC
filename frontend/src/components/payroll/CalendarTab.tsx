@@ -4,6 +4,7 @@
 
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import FullCalendar from "@fullcalendar/react";
+import type { DatesSetArg, DayCellContentArg } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import {
@@ -36,13 +37,16 @@ import type { OvertimeRequest } from "@/lib/overtime-requests";
 import type { AdjustmentRequest } from "@/lib/adjustment-requests";
 import PayrollDayDetailPanel from "./PayrollDayDetailPanel";
 import TimeEntryDeleteModal from "./TimeEntryDeleteModal";
+import CalendarMonthNav from "./CalendarMonthNav";
+import CalendarLoadAlert from "./CalendarLoadAlert";
 import type { CalendarEvent, PayrollStats } from "@/lib/payroll-calendar/types";
 import type { TimeEntry } from "@/lib/time-entries";
 import {
   getPayrollDayAudit,
   type PayrollAuditEntry,
 } from "@/lib/payroll-calendar/day-audit";
-import { colorForType, dotForType, getLocalDateString } from "@/lib/payroll-calendar/utils";
+import { colorForType, dotForType } from "@/lib/payroll-calendar/utils";
+import { formatPayrollDate, formatPayrollTime, manilaTodayKey } from "@/lib/payroll-dates";
 
 interface CalendarTabProps {
   displayEvents: CalendarEvent[];
@@ -50,9 +54,14 @@ interface CalendarTabProps {
   stats: PayrollStats;
   timeEntries: TimeEntry[];
   clockedIn: boolean;
-  onTitleChange: (title: string) => void;
-  onEditEvent: (event: CalendarEvent) => void;
-  onDeleteEvent: (event: CalendarEvent) => void;
+  /** Why the last load failed (time entries or events), shown with a retry. */
+  loadError?: string | null;
+  /** A reload is running; the grid stays mounted. */
+  isRefreshing?: boolean;
+  onRetry?: () => void;
+  /** Payroll roles only (PATCH / DELETE /payroll/events/:id); the buttons are hidden without them. */
+  onEditEvent?: (event: CalendarEvent) => void;
+  onDeleteEvent?: (event: CalendarEvent) => void;
   onClockIn: () => void;
   onClockOut: () => void;
   onAddManualEntry: () => void;
@@ -87,6 +96,11 @@ function formatElapsed(totalSeconds: number): string {
   return `${m}m ${String(s).padStart(2, "0")}s`;
 }
 
+// Days of other months are blank and not clickable (showNonCurrentDates is off).
+function dayCellClassNames(arg: DayCellContentArg): string[] {
+  return arg.isDisabled ? ["pointer-events-none"] : [];
+}
+
 /** Format completed minutes into "Xh Xm" or "Xm" */
 function formatMinutes(mins: number): string {
   const h = Math.floor(mins / 60);
@@ -101,7 +115,9 @@ export default function CalendarTab({
   stats,
   timeEntries,
   clockedIn,
-  onTitleChange,
+  loadError = null,
+  isRefreshing = false,
+  onRetry,
   onEditEvent,
   onDeleteEvent,
   onClockIn,
@@ -119,6 +135,9 @@ export default function CalendarTab({
   onRequestsChanged,
 }: CalendarTabProps) {
   const calendarRef = useRef<FullCalendar>(null);
+  // Title and month of the grid, from FullCalendar's datesSet.
+  const [monthTitle, setMonthTitle] = useState("");
+  const [shownMonthKey, setShownMonthKey] = useState("");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [editingEntry, setEditingEntry] = useState<PayrollAuditEntry | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PayrollAuditEntry | null>(null);
@@ -135,7 +154,8 @@ export default function CalendarTab({
     return () => clearInterval(id);
   }, []);
 
-  const today = getLocalDateString(new Date());
+  // Payroll days are Manila days (the server's payrollDayKey), whatever the browser zone.
+  const today = manilaTodayKey(now);
   const todayAudit = useMemo(
     () => getPayrollDayAudit(timeEntries, { date: today, now }),
     [timeEntries, today, now],
@@ -172,6 +192,14 @@ export default function CalendarTab({
     return acc + Math.max(0, Math.round((now.getTime() - new Date(e.start).getTime()) / 1000));
   }, 0);
 
+  const calendarApi = () => calendarRef.current?.getApi();
+
+  function handleDatesSet(info: DatesSetArg) {
+    setMonthTitle(info.view.title);
+    // The grid's own date math (local markers), so this is the month it shows.
+    setShownMonthKey(info.view.calendar.formatIso(info.view.currentStart, true).slice(0, 7));
+  }
+
   async function handleConfirmDeleteTimeEntry(entryId: string) {
     await onDeleteTimeEntry(entryId);
   }
@@ -191,6 +219,9 @@ export default function CalendarTab({
 
   return (
     <>
+      {loadError && onRetry && (
+        <CalendarLoadAlert message={loadError} onRetry={onRetry} retrying={isRefreshing} />
+      )}
       <section className="mb-6 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card-surface)]">
         <div className="flex flex-col gap-4 border-b border-[var(--border)] bg-[var(--card-bg)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
@@ -276,12 +307,24 @@ export default function CalendarTab({
         {/* FullCalendar */}
         <div className="lg:col-span-2">
           <div className="min-h-[632px] rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-3 sm:p-4">
+            <CalendarMonthNav
+              title={monthTitle}
+              onPrev={() => calendarApi()?.prev()}
+              onToday={() => calendarApi()?.today()}
+              onNext={() => calendarApi()?.next()}
+              isCurrentMonth={shownMonthKey === today.slice(0, 7)}
+              isRefreshing={isRefreshing}
+            />
             <FullCalendar
               ref={calendarRef}
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView="dayGridMonth"
-              initialDate={new Date().toISOString().split("T")[0]}
+              // Manila today: the opening month, the highlighted day and the Today button.
+              initialDate={today}
+              now={today}
               headerToolbar={false}
+              showNonCurrentDates={false}
+              dayCellClassNames={dayCellClassNames}
               events={displayEvents}
               eventContent={(arg) => {
                 const evt = arg.event;
@@ -316,7 +359,7 @@ export default function CalendarTab({
                   </div>
                 );
               }}
-              datesSet={(info) => onTitleChange(info.view.title)}
+              datesSet={handleDatesSet}
               dateClick={(info) => setSelectedDate(info.dateStr)}
               eventClick={(info) => {
                 // Clock entries just highlight the date — no detail panel
@@ -431,10 +474,8 @@ export default function CalendarTab({
                   ? Math.max(0, Math.round((now.getTime() - start.getTime()) / 1000))
                   : null;
 
-                const clockInStr = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-                const clockOutStr = end
-                  ? end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                  : null;
+                const clockInStr = formatPayrollTime(start);
+                const clockOutStr = end ? formatPayrollTime(end) : null;
 
                 const completedMins =
                   e.durationMin != null
@@ -459,7 +500,7 @@ export default function CalendarTab({
                           <span className="text-[var(--muted)]"> → {clockOutStr}</span>
                         ) : (
                           <span className="text-emerald-500 font-mono">
-                            {" "}→ {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            {" "}→ {formatPayrollTime(now)}
                           </span>
                         )}
                       </div>
@@ -550,15 +591,13 @@ export default function CalendarTab({
                       <div>
                         <div className="text-sm">{e.title}</div>
                         <div className="text-xs text-[var(--muted)]">
-                          {new Date(e.start).toLocaleString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                          })}
+                          {/* e.start is a Manila day key; format it as that day, never as UTC midnight. */}
+                          {formatPayrollDate(e.start, { format: { month: "short", day: "numeric" } })}
                         </div>
                       </div>
                     </div>
                     <div className="text-xs text-[var(--muted)] flex-shrink-0">
-                      {new Date(e.start).toLocaleDateString()}
+                      {formatPayrollDate(e.start)}
                     </div>
                   </li>
                 ))

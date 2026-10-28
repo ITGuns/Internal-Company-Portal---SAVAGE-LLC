@@ -21,6 +21,8 @@ export interface PayrollProfile {
   overtimeMultiplier?: number | null;
   bankAccount?: string | null;
   taxId?: string | null;
+  /** Withholding tax (2026-10-28): null = workspace default, "none" = no tax, else a rule key. */
+  taxRule?: string | null;
 }
 
 /** Form state: every field is the text of its input. */
@@ -37,6 +39,8 @@ export interface PayrollSetupForm {
   payBasis: string;
   hourlyRate: string;
   overtimeMultiplier: string;
+  /** "" follows the workspace default rule, "none" is no tax, else a rule key. */
+  taxRule: string;
 }
 
 /** Values a profile without a stored value falls back to: the list defaults. */
@@ -72,6 +76,7 @@ export function profileToSetupForm(profile: PayrollProfile | null | undefined, d
     payBasis: source.payBasis || DEFAULT_PAY_BASIS,
     hourlyRate: text(source.hourlyRate),
     overtimeMultiplier: String(source.overtimeMultiplier ?? DEFAULT_OVERTIME_MULTIPLIER),
+    taxRule: text(source.taxRule),
   };
 }
 
@@ -83,7 +88,11 @@ export function validateCapHours(value: string): string | undefined {
   return undefined;
 }
 
-/** Body for POST /payroll/config/:userId. Blank optional text is left out, never cleared. */
+/**
+ * Body for POST /payroll/config/:userId. Blank optional text is left out,
+ * never cleared. taxRule is always sent: null puts the profile back on the
+ * workspace default.
+ */
 export function buildSetupPayload(form: PayrollSetupForm): Record<string, unknown> {
   const salary = Number(form.baseSalary);
   return {
@@ -99,6 +108,7 @@ export function buildSetupPayload(form: PayrollSetupForm): Record<string, unknow
     payBasis: form.payBasis,
     hourlyRate: form.payBasis === "hourly_rate" ? Number(form.hourlyRate) : undefined,
     overtimeMultiplier: Number(form.overtimeMultiplier),
+    taxRule: form.taxRule || null,
   };
 }
 
@@ -114,6 +124,8 @@ export function applyProfileToEmployee(employee: Employee, profile: PayrollProfi
     paymentFrequency: profile.paymentFrequency ?? employee.paymentFrequency,
     employmentType: profile.employmentType ?? employee.employmentType,
     currency: profile.currency ?? employee.currency,
+    // null is a real value here (the workspace default), so only a missing field keeps the old one.
+    taxRule: profile.taxRule !== undefined ? profile.taxRule : employee.taxRule,
   };
 }
 
@@ -135,15 +147,17 @@ export function formatPayAmount(amount: number, currency?: string | null): strin
 
 /**
  * Parts of the one-line pay summary on an employee card: pay basis, scheme,
- * daily cap and pay frequency, with empty parts left out.
+ * daily cap, pay frequency and, when it is not the workspace default, the tax
+ * choice, with empty parts left out.
  */
 export function buildPaySummary(parts: {
   payBasisLabel: string;
   schemeName?: string;
   capHours?: number | null;
   frequencyLabel?: string;
+  taxLabel?: string;
 }): string[] {
-  return [parts.payBasisLabel, parts.schemeName ?? "", formatCapHours(parts.capHours), parts.frequencyLabel ?? ""]
+  return [parts.payBasisLabel, parts.schemeName ?? "", formatCapHours(parts.capHours), parts.frequencyLabel ?? "", parts.taxLabel ?? ""]
     .map((part) => part.trim())
     .filter(Boolean);
 }

@@ -2,14 +2,17 @@
 
 import React from "react";
 import { DEFAULT_OVERTIME_MULTIPLIER, getEffectiveHourlyRate } from "@/lib/pay-basis";
-import { computeSchemeRates, formatSchemeNumber, type PayrollSchemeRow } from "@/lib/payroll-options";
+import { computeSchemeRates, formatSchemeNumber, weekdaysInMonth, type PayrollSchemeRow } from "@/lib/payroll-options";
 import { DEFAULT_CAP_HOURS, formatPayAmount, type PayrollSetupForm } from "@/lib/payroll-setup";
+import { estimateFullMonthGross, estimateTax, formatTaxRate, type PayrollTaxRuleRow } from "@/lib/payroll-tax";
 
 interface PayrollRatePreviewProps {
   form: PayrollSetupForm;
   scheme?: PayrollSchemeRow;
   /** Month used for the weekdays scheme (today's month). */
   referenceDate: Date;
+  /** The tax rule the form's choice applies: null for no tax, undefined while the list loads. */
+  taxRule?: PayrollTaxRuleRow | null;
 }
 
 function Figure({ label, value, detail, wide }: { label: string; value: string; detail?: string; wide?: boolean }) {
@@ -26,7 +29,7 @@ function Figure({ label, value, detail, wide }: { label: string; value: string; 
  * Live rates for the values on the form, worked out the way the server does
  * (computeSchemeRates mirrors getPayrollRateContext). Payslips use the saved setup.
  */
-export default function PayrollRatePreview({ form, scheme, referenceDate }: PayrollRatePreviewProps) {
+export default function PayrollRatePreview({ form, scheme, referenceDate, taxRule }: PayrollRatePreviewProps) {
   const capHours = Number(form.maxBillableHoursPerDay) > 0 ? Number(form.maxBillableHoursPerDay) : DEFAULT_CAP_HOURS;
   const multiplier = Number(form.overtimeMultiplier) > 0 ? Number(form.overtimeMultiplier) : DEFAULT_OVERTIME_MULTIPLIER;
   const rates = scheme ? computeSchemeRates({ baseSalary: Number(form.baseSalary), scheme, capHours, referenceDate }) : null;
@@ -35,6 +38,16 @@ export default function PayrollRatePreview({ form, scheme, referenceDate }: Payr
   const money = (amount: number) => formatPayAmount(amount, form.currency);
   const creditedDays = scheme?.maxCreditedDays ?? null;
   const showsCreditedCap = Boolean(creditedDays) && form.payBasis !== "fixed_monthly";
+  // Withholding on a full month (2026-10-28): the salary, or every credited day at the daily cap.
+  const fullMonthGross = estimateFullMonthGross({
+    payBasis: form.payBasis,
+    baseSalary: Number(form.baseSalary),
+    hourlyRate: hourly,
+    capHours,
+    weekdays: weekdaysInMonth(referenceDate),
+    maxCreditedDays: creditedDays,
+  });
+  const tax = estimateTax(fullMonthGross, taxRule);
 
   return (
     <section aria-labelledby="payroll-rate-preview-heading" className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card-surface)] p-4">
@@ -72,6 +85,18 @@ export default function PayrollRatePreview({ form, scheme, referenceDate }: Payr
       )}
       {form.payBasis === "fixed_monthly" && (
         <p className="mt-3 text-xs text-[var(--muted)]">Pays the monthly salary whatever the hours. The hourly rate prices approved overtime.</p>
+      )}
+
+      {taxRule === null && <p className="mt-3 text-xs text-[var(--muted)]">No withholding tax for this person.</p>}
+      {taxRule && tax && (
+        <dl className="mt-3 grid grid-cols-2 gap-2">
+          <Figure
+            wide
+            label={`Estimated tax on a full month (${formatTaxRate(taxRule.rate)}%)`}
+            value={money(tax.tax)}
+            detail={`${taxRule.name}: ${money(tax.gross)} gross, ${money(tax.net)} after tax`}
+          />
+        </dl>
       )}
     </section>
   );

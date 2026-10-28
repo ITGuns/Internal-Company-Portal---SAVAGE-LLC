@@ -253,6 +253,100 @@ async function runUsersRouteSecurityTests() {
       assert.equal(salaryUpdate.status, 200)
       const profile = await prisma.employeeProfile.findUniqueOrThrow({ where: { userId: employee.id } })
       assert.deepEqual([profile.baseSalary, profile.currency], [4200, 'USD'])
+
+      // Status (2026-10-28): the working states save; pending and inactive keep their own routes.
+      const statusOf = async () => (await prisma.user.findUniqueOrThrow({ where: { id: employee.id } })).status
+      const toVacation = await requestJson(baseUrl, `/api/users/${employee.id}`, {
+        method: 'PATCH',
+        token: adminToken,
+        body: { status: 'vacation' },
+      })
+      assert.equal(toVacation.status, 200)
+      assert.equal(await statusOf(), 'vacation')
+
+      // Not a payroll field: a manager without a payroll role may set it.
+      const managerLeave = await requestJson(baseUrl, `/api/users/${employee.id}`, {
+        method: 'PATCH',
+        token: managerToken,
+        body: { status: 'leave' },
+      })
+      assert.equal(managerLeave.status, 200)
+      assert.equal(await statusOf(), 'leave')
+
+      for (const refused of ['inactive', 'pending', 'deleted', 42]) {
+        const response = await requestJson(baseUrl, `/api/users/${employee.id}`, {
+          method: 'PATCH',
+          token: adminToken,
+          body: { name: 'Should Not Save Either', status: refused },
+        })
+        assert.equal(response.status, 400, `status ${String(refused)} is refused`)
+      }
+      assert.equal(await statusOf(), 'leave')
+      assert.notEqual((await prisma.user.findUniqueOrThrow({ where: { id: employee.id } })).name, 'Should Not Save Either')
+
+      // The edit dialog sends the current status with other fields: a no-op, not a refusal.
+      const sameStatus = await requestJson(baseUrl, `/api/users/${employee.id}`, {
+        method: 'PATCH',
+        token: adminToken,
+        body: { name: 'Same Status Save', status: 'leave' },
+      })
+      assert.equal(sameStatus.status, 200)
+      assert.equal(sameStatus.body.user.name, 'Same Status Save')
+
+      // A deactivated member is reactivated through its route, never through PATCH.
+      await prisma.user.update({ where: { id: employee.id }, data: { status: 'inactive' } })
+      const reviveByPatch = await requestJson(baseUrl, `/api/users/${employee.id}`, {
+        method: 'PATCH',
+        token: adminToken,
+        body: { status: 'active' },
+      })
+      assert.equal(reviveByPatch.status, 400)
+      assert.equal(await statusOf(), 'inactive')
+      await prisma.user.update({ where: { id: employee.id }, data: { status: 'verified' } })
+
+      // Employees still cannot change their own status.
+      const selfStatus = await requestJson(baseUrl, `/api/users/${employee.id}`, {
+        method: 'PATCH',
+        token: employeeToken,
+        body: { status: 'vacation' },
+      })
+      assert.equal(selfStatus.status, 403)
+      assert.equal(await statusOf(), 'verified')
+
+      // Review fix 2026-10-28: a full-access account's status needs full access (the
+      // deactivate / reactivate target guard), so a project manager cannot put an admin on leave.
+      const managerOnAdmin = await requestJson(baseUrl, `/api/users/${admin.id}`, {
+        method: 'PATCH',
+        token: managerToken,
+        body: { status: 'leave' },
+      })
+      assert.equal(managerOnAdmin.status, 403)
+      assert.equal(managerOnAdmin.body.error, 'Only an administrator can change this account')
+      assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: admin.id } })).status, 'verified')
+
+      // Review fix 2026-10-28: a hard delete is refused while the member is on a concern
+      // (it would cascade the thread away); payslips and employee history count the same way.
+      const ticket = await prisma.internalTicket.create({
+        data: {
+          requesterId: employee.id,
+          assigneeId: manager.id,
+          subject: 'Hard delete guard',
+          messages: { create: { authorId: employee.id, body: 'Is my overtime approved?' } },
+        },
+      })
+      const blockedDelete = await requestJson(baseUrl, `/api/users/${manager.id}?confirm=hard`, {
+        method: 'DELETE',
+        token: adminToken,
+      })
+      assert.equal(blockedDelete.status, 409)
+      assert.equal(blockedDelete.body.error, 'This member has concerns, so their records must be kept. Deactivate them instead.')
+      assert.deepEqual(
+        [blockedDelete.body.payslipCount, blockedDelete.body.historyCount, blockedDelete.body.concernCount],
+        [0, 0, 1],
+      )
+      assert.ok(await prisma.user.findUnique({ where: { id: manager.id } }), 'the member is kept')
+      assert.ok(await prisma.internalTicket.findUnique({ where: { id: ticket.id } }), 'the concern is kept')
+      await prisma.internalTicket.delete({ where: { id: ticket.id } })
     })
   } finally {
     await prisma.user.deleteMany({

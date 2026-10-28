@@ -10,7 +10,7 @@ import { isAdminEmail } from '../config/env.config'
 import { canRequestAssigneeTasks, hasTaskAssignmentPrivilege } from '../tasks/tasks.permissions'
 import { validateAvatarValue } from '../uploads/upload.validation'
 import { sanitizeUserForDirectory, sanitizeUsersForDirectory } from './users.security'
-import { MemberPasswordResetError, UserOnboardingConflictError, UserOnboardingValidationError } from './users.service'
+import { MemberPasswordResetError, UserOnboardingConflictError, UserOnboardingValidationError, keptRecordsRefusal, memberStatusPatchError } from './users.service'
 import { hasEmployeeManagementAccess } from '../employees/employees.security'
 import { hasPayrollManagementAccess } from '../payroll/payroll.permissions'
 import { hasFullAccess, hasInternalDirectoryAccess } from '../org/org-access-policy'
@@ -57,6 +57,21 @@ export class UsersController {
         }
     }
 
+    /**
+     * Only full-access admins may change the activation or status of another
+     * full-access account, including an ADMIN_EMAILS admin whose role rows do
+     * not grant full access. True when the requester must be refused.
+     */
+    private async isProtectedAdminTarget(
+        target: { id: string; email: string },
+        requesterRoles: Array<{ role?: string | null }>,
+        requesterEmail?: string,
+    ): Promise<boolean> {
+        const targetRoles = await this.service.getUserRoles(target.id)
+        return hasFullAccess(targetRoles, isAdminEmail(target.email))
+            && !hasFullAccess(requesterRoles, isAdminEmail(requesterEmail))
+    }
+
     private async handleActivation(req: Request, res: Response, active: boolean) {
         try {
             const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
@@ -74,14 +89,8 @@ export class UsersController {
             if (!active && isInactive) return res.status(409).json({ error: 'This member is already deactivated' })
             if (active && !isInactive) return res.status(409).json({ error: 'This member is not deactivated' })
 
-            // Only full-access admins may change the activation of another full-access account,
-            // including an ADMIN_EMAILS admin whose role rows do not grant full access.
-            const [targetRoles, requesterRoles] = await Promise.all([
-                this.service.getUserRoles(id),
-                this.service.getUserRoles(requesterId),
-            ])
-            const targetIsAdmin = hasFullAccess(targetRoles, isAdminEmail(target.email))
-            if (targetIsAdmin && !hasFullAccess(requesterRoles, isAdminEmail(authReq.user?.email))) {
+            const requesterRoles = await this.service.getUserRoles(requesterId)
+            if (await this.isProtectedAdminTarget(target, requesterRoles, authReq.user?.email)) {
                 return res.status(403).json({ error: 'Only an administrator can change this account' })
             }
 
@@ -384,8 +393,10 @@ export class UsersController {
                     return res.status(403).json({ error: 'Unauthorized to update another user' })
                 }
 
-                // `status` is accepted from privileged callers but ignored: activation is owned by
-                // POST /:id/deactivate and /:id/reactivate, which carry the full-access target guard.
+                // `status` (privileged callers) saves the working states only: active, verified,
+                // vacation, leave (memberStatusPatchError, 2026-10-28). Activation stays with
+                // POST /:id/deactivate and /:id/reactivate (full-access target guard), approval
+                // with POST /employees/approve/:id.
                 const protectedFields = [
                     'status',
                     'appliedDate',
@@ -459,6 +470,21 @@ export class UsersController {
                     return res.status(404).json({ error: 'User not found' })
                 }
 
+                // Refused before anything is saved; the current status is a no-op.
+                let statusUpdate: string | undefined
+                if (Object.prototype.hasOwnProperty.call(req.body, 'status')) {
+                    const statusError = memberStatusPatchError(req.body.status, existingUser.status)
+                    if (statusError) {
+                        return res.status(400).json({ error: statusError })
+                    }
+                    if (req.body.status !== existingUser.status) statusUpdate = req.body.status
+                }
+                // A status change on a full-access account needs full access, the same guard as
+                // deactivate / reactivate: a project manager cannot put an admin on leave (review fix 2026-10-28).
+                if (statusUpdate !== undefined && await this.isProtectedAdminTarget(existingUser, requesterRoles, authReq.user?.email)) {
+                    return res.status(403).json({ error: 'Only an administrator can change this account' })
+                }
+
                 let normalizedEmail: string | undefined
                 if (email !== undefined) {
                     if (typeof email !== 'string') {
@@ -498,6 +524,7 @@ export class UsersController {
                     citizenship,
                     appliedDate,
                     managerId: normalizedManagerId,
+                    status: statusUpdate,
                 })
 
                 // Handle Salary / Payroll Update
@@ -582,7 +609,8 @@ export class UsersController {
             }
         })
 
-        // Hard delete (Admin only). Needs ?confirm=hard and is refused while payslips exist.
+        // Hard delete (Admin only). Needs ?confirm=hard and is refused while payslips,
+        // employee history rows or concerns exist (deactivate keeps them).
         router.delete('/:id', authenticateToken, requireRole('admin'), async (req: Request, res: Response) => {
             try {
                 const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
@@ -602,11 +630,15 @@ export class UsersController {
                     return res.status(404).json({ error: 'User not found' })
                 }
 
-                const payslipCount = await this.service.countPayslips(id)
-                if (payslipCount > 0) {
+                // Payslips, employee history and concerns would cascade with the user (review fix 2026-10-28).
+                const kept = await this.service.countKeptRecords(id)
+                const keptRefusal = keptRecordsRefusal(kept)
+                if (keptRefusal) {
                     return res.status(409).json({
-                        error: 'This member has payslips, so their records must be kept. Deactivate them instead.',
-                        payslipCount,
+                        error: keptRefusal,
+                        payslipCount: kept.payslips,
+                        historyCount: kept.historyRows,
+                        concernCount: kept.concerns,
                     })
                 }
 

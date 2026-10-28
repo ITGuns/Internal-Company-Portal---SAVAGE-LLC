@@ -15,8 +15,13 @@ import { prisma } from '../database/prisma.service'
 import {
     canAccessPayrollTarget,
     canReviewTimeRequests,
+    canSignDisbursement,
     filterPayrollProfileUpdate,
+    getRefusedOwnPayFields,
     hasPayrollManagementAccess,
+    isOwnHoursOverride,
+    OWN_HOURS_OVERRIDE_MESSAGE,
+    OWN_PAY_SETUP_MESSAGE,
     PayrollAccess,
     PAYROLL_MANAGEMENT_ROUTE_ROLES as PAYROLL_ROUTE_ROLE_LIST,
 } from './payroll.permissions'
@@ -28,6 +33,9 @@ import { TimeRequestsService } from './time-requests.service'
 import { BackfillService } from './backfill.service'
 import { registerPayrollOptionRoutes } from './payroll-options.routes'
 import { payrollOptionsService } from './payroll-options.service'
+import { registerPayslipApprovalRoutes } from './payslip-approval.routes'
+import { registerRosterRoutes } from './roster-snapshot.routes'
+import { UnapprovedPayslipsError } from './payroll.errors'
 
 const logger = createLogger('payroll.payroll.controller')
 
@@ -71,6 +79,7 @@ export class PayrollController {
             isPrivileged: hasPayrollManagementAccess(roles, isConfiguredAdmin),
             canReviewTime: canReviewTimeRequests(roles, isConfiguredAdmin),
             isFullAccess: hasFullAccess(roles, isConfiguredAdmin),
+            canSignDisbursement: canSignDisbursement(roles, isConfiguredAdmin),
         }
     }
 
@@ -455,6 +464,11 @@ export class PayrollController {
                         fields: filteredUpdate.rejectedFields,
                     })
                 }
+                // Your own salary, rates, scheme, basis, tax and cap: full access only (review fix 2026-10-28).
+                const ownPayFields = getRefusedOwnPayFields(access, targetUserId, req.body || {})
+                if (ownPayFields.length > 0) {
+                    return res.status(403).json({ error: OWN_PAY_SETUP_MESSAGE, fields: ownPayFields })
+                }
                 if (Object.keys(filteredUpdate.data).length === 0) {
                     return res.status(400).json({ error: 'No permitted payroll profile fields provided' })
                 }
@@ -479,9 +493,10 @@ export class PayrollController {
             }
         })
 
-        // Auto-ensure a current period exists (first-time / convenience setup)
-        // Any authenticated user can trigger this (the service is idempotent)
-        router.post('/periods/ensure', authenticateToken, async (req: Request, res: Response) => {
+        // Auto-ensure a current period exists (first-time / convenience setup). The service is
+        // idempotent, but creating a period is payroll management only, like POST /periods
+        // (2026-10-28; until then any signed-in account could create it). Its only caller is PayslipsTab.
+        router.post('/periods/ensure', authenticateToken, requireRole(PAYROLL_MANAGEMENT_ROUTE_ROLES), async (req: Request, res: Response) => {
             try {
                 const periodId = await this.service.ensureCurrentPeriodExists()
                 res.json({ periodId })
@@ -512,6 +527,13 @@ export class PayrollController {
                 try {
                     const periodId = Array.isArray(req.params.periodId) ? req.params.periodId[0] : req.params.periodId
                     const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId
+
+                    // Hand-entered hours on your own payslip: full access only (review fix 2026-10-28).
+                    const access = await this.getPayrollAccess(req)
+                    if (!access) return res.sendStatus(401)
+                    if (isOwnHoursOverride(access, userId, req.body || {})) {
+                        return res.status(403).json({ error: OWN_HOURS_OVERRIDE_MESSAGE })
+                    }
 
                     // A hand-edited payslip answers 409 unless the caller confirms with force: true.
                     const payslip = await this.service.generatePayslip(periodId, userId, req.body, {
@@ -545,19 +567,30 @@ export class PayrollController {
             }
         )
 
-        // Lock / Finalize a Payroll Period
+        // Lock / Finalize a Payroll Period. Unapproved payslips answer 409 with
+        // { error, unapprovedCount } unless the body has force: true (2026-10-28).
+        // Only a signer (Disbursement Officer or full access) may force it, so a
+        // payroll manager cannot finalize payslips nobody signed (review fix 2026-10-28).
         router.post(
             '/periods/:periodId/lock',
             authenticateToken,
             requireRole(PAYROLL_MANAGEMENT_ROUTE_ROLES),
             async (req: Request, res: Response) => {
+                let canForce = false
                 try {
+                    const access = await this.getPayrollAccess(req)
+                    if (!access) return res.sendStatus(401)
+                    canForce = access.canSignDisbursement === true
                     const periodId = Array.isArray(req.params.periodId) ? req.params.periodId[0] : req.params.periodId
-                    const period = await this.service.lockPayrollPeriod(periodId)
+                    const period = await this.service.lockPayrollPeriod(periodId, { force: canForce && req.body?.force === true })
                     res.json(period)
+                    notificationService.broadcastDataChange('payslips')
                 } catch (e) {
+                    if (e instanceof UnapprovedPayslipsError) {
+                        return res.status(409).json({ error: canForce ? e.message : e.signerOnlyMessage(), unapprovedCount: e.count })
+                    }
                     logger.error(e)
-                    res.status(500).json({ error: e instanceof Error ? e.message : 'Failed to lock period' })
+                    this.sendPayrollError(res, e, 'Failed to lock period')
                 }
             }
         )
@@ -644,10 +677,22 @@ export class PayrollController {
             sendError: (res, error, fallback) => this.sendPayrollError(res, error, fallback),
         })
 
-        // Managed lists: salary divisor schemes, employment types, pay frequencies (2026-10-20).
+        // Disbursement sign-off: approve, revoke, approve all, period summary (2026-10-28).
+        registerPayslipApprovalRoutes(router, {
+            getAccess: (req) => this.getPayrollAccess(req),
+            sendError: (res, error, fallback) => this.sendPayrollError(res, error, fallback),
+        })
+
+        // Managed lists: salary divisor schemes, employment types, pay frequencies,
+        // and withholding tax rules (2026-10-28).
         registerPayrollOptionRoutes(router, {
             service: this.options,
             getAccess: (req) => this.getPayrollAccess(req),
+            sendError: (res, error, fallback) => this.sendPayrollError(res, error, fallback),
+        })
+
+        // Employee history: a period's roster or one person across periods, JSON and CSV (2026-10-28).
+        registerRosterRoutes(router, {
             sendError: (res, error, fallback) => this.sendPayrollError(res, error, fallback),
         })
 

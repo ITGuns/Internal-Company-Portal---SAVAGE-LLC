@@ -1,32 +1,14 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import vm from 'node:vm';
-import ts from 'typescript';
+import { loadTsModule } from './helpers/load-ts.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// audit-target.ts imports lib/payroll-dates.ts; the loader resolves it.
 function loadPayrollAuditTargetHelper() {
-  const helperPath = path.resolve(__dirname, '../src/lib/payroll-calendar/audit-target.ts');
-  const source = fs.readFileSync(helperPath, 'utf8');
-  const { outputText } = ts.transpileModule(source, {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2020,
-      esModuleInterop: true,
-    },
-  });
-
-  const compiledModule = { exports: {} };
-  vm.runInNewContext(outputText, {
-    module: compiledModule,
-    exports: compiledModule.exports,
-    console,
-  }, { filename: helperPath });
-
-  return compiledModule.exports;
+  return loadTsModule(path.resolve(__dirname, '../src/lib/payroll-calendar/audit-target.ts'));
 }
 
 test('resolves payroll audit target from query params and current user', () => {
@@ -86,17 +68,30 @@ test('filters payroll audit employees and builds inclusive date ranges', () => {
     { startDate: '2026-05-01', endDate: '2026-05-21' },
   );
 
+  // Whole Manila days (UTC+8): May 1 starts at 16:00 UTC on Apr 30, May 21 ends at 15:59:59.999 UTC.
   assert.deepEqual(
     JSON.parse(JSON.stringify(getPayrollTimeEntryRange({ startDate: '2026-05-01', endDate: '2026-05-21' }))),
     {
-      startIso: '2026-05-01T00:00:00.000Z',
-      endIso: '2026-05-21T23:59:59.999Z',
+      startIso: '2026-04-30T16:00:00.000Z',
+      endIso: '2026-05-21T15:59:59.999Z',
     },
   );
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(getPayrollTimeEntryRange({ startDate: '2026-10-28', endDate: '2026-10-28' }))),
+    { startIso: '2026-10-27T16:00:00.000Z', endIso: '2026-10-28T15:59:59.999Z' },
+    'a one-day audit covers exactly that Manila day',
+  );
 
-  assert.equal(getPayrollAuditTodayDateInput(new Date('2026-06-11T16:30:00.000Z')), '2026-06-11');
+  // 16:30 UTC on Jun 11 is 00:30 on Jun 12 in Manila, so Today is the 12th.
+  assert.equal(getPayrollAuditTodayDateInput(new Date('2026-06-11T16:30:00.000Z')), '2026-06-12');
+  assert.equal(getPayrollAuditTodayDateInput(new Date('2026-06-11T15:30:00.000Z')), '2026-06-11');
   assert.equal(formatPayrollAuditDateLabel('2026-06-11'), 'Jun 11, 2026');
   assert.equal(formatPayrollAuditDateLabel('bad-date'), '');
+  assert.equal(formatPayrollAuditDateLabel('2026-02-30'), '', 'an impossible day is not a date');
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(getPayrollAuditDateRange(new URLSearchParams('start=2026-02-30&end=2026-03-01')))),
+    { startDate: '', endDate: '2026-03-01' },
+  );
 
   assert.equal(
     getPayrollAuditSummary({

@@ -3,9 +3,12 @@ import { PayrollController } from '../src/payroll/payroll.controller'
 import {
   canAccessPayrollTarget,
   canReviewTimeRequests,
+  canSignDisbursement,
   filterPayrollProfileUpdate,
   getProtectedPayrollProfileFields,
+  getRefusedOwnPayFields,
   hasPayrollManagementAccess,
+  isOwnHoursOverride,
   normalizePayrollRoleName,
   PAYROLL_MANAGEMENT_ROUTE_ROLES,
   TIME_REVIEW_ROUTE_ROLES,
@@ -123,5 +126,69 @@ for (const role of ['project_manager', 'manager', 'chief_operations_officer', 'b
   assert.ok(TIME_REVIEW_ROUTE_ROLES.includes(role), `${role} passes time-review route guards`)
 }
 assert.equal(new Set(TIME_REVIEW_ROUTE_ROLES).size, TIME_REVIEW_ROUTE_ROLES.length, 'no duplicate roles')
+
+// Disbursement Officer (2026-10-28): payroll-management access, and the only
+// non-admin role that signs off payslips.
+assert.equal(normalizePayrollRoleName('Disbursement Officer'), 'disbursement_officer')
+assert.equal(hasPayrollManagementAccess([{ role: 'Disbursement Officer' }]), true)
+assert.ok(PAYROLL_MANAGEMENT_ROUTE_ROLES.includes('disbursement_officer'), 'disbursement officers pass payroll route guards')
+assert.equal(canSignDisbursement([{ role: 'Disbursement Officer' }]), true)
+assert.equal(canSignDisbursement([{ role: 'admin' }]), true, 'full access signs')
+assert.equal(canSignDisbursement([{ role: 'Owner / Founder' }]), true, 'full access signs')
+assert.equal(canSignDisbursement([{ role: 'Frontend Developer' }], true), true, 'configured admin emails sign')
+assert.equal(canSignDisbursement([{ role: 'Bookkeeping' }]), false, 'payroll managers without the role do not sign')
+assert.equal(canSignDisbursement([{ role: 'Operations Manager' }]), false)
+assert.equal(canSignDisbursement([{ role: 'Frontend Developer' }]), false)
+assert.equal(canSignDisbursement([]), false)
+
+// The tax choice is a protected profile field (payroll managers only).
+assert.deepEqual(getProtectedPayrollProfileFields({ taxRule: 'none', jobTitle: 'Editor' }), ['taxRule', 'jobTitle'])
+assert.deepEqual(filterPayrollProfileUpdate({ taxRule: null }, { isPrivileged: true }).data, { taxRule: null })
+
+// Own pay setup and own hand-entered hours (review fix 2026-10-28): refused without
+// full access; anyone else's profile and full access are unaffected.
+const payrollSelf = { requesterId: 'books-1', isPrivileged: true, isFullAccess: false }
+const ownerSelf = { requesterId: 'owner-1', isPrivileged: true, isFullAccess: true }
+const allPayFields = { baseSalary: 1, hourlyRate: 1, payrollScheme: 'x', payBasis: 'x', taxRule: null, maxBillableHoursPerDay: 8, overtimeMultiplier: 2 }
+assert.deepEqual(getRefusedOwnPayFields(payrollSelf, 'books-1', { ...allPayFields, bankAccount: '1', jobTitle: 'Clerk' }), Object.keys(allPayFields))
+assert.deepEqual(getRefusedOwnPayFields(payrollSelf, 'books-1', { bankAccount: '1', taxId: 'TIN', jobTitle: 'Clerk' }), [])
+assert.deepEqual(getRefusedOwnPayFields(payrollSelf, 'someone-else', allPayFields), [])
+assert.deepEqual(getRefusedOwnPayFields(ownerSelf, 'owner-1', allPayFields), [])
+assert.equal(isOwnHoursOverride(payrollSelf, 'books-1', { hoursWorked: 0 }), true, 'zero hours is still an override')
+assert.equal(isOwnHoursOverride(payrollSelf, 'books-1', { hoursWorked: null, deductions: [] }), false)
+assert.equal(isOwnHoursOverride(payrollSelf, 'books-1', {}), false)
+assert.equal(isOwnHoursOverride(payrollSelf, 'someone-else', { hoursWorked: 80 }), false)
+assert.equal(isOwnHoursOverride(ownerSelf, 'owner-1', { hoursWorked: 80 }), false)
+
+for (const [method, routePath] of [
+  ['post', '/payslips/:id/approve'],
+  ['post', '/payslips/:id/revoke-approval'],
+  ['post', '/periods/:periodId/approve-all'],
+  ['get', '/periods/:periodId/approval-summary'],
+  ['get', '/tax-rules'],
+  ['post', '/tax-rules'],
+  ['patch', '/tax-rules/:id'],
+  ['delete', '/tax-rules/:id'],
+]) {
+  const layer = payrollRouter.stack.find((entry: any) => entry.route?.path === routePath && entry.route?.methods?.[method])
+  assert.ok(layer, `${method.toUpperCase()} ${routePath} route is registered`)
+  assert.ok(layer.route.stack.length >= 2, `${method.toUpperCase()} ${routePath} requires auth`)
+}
+
+// Creating a period (the current one included, since 2026-10-28) and the employee history:
+// authentication, then the payroll-management role guard, then the handler.
+for (const [method, routePath] of [
+  ['post', '/periods'],
+  ['post', '/periods/ensure'],
+  ['get', '/reports/roster'],
+  ['get', '/reports/roster.csv'],
+]) {
+  const layer = payrollRouter.stack.find((entry: any) => entry.route?.path === routePath && entry.route?.methods?.[method])
+  assert.ok(layer, `${method.toUpperCase()} ${routePath} route is registered`)
+  assert.ok(
+    layer.route.stack.length >= 3,
+    `${method.toUpperCase()} ${routePath} requires auth and payroll-management authorization`,
+  )
+}
 
 console.log('payroll.permissions tests passed')

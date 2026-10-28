@@ -23,6 +23,8 @@ export interface Employee {
   paymentFrequency?: string | null;
   employmentType?: string | null;
   currency?: string | null;
+  /** Withholding tax choice: null = workspace default, "none" = no tax, else a rule key. */
+  taxRule?: string | null;
   // Extended fields for profile panel
   phone?: string;
   email?: string;
@@ -132,6 +134,12 @@ export interface Payslip {
   editNote?: string | null;
   /** The employee's pay basis (EmployeeProfile.payBasis), when known. */
   payBasis?: string;
+  // Disbursement sign-off (2026-10-28); approvalStatus "approved" or "draft".
+  approvalStatus?: string | null;
+  approvedAt?: string | null;
+  approvalSignerName?: string | null;
+  approvalSignature?: string | null;
+  approvalNote?: string | null;
 }
 
 export interface PayslipLineItem {

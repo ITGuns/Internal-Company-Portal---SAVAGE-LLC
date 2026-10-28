@@ -122,3 +122,17 @@ test('uncredited hours are an unpaid, typed line', () => {
   const items = [{ key: 'u', type: 'uncredited_hours', description: 'Beyond 22 credited days, not paid (8 h)', amount: '' }];
   assert.equal(validatePayslipEdit(items, 'checked').valid, true, 'no amount needed on an unpaid line');
 });
+
+test('withholding tax is a deduction line: negative, out of gross, editable', () => {
+  const { normalizeItemAmount, recomputePayslipTotals, getPayrollItemTypeLabel, inferPayrollItemType, isDeductionItemType, toPayslipItemPayload } = loadPayslipEditHelper();
+  assert.equal(inferPayrollItemType('tax', -1500), 'tax');
+  assert.equal(getPayrollItemTypeLabel('tax'), 'Withholding tax');
+  assert.equal(isDeductionItemType('tax'), true);
+  assert.equal(isDeductionItemType('deduction'), true);
+  assert.equal(isDeductionItemType('allowance'), false);
+  assert.equal(normalizeItemAmount('tax', 1500), -1500);
+  assert.equal(normalizeItemAmount('tax', -1500), -1500);
+  assert.deepEqual({ ...recomputePayslipTotals([{ type: 'fixed_salary', amount: 30000 }, { type: 'tax', amount: '1500' }]) }, { gross: 30000, net: 28500 });
+  const payload = toPayslipItemPayload([{ key: 't', type: 'tax', description: ' Withholding tax (Withholding 5%, 5%) ', amount: '1500' }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(payload)), [{ type: 'tax', description: 'Withholding tax (Withholding 5%, 5%)', amount: -1500 }]);
+});

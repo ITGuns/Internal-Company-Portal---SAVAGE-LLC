@@ -11,8 +11,10 @@ import {
   getDefaultSignupRoles,
   hasConfiguredSignupRolesForDepartment,
   isDefaultSignupRoleAllowed,
+  isSignupRequestableRole,
   mergeSignupRolesForDepartment,
 } from '../src/auth/signup-role-options'
+import { ORG_DEPARTMENT_ROLE_CATALOG } from '../src/org/org-access-policy'
 
 assert.deepEqual(
   buildPendingSignupProfile({ role: 'Web Developer', departmentId: 'dept-1' }),
@@ -89,9 +91,19 @@ assert.deepEqual(
 assert.deepEqual(getDefaultSignupRoles('Analytics / Data'), ['Analytics / Data VA'])
 assert.deepEqual(getDefaultSignupRoles('Automation / Tech'), ['Automation / Tech VA'])
 assert.deepEqual(getDefaultSignupRoles('Project Management'), ['Project Manager'])
+// Disbursement Officer is assigned by Operations, never requested at signup
+// (review fix 2026-10-28); it stays in the role catalog.
 assert.deepEqual(
   getDefaultSignupRoles('Payroll / Finance'),
   ['Bookkeeping', 'Contractor & Salary Payments'],
+)
+assert.equal(isDefaultSignupRoleAllowed('Payroll / Finance', 'Disbursement Officer'), false)
+assert.equal(isSignupRequestableRole('Disbursement Officer'), false)
+assert.equal(isSignupRequestableRole('disbursement_officer'), false)
+assert.equal(isSignupRequestableRole('Bookkeeping'), true)
+assert.ok(
+  ORG_DEPARTMENT_ROLE_CATALOG.find((entry) => entry.department === 'Payroll / Finance')?.roles.includes('Disbursement Officer'),
+  'Operations can still assign the role',
 )
 assert.equal(isDefaultSignupRoleAllowed('Website Developers', 'Frontend Developer'), true)
 assert.equal(isDefaultSignupRoleAllowed('Website Developers', 'Operations Manager'), false)

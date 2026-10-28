@@ -8,8 +8,11 @@ import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import type { Payslip, PayslipLineItem } from "@/lib/payroll-calendar/types";
 import { formatPayrollDate } from "@/lib/payroll-dates";
-import { getPayrollItemTypeLabel, inferPayrollItemType, isUnpaidItemType } from "@/lib/payslip-edit";
+import { getPayrollItemTypeLabel, inferPayrollItemType, isDeductionItemType, isPayrollPeriodLocked, isUnpaidItemType } from "@/lib/payslip-edit";
 import { getPayBasisLabel } from "@/lib/pay-basis";
+import { isTaxItem } from "@/lib/payroll-tax";
+import PayslipApprovalActions from "./PayslipApprovalActions";
+import PayslipApprovalBlock from "./PayslipApprovalBlock";
 
 interface PayslipDetailsModalProps {
   isOpen: boolean;
@@ -18,6 +21,11 @@ interface PayslipDetailsModalProps {
   /** The employee's pay basis, shown above the line items. */
   payBasis?: string;
   onDownloadPDF: (payslip: Payslip) => void;
+  /** Disbursement sign-off (2026-10-28): signers approve and revoke here. */
+  canSign?: boolean;
+  isOwnPayslip?: boolean;
+  onApprove?: (payslip: Payslip) => void;
+  onRevoke?: (payslip: Payslip) => Promise<void>;
 }
 
 const peso = (value: number) =>
@@ -30,7 +38,7 @@ const peso = (value: number) =>
 function earningLines(payslip: Payslip): Array<PayslipLineItem & { typeLabel: string; unpaid: boolean }> {
   return (payslip.items ?? [])
     .map((item) => ({ ...item, resolvedType: inferPayrollItemType(item.type, item.amount) }))
-    .filter((item) => item.resolvedType !== "deduction")
+    .filter((item) => !isDeductionItemType(item.resolvedType))
     .map(({ resolvedType, ...item }) => ({
       ...item,
       typeLabel: getPayrollItemTypeLabel(resolvedType),
@@ -44,12 +52,17 @@ export default function PayslipDetailsModal({
   payslip,
   payBasis,
   onDownloadPDF,
+  canSign = false,
+  isOwnPayslip = false,
+  onApprove,
+  onRevoke,
 }: PayslipDetailsModalProps) {
   if (!payslip) return null;
 
   const formatDate = (dateStr: string) =>
     formatPayrollDate(dateStr, { format: { year: "numeric", month: "long", day: "numeric" } });
   const earnings = earningLines(payslip);
+  const hasTax = (payslip.items ?? []).some(isTaxItem);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Payslip Details" size="lg">
@@ -202,11 +215,24 @@ export default function PayslipDetailsModal({
         <div className="p-4 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 text-white mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm opacity-90 mb-1">Net Pay</div>
+              <div className="text-sm opacity-90 mb-1">{hasTax ? "Net pay after tax" : "Net Pay"}</div>
               <div className="text-3xl font-bold">₱{payslip.netPay.toLocaleString()}</div>
             </div>
             <FileText className="w-12 h-12 opacity-50" />
           </div>
+        </div>
+
+        <div className="mb-6 space-y-3">
+          <PayslipApprovalBlock payslip={payslip} periodLocked={isPayrollPeriodLocked(payslip.periodStatus)} showLockedNote />
+          {(onApprove || onRevoke) && (
+            <PayslipApprovalActions
+              payslip={payslip}
+              canSign={canSign}
+              isOwn={isOwnPayslip}
+              onApprove={onApprove}
+              onRevoke={onRevoke}
+            />
+          )}
         </div>
 
         {payslip.editedAt && (

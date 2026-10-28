@@ -9,6 +9,7 @@ import {
     PayrollForbiddenError,
     PayrollNotFoundError,
     PayrollValidationError,
+    UnapprovedPayslipsError,
 } from './payroll.errors'
 import {
     DEFAULT_MAX_BILLABLE_HOURS_PER_DAY,
@@ -34,7 +35,7 @@ import {
     summarizePayrollHours,
     zonedMidnightUtc,
 } from './payroll.calculations'
-import { computePayslipTotals } from './payslip-edit.service'
+import { APPROVED_PAYSLIP_MESSAGE, computePayslipTotals } from './payslip-edit.service'
 import { periodOverlapsWindow } from '../scheduler/scheduler.periods'
 import {
     CreditedHoursSplit,
@@ -44,6 +45,10 @@ import {
     uncreditedHoursDescription,
 } from './payroll-schemes'
 import { PayrollOptionsService, payrollOptionsService } from './payroll-options.service'
+import { PayrollTaxRulesService, payrollTaxRulesService } from './payroll-tax-rules.service'
+import { buildTaxLine, computeTaxAmount, normalizeProfileTaxRule } from './payroll-tax'
+import { PAYROLL_ACTIVE_STATUSES, payslipHoursWorked } from './roster-snapshot'
+import { RosterSnapshotService, rosterSnapshotService } from './roster-snapshot.service'
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
@@ -75,6 +80,8 @@ export interface UpdateTimeEntryDto {
 export interface GeneratePayslipOptions {
     /** Regenerate even when the payslip was edited by hand; the edit record is cleared. */
     force?: boolean
+    /** Internal: bulk generation records the employee history once for the whole period instead. */
+    captureRoster?: boolean
 }
 
 // The client confirms a regenerate by resending with force: true.
@@ -89,8 +96,8 @@ export interface ManualPayslipInput {
 
 type PayslipLine = { type: string; description: string; amount: number }
 
-/** Statuses whose members are always included in bulk generation. */
-const PAYROLL_ACTIVE_STATUSES = ['active', 'verified', 'vacation', 'leave']
+// Statuses whose members are always included in bulk generation: PAYROLL_ACTIVE_STATUSES
+// (roster-snapshot.ts, shared with the employee history roster since 2026-10-28).
 
 export interface PayrollReportFilters {
     userId?: string
@@ -103,7 +110,9 @@ interface TimeEntryAccessOptions {
     canManageAny?: boolean
 }
 
+// The report and archive queries leave the signature image out (review fix 2026-10-28).
 type PayslipReportRecord = Prisma.PayslipGetPayload<{
+    omit: { approvalSignature: true }
     include: {
         period: true
         items: true
@@ -157,10 +166,19 @@ export class PayrollService {
     private prisma: PrismaClient
     /** Scheme and option lists; replaced in tests. */
     options: PayrollOptionsService
+    /** Withholding tax rules (2026-10-28); replaced in tests. */
+    taxRules: PayrollTaxRulesService
+    /**
+     * Employee history (2026-10-28): captured after payslip writes and the lock,
+     * refreshed in open periods after a profile save; replaced in tests.
+     */
+    roster: Pick<RosterSnapshotService, 'captureSafely' | 'refreshOpenPeriodsSafely'>
 
     constructor() {
         this.prisma = prisma
         this.options = payrollOptionsService
+        this.taxRules = payrollTaxRulesService
+        this.roster = rosterSnapshotService
     }
 
     // PayrollEvent methods
@@ -353,19 +371,15 @@ export class PayrollService {
             .filter(i => i.amount < 0)
             .map(i => ({
                 id: i.id,
-                type: i.description.toLowerCase().includes('tax') ? 'tax' as const : 'other' as const,
+                type: i.type === 'tax' || i.description.toLowerCase().includes('tax') ? 'tax' as const : 'other' as const,
                 name: i.description,
                 amount: Math.abs(i.amount),
             }))
     }
 
+    // Same reading as the employee history (payslipHoursWorked, roster-snapshot.ts).
     private getPayslipHoursWorked(payslip: PayslipReportRecord) {
-        const earning = payslip.items.find((item) => item.amount >= 0 && /\(\d+(?:\.\d+)?\s+h(?:rs?)?\b/i.test(item.description))
-        if (!earning) return 0
-
-        // "N h billable" when present: a capped line starts with the credited hours (2026-10-20).
-        const match = earning.description.match(/([\d.]+)\s+h billable/i) ?? earning.description.match(/\(([\d.]+)\s+h(?:rs?)?\b/i)
-        return match ? Number(match[1]) || 0 : 0
+        return payslipHoursWorked(payslip.items)
     }
 
     private buildDepartmentSummary(payslips: PayslipReportRecord[]) {
@@ -493,6 +507,10 @@ export class PayrollService {
                 : requiredText(data.paymentFrequency, 'Choose a pay frequency from the list.'),
         }
         await this.options.assertProfileSelections(current, selections)
+        // null follows the workspace default rule, 'none' is no tax (2026-10-28).
+        const taxRule = normalizeProfileTaxRule(data.taxRule)
+        await this.taxRules.assertProfileTaxRule(current.taxRule, taxRule)
+        if (taxRule !== undefined) updateData.taxRule = taxRule
         if (data.jobTitle !== undefined) updateData.jobTitle = data.jobTitle
         if (selections.employmentType !== undefined) updateData.employmentType = selections.employmentType
         if (data.baseSalary !== undefined) {
@@ -533,10 +551,13 @@ export class PayrollService {
         if (data.bankAccount !== undefined) updateData.bankAccount = data.bankAccount
         if (data.taxId !== undefined) updateData.taxId = data.taxId
 
-        return this.prisma.employeeProfile.update({
+        const saved = await this.prisma.employeeProfile.update({
             where: { userId },
             data: updateData
         })
+        // Open periods' history rows follow the new category or salary at once; locked ones never change (2026-10-28).
+        await this.roster.refreshOpenPeriodsSafely(userId)
+        return saved
     }
 
     private parseOptionalHourlyRate(value: unknown): number | null {
@@ -563,19 +584,28 @@ export class PayrollService {
     }
 
     /**
-     * Lock/Finalize a Payroll Period (change status from draft to processed)
+     * Lock/Finalize a Payroll Period (change status from draft to processed).
+     * While payslips of the period wait for disbursement sign-off the lock is
+     * refused (409 with the count) unless the caller confirms with force.
      */
-    async lockPayrollPeriod(periodId: string) {
+    async lockPayrollPeriod(periodId: string, options: { force?: boolean } = {}) {
         const period = await this.prisma.payrollPeriod.findUnique({ where: { id: periodId } })
-        if (!period) throw new Error('Period not found')
+        if (!period) throw new PayrollNotFoundError('Period not found')
         if (period.status !== 'draft') {
-            throw new Error(`Period is already ${period.status}`)
+            throw new PayrollConflictError(`Period is already ${period.status}`)
+        }
+        if (!options.force) {
+            const unapproved = await this.prisma.payslip.count({ where: { periodId, approvalStatus: { not: 'approved' } } })
+            if (unapproved > 0) throw new UnapprovedPayslipsError(unapproved)
         }
 
-        return this.prisma.payrollPeriod.update({
+        const locked = await this.prisma.payrollPeriod.update({
             where: { id: periodId },
             data: { status: 'processed' }
         })
+        // The final roster: every active internal employee, with or without a payslip (2026-10-28).
+        await this.roster.captureSafely(periodId)
+        return locked
     }
 
     /**
@@ -789,6 +819,8 @@ export class PayrollService {
     async previewPayslip(userId: string, startDate: Date, endDate: Date) {
         const { profile, hours, rateContext, scheme, credit, pay, periodFraction: fraction } =
             await this.computePeriodPay(userId, startDate, endDate)
+        const grossPay = roundMoney(roundMoney(pay.basePay) + roundMoney(pay.overtimePay))
+        const taxRule = await this.taxRules.resolveForProfile(profile.taxRule)
 
         return {
             totalHours: hours.totalHours,
@@ -811,7 +843,11 @@ export class PayrollService {
             overtimeMultiplier: normalizePositiveNumber(profile.overtimeMultiplier, DEFAULT_OVERTIME_MULTIPLIER),
             overtimePay: roundMoney(pay.overtimePay),
             // Same total the generated payslip stores: the sum of the rounded line amounts.
-            grossPay: roundMoney(roundMoney(pay.basePay) + roundMoney(pay.overtimePay)),
+            grossPay,
+            // The withholding the generated payslip would add, or null without a rule (2026-10-28).
+            tax: taxRule
+                ? { ruleKey: taxRule.key, ruleName: taxRule.name, rate: taxRule.rate, amount: computeTaxAmount(grossPay, taxRule.rate) }
+                : null,
             periodFraction: fraction,
             monthlySalary: profile.baseSalary,
             payrollScheme: rateContext.payrollScheme,
@@ -925,7 +961,9 @@ export class PayrollService {
     /**
      * Line items for one payslip. The automatic lines always come from the pay
      * basis and approved overtime; a manual override (hoursWorked) replaces only
-     * the base (regular hours) line. Deductions are added on either path.
+     * the base (regular hours) line. The withholding tax line (when a rule
+     * applies) comes after overtime, on the gross of the lines before it, then
+     * the deductions sent with the request, on either path.
      */
     private async buildPayslipItems(
         userId: string,
@@ -945,7 +983,10 @@ export class PayrollService {
         const isManual = overrideData?.hoursWorked !== undefined && overrideData?.hoursWorked !== null
         // Hand-entered hours replace the regular line and the uncredited note; overtime stays.
         const base = isManual ? this.buildManualBaseItem(overrideData, pay) : baseItem
-        return [base, ...(isManual ? [] : uncreditedItems), ...overtimeItems, ...this.buildDeductionItems(overrideData?.deductions)]
+        const earnings: PayslipLine[] = [base, ...(isManual ? [] : uncreditedItems), ...overtimeItems]
+        const taxRule = await this.taxRules.resolveForProfile(profile.taxRule)
+        const taxItems = taxRule ? [buildTaxLine(taxRule, computePayslipTotals(earnings).grossPay)] : []
+        return [...earnings, ...taxItems, ...this.buildDeductionItems(overrideData?.deductions)]
     }
 
     /**
@@ -963,11 +1004,13 @@ export class PayrollService {
             throw new Error(`Cannot run payroll for a ${period.status} cycle. Cycle must be draft.`);
         }
 
-        // Hand edits (PATCH /payslips/:id) are never overwritten silently.
+        // Hand edits (PATCH /payslips/:id) are never overwritten silently, and an
+        // approved payslip is frozen until the approval is revoked (force does not help).
         const existing = await this.prisma.payslip.findFirst({
             where: { periodId, userId },
-            select: { id: true, editedAt: true },
+            select: { id: true, editedAt: true, approvalStatus: true },
         })
+        if (existing?.approvalStatus === 'approved') throw new PayrollConflictError(APPROVED_PAYSLIP_MESSAGE)
         if (existing?.editedAt && !options.force) throw new PayrollConflictError(EDITED_PAYSLIP_MESSAGE)
 
         const profile = await this.getEmployeeProfile(userId)
@@ -999,21 +1042,33 @@ export class PayrollService {
 
         // Create or Update Payslip
         if (existing) {
-            // Update (a forced regenerate also clears the hand-edit record)
-            await this.prisma.payrollItem.deleteMany({ where: { payslipId: existing.id } })
-            return this.prisma.payslip.update({
-                where: { id: existing.id },
-                data: {
-                    grossPay,
-                    netPay,
-                    notes: aggregatedNotes || null,
-                    ...(existing.editedAt ? { editedById: null, editedAt: null, editNote: null } : {}),
-                    items: {
-                        create: items
+            // Update (a forced regenerate also clears the hand-edit record). The
+            // write itself re-checks the approval and the period, so a sign-off or
+            // a Lock & Finalize that lands while the pay was computed is never
+            // overwritten (2026-10-28; the period check is a review fix).
+            const updated = await this.prisma.$transaction(async (tx) => {
+                const claimed = await tx.payslip.updateMany({
+                    where: { id: existing.id, approvalStatus: { not: 'approved' }, period: { status: 'draft' } },
+                    data: {
+                        grossPay,
+                        netPay,
+                        notes: aggregatedNotes || null,
+                        ...(existing.editedAt ? { editedById: null, editedAt: null, editNote: null } : {}),
+                    },
+                })
+                if (claimed.count === 0) {
+                    const current = await tx.payrollPeriod.findUnique({ where: { id: periodId }, select: { status: true } })
+                    if (current && current.status !== 'draft') {
+                        throw new PayrollConflictError(`Cannot run payroll for a ${current.status} cycle. Cycle must be draft.`)
                     }
-                },
-                include: { items: true }
+                    throw new PayrollConflictError(APPROVED_PAYSLIP_MESSAGE)
+                }
+                await tx.payrollItem.deleteMany({ where: { payslipId: existing.id } })
+                await tx.payrollItem.createMany({ data: items.map((item) => ({ ...item, payslipId: existing.id })) })
+                return tx.payslip.findUniqueOrThrow({ where: { id: existing.id }, include: { items: true } })
             })
+            if (options.captureRoster !== false) await this.roster.captureSafely(periodId, [userId])
+            return updated
         } else {
 
             const payslip = await this.prisma.payslip.create({
@@ -1048,6 +1103,7 @@ export class PayrollService {
                 // Don't block the response
             }
 
+            if (options.captureRoster !== false) await this.roster.captureSafely(periodId, [userId])
             return payslip;
         }
     }
@@ -1070,7 +1126,7 @@ export class PayrollService {
         const employeeAccounts = await this.prisma.user.findMany({
             where: {
                 OR: [
-                    { status: { in: PAYROLL_ACTIVE_STATUSES } },
+                    { status: { in: [...PAYROLL_ACTIVE_STATUSES] } },
                     {
                         status: 'inactive',
                         OR: [
@@ -1099,12 +1155,15 @@ export class PayrollService {
         })
         const employees = employeeAccounts.filter(isInternalEmployeeAccount)
 
-        // Hand-edited payslips are kept; they are reported as skipped.
-        const edited = await this.prisma.payslip.findMany({
-            where: { periodId, editedAt: { not: null } },
-            select: { userId: true },
+        // Hand-edited and approved payslips are kept; they are reported as skipped.
+        const kept = await this.prisma.payslip.findMany({
+            where: { periodId, OR: [{ editedAt: { not: null } }, { approvalStatus: 'approved' }] },
+            select: { userId: true, approvalStatus: true },
         })
-        const editedUserIds = new Set(edited.map((payslip) => payslip.userId))
+        const keptReasons = new Map(kept.map((payslip) => [
+            payslip.userId,
+            payslip.approvalStatus === 'approved' ? 'Approved for disbursement; kept as is' : 'Edited by hand; kept as is',
+        ]))
 
         const results: Array<{
             userId: string
@@ -1115,12 +1174,13 @@ export class PayrollService {
             error?: string
         }> = []
         for (const emp of employees) {
-            if (editedUserIds.has(emp.id)) {
-                results.push({ userId: emp.id, success: true, skipped: true, reason: 'Edited by hand; kept as is' })
+            const keptReason = keptReasons.get(emp.id)
+            if (keptReason) {
+                results.push({ userId: emp.id, success: true, skipped: true, reason: keptReason })
                 continue
             }
             try {
-                const payslip = await this.generatePayslip(periodId, emp.id)
+                const payslip = await this.generatePayslip(periodId, emp.id, undefined, { captureRoster: false })
                 results.push({ userId: emp.id, success: true, payslipId: payslip.id })
             } catch (err) {
                 logger.error('Failed to generate bulk payslip', { userId: emp.id, error: err })
@@ -1128,6 +1188,8 @@ export class PayrollService {
             }
         }
 
+        // Employee history for the whole period in one pass, kept payslips included (2026-10-28).
+        await this.roster.captureSafely(periodId)
         return results
     }
 
@@ -1152,6 +1214,8 @@ export class PayrollService {
         const periods = await this.prisma.payrollPeriod.findMany({
             include: {
                 payslips: {
+                    // Signature images (up to 64 KB each) are not needed for totals (review fix 2026-10-28).
+                    omit: { approvalSignature: true },
                     include: {
                         period: true,
                         items: true,
@@ -1198,10 +1262,10 @@ export class PayrollService {
             }
 
             filteredPayslips.forEach(ps => {
-                ps.items.forEach((item: { amount: number; description: string }) => {
+                ps.items.forEach((item: { amount: number; description: string; type: string }) => {
                     const amt = Math.abs(item.amount)
                     if (item.amount < 0) {
-                        if (item.description.toLowerCase().includes('tax')) {
+                        if (item.type === 'tax' || item.description.toLowerCase().includes('tax')) {
                             breakdown.tax += amt
                         } else {
                             breakdown.benefits += amt
@@ -1230,6 +1294,10 @@ export class PayrollService {
      */
     async getAllPayslips(filters: PayrollReportFilters = {}) {
         const payslips = await this.prisma.payslip.findMany({
+            // The archive lists every payslip; signature images (up to 64 KB each) stay on
+            // GET /my-payslips and the approve response (review fix 2026-10-28). The Reports
+            // PDF prints "Approved by NAME on DATE" without the image.
+            omit: { approvalSignature: true },
             include: {
                 period: true,
                 items: true,
@@ -1281,6 +1349,11 @@ export class PayrollService {
             deductions: this.getPayslipDeductions(ps),
             // Line items (2026-10-20) so the Reports PDF lists the same lines, scheme name included.
             items: ps.items.map((item) => ({ id: item.id, type: item.type, description: item.description, amount: item.amount })),
+            // Disbursement sign-off (2026-10-28), shown on the Reports PDF (no signature image).
+            approvalStatus: ps.approvalStatus,
+            approvedAt: ps.approvedAt,
+            approvalSignerName: ps.approvalSignerName,
+            approvalNote: ps.approvalNote,
             }
         })
     }

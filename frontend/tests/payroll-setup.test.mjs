@@ -37,6 +37,7 @@ test('a saved profile fills the form; missing values take the list defaults', ()
     overtimeMultiplier: 1.5,
     bankAccount: null,
     taxId: 'TIN-1',
+    taxRule: 'none',
   }, defaults);
   assert.deepEqual(plain(form), {
     jobTitle: 'Designer',
@@ -51,9 +52,12 @@ test('a saved profile fills the form; missing values take the list defaults', ()
     payBasis: 'fixed_monthly',
     hourlyRate: '',
     overtimeMultiplier: '1.5',
+    taxRule: 'none',
   });
 
   const blank = profileToSetupForm({}, defaults);
+  assert.equal(blank.taxRule, '', 'no stored choice follows the workspace default');
+  assert.equal(profileToSetupForm({ taxRule: null }, defaults).taxRule, '');
   assert.equal(blank.payrollScheme, 'fixed_22_days');
   assert.equal(blank.employmentType, 'Full-Time');
   assert.equal(blank.paymentFrequency, 'Monthly');
@@ -78,7 +82,10 @@ test('the save body keeps blank optional text out and the rate only for hourly r
     bankAccount: '123',
     payBasis: 'hourly_from_monthly',
     overtimeMultiplier: 1.25,
+    taxRule: null,
   });
+  assert.equal(buildSetupPayload({ ...form, taxRule: 'none' }).taxRule, 'none', 'no tax is sent as is');
+  assert.equal(buildSetupPayload({ ...form, taxRule: 'contractor_10' }).taxRule, 'contractor_10');
   const hourly = plain(buildSetupPayload({ ...form, payBasis: 'hourly_rate', baseSalary: '' }));
   assert.equal(hourly.hourlyRate, 300);
   assert.equal('baseSalary' in hourly, false, 'an empty salary is not sent');
@@ -105,6 +112,8 @@ test('a saved profile updates an employee card without touching other fields', (
   assert.equal(next.role, 'Editor');
   assert.equal(next.payBasis, 'hourly_rate', 'fields the profile did not send stay');
   assert.equal(next.hoursThisWeek, 4);
+  assert.equal(applyProfileToEmployee({ ...employee, taxRule: 'none' }, { taxRule: null }).taxRule, null, 'back on the workspace default');
+  assert.equal(applyProfileToEmployee({ ...employee, taxRule: 'none' }, {}).taxRule, 'none', 'a profile without the field keeps it');
 });
 
 test('pay summary and amounts', () => {
@@ -116,6 +125,7 @@ test('pay summary and amounts', () => {
     'Monthly (once a month)',
   ]);
   assert.deepEqual(plain(buildPaySummary({ payBasisLabel: 'Hourly rate', capHours: 7.5 })), ['Hourly rate', '7.5 h a day'], 'empty parts are left out');
+  assert.deepEqual(plain(buildPaySummary({ payBasisLabel: 'Fixed monthly salary', capHours: 8, taxLabel: 'No tax' })), ['Fixed monthly salary', '8 h a day', 'No tax']);
   assert.equal(formatCapHours(null), '8 h a day');
   assert.equal(formatPayAmount(25000, 'PHP'), '₱25,000.00');
   assert.match(formatPayAmount(1200.5, 'USD'), /1,200\.50/);

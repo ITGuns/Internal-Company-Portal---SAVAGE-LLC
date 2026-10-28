@@ -17,6 +17,8 @@ export const routeTitles: Record<string, { title: string; subtitle?: string }> =
   '/company-chat': { title: 'Company Chat', subtitle: 'Public team channels' },
   '/private-messages': { title: 'Private Messages', subtitle: 'Direct conversations' },
   '/file-directory': { title: 'File Directory', subtitle: 'Shared documents and folders' },
+  '/org-chart': { title: 'Org Chart', subtitle: 'Who reports to whom, and who to ask' },
+  '/concerns': { title: 'Concerns', subtitle: 'Questions and concerns for supervisors' },
   '/operations': { title: 'Operations', subtitle: 'Departments, roles, and approvals' },
   '/operations/onboarding': { title: 'Onboarding', subtitle: 'Generate setup links for approved users' },
   '/profile': { title: 'Profile', subtitle: 'Account settings' },

@@ -288,6 +288,9 @@ export default function AddTimeEntryModal({
               </p>
             )}
           </div>
+          <p className="col-span-2 -mt-1 text-xs text-[var(--muted)]">
+            Date and times are in Manila time, the payroll timezone.
+          </p>
         </div>
 
         <div>

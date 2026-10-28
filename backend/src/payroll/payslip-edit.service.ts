@@ -7,10 +7,12 @@ import {
     PayrollValidationError,
 } from './payroll.errors'
 import { roundMoney } from './payroll.calculations'
+import { RosterSnapshotService, rosterSnapshotService } from './roster-snapshot.service'
 
 /**
  * Payslip edit and delete (payroll v2, Rule 5). Only payslips in a draft
- * period change; processed periods answer 409.
+ * period change; processed periods answer 409, and so do payslips approved
+ * for disbursement until the approval is revoked (2026-10-28).
  */
 
 export const PAYROLL_ITEM_TYPES = [
@@ -23,6 +25,8 @@ export const PAYROLL_ITEM_TYPES = [
     'allowance',
     'deduction',
     'adjustment',
+    // Withholding tax from a PayrollTaxRule (2026-10-28). A deduction: stored negative, not in gross.
+    'tax',
 ] as const
 
 export type PayrollItemType = typeof PAYROLL_ITEM_TYPES[number]
@@ -38,6 +42,7 @@ const MAX_DESCRIPTION_LENGTH = 200
 const MAX_NOTE_LENGTH = 500
 const LOCKED_PERIOD_MESSAGE = 'This payroll period is processed and locked. Payslips in it cannot be changed.'
 export const OWN_PAYSLIP_MESSAGE = 'You cannot change your own payslip. Ask another payroll manager.'
+export const APPROVED_PAYSLIP_MESSAGE = 'Approved payslips cannot be changed; revoke the approval first.'
 
 function isItemType(value: unknown): value is PayrollItemType {
     return typeof value === 'string' && (PAYROLL_ITEM_TYPES as readonly string[]).includes(value)
@@ -46,9 +51,16 @@ function isItemType(value: unknown): value is PayrollItemType {
 /** Informational line types: always stored with amount 0. */
 const ZERO_AMOUNT_TYPES: ReadonlySet<string> = new Set(['overtime_pending', 'uncredited_hours'])
 
+/** Line types subtracted from net pay and left out of gross: stored negative. */
+const DEDUCTION_TYPES: ReadonlySet<string> = new Set(['deduction', 'tax'])
+
+export function isDeductionType(type: string): boolean {
+    return DEDUCTION_TYPES.has(type)
+}
+
 /**
- * Validate and normalize line items. Deductions are always stored negative;
- * overtime_pending and uncredited_hours are informational (amount 0).
+ * Validate and normalize line items. Deductions and tax are always stored
+ * negative; overtime_pending and uncredited_hours are informational (amount 0).
  */
 export function normalizePayslipItems(input: unknown): PayslipItemInput[] {
     if (!Array.isArray(input) || input.length === 0) {
@@ -73,17 +85,17 @@ export function normalizePayslipItems(input: unknown): PayslipItemInput[] {
             throw new PayrollValidationError(`Line ${position} needs a numeric amount`)
         }
 
-        const normalizedAmount = item.type === 'deduction'
+        const normalizedAmount = isDeductionType(item.type)
             ? -Math.abs(amount)
             : ZERO_AMOUNT_TYPES.has(item.type) ? 0 : amount
         return { type: item.type, description, amount: roundMoney(normalizedAmount) }
     })
 }
 
-/** Gross = every non-deduction amount; net = sum of all amounts. */
+/** Gross = every amount except deductions and tax; net = sum of all amounts. */
 export function computePayslipTotals(items: readonly { type: string; amount: number }[]) {
     const grossPay = items
-        .filter((item) => item.type !== 'deduction')
+        .filter((item) => !isDeductionType(item.type))
         .reduce((sum, item) => sum + item.amount, 0)
     const netPay = items.reduce((sum, item) => sum + item.amount, 0)
     return { grossPay: roundMoney(grossPay), netPay: roundMoney(netPay) }
@@ -98,20 +110,27 @@ export function normalizeEditNote(input: unknown): string {
     return note
 }
 
-/** Rows a conditional write may touch: draft period, someone else's payslip. */
+/** Rows a conditional write may touch: draft period, not approved, someone else's payslip. */
 function editableWhere(payslipId: string, requesterId: string): Prisma.PayslipWhereInput {
-    return { id: payslipId, userId: { not: requesterId }, period: { status: 'draft' } }
+    return { id: payslipId, userId: { not: requesterId }, approvalStatus: { not: 'approved' }, period: { status: 'draft' } }
 }
 
 export class PayslipEditService {
+    /** Employee history (2026-10-28): captured after an edit or delete; replaced in tests. */
+    roster: Pick<RosterSnapshotService, 'captureSafely'> = rosterSnapshotService
+
     /** Explains why a conditional write matched no row (404, 403 or 409). */
     private async refusal(client: Prisma.TransactionClient, payslipId: string, requesterId: string): Promise<Error> {
         const payslip = await client.payslip.findUnique({
             where: { id: payslipId },
-            select: { userId: true, period: { select: { status: true } } },
+            select: { userId: true, approvalStatus: true, period: { select: { status: true } } },
         })
         if (!payslip) return new PayrollNotFoundError('Payslip not found')
         if (payslip.userId === requesterId) return new PayrollForbiddenError(OWN_PAYSLIP_MESSAGE)
+        // A locked period wins: revoking is not possible there either.
+        if (payslip.period.status === 'draft' && payslip.approvalStatus === 'approved') {
+            return new PayrollConflictError(APPROVED_PAYSLIP_MESSAGE)
+        }
         return new PayrollConflictError(LOCKED_PERIOD_MESSAGE)
     }
 
@@ -120,7 +139,7 @@ export class PayslipEditService {
         const note = normalizeEditNote(body.note)
         const totals = computePayslipTotals(items)
 
-        return prisma.$transaction(async (tx) => {
+        const edited = await prisma.$transaction(async (tx) => {
             // The lock and self checks are part of the write itself, so a period
             // processed mid-request cannot be edited.
             const claimed = await tx.payslip.updateMany({
@@ -142,12 +161,18 @@ export class PayslipEditService {
                 include: { items: true, period: true },
             })
         })
+        if (edited) await this.roster.captureSafely(edited.periodId, [edited.userId])
+        return edited
     }
 
     async deletePayslip(payslipId: string, requesterId: string) {
+        // Read first: once deleted, the history row still needs the period and person.
+        const target = await prisma.payslip.findUnique({ where: { id: payslipId }, select: { periodId: true, userId: true } })
         await prisma.$transaction(async (tx) => {
             const removed = await tx.payslip.deleteMany({ where: editableWhere(payslipId, requesterId) })
             if (removed.count === 0) throw await this.refusal(tx, payslipId, requesterId)
         })
+        // The person stays on the period's history, now without a payslip.
+        if (target) await this.roster.captureSafely(target.periodId, [target.userId])
     }
 }

@@ -49,12 +49,23 @@ export const ORG_DEPARTMENT_ROLE_CATALOG: OrgRoleCatalogEntry[] = [
   },
   {
     department: 'Payroll / Finance',
-    roles: ['Bookkeeping', 'Contractor & Salary Payments'],
+    // Disbursement Officer (2026-10-28) signs off payslips before they are paid.
+    roles: ['Bookkeeping', 'Contractor & Salary Payments', 'Disbursement Officer'],
   },
 ]
 
+// Catalog roles nobody may request at signup (review fix 2026-10-28): approving a
+// signup assigns the requested role as it is, and the Disbursement Officer signs
+// off pay, so Operations assigns it. It stays in the catalog (and AvailableRole).
+// Mirrored in frontend/src/lib/signup-options.ts.
+export const NON_REQUESTABLE_SIGNUP_ROLES: ReadonlySet<string> = new Set(['disbursement_officer'])
+
+export function isSignupRequestableRole(role?: string | null): boolean {
+  return !NON_REQUESTABLE_SIGNUP_ROLES.has(normalizeOrgRoleName(role))
+}
+
 export const DEFAULT_SIGNUP_ROLE_OPTIONS = Object.fromEntries(
-  ORG_DEPARTMENT_ROLE_CATALOG.map((entry) => [entry.department, [...entry.roles]]),
+  ORG_DEPARTMENT_ROLE_CATALOG.map((entry) => [entry.department, entry.roles.filter(isSignupRequestableRole)]),
 ) as Record<string, string[]>
 
 export function normalizeOrgRoleName(role?: string | null): string {
@@ -94,6 +105,15 @@ export const PAYROLL_MANAGEMENT_ROLES: ReadonlySet<string> = new Set([
   'financial_controller',
   'payroll_assistant',
   'payroll_finance',
+  'disbursement_officer',
+])
+
+// Who may approve payslips for disbursement (sign-off, 2026-10-28): the
+// Disbursement Officer role or a full-access account. Payroll managers without
+// the role still generate and edit payslips, but do not sign.
+export const DISBURSEMENT_SIGNER_ROLES: ReadonlySet<string> = new Set([
+  ...FULL_ACCESS_ROLES,
+  'disbursement_officer',
 ])
 
 const CLIENT_OPERATIONS_ROLES = new Set([
@@ -176,6 +196,17 @@ export function hasPayrollManagementAccess(
   isConfiguredAdminEmail = false,
 ): boolean {
   return hasAccessRole(roles, PAYROLL_MANAGEMENT_ROLES, isConfiguredAdminEmail)
+}
+
+export function isDisbursementSignerRoleName(role?: string | null): boolean {
+  return DISBURSEMENT_SIGNER_ROLES.has(normalizeOrgRoleName(role))
+}
+
+export function hasDisbursementSignerAccess(
+  roles: OrgRoleLike[] = [],
+  isConfiguredAdminEmail = false,
+): boolean {
+  return hasAccessRole(roles, DISBURSEMENT_SIGNER_ROLES, isConfiguredAdminEmail)
 }
 
 export function hasClientOperationsAccess(

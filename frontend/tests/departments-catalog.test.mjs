@@ -72,5 +72,6 @@ test('matches the SAVAGE LLC onboarding org chart', () => {
   assert.deepEqual(plain(DEPARTMENT_ROLES['Payroll / Finance']), [
     'Bookkeeping',
     'Contractor & Salary Payments',
+    'Disbursement Officer',
   ]);
 });

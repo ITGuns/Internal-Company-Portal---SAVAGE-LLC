@@ -9,10 +9,12 @@ import { MissingSignupRoleAssignmentError } from '../auth/signup.requests';
 import { validateStoredAvatarValue } from '../uploads/upload.validation';
 import { hasPayrollManagementAccess } from '../org/org-access-policy';
 import {
+    employeePayVisibility,
     hasEmployeeManagementAccess,
     serializeDeployedEmployee,
     serializeEmployeeApplication,
     serializeEmployeesForManagement,
+    type EmployeePayVisibility,
 } from './employees.security';
 import { createLogger } from '../observability/logger';
 
@@ -44,11 +46,12 @@ export class EmployeesController {
 
     private getPending = async (req: Request, res: Response) => {
         try {
-            if (!(await this.authorizeBypass(req))) {
+            const access = await this.resolveEmployeeAccess(req);
+            if (!access.allowed) {
                 return res.status(403).json({ error: 'Unauthorized to view pending employees' });
             }
             const pending = await this.employeesService.getPending();
-            res.status(200).json(serializeEmployeesForManagement(pending));
+            res.status(200).json(serializeEmployeesForManagement(pending, access.visibility));
         } catch (error) {
             logger.error('Error fetching pending employees', error);
             res.status(500).json({ error: 'Internal Server Error' });
@@ -57,37 +60,46 @@ export class EmployeesController {
 
     private getDeployed = async (req: Request, res: Response) => {
         try {
-            if (!(await this.authorizeBypass(req))) {
+            const access = await this.resolveEmployeeAccess(req);
+            if (!access.allowed) {
                 return res.status(403).json({ error: 'Unauthorized to view deployed employees' });
             }
             // ?includeInactive=true also returns deactivated members so they can be reactivated (payroll v2).
             const includeInactive = req.query.includeInactive === 'true';
             const deployed = await this.employeesService.getDeployed({ includeInactive });
-            res.status(200).json(serializeEmployeesForManagement(deployed));
+            // Pay fields for payroll roles only (review fix 2026-10-28).
+            res.status(200).json(serializeEmployeesForManagement(deployed, access.visibility));
         } catch (error) {
             logger.error('Error fetching deployed employees', error);
             res.status(500).json({ error: 'Internal Server Error' });
         }
     }
 
-    private authorizeBypass = async (req: Request) => {
+    /** Management or payroll roles (or an ADMIN_EMAILS admin) use these lists; pay fields need payroll access. */
+    private resolveEmployeeAccess = async (req: Request): Promise<{ allowed: boolean; visibility: EmployeePayVisibility }> => {
         const authReq = req as AuthRequest;
         const email = authReq.user?.email?.toLowerCase();
         const userId = authReq.user?.userId;
-        if (!userId) return false;
+        if (!userId) return { allowed: false, visibility: { includePay: false } };
 
         // Admin email bypass (configured via ADMIN_EMAILS env var)
         const isAuthorizedEmail = isAdminEmail(email);
-        if (isAuthorizedEmail) return true;
+        if (isAuthorizedEmail) return { allowed: true, visibility: employeePayVisibility([], true) };
 
         const { prisma } = await import('../database/prisma.service');
         const roles = await prisma.userRole.findMany({ where: { userId } });
-        return hasEmployeeManagementAccess(roles) || hasPayrollManagementAccess(roles);
+        return {
+            allowed: hasEmployeeManagementAccess(roles) || hasPayrollManagementAccess(roles),
+            visibility: employeePayVisibility(roles),
+        };
     }
+
+    private authorizeBypass = async (req: Request) => (await this.resolveEmployeeAccess(req)).allowed;
 
     private approve = async (req: Request, res: Response) => {
         try {
-            if (!(await this.authorizeBypass(req))) {
+            const access = await this.resolveEmployeeAccess(req);
+            if (!access.allowed) {
                 return res.status(403).json({ error: 'Unauthorized to approve employees' });
             }
             const { id } = req.params;
@@ -104,7 +116,7 @@ export class EmployeesController {
             );
             res.status(200).json({
                 success: true,
-                user: serializeDeployedEmployee(approval.user),
+                user: serializeDeployedEmployee(approval.user, access.visibility),
                 onboarding: {
                     setupRequired: true,
                     emailSent: Boolean(emailResult.success),

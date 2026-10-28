@@ -1,3 +1,5 @@
+import { manilaDayKey } from "../payroll-dates";
+
 export interface PayrollAuditEntry {
   id: string;
   userId?: string;
@@ -35,19 +37,6 @@ export interface PayrollDayAudit {
 
 const LONG_SHIFT_MINUTES = 12 * 60;
 
-function getDateOnly(value: string): string {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
-}
-
 export function getEntryDurationMinutes(entry: PayrollAuditEntry, now: Date = new Date()): number {
   if (entry.durationMin != null) {
     return Math.max(0, Math.round(entry.durationMin));
@@ -66,8 +55,9 @@ export function getPayrollDayAudit(
   options: PayrollDayAuditOptions,
 ): PayrollDayAudit {
   const now = options.now ? new Date(options.now) : new Date();
+  // Manila day of the entry start, the day the server pays it on (payrollDayKey).
   const dayEntries = entries
-    .filter((entry) => getDateOnly(entry.start) === options.date)
+    .filter((entry) => manilaDayKey(entry.start) === options.date)
     .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
   const totalMinutes = dayEntries.reduce(
     (sum, entry) => sum + getEntryDurationMinutes(entry, now),

@@ -66,6 +66,164 @@ current when the implementation drifts.
    salary) line; approved and unapproved overtime lines are still added.
    Deductions sent in the body are applied on both the manual and automatic
    paths.
+10. A payslip approved for disbursement is frozen (2026-10-28): regenerate
+    (forced or not), edit and delete answer 409 "Approved payslips cannot be
+    changed; revoke the approval first." Bulk generation skips approved
+    payslips like edited ones. See "Disbursement sign-off".
+11. When a withholding tax rule applies to a profile, every generated
+    payslip gets a `tax` line (2026-10-28). See "Withholding tax".
+
+## Disbursement sign-off (2026-10-28)
+
+Payroll manager request (Abigail Padua): "Approval of payslips triggers a
+pop-up window for signing of the Disbursement officer."
+
+- Role: "Disbursement Officer" (`disbursement_officer`) under Payroll /
+  Finance in `ORG_DEPARTMENT_ROLE_CATALOG`, seeded as an `AvailableRole` row by
+  migration `202610280001_payslip_approval_tax` (and by the org-catalog sync,
+  `prisma/seed.ts` and `scripts/setup-ceo.mjs`), so it is assigned from
+  Operations like any role. It has payroll-management access
+  (`PAYROLL_MANAGEMENT_ROLES`, the scheduler role list too).
+- Who signs: `canSignDisbursement` = the Disbursement Officer role or full
+  access (configured admin emails included). Payroll managers without the
+  role generate and edit payslips but get 403 on approve, revoke and approve
+  all. Nobody signs off or revokes their own payslip (403); approve all leaves
+  the signer's own payslip for another signer. Whoever edited a payslip by
+  hand (`editedById`) never signs it (403 "You edited this payslip; another
+  officer or an admin must sign it.", review fix 2026-10-28); approve all
+  leaves those for another signer too and counts them as `skippedEdited`.
+- Data on `Payslip`: `approvalStatus` (`draft` | `approved`, default `draft`),
+  `approvedById`, `approvedAt`, `approvalSignerName`, `approvalSignature` (a
+  PNG data URL from the sign-off canvas, at most 64 KB as stored; the server
+  checks the `data:image/png;base64,` prefix, the PNG signature bytes and the
+  size), `approvalNote`. The old `status` field is untouched; screens show
+  "Approved for disbursement" when `approvalStatus` is `approved`.
+- Approve: only in a draft period, only an unapproved payslip (a second
+  approve answers 409). The checks are part of the conditional write. The
+  dialog sends the gross and net it showed (`expectedGrossPay`,
+  `expectedNetPay`); the write only lands on those amounts, so a payslip
+  regenerated or edited while the signer looked at it answers 409 and the
+  signer sees the new amounts first. Regenerate re-checks the approval and
+  the period status inside its own write, so a sign-off or a lock that lands
+  while pay is computed is never overwritten (409). The payslip is then
+  frozen (rule 10). Revoke clears the
+  approval fields and writes "Approval revoked by NAME on YYYY-MM-DD" to
+  `approvalNote`.
+- Approve all: every unapproved payslip of a draft period, except the
+  signer's own and the ones the signer edited, in one serializable
+  transaction with the same signature; the dialog sends the count and net
+  total it showed (`expectedCount`, `expectedNet`) and a different set
+  answers 409. Returns `{ approved, alreadyApproved, skippedOwn,
+  skippedEdited, total }`. The approval summary uses the same split
+  (`toApprove`, `ownPending`, `editedPending`).
+- Lock & Finalize: while any payslip of the period is unapproved the lock
+  route answers 409 `{ error, unapprovedCount }` unless the body has
+  `force: true`, and only a signer (`canSignDisbursement`: Disbursement
+  Officer or full access) may force it (review fix 2026-10-28; a payroll
+  manager could otherwise finalize payslips nobody signed, and a locked
+  payslip can never be signed afterwards). A signer's 409 says "N payslips
+  are not approved for disbursement yet."; the UI shows the count in its
+  confirmation and sends `force` once the signer agrees, and a 409 from a
+  count that changed meanwhile asks again with the server's count. For
+  anyone else `force` is ignored, the 409 says "N payslips are not approved.
+  A Disbursement Officer or an admin can lock anyway." and the UI shows that
+  message after the plain lock confirmation, with no force prompt.
+- Payslips of a locked period that were never signed (every payslip from
+  before the sign-off release starts as `draft`) show no "Awaiting approval"
+  chip or block; the Payslips Management details show a muted "Locked
+  without sign-off" line (`approvalDisplayState` in
+  `frontend/src/lib/payslip-approval.ts`).
+- Signature canvas: plain `<canvas>` with pointer events (mouse, pen, touch),
+  600 x 200 drawing size on white, Clear, and "Type my name instead", which
+  draws the signer name in a cursive system font (the keyboard path).
+- Shown on: Payslips Management rows and the details dialog (Approve for
+  disbursement for every payroll role, enabled for signers with the reason
+  for others; Revoke for signers), the period header (N of M approved,
+  Approve all), the payslip PDF (green block with the signature image, name
+  and date in place of the blank "Authorized Signature" line), My Payslips
+  (status chip and the same block) and the Reports PDF.
+
+## Withholding tax (2026-10-28)
+
+Payroll manager request: "Add a tax option for organizations that tax their
+employees automatically; it must be seen on the payslip."
+
+- `PayrollTaxRule { key, name, rate, isDefault, sortOrder, archivedAt }`,
+  managed in Payroll options like the schemes: names 2 to 60 characters and
+  unique, `rate` a percent from 0 to 100, `key` a slug of the name that never
+  changes (`none` is reserved), archive while in use, delete only when no
+  profile stores the key. Unlike the schemes there may be no default:
+  `isDefault: false` clears it. Nothing is seeded and nothing is the default.
+- `EmployeeProfile.taxRule`: null follows the workspace default rule, `none`
+  is no tax, anything else is a rule key. A changed value must be null,
+  `none` or an active rule (400); an archived rule keeps applying to the
+  profiles on it. A key that matches no row falls back to the default (logged
+  once). No default and no own rule means no tax, the behaviour before rules
+  existed. Set by payroll roles only (a protected profile field).
+- Generation: the line `{ type: "tax", description: "Withholding tax (NAME,
+  R%)", amount: -round(grossPay x rate / 100, 2) }` comes after the overtime
+  lines and before the deductions sent with the request, on the gross of the
+  lines before it (hand-entered hours included). It is added even when it
+  rounds to 0, so the payslip shows which rule applied. Totals: gross leaves
+  out `deduction` and `tax`; net is the sum of all lines. The editor treats
+  `tax` as a deduction (stored negative), so the line can be changed or
+  removed; regeneration recomputes it. The preview adds `tax: { ruleKey,
+  ruleName, rate, amount } | null`.
+- Shown on: Set Up Payroll ("Tax" select: "Workspace default (NAME, R%)" or
+  "Workspace default (none)", "No tax", each active rule; the rate preview
+  estimates the tax on a full month), the profile panel and My Payslips setup
+  line, the Employee Overview pay line (only when the choice is not the
+  default), the generate dialog, payslip details, PDF, My Payslips (net pay
+  after tax) and Reports (Tax column; the period breakdown counts `tax` lines
+  as tax).
+
+## Employee categories (2026-10-28)
+
+Payroll manager request: "You can categorize employee to become full time,
+temporary hire, probationary, or intern."
+
+- The category is `EmployeeProfile.employmentType`, a value of the managed
+  `employment_type` list. Migration `202610280003_employment_categories`
+  seeds Probationary and Temporary Hire, so the list reads Full-Time
+  (default), Probationary, Temporary Hire, Part-Time, Contractor, Intern.
+  Payroll roles add, rename, archive or delete types in Payroll options like
+  any list item.
+- Set in Set Up Payroll (Employment type). Employee Overview shows it as a
+  badge on each card and as filter chips: All, every active type with its
+  count (0 included), archived or unlisted values someone still has, and
+  "Not set" for people with none. No category is invented for a missing value.
+
+## Employee history (2026-10-28)
+
+Payroll manager request: "Number/list of employees must have historical
+records (automated generated report)."
+
+- `PayrollRosterSnapshot`: one row per person per pay period, unique on
+  `(periodId, userId)`. The payroll services write it after generate,
+  regenerate, bulk generation (the auto-payslip job included), payslip edit
+  and delete, approve, revoke and approve all, and when the period is locked.
+  Each capture reads the current user, profile and payslip; the scheme name
+  and the tax rule label are stored as text, so a later rename never rewrites
+  history. A failed capture is logged and never blocks the payroll write.
+- Roster: the people captured for the period. At the lock that is every active
+  internal employee (the bulk generation statuses) plus everyone with a
+  payslip, so people without a payslip are on record with empty pay fields.
+- A payroll profile save (`POST /payroll/config/:userId`, so Set Up Payroll,
+  and the profile part of `PATCH /users/:id`) rewrites that person's rows in
+  periods that are still draft and already have a row, so an open period
+  shows the new category or salary at once. The write is conditional on the
+  period still being draft: a locked period's rows never change, a save never
+  creates a row, and a failed refresh never blocks the save. A processed
+  period's payslips read as `locked`.
+- Lazy backfill: reading a period or a person first adds a row for every
+  payslip that has none (from the payslip and the current profile). Periods
+  from before the release get history this way; stored rows are never
+  rewritten by a read.
+- Shown on: Reports > Employee History (period select, headcount by category
+  and status, pay totals, roster table, Download CSV, a name opens the person
+  across periods) and Payroll history on the profile panel. CSV text cells
+  that start with `=`, `+`, `-`, `@`, a tab or a carriage return get a
+  leading `'`. Routes: `docs/api.md`, "Employee History".
 
 ## Salary divisor schemes and credited days (2026-10-20)
 
@@ -239,8 +397,12 @@ Payroll item types: `regular_hours`, `fixed_salary`, `overtime_approved`,
 `overtime_pending` (amount 0, informational, described as "Unapproved
 overtime, not paid"), `uncredited_hours` (amount 0, informational, hours
 beyond the scheme's credited days, since 2026-10-20), `allowance`,
-`deduction`, `adjustment`. Net = sum of all item amounts (deductions are
-negative).
+`deduction`, `adjustment`, `tax` (withholding, negative, since 2026-10-28).
+Net = sum of all item amounts (deductions and tax are negative).
+
+Migration `202610280001_payslip_approval_tax` (2026-10-28) adds the Payslip
+approval columns, `EmployeeProfile.taxRule`, the `PayrollTaxRule` table with a
+unique index on `key`, and the Disbursement Officer `AvailableRole` row.
 
 ## Backend routes
 
@@ -262,13 +424,20 @@ All under the existing `/payroll`, `/users` and `/employees` routers. Auth as no
 | POST | /payroll/entries/backfill | payroll management only | `{ userId, startDate, endDate, startTime, endTime, skipWeekends, notes?, dryRun? }` -> `{ created, skipped, days }`; details in `docs/api.md` |
 | PATCH | /payroll/payslips/:id | payroll management | `{ items: [{type, description, amount}], note }` -> replace items, recompute gross/net, set editedBy/At/Note. 409 if period processed. |
 | DELETE | /payroll/payslips/:id | payroll management | 409 if period processed |
-| GET/POST | /payroll/config/:userId | unchanged | now accepts `payBasis`, `hourlyRate`, `overtimeMultiplier` (privileged only, via `filterPayrollProfileUpdate`); since 2026-10-20 a changed scheme or option must come from its list |
+| GET/POST | /payroll/config/:userId | unchanged | now accepts `payBasis`, `hourlyRate`, `overtimeMultiplier` (privileged only, via `filterPayrollProfileUpdate`); since 2026-10-20 a changed scheme or option must come from its list; since 2026-10-28 your own pay fields need full access (403 "You cannot change your own pay setup") |
 | GET | /payroll/schemes, /payroll/options/:category | any signed-in user | `inUseCount` per row for payroll roles only |
 | POST/PATCH/DELETE | /payroll/schemes[/:id], /payroll/options/:category[/:id] | payroll management | see "Salary divisor schemes and credited days" |
 | GET | /payroll/preview-calculation | unchanged | response adds `payBasis`, `overtimeApprovedHours`, `overtimePendingHours`, `overtimePay` |
-| POST | /payroll/periods/:periodId/generate/:userId | unchanged | 409 on a hand-edited payslip unless `{ force: true }`; see rule 9 |
-| POST | /payroll/periods/:periodId/generate-all | unchanged | skips hand-edited payslips; see rule 9 |
-| GET | /employees/deployed | unchanged | each row now includes `payBasis`; `?includeInactive=true` also returns deactivated members |
+| POST | /payroll/periods/:periodId/generate/:userId | unchanged | 409 on a hand-edited payslip unless `{ force: true }`; see rule 9; `hoursWorked` on your own payslip needs full access (403, since 2026-10-28) |
+| POST | /payroll/periods/:periodId/generate-all | unchanged | skips hand-edited and approved payslips; see rules 9 and 10 |
+| POST | /payroll/payslips/:id/approve | Disbursement Officer or full access | `{ signerName, signature, note? }`; see "Disbursement sign-off" |
+| POST | /payroll/payslips/:id/revoke-approval | same | records who revoked in `approvalNote` |
+| POST | /payroll/periods/:periodId/approve-all | same | `{ signerName, signature }` -> `{ approved, alreadyApproved, skippedOwn, skippedEdited, total }` |
+| GET | /payroll/periods/:periodId/approval-summary | payroll management | counts and the totals approve all would sign (`editedPending` since 2026-10-28) |
+| POST | /payroll/periods/:periodId/lock | payroll management | 409 `{ error, unapprovedCount }` while payslips are unapproved, unless a signer (Disbursement Officer or full access) sends `{ force: true }`; `force` from anyone else is ignored (review fix 2026-10-28) |
+| GET | /payroll/tax-rules | any signed-in user | `inUseCount` for payroll roles only |
+| POST/PATCH/DELETE | /payroll/tax-rules[/:id] | payroll management | see "Withholding tax" |
+| GET | /employees/deployed | unchanged | each row now includes `payBasis`; `?includeInactive=true` also returns deactivated members; since 2026-10-28 the pay fields go to payroll roles only |
 | POST | /users/:id/deactivate | admin or operations_manager | sets status inactive, revokes refresh sessions |
 | POST | /users/:id/reactivate | same | |
 | DELETE | /users/:id | admin only | needs `?confirm=hard`; 409 while payslips exist |
@@ -298,7 +467,11 @@ payroll roles. Mirror it in `frontend/src/lib/role-access.ts`.
   with two queues, OT and corrections, approve/reject with note, filter by
   status and person. Badge count on the tab.
 - Payslips tab: edit (line items CRUD, note required) and delete on draft
-  payslips. Locked periods show the lock reason.
+  payslips. Locked periods show the lock reason. Since 2026-10-28: Approve
+  for disbursement on each draft payslip and in its details, Approve all and
+  "N of M approved" on the period header, the sign-off dialog (signer name,
+  signature canvas, amounts, "I have checked these amounts"), Revoke in the
+  details for signers, and the editor's 409 shown in the dialog.
 - My payslips: show overtime approved and pending lines and the pay basis.
 - Employee Overview cards (2026-10-20): one action row (View, Set up payroll,
   Edit, Reset password, Deactivate) that becomes a two-column grid on a phone,
@@ -319,6 +492,11 @@ refused at login/refresh/requireAuth.
 
 Frontend (`frontend/tests`): role-access review helper, OT and adjustment
 form validation, payslip edit recompute.
+
+Since 2026-10-28: backend `payroll.approval.routes` and `payroll.tax` (test
+database), new cases in `payroll.permissions`; frontend `payslip-approval`
+and `payroll-tax`, new cases in `payslip-edit`, `payslip-generate`,
+`payslip-utils`, `payroll-setup`, `role-access`, `departments-catalog`.
 
 ## Deploy note
 

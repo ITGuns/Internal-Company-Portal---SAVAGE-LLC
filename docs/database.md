@@ -114,9 +114,10 @@ Payroll-sensitive fields also live on `EmployeeProfile`.
 - Compensation, currency, payment frequency, bank account, and tax ID are protected fields.
 - Directory serializers must not expose sensitive payroll/profile fields.
 - `EmployeeProfile.payrollScheme` stores the key of a `PayrollScheme` row: the salary divisor and the credited-days cap, managed by payroll roles since 2026-10-20 (migration `202610200002_payroll_schemes`). Seeded keys: `fixed_22_days` (default), `weekdays`, `flat_30`, `flat_20`, `flat_160_hours`. `PayrollOption` rows hold the employment type and pay frequency values profiles store. Rules: `docs/payroll-time-v2-spec.md`.
+- `EmployeeProfile.taxRule` (since 2026-10-28, migration `202610280001_payslip_approval_tax`): null follows the workspace default `PayrollTaxRule`, `none` is no tax, else a rule `key` (no foreign key). `PayrollTaxRule { key (unique), name, rate (percent 0 to 100), isDefault, sortOrder, archivedAt }` rows are managed by payroll roles; none is seeded and none is the default. Protected payroll field.
 - `EmployeeProfile.maxBillableHoursPerDay` stores the daily cap used to split tracked time into billable hours and overtime.
 - `EmployeeProfile.payBasis` (`hourly_from_monthly` default, `fixed_monthly`, `hourly_rate`), `hourlyRate` (nullable, used by `hourly_rate`) and `overtimeMultiplier` (default 1.25) drive gross pay. All three are protected payroll fields.
-- `User.status = "inactive"` marks a deactivated member: data stays, sign-in, refresh and authenticated requests are refused. Hard delete is admin-only and refused while the user has payslips.
+- `User.status = "inactive"` marks a deactivated member: data stays, sign-in, refresh and authenticated requests are refused. Hard delete is admin-only and refused while the user has payslips, employee history rows or concerns (since the 2026-10-28 review fix; those relations cascade).
 
 ## Task Tracking
 
@@ -197,9 +198,19 @@ Payroll-sensitive fields also live on `EmployeeProfile`.
 - Payslip reads are self-service by default and privileged for management review.
 - Automatic payslip generation applies the employee pay basis. Items: `regular_hours` or `fixed_salary`, `overtime_approved` when approved overtime exists, and a zero-amount `overtime_pending` line described as "Unapproved overtime, not paid". Edits may add `allowance`, `deduction` (stored negative) and `adjustment`. Older payslips may carry the legacy `earning` type.
 - `Payslip.editedById`, `editedAt`, `editNote` record the last manual edit (plain columns, no foreign key). Edits and deletes are only allowed while the period is `draft`; processed periods are read-only.
+- Disbursement sign-off (2026-10-28): `Payslip.approvalStatus` (`draft` default | `approved`), `approvedById` (plain column), `approvedAt`, `approvalSignerName`, `approvalSignature` (PNG data URL, at most 64 KB), `approvalNote`. An approved payslip is not regenerated, edited or deleted until the approval is revoked. A `tax` item (negative) holds the withholding from the employee's tax rule.
 - Money amounts on generated and edited items are rounded to cents.
 
 - Backfilled entries (`POST /payroll/entries/backfill`, payroll roles, since 2026-10-14) are ordinary rows whose `notes` end with `Backfilled by <name or email> on <YYYY-MM-DD>`.
+
+`PayrollRosterSnapshot` (2026-10-28, migration `202610280003_employment_categories`) is the automatic employee history: one row per person per pay period, unique on `(periodId, userId)`, indexed on `userId`, cascading with the period and the user. Because of that cascade, `DELETE /api/users/:id` is refused while a member has history rows (review fix 2026-10-28).
+
+- Written only by the payroll service (`backend/src/payroll/roster-snapshot.service.ts`), never by hand: upserted after generate, regenerate, bulk generation (the auto-payslip job included), payslip edit and delete, approve, revoke and approve all, and for the whole roster when the period is locked. Each capture rewrites the row from the current user, profile and payslip and sets `capturedAt`. A payroll profile save also rewrites the person's existing rows in draft periods (conditional on the period still being draft; never a locked period, never a new row). A failed capture or refresh is logged and never blocks the payroll write.
+- Fields: `name`, `email`, `department` (first role with a department, else `Unassigned`), `roleTitle` (job title, else role, else `Member`), `employmentType` (the profile's value, the category; null when none is stored), `memberStatus` (`User.status`), `payrollScheme` (the scheme name at capture time), `payBasis`, `baseSalary`, `taxRule` (`"<rule name>, <rate>%"` or `No tax` at capture time), `hoursWorked`, `grossPay`, `taxAmount`, `netPay` (all four null without a payslip), `payslipId` (plain id, no foreign key; cleared by the capture after a delete), `payslipStatus` (`draft` | `approved` | `locked`, null without a payslip; a processed period always reads as `locked`).
+- Lazy backfill: a read of a period or a person first adds a row for every payslip that has none yet, from the payslip and the current profile, so periods from before this release get history without a manual step. Existing rows are never rewritten by a read.
+- The roster of a locked period is every active internal employee (`active`, `verified`, `vacation`, `leave`, the bulk generation list) plus everyone with a payslip in it.
+
+`PayrollOption` employment types since migration `202610280003_employment_categories`: Full-Time (default, 0), Probationary (1), Temporary Hire (2), Part-Time (3), Contractor (4), Intern (5). The migration moves the seeded Part-Time, Contractor and Intern rows down only while they keep their seeded `sortOrder`, and skips a new row when the list already has that value or label in any case.
 
 `PayrollEvent` stores calendar-level payroll events.
 
@@ -256,4 +267,5 @@ Chat, announcements, notifications, uploads, and file-directory records are part
 - Uploaded files are served through ownership-aware authenticated `/api/uploads/files/:id` routes.
 - Uploaded file metadata and served files should be treated as authenticated portal data unless a route explicitly makes them public.
 - `UserNotification` (migration `202610140002_user_notifications`) stores notifications for the bell: `userId` (cascade delete), `type`, `title`, `message`, optional `link`, `createdAt`; index `(userId, createdAt)`. First writer: the Gemfield daily digest.
+- `InternalTicket` and `InternalTicketMessage` (migration `202610280002_internal_tickets`) hold concerns: `number` (unique sequence), `requesterId`, `assigneeId`, `subject`, `status` (`open`, `answered`, `closed`), `closedAt`; messages carry `ticketId`, `authorId`, `body`. Indexes on `assigneeId`, `requesterId`, `status`, `(ticketId, createdAt)` and `authorId`. Every foreign key cascades, so `DELETE /api/users/:id` is refused while a member raised, holds or replied to a concern (review fix 2026-10-28); deactivation keeps them. Rules: `docs/api.md`, "Org Chart And Concerns".
 - `WorkspaceSetting` (migration `202610140001_workspace_settings`) stores workspace-wide settings as JSON by `key`. The `branding` row replaced `workspace-branding.json`, which is read only as a fallback for one release.

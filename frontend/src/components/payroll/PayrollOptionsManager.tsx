@@ -5,6 +5,7 @@ import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import LabelOptionsSection from "./LabelOptionsSection";
 import SchemeOptionsSection from "./SchemeOptionsSection";
+import TaxRuleOptionsSection from "./TaxRuleOptionsSection";
 
 interface PayrollOptionsManagerProps {
   isOpen: boolean;
@@ -15,8 +16,9 @@ interface PayrollOptionsManagerProps {
 
 /**
  * Payroll options (2026-10-20), payroll roles only: the salary divisor
- * schemes, employment types and pay frequency labels Set Up Payroll offers.
- * Opened on its own (never on top of another dialog).
+ * schemes, withholding tax rules (2026-10-28), employment types and pay
+ * frequency labels Set Up Payroll offers. Opened on its own (never on top of
+ * another dialog).
  */
 export default function PayrollOptionsManager({ isOpen, onClose, closeLabel = "Done" }: PayrollOptionsManagerProps) {
   return (
@@ -31,6 +33,7 @@ export default function PayrollOptionsManager({ isOpen, onClose, closeLabel = "D
     >
       <div className="space-y-8">
         <SchemeOptionsSection />
+        <TaxRuleOptionsSection />
         <LabelOptionsSection
           category="employment_type"
           title="Employment types"

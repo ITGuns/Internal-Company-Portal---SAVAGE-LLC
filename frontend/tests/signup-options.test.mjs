@@ -61,3 +61,18 @@ test('returns no signup roles until a department is selected', () => {
   assert.equal(Array.isArray(roles), true);
   assert.equal(roles.length, 0);
 });
+
+test('never offers a role Operations assigns, such as Disbursement Officer', () => {
+  // Review fix 2026-10-28: POST /auth/signup refuses it even when an AvailableRole row exists.
+  const { getSignupRoleOptions } = loadSignupOptionsHelper();
+  const bookkeeping = { id: 'role-books', name: 'Bookkeeping', departmentId: 'dept-pay' };
+  const roles = getSignupRoleOptions([
+    {
+      id: 'dept-pay',
+      name: 'Payroll / Finance',
+      availableRoles: [bookkeeping, { id: 'role-signer', name: 'Disbursement Officer', departmentId: 'dept-pay' }],
+    },
+  ], 'dept-pay');
+
+  assert.deepEqual(roles, [bookkeeping]);
+});

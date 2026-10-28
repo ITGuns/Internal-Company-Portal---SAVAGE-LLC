@@ -5,6 +5,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { loadTsModule } from './helpers/load-ts.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -97,4 +98,96 @@ test('currentPeriodDayKeys follows the cadence, monthly unless semi_monthly', ()
   assert.equal(parsePayrollPeriodCadence('semi_monthly'), 'semi_monthly');
   assert.equal(parsePayrollPeriodCadence(' Semi-Monthly '), 'semi_monthly');
   assert.equal(parsePayrollPeriodCadence('weekly'), 'monthly');
+});
+
+// Manila helpers for the payroll calendar (2026-10-28). Each expectation is
+// written in UTC so the test means the same in any machine zone; run the suite
+// with TZ=America/Los_Angeles to check that.
+
+test('manilaDayKey reads the Manila calendar day of an instant', () => {
+  const { manilaDayKey } = loadPayrollDates();
+  // 15:59:59.999 UTC is 23:59:59.999 in Manila, 16:00 UTC is already the next day.
+  assert.equal(manilaDayKey('2026-10-28T15:59:59.999Z'), '2026-10-28');
+  assert.equal(manilaDayKey('2026-10-28T16:00:00.000Z'), '2026-10-29');
+  assert.equal(manilaDayKey(new Date('2026-12-31T16:30:00Z')), '2027-01-01');
+  // Legacy UTC-midnight rows and Manila-midnight rows read as the same day.
+  assert.equal(manilaDayKey('2026-10-28T00:00:00.000Z'), '2026-10-28');
+  assert.equal(manilaDayKey('2026-10-27T16:00:00.000Z'), '2026-10-28');
+  // Date-only strings are already days; impossible days and junk are null.
+  assert.equal(manilaDayKey('2024-02-29'), '2024-02-29');
+  assert.equal(manilaDayKey('2026-02-30'), null);
+  assert.equal(manilaDayKey('not a date'), null);
+  assert.equal(manilaDayKey(null), null);
+  assert.equal(manilaDayKey(''), null);
+});
+
+test('manilaTodayKey is the Manila date, not the UTC or browser date', () => {
+  const { manilaTodayKey } = loadPayrollDates();
+  // 17:00 UTC on Oct 31 is 01:00 on Nov 1 in Manila.
+  assert.equal(manilaTodayKey(new Date('2026-10-31T17:00:00Z')), '2026-11-01');
+  assert.equal(manilaTodayKey(new Date('2026-10-31T15:00:00Z')), '2026-10-31');
+  assert.match(manilaTodayKey(), /^\d{4}-\d{2}-\d{2}$/);
+});
+
+test('manilaInstant turns a Manila wall-clock time into a UTC instant', () => {
+  const { manilaInstant } = loadPayrollDates();
+  assert.equal(manilaInstant('2026-10-28', '09:00'), '2026-10-28T01:00:00.000Z');
+  assert.equal(manilaInstant('2026-10-28', '00:00'), '2026-10-27T16:00:00.000Z');
+  assert.equal(manilaInstant('2026-10-28', '23:59'), '2026-10-28T15:59:00.000Z');
+  assert.equal(manilaInstant('2026-10-28', '07:30:15'), '2026-10-27T23:30:15.000Z');
+  assert.equal(manilaInstant('2026-10-28', '24:00'), null);
+  assert.equal(manilaInstant('2026-10-28', '9:00'), null);
+  assert.equal(manilaInstant('2026-13-01', '09:00'), null);
+  assert.equal(manilaInstant('', '09:00'), null);
+});
+
+test('manilaDayBounds covers one whole Manila day, end inclusive', () => {
+  const { manilaDayBounds } = loadPayrollDates();
+  assert.deepEqual({ ...manilaDayBounds('2026-10-28') }, {
+    startIso: '2026-10-27T16:00:00.000Z',
+    endIso: '2026-10-28T15:59:59.999Z',
+  });
+  // Month and leap-day edges roll over correctly.
+  assert.deepEqual({ ...manilaDayBounds('2026-10-31') }, {
+    startIso: '2026-10-30T16:00:00.000Z',
+    endIso: '2026-10-31T15:59:59.999Z',
+  });
+  assert.equal(manilaDayBounds('2024-02-29').endIso, '2024-02-29T15:59:59.999Z');
+  assert.equal(manilaDayBounds('2026-02-29'), null);
+  assert.equal(manilaDayBounds('bad'), null);
+});
+
+test('manilaTimeInput and formatPayrollTime show Manila clock times', () => {
+  const { manilaTimeInput, formatPayrollTime } = loadPayrollDates();
+  assert.equal(manilaTimeInput('2026-10-28T01:05:00Z'), '09:05');
+  assert.equal(manilaTimeInput(new Date('2026-10-28T16:30:00Z')), '00:30');
+  assert.equal(manilaTimeInput('nope'), null);
+  assert.equal(manilaTimeInput(undefined), null);
+  // ICU may put a narrow no-break space before AM / PM.
+  assert.equal(formatPayrollTime('2026-10-28T01:05:00Z').replace(/\s/g, ' '), '09:05 AM');
+  assert.equal(formatPayrollTime('2026-10-28T09:45:00Z').replace(/\s/g, ' '), '05:45 PM');
+  assert.equal(formatPayrollTime('nope', 'Open'), 'Open');
+});
+
+test('monthDayKeysFor and shiftMonth do month math without a timezone', () => {
+  const { monthDayKeysFor, shiftMonth } = loadPayrollDates();
+  assert.deepEqual({ ...monthDayKeysFor(2024, 2) }, { start: '2024-02-01', end: '2024-02-29' });
+  assert.deepEqual({ ...monthDayKeysFor(2026, 10) }, { start: '2026-10-01', end: '2026-10-31' });
+  assert.deepEqual({ ...shiftMonth(2026, 1, -1) }, { year: 2025, month: 12 });
+  assert.deepEqual({ ...shiftMonth(2026, 12, 1) }, { year: 2027, month: 1 });
+  assert.deepEqual({ ...shiftMonth(2026, 10, 0) }, { year: 2026, month: 10 });
+});
+
+test('manilaDayKey agrees with the time-requests day key the day panel uses', () => {
+  const { manilaDayKey } = loadPayrollDates();
+  const { getPayrollDayKey } = loadTsModule(path.resolve(__dirname, '../src/lib/time-requests.ts'));
+  for (const instant of [
+    '2026-10-27T15:59:59.999Z',
+    '2026-10-27T16:00:00.000Z',
+    '2026-10-28T01:00:00.000Z',
+    '2026-10-28T23:30:00.000Z',
+    '2026-02-28T16:00:00.000Z',
+  ]) {
+    assert.equal(manilaDayKey(instant), getPayrollDayKey(instant), instant);
+  }
 });

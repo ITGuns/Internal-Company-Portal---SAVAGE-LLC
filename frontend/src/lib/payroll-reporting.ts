@@ -131,9 +131,30 @@ export function summarizePayslipCosts(payslips: Payslip[]) {
   );
 }
 
-function csvCell(value: unknown): string {
+// A spreadsheet runs a cell that starts with one of these as a formula.
+const FORMULA_START = /^[=+\-@\t\r]/;
+
+/**
+ * One CSV cell, same rule as the server's employee history CSV
+ * (backend/src/payroll/roster-snapshot.ts, csvCell; 2026-10-28): text that
+ * starts with = + - @, a tab or a carriage return gets a leading apostrophe so
+ * it shows instead of running as a formula. Numbers (money and hours) are
+ * written with 2 decimals like the server's (review fix 2026-10-28) and never
+ * prefixed, so a negative amount stays a number; counts are passed as
+ * whole-number text (wholeNumberCell). Cells with a comma, quote or line
+ * break are quoted.
+ */
+export function csvCell(value: unknown): string {
+  if (typeof value === "number") return Number.isFinite(value) ? value.toFixed(2) : "";
   const text = String(value ?? "");
-  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  const guarded = FORMULA_START.test(text) ? `'${text}` : text;
+  return /[",\n\r]/.test(guarded) ? `"${guarded.replace(/"/g, '""')}"` : guarded;
+}
+
+/** A count as whole-number text, so the CSV says "3", not "3.00". */
+function wholeNumberCell(value: unknown): string {
+  const count = Number(value);
+  return Number.isFinite(count) ? String(Math.round(count)) : "";
 }
 
 export function buildPayslipArchiveCsv(payslips: Payslip[]): string {
@@ -149,10 +170,11 @@ export function buildPayslipArchiveCsv(payslips: Payslip[]): string {
       payslip.payPeriodStart || "",
       payslip.payPeriodEnd || "",
       payslip.issueDate || "",
-      String(payslip.hoursWorked || 0),
-      String(payslip.grossPay || 0),
-      String((payslip.deductions || []).reduce((total, deduction) => total + (deduction.amount || 0), 0)),
-      String(payslip.netPay || 0),
+      // Numbers, not text: csvCell writes 2 decimals and never prefixes them.
+      payslip.hoursWorked || 0,
+      payslip.grossPay || 0,
+      (payslip.deductions || []).reduce((total, deduction) => total + (deduction.amount || 0), 0),
+      payslip.netPay || 0,
     ]),
   ];
 
@@ -164,10 +186,10 @@ export function buildDepartmentSummaryCsv(summary: PayrollReportDepartmentSummar
     ["Department", "Gross Pay", "Deductions", "Net Pay", "Payslip Count"],
     ...summary.map((row) => [
       row.department,
-      String(row.gross),
-      String(row.deductions),
-      String(row.net),
-      String(row.count),
+      row.gross,
+      row.deductions,
+      row.net,
+      wholeNumberCell(row.count),
     ]),
   ];
 
@@ -180,10 +202,10 @@ export function buildPayrollStatsCsv(stats: PayrollReportStat[]): string {
     ...stats.map((row) => [
       row.periodId,
       row.label,
-      String(row.gross),
-      String(row.deductions),
-      String(row.net),
-      String(row.count),
+      row.gross,
+      row.deductions,
+      row.net,
+      wholeNumberCell(row.count),
     ]),
   ];
 

@@ -5,7 +5,7 @@
 Dashboard is the command-center entry point for the portal.
 
 - Shows role-aware metrics for today's tracked time, visible/assigned tasks, in-progress work, completed-today tasks, overdue tasks, and either pending approvals or daily-log status.
-- Shows a `Needs Attention` panel with actionable items for employee approvals, payroll review warnings, overdue tasks, missing daily logs, and no tracked time.
+- Shows a `Needs Attention` panel with actionable items for open concerns in your inbox, employee approvals, payroll review warnings, overdue tasks, missing daily logs, and no tracked time.
 - Employees see personal work and log actions; managers/admins see team operations signals where their role allows access.
 - Quick actions are role-aware and user-customizable: users can pin up to four authorized shortcuts, with defaults adapting for employee, manager, payroll, and client-operations roles.
 - Dashboard workflow links use query params to open exact states: new task modal, new daily log modal, payroll calendar tab, and pending employee approvals.
@@ -183,7 +183,11 @@ Payroll Calendar tracks calendar events, employee time entries, and payroll revi
 - Employee add/edit role selectors use Operations department role options. Custom roles must be created in Operations first, then appear in payroll employee forms after the catalog refreshes.
 - Employee payroll setup includes max billable hours per day and a salary divisor scheme from the managed list: 22 credited days (default), weekdays of month, flat 30 days, flat 20 days, flat 160 hours, or any scheme payroll roles add in Payroll options. Employment types and pay frequency labels are managed lists too.
 - Payslip previews and generation show tracked hours, billable hours, and pending overtime separately. Automatic gross pay excludes time beyond the daily billable cap until a manager manually overrides or approves it.
+- Withholding tax (2026-10-28): payroll roles keep tax rules (percent of gross) in Payroll options and pick the workspace default, no tax, or a rule per employee in Set Up Payroll. Generated payslips carry a "Withholding tax (NAME, R%)" line shown on the details, PDF, My Payslips and Reports. A rule is a flat rate on gross earnings before deductions (contractors' expanded withholding); graduated employee withholding is not computed, and the Tax rules section says so.
+- Nobody without full access changes their own pay setup (salary, rates, scheme, pay basis, tax rule, billable cap, overtime multiplier) or enters their own hours by hand on a payslip; another payroll officer or an admin does it (review fix 2026-10-28).
+- Disbursement sign-off (2026-10-28): a Disbursement Officer (or an admin) approves payslips one by one or the whole period with a drawn or typed signature after ticking "I have checked these amounts". Approved payslips are frozen until revoked, show a green approval block with the signature on the details, PDF and My Payslips, and Lock & Finalize asks a signer to confirm while any payslip is unapproved; other payroll roles are told that a Disbursement Officer or an admin can lock anyway. Whoever edited a payslip by hand never signs it, and approve all leaves those for another signer. A payslip of a locked period that was never signed shows no "Awaiting approval" (the details say "Locked without sign-off").
 - The Payroll Setup Wizard on the employee overview writes the same payroll profile fields used by backend payslip calculation.
+- Employee categories (2026-10-28): the employment type is the category (Full-Time, Probationary, Temporary Hire, Part-Time, Contractor, Intern, or any type payroll roles add in Payroll options). Employee Overview shows it as a badge on every card and as filter chips with counts (All by default, "Not set" when someone has none); the profile panel on Payslips Management lists it under Payroll Setup. It is changed in Set Up Payroll (Employment type), and a type added in Payroll options shows there and as a chip without a reload.
 - The Scheduler tab lets payroll-management users manually run payroll period advance, automatic payslip generation, department report, and client invoice generation jobs, then review recent run status.
 - Vercel Cron calls `/api/scheduler/cron` on the configured schedules to run the period advance, auto-payslip, department report, and client-invoice jobs together. Production cron calls require a `CRON_SECRET` or legacy `SCHEDULER_SECRET` bearer token.
 
@@ -192,8 +196,9 @@ Payroll Calendar tracks calendar events, employee time entries, and payroll revi
 - Payroll-management users can filter payroll report stats and the payslip archive by department, employee, and payslip status.
 - Report summary and detailed views include period navigation so payroll-management users can move between generated payroll periods without changing filters.
 - Reports include department cost summaries for gross pay, deductions, net pay, payslip count, and tracked hours.
-- The frontend Reports tab exposes CSV exports for filtered payslip archives and department cost summaries, plus batch ZIP downloads that bundle report CSVs with a manifest.
+- The frontend Reports tab exposes CSV exports for filtered payslip archives and department cost summaries, plus batch ZIP downloads that bundle report CSVs with a manifest. Amounts and hours are written with 2 decimals, payslip counts as whole numbers (2026-10-28).
 - Payslip archive rows include employee email, department, role/title, tracked hours, gross pay, deductions, net pay, and period/status context.
+- Employee History (2026-10-28, Reports sub-tab): for every pay period the system records on its own who was on payroll and what they were paid (category, status, scheme, base salary, hours, gross, tax, net, payslip status). Pick a period (newest first) to see the headcount by category and status, the pay totals and the roster table; Download CSV saves it. Clicking a name, or Payroll history on the Payslips Management profile panel, opens that person across every period with its own CSV. Rows are written on each payslip generate, edit, delete, sign-off and revoke and when the period is locked, and a Set Up Payroll save updates the person's rows in open periods (locked periods never change); periods from before the feature fill in from their payslips the first time they are opened. On a phone the table scrolls inside its own box and the name column stays in view.
 
 ## Announcements
 
@@ -227,6 +232,24 @@ Company Chat supports internal direct messages, group/channel conversations, rea
 - Messages support stored quick reactions; reaction chips show counts and can be toggled by conversation participants, while quick reaction shortcuts expand from a side action button beside each message bubble.
 - Reactions are broadcast through the same conversation room as message events.
 - When realtime is off (production on Vercel functions without `NEXT_PUBLIC_WS_URL`), the open conversation refetches every 10 seconds and the conversation list with unread counts every 30 seconds while the tab is visible, plus once when the tab becomes visible again. The sidebar shows "Updates every 10 seconds" instead of the connection badge. Polled messages merge by id, so nothing shows twice.
+
+## Org Chart
+
+`/org-chart` (Company section, every internal member) shows who reports to whom and who to ask.
+
+- Roots are members without a manager, grouped under their department heading. Reports sit in a row under their manager, joined by connector lines, and turn into an indented list at phone width. Each card shows the photo or initials, name, role, department and report count; branches fold and unfold, and Expand all / Collapse all do the whole chart.
+- Search matches name, email, role and department, opens the branches above each match and highlights it. The viewer's card carries a Me badge.
+- Members who may edit reporting lines (management roles, the Operations rule) see Change manager on each card, listing every active member except the person and their own reports. Admins also get Set as root. The server checks the rights and cycles again.
+- Supervisors (someone with a direct report or a management role) show Contact, which opens the New concern dialog with them picked. Nobody sees Contact on their own card.
+
+## Concerns
+
+`/concerns` (Company section) is a small internal ticket system for questions and concerns to supervisors.
+
+- Inbox (assigned to me), Sent (raised by me) and, for full-access admins, All. All box: full access only (managers do not see it; it lists the subject and people of every concern). Status chips with counts (Open, Answered, Closed) and a subject search, all kept in the URL (`/concerns?box=sent&status=open&q=pay`).
+- A concern page shows the thread, a reply box, Close or Reopen for the two people on it, and Reassign to another supervisor for the assignee and admins. A reply by the assignee marks it Answered; a reply by the person who raised it puts it back to Open.
+- Only the person who raised it, the assignee and full-access admins can see or open a concern; managers see neither other people's rows nor their threads. Every change sends the other person a bell notification that links to the concern.
+- The dashboard's Needs Attention panel leads with "Concerns waiting for you" while the inbox has open concerns.
 
 ## Notifications
 

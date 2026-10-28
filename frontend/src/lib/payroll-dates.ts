@@ -119,3 +119,138 @@ export function formatPayrollPeriod(start: string | Date | null | undefined, end
   const last = formatPayrollDate(end, { edge: "end" });
   return `${first} to ${last}`;
 }
+
+// ---------------------------------------------------------------------------
+// Manila day keys, instants and times for the payroll calendar (2026-10-28).
+// The server buckets time entries by the Manila day of their start
+// (payrollDayKey in backend payroll.calculations.ts); every day key, "today",
+// month and range on the payroll page goes through these, never through the
+// viewer's browser zone.
+// ---------------------------------------------------------------------------
+
+const TIME_OF_DAY = /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/;
+
+const zonedFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: PAYROLL_DATE_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
+
+const clockFormatter = new Intl.DateTimeFormat("en-US", {
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: PAYROLL_DATE_TIME_ZONE,
+});
+
+const pad2 = (value: number) => String(value).padStart(2, "0");
+
+function zonedParts(instant: Date) {
+  const parts = zonedFormatter.formatToParts(instant);
+  const read = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+  return {
+    year: read("year"),
+    month: read("month"),
+    day: read("day"),
+    hour: read("hour") % 24,
+    minute: read("minute"),
+    second: read("second"),
+  };
+}
+
+function toValidInstant(value: string | Date): Date | null {
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** Year, month (1 to 12) and day of a real YYYY-MM-DD calendar day, else null. */
+function parseDayKey(value: string): { year: number; month: number; day: number } | null {
+  if (!DATE_ONLY.test(value)) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (month < 1 || month > 12 || day < 1 || day > new Date(Date.UTC(year, month, 0)).getUTCDate()) return null;
+  return { year, month, day };
+}
+
+/** Milliseconds the payroll zone is ahead of UTC at an instant (8 hours for Manila). */
+function zoneOffsetMs(instant: Date): number {
+  const p = zonedParts(instant);
+  const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  return asUtc - Math.floor(instant.getTime() / 1000) * 1000;
+}
+
+/**
+ * Manila calendar day (YYYY-MM-DD) of an instant. A date-only string is
+ * already a day and comes back as it is. Null for a missing or invalid value.
+ */
+export function manilaDayKey(value: string | Date | null | undefined): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "string" && DATE_ONLY.test(value)) return parseDayKey(value) ? value : null;
+  const instant = toValidInstant(value);
+  if (!instant) return null;
+  const { year, month, day } = zonedParts(instant);
+  return `${String(year).padStart(4, "0")}-${pad2(month)}-${pad2(day)}`;
+}
+
+/** Today's day key in Manila. */
+export function manilaTodayKey(now: Date = new Date()): string {
+  return manilaDayKey(now) ?? "";
+}
+
+/**
+ * ISO instant of a Manila wall-clock time ("HH:mm" or "HH:mm:ss") on a day:
+ * manilaInstant("2026-10-28", "09:00") is "2026-10-28T01:00:00.000Z".
+ * Null for an invalid day or time.
+ */
+export function manilaInstant(dayKey: string, time: string): string | null {
+  const day = parseDayKey(dayKey);
+  const clock = TIME_OF_DAY.exec(time);
+  if (!day || !clock) return null;
+  const naive = Date.UTC(day.year, day.month - 1, day.day, Number(clock[1]), Number(clock[2]), Number(clock[3] ?? 0));
+  const guess = naive - zoneOffsetMs(new Date(naive));
+  // Second pass corrects an offset change between the guess and the wall time (Manila has had none since 1978).
+  return new Date(naive - zoneOffsetMs(new Date(guess))).toISOString();
+}
+
+/**
+ * First and last millisecond of a Manila day as ISO instants, for the
+ * inclusive start/end filter of GET /payroll/time-entries (gte / lte).
+ */
+export function manilaDayBounds(dayKey: string): { startIso: string; endIso: string } | null {
+  const day = parseDayKey(dayKey);
+  const startIso = day ? manilaInstant(dayKey, "00:00") : null;
+  if (!day || !startIso) return null;
+  const nextDay = new Date(Date.UTC(day.year, day.month - 1, day.day + 1)).toISOString().slice(0, 10);
+  const nextStart = manilaInstant(nextDay, "00:00");
+  return nextStart ? { startIso, endIso: new Date(Date.parse(nextStart) - 1).toISOString() } : null;
+}
+
+/** "HH:mm" (24 hour) of an instant in Manila, for time inputs. Null when invalid. */
+export function manilaTimeInput(value: string | Date | null | undefined): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  const instant = toValidInstant(value);
+  if (!instant) return null;
+  const { hour, minute } = zonedParts(instant);
+  return `${pad2(hour)}:${pad2(minute)}`;
+}
+
+/** Clock time of an instant in Manila for display, e.g. "09:05 AM". */
+export function formatPayrollTime(value: string | Date | null | undefined, fallback = ""): string {
+  if (value === null || value === undefined || value === "") return fallback;
+  const instant = toValidInstant(value);
+  return instant ? clockFormatter.format(instant) : fallback;
+}
+
+/** First and last day (YYYY-MM-DD) of a calendar month, month 1 to 12. */
+export function monthDayKeysFor(year: number, month: number): { start: string; end: string } {
+  return monthDayKeys(year, month, 1, new Date(Date.UTC(year, month, 0)).getUTCDate());
+}
+
+/** The calendar month `delta` months away from year / month (month 1 to 12). */
+export function shiftMonth(year: number, month: number, delta: number): { year: number; month: number } {
+  const shifted = new Date(Date.UTC(year, month - 1 + delta, 1));
+  return { year: shifted.getUTCFullYear(), month: shifted.getUTCMonth() + 1 };
+}

@@ -7,6 +7,7 @@
 import { apiFetch } from "@/lib/api";
 import type { PayrollOptionCategory, PayrollOptionRow, PayrollSchemeRow } from "@/lib/payroll-options";
 import type { PayrollProfile } from "@/lib/payroll-setup";
+import type { PayrollTaxRuleRow } from "@/lib/payroll-tax";
 
 /** Every React Query key for the lists starts with this; the socket resource has the same name. */
 export const PAYROLL_OPTIONS_QUERY_KEY = ["payroll-options"] as const;
@@ -14,6 +15,7 @@ export const PAYROLL_PROFILE_QUERY_KEY = ["payroll-profile"] as const;
 
 export const payrollSchemesQueryKey = () => [...PAYROLL_OPTIONS_QUERY_KEY, "schemes"] as const;
 export const payrollOptionListQueryKey = (category: PayrollOptionCategory) => [...PAYROLL_OPTIONS_QUERY_KEY, category] as const;
+export const payrollTaxRulesQueryKey = () => [...PAYROLL_OPTIONS_QUERY_KEY, "tax-rules"] as const;
 export const payrollProfileQueryKey = (userId: string) => [...PAYROLL_PROFILE_QUERY_KEY, userId] as const;
 
 async function json<T>(response: Response): Promise<T> {
@@ -54,6 +56,22 @@ export async function updatePayrollOption(category: PayrollOptionCategory, id: s
 
 export async function deletePayrollOption(category: PayrollOptionCategory, id: string): Promise<void> {
   await apiFetch(`/payroll/options/${category}/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export async function fetchPayrollTaxRules(): Promise<PayrollTaxRuleRow[]> {
+  return json(await apiFetch("/payroll/tax-rules"));
+}
+
+export async function createPayrollTaxRule(body: Record<string, unknown>): Promise<PayrollTaxRuleRow> {
+  return json(await apiFetch("/payroll/tax-rules", send("POST", body)));
+}
+
+export async function updatePayrollTaxRule(id: string, body: Record<string, unknown>): Promise<PayrollTaxRuleRow> {
+  return json(await apiFetch(`/payroll/tax-rules/${encodeURIComponent(id)}`, send("PATCH", body)));
+}
+
+export async function deletePayrollTaxRule(id: string): Promise<void> {
+  await apiFetch(`/payroll/tax-rules/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
 export async function fetchPayrollProfile(userId: string): Promise<PayrollProfile> {

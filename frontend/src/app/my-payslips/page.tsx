@@ -17,13 +17,16 @@ import {
     generatePayslipPDF,
 } from "@/lib/payroll-calendar/payslip-utils";
 import type { Payslip } from "@/lib/payroll-calendar/types";
-import type { ApiPayslip, ApiPayslipItem } from "@/lib/types/api";
+import type { ApiPayslip } from "@/lib/types/api";
 import { getPayBasisLabel } from "@/lib/pay-basis";
-import { getPayrollItemTypeLabel, isUnpaidItemType } from "@/lib/payslip-edit";
+import { getPayrollItemTypeLabel, isDeductionItemType, isPayrollPeriodLocked, isUnpaidItemType } from "@/lib/payslip-edit";
 import { describeScheme, findScheme, getOptionLabel } from "@/lib/payroll-options";
+import { describeTaxChoice, isTaxItem } from "@/lib/payroll-tax";
+import { approvalDisplayState } from "@/lib/payslip-approval";
+import { toPayslipView } from "@/lib/payslip-view";
+import PayslipApprovalBlock from "@/components/payroll/PayslipApprovalBlock";
 import { usePayrollCatalog, usePayrollProfile } from "@/components/payroll/usePayrollOptions";
-import { formatPayrollDate, payrollPeriodDayKey } from "@/lib/payroll-dates";
-import { getPayrollDayKey } from "@/lib/time-requests";
+import { formatPayrollDate } from "@/lib/payroll-dates";
 import {
     FileText,
     Download,
@@ -38,33 +41,21 @@ import {
     RefreshCw,
 } from "lucide-react";
 
-// ─── helper: map raw API response to Payslip shape ──────────────────────────
-function mapApiPayslip(raw: ApiPayslip): Payslip {
-    return {
-        id: raw.id,
-        employeeId: raw.userId,
-        employeeName: raw.user?.name || "Me",
-        // Manila calendar days (period rows may be stored at UTC or Manila midnight).
-        payPeriodStart: payrollPeriodDayKey(raw.period?.startDate, "start") ?? "",
-        payPeriodEnd: payrollPeriodDayKey(raw.period?.endDate, "end") ?? "",
-        issueDate: (raw.generatedAt && getPayrollDayKey(raw.generatedAt)) || "",
-        status: (raw.status as Payslip["status"]) || "issued",
-        hoursWorked: 0, // not stored on payslip
-        grossPay: raw.grossPay ?? 0,
-        netPay: raw.netPay ?? 0,
-        deductions:
-            raw.items
-                ?.filter((i: ApiPayslipItem) => i.amount < 0)
-                .map((i: ApiPayslipItem) => ({
-                    id: i.id,
-                    type: "other" as const,
-                    name: i.description,
-                    amount: Math.abs(i.amount),
-                })) ?? [],
-        notes: undefined,
-        items: raw.items ?? [],
-        periodStatus: raw.period?.status,
-    };
+// Rows are mapped by toPayslipView (lib/payslip-view.ts), shared with Payslips Management.
+
+/**
+ * Disbursement sign-off chip for a payslip row (2026-10-28). Nothing for an
+ * unsigned payslip of a locked period (review fix 2026-10-28).
+ */
+function ApprovalChip({ payslip }: { payslip: Payslip }) {
+    const state = approvalDisplayState(payslip, isPayrollPeriodLocked(payslip.periodStatus));
+    if (state === "locked-unsigned") return null;
+    const approved = state === "approved";
+    return (
+        <span className={`hidden sm:inline px-2 py-0.5 text-xs font-medium rounded-full ${approved ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-amber-500/10 text-amber-700 dark:text-amber-300"}`}>
+            {approved ? "Approved for disbursement" : "Awaiting approval"}
+        </span>
+    );
 }
 
 /** Badge for overtime and other informational lines; null for plain earnings. */
@@ -127,8 +118,9 @@ function PayslipModal({
     onDownload: () => void;
 }) {
     const earningItems = (payslip.items ?? []).filter(
-        (item) => item.type !== "deduction" && item.amount >= 0,
+        (item) => !isDeductionItemType(item.type) && item.amount >= 0,
     );
+    const hasTax = (payslip.items ?? []).some(isTaxItem);
     const dialogTitleId = React.useId();
     const dialogDescriptionId = React.useId();
     const { dialogRef, handleDialogKeyDown } = useDialogA11y({ onClose });
@@ -249,11 +241,14 @@ function PayslipModal({
 
                     {/* Net Pay */}
                     <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-4 flex items-center justify-between">
-                        <span className="text-white font-semibold text-sm">Net Pay</span>
+                        <span className="text-white font-semibold text-sm">{hasTax ? "Net pay after tax" : "Net Pay"}</span>
                         <span className="text-white font-bold text-xl">
                             {formatCurrency(payslip.netPay)}
                         </span>
                     </div>
+
+                    {/* Disbursement sign-off; nothing for an unsigned payslip of a locked period */}
+                    <PayslipApprovalBlock payslip={payslip} periodLocked={isPayrollPeriodLocked(payslip.periodStatus)} />
 
                     {/* Issue date */}
                     <div className="flex items-center justify-between text-sm text-[var(--muted)]">
@@ -302,7 +297,7 @@ export default function MyPayslipsPage() {
         try {
             const res = await apiFetch("/payroll/my-payslips");
             const data = await res.json();
-            setPayslips(Array.isArray(data) ? data.map(mapApiPayslip) : []);
+            setPayslips(Array.isArray(data) ? data.map((raw: ApiPayslip) => toPayslipView(raw)) : []);
         } catch (error) {
             setLoadError(error instanceof Error ? error.message : "Could not load payslips.");
         } finally {
@@ -417,6 +412,12 @@ export default function MyPayslipsPage() {
                                             <dd className="font-medium text-[var(--foreground)]">{frequencyLabel}</dd>
                                         </div>
                                     )}
+                                    {catalog.taxRules && (
+                                        <div className="min-w-0">
+                                            <dt className="text-xs text-[var(--muted)]">Withholding tax</dt>
+                                            <dd className="font-medium text-[var(--foreground)]">{describeTaxChoice(catalog.taxRules, profile?.taxRule)}</dd>
+                                        </div>
+                                    )}
                                 </dl>
                                 <p className="text-xs text-[var(--muted)]">Overtime is paid only after it is approved. Each payslip line shows the scheme used when it was made.</p>
                             </section>
@@ -480,6 +481,7 @@ export default function MyPayslipsPage() {
                                                     >
                                                         {ps.status}
                                                     </span>
+                                                    <ApprovalChip payslip={ps} />
                                                 </div>
                                                 <p className="text-xs text-[var(--muted)]">
                                                     Issued:{" "}

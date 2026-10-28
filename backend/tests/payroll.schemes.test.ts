@@ -29,6 +29,8 @@ import {
  */
 
 const MANILA = 'Asia/Manila'
+// No withholding tax rule applies in these scenarios (tax: payroll.tax.test.ts).
+const NO_TAX_RULES = { resolveForProfile: async () => null }
 const TWENTY_TWO: PayrollSchemeDefinition = BUILT_IN_PAYROLL_SCHEMES.find((s) => s.key === 'fixed_22_days')!
 
 /** The divisor of a rate context: days or hours, whichever the scheme uses. */
@@ -224,6 +226,7 @@ async function generate({ profile, scheme, overrides }: Scenario) {
         return resolvePayrollScheme(key, [scheme]).scheme
       },
     }
+    ;(service as any).taxRules = NO_TAX_RULES
     await service.generatePayslip('per-july', 'u1', overrides)
   })
   const items = created[0].items.create as Array<{ type: string; description: string; amount: number }>
@@ -320,6 +323,7 @@ async function runPreviewTest() {
   ], async () => {
     const service = new PayrollService()
     ;(service as any).options = { resolveScheme: async () => TWENTY_TWO }
+    ;(service as any).taxRules = NO_TAX_RULES
     const preview = await service.previewPayslip('u1', bounds.start, bounds.end)
     assert.equal(preview.billableHours, 184)
     assert.equal(preview.creditedHours, 176)
@@ -354,6 +358,7 @@ async function runSemiMonthlyCapTest() {
     ], async () => {
       const service = new PayrollService()
       ;(service as any).options = { resolveScheme: async () => TWENTY_TWO }
+      ;(service as any).taxRules = NO_TAX_RULES
       result = await service.previewPayslip('u1', bounds.start, bounds.end)
     })
     return result!

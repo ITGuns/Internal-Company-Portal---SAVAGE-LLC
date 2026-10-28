@@ -26,6 +26,7 @@ const {
   totalDeductions,
   isEditedPayslipConflict,
   previewPaidHours,
+  previewTaxAmount,
 } = loadHelper();
 
 const preview = {
@@ -79,6 +80,15 @@ test('totals and conflict detection', () => {
   assert.equal(totalDeductions([{ type: 'tax', name: 'a', amount: 10.005 }, { type: 'x', name: 'b', amount: -5 }]), 10.01);
   assert.equal(isEditedPayslipConflict('This payslip was edited by hand. Regenerating replaces those edits.'), true);
   assert.equal(isEditedPayslipConflict('Period not found'), false);
+});
+
+test('withholding tax in the preview: the server amount, recomputed for overridden hours', () => {
+  const taxed = { ...preview, tax: { ruleKey: 'withholding_5', ruleName: 'Withholding 5%', rate: 5, amount: 462.5 } };
+  assert.equal(previewTaxAmount(taxed, 9250), 462.5, 'the preview gross keeps the server amount');
+  assert.equal(previewTaxAmount(taxed, 7250), 362.5, 'an overridden gross is taxed at the same rate');
+  assert.equal(previewTaxAmount(taxed, 0), 0);
+  assert.equal(previewTaxAmount(preview, 9250), 0, 'no rule, no tax');
+  assert.equal(previewTaxAmount({ ...preview, tax: null }, 9250), 0);
 });
 
 test('override hours start from the credited hours', () => {

@@ -127,7 +127,7 @@ const ORG_CATALOG = [
   },
   {
     department: 'Payroll / Finance',
-    roles: ['Bookkeeping', 'Contractor & Salary Payments'],
+    roles: ['Bookkeeping', 'Contractor & Salary Payments', 'Disbursement Officer'],
   },
 ];
 

@@ -116,8 +116,9 @@ function formatDays(value: number): string {
 }
 
 /**
- * Pay figure for the time tracking calendar header. The monthly bases show the
- * monthly base salary, with the scheme name and its credited-days cap when
+ * Pay figure for the time tracking calendar header. A fixed monthly salary is
+ * paid as is, so it shows only its own label. hourly_from_monthly shows the
+ * monthly base salary with the scheme name and its credited-days cap when
  * known. hourly_rate never shows the salary: it shows each day's logged hours
  * up to the daily cap (and the month up to the credited-days cap) times the
  * hourly rate, without overtime.
@@ -125,6 +126,9 @@ function formatDays(value: number): string {
 export function getCalendarPayHeader(input: CalendarPayHeaderInput): CalendarPayHeader {
   const payBasis = isPayBasis(input.payBasis) ? input.payBasis : DEFAULT_PAY_BASIS;
   const creditedDays = (input.maxCreditedDays ?? 0) > 0 ? (input.maxCreditedDays as number) : null;
+  if (payBasis === "fixed_monthly") {
+    return { amount: input.baseSalary ?? 0, label: getPayBasisLabel(payBasis) };
+  }
   if (payBasis !== "hourly_rate") {
     const parts = ["Monthly base salary"];
     if (input.schemeName) parts.push(input.schemeName);

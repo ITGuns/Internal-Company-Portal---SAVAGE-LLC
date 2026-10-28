@@ -8,9 +8,13 @@ import type { CalendarEvent } from "@/lib/payroll-calendar/types";
 
 interface EventCardProps {
   event: CalendarEvent;
-  onEdit: () => void;
-  onDelete: () => void;
+  /** Shown only when given: PATCH / DELETE /payroll/events/:id are payroll roles only. */
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
+
+const ICON_BUTTON =
+  "p-1 rounded border bg-[var(--card-bg)] text-[var(--muted)] hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
 
 export default function EventCard({ event, onEdit, onDelete }: EventCardProps) {
   return (
@@ -25,20 +29,26 @@ export default function EventCard({ event, onEdit, onDelete }: EventCardProps) {
                   c.toUpperCase()
                 )}
               </div>
-              <button
-                aria-label="Edit event"
-                onClick={onEdit}
-                className="p-1 rounded border bg-[var(--card-bg)] text-[var(--muted)] hover:bg-indigo-600 hover:text-white transition-colors"
-              >
-                <Edit2 className="w-3 h-3" />
-              </button>
-              <button
-                aria-label="Delete event"
-                onClick={onDelete}
-                className="p-1 rounded border bg-[var(--card-bg)] text-[var(--muted)] hover:bg-red-600 hover:text-white transition-colors"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
+              {onEdit && (
+                <button
+                  type="button"
+                  aria-label={`Edit event ${event.title}`}
+                  onClick={onEdit}
+                  className={`${ICON_BUTTON} hover:bg-indigo-600`}
+                >
+                  <Edit2 className="w-3 h-3" aria-hidden="true" />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  aria-label={`Delete event ${event.title}`}
+                  onClick={onDelete}
+                  className={`${ICON_BUTTON} hover:bg-red-600`}
+                >
+                  <Trash2 className="w-3 h-3" aria-hidden="true" />
+                </button>
+              )}
             </div>
           </div>
           <div className="text-xs text-[var(--muted)] mt-2">

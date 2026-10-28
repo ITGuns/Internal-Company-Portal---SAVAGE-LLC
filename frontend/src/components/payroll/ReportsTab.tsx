@@ -31,7 +31,9 @@ import StatCard from "./StatCard";
 import { PayrollReportsSkeleton } from "@/components/ui/FeatureSkeletons";
 import type { Payslip } from "@/lib/payroll-calendar/types";
 import { generatePayslipPDF } from "@/lib/payroll-calendar/payslip-utils";
+import { payslipTaxTotal } from "@/lib/payroll-tax";
 import { formatPayrollDate, formatPayrollPeriod } from "@/lib/payroll-dates";
+import EmployeeHistoryReport from "./EmployeeHistoryReport";
 
 function splitPeriodLabel(label: string): [string, string] {
   const [start = "", end = ""] = label.split(" to ");
@@ -63,12 +65,14 @@ interface ReportStat {
   departmentSummary?: PayrollReportDepartmentSummary[];
 }
 
-type SubTab = "summary" | "detailed" | "my-reports";
+type SubTab = "summary" | "detailed" | "my-reports" | "employee-history";
 
 const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: "summary", label: "Summary" },
   { id: "detailed", label: "Detailed" },
   { id: "my-reports", label: "Payslip Archive" },
+  // Automatic roster per pay period (2026-10-28); it has its own period picker.
+  { id: "employee-history", label: "Employee History" },
 ];
 
 // ── Mini helpers ─────────────────────────────────────────
@@ -434,6 +438,7 @@ function PayslipArchive() {
                   <th className="px-5 py-3 text-left text-xs font-semibold">Employee</th>
                   <th className="px-5 py-3 text-left text-xs font-semibold">Period</th>
                   <th className="px-5 py-3 text-right text-xs font-semibold">Gross Pay</th>
+                  <th className="px-5 py-3 text-right text-xs font-semibold">Tax</th>
                   <th className="px-5 py-3 text-right text-xs font-semibold">Net Pay</th>
                   <th className="px-5 py-3 text-left text-xs font-semibold">Status</th>
                   <th className="px-5 py-3 text-left text-xs font-semibold">Issue Date</th>
@@ -476,6 +481,11 @@ function PayslipArchive() {
                     {/* Gross */}
                     <td className="px-5 py-3.5 text-right font-medium text-[var(--foreground)]">
                       PHP {(p.grossPay ?? 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                    </td>
+
+                    {/* Withholding tax (2026-10-28); net pay is after it. Zero stays muted. */}
+                    <td className={`px-5 py-3.5 text-right ${payslipTaxTotal(p.items) > 0 ? "text-red-500" : "text-[var(--muted)]"}`}>
+                      PHP {payslipTaxTotal(p.items).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                     </td>
 
                     {/* Net */}
@@ -556,7 +566,7 @@ export default function ReportsTab() {
     ));
   }, [stats.length]);
 
-  if (loading && activeTab !== "my-reports")
+  if (loading && activeTab !== "my-reports" && activeTab !== "employee-history")
     return <PayrollReportsSkeleton />;
 
   const latest = stats[selectedReportIndex] ?? null;
@@ -593,10 +603,11 @@ export default function ReportsTab() {
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
-      {/* ── Sub-tab navigation bar ── */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--border)] bg-[var(--card-bg)] flex-shrink-0 gap-4">
-        {/* Period navigator (left) */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+      {/* ── Sub-tab navigation bar ── (stacked below xl: on a phone the period
+          navigator and spacer used to squeeze the sub-tabs to zero width) */}
+      <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between xl:gap-4 px-6 py-3 border-b border-[var(--border)] bg-[var(--card-bg)] flex-shrink-0">
+        {/* Period navigator (left); Employee History has its own period picker */}
+        <div className={`flex items-center gap-1.5 flex-shrink-0 ${activeTab === "employee-history" ? "hidden" : ""}`}>
           <button
             type="button"
             onClick={() => setSelectedReportIndex((current) => Math.min(current + 1, Math.max(stats.length - 1, 0)))}
@@ -627,8 +638,8 @@ export default function ReportsTab() {
           </button>
         </div>
 
-        {/* Sub-tabs (center) */}
-        <div className="flex items-center gap-1 overflow-x-auto">
+        {/* Sub-tabs (center); scroll sideways in their own row on a phone */}
+        <div className="flex max-w-full items-center gap-1 overflow-x-auto">
           {SUB_TABS.map((tab) => (
             <button
               key={tab.id}
@@ -644,7 +655,7 @@ export default function ReportsTab() {
         </div>
 
         {/* Spacer (right) */}
-        <div className="flex-shrink-0 w-24" />
+        <div className="hidden xl:block flex-shrink-0 w-24" />
       </div>
 
       {/* ── Tab content ── */}
@@ -781,7 +792,7 @@ export default function ReportsTab() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[var(--border)]">
-                        {stats.map((row) => (
+                        {stats.map((row, index) => (
                           <tr key={row.periodId} className="hover:bg-[var(--card-surface)] transition-colors">
                             <td className="px-5 py-3.5 font-medium text-[var(--foreground)]">{row.label}</td>
                             <td className="px-5 py-3.5">PHP {row.gross.toLocaleString()}</td>
@@ -789,7 +800,16 @@ export default function ReportsTab() {
                             <td className="px-5 py-3.5 text-emerald-500 font-semibold">PHP {row.net.toLocaleString()}</td>
                             <td className="px-5 py-3.5 text-[var(--muted)]">{row.count} slips</td>
                             <td className="px-5 py-3.5 text-right">
-                              <button className="text-[var(--accent)] text-xs font-semibold hover:opacity-75 transition-opacity">
+                              {/* Selects this period and opens its line in the Detailed sub-tab (2026-10-28). */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedReportIndex(index);
+                                  setActiveTab("detailed");
+                                }}
+                                aria-label={`View details for ${row.label}`}
+                                className="min-h-9 rounded-md px-2 text-[var(--accent)] text-xs font-semibold hover:opacity-75 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                              >
                                 View Details
                               </button>
                             </td>
@@ -859,8 +879,13 @@ export default function ReportsTab() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--border)]">
-                      {stats.map((row) => (
-                        <tr key={row.periodId} className="hover:bg-[var(--card-surface)] transition-colors">
+                      {stats.map((row, index) => (
+                        <tr
+                          key={row.periodId}
+                          // The period picked in the navigator or with View Details is marked.
+                          aria-current={index === selectedReportIndex ? "true" : undefined}
+                          className={`transition-colors ${index === selectedReportIndex ? "bg-[var(--accent)]/10 shadow-[inset_3px_0_0_var(--accent)]" : "hover:bg-[var(--card-surface)]"}`}
+                        >
                           <td className="px-5 py-3.5 font-medium text-[var(--foreground)]">{row.label}</td>
                           <td className="px-5 py-3.5 text-right">PHP {row.gross.toLocaleString()}</td>
                           <td className="px-5 py-3.5 text-right text-red-400">PHP {(row.breakdown?.tax ?? 0).toLocaleString()}</td>
@@ -880,6 +905,8 @@ export default function ReportsTab() {
         {/* PAYSLIP ARCHIVE */}
         {activeTab === "my-reports" && <PayslipArchive />}
 
+        {/* EMPLOYEE HISTORY */}
+        {activeTab === "employee-history" && <EmployeeHistoryReport />}
 
       </div>
     </div>
