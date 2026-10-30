@@ -63,7 +63,7 @@ test('overtime form rejects hours above the overtime actually logged', () => {
 
 test('adjustment form requires a reason and a valid time range', () => {
   const { validateAdjustmentRequestForm } = helpers();
-  const now = new Date('2026-10-08T12:00:00');
+  const now = new Date('2026-10-08T12:00:00+08:00'); // noon Manila, independent of the machine zone
   const update = {
     action: 'update',
     timeEntryId: 'entry-1',
@@ -91,7 +91,7 @@ test('adjustment times are bounded like the server: 24 hours, not future, 60 day
   assert.equal(MAX_ADJUSTMENT_SPAN_HOURS, 24);
   assert.equal(MAX_ADJUSTMENT_LOOKBACK_DAYS, 60);
   assert.equal(MAX_REASON_LENGTH, 500);
-  const now = new Date('2026-10-08T12:00:00');
+  const now = new Date('2026-10-08T12:00:00+08:00'); // noon Manila, independent of the machine zone
   const form = (proposedStart, proposedEnd) => ({ action: 'create', proposedStart, proposedEnd, reason: 'Missed clock in' });
 
   assert.equal(validateAdjustmentRequestForm(form('2026-10-07T09:00', '2026-10-08T09:00'), { now }).valid, true, 'exactly 24 hours');
@@ -131,7 +131,7 @@ test('overtime minutes are bucketed by the Manila payroll day, not the browser d
 
 test('adjustment create needs both times, delete needs only the entry and reason', () => {
   const { validateAdjustmentRequestForm } = helpers();
-  const now = new Date('2026-10-08T12:00:00');
+  const now = new Date('2026-10-08T12:00:00+08:00'); // noon Manila, independent of the machine zone
 
   const create = validateAdjustmentRequestForm({
     action: 'create', proposedStart: '2026-10-07T09:00', proposedEnd: '', reason: 'Missed clock in',

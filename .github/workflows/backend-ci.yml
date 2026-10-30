@@ -82,7 +82,7 @@ jobs:
         run: npx prisma generate
 
       - name: Provision test database schema
-        run: npx prisma db push
+        run: npx prisma migrate deploy
 
       - name: Test
         run: npm test
