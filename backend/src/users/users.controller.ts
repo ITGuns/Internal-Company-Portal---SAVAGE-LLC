@@ -107,6 +107,16 @@ export class UsersController {
         return res.status(403).json({ error: 'User directory access is restricted to internal accounts' })
     }
 
+    /**
+     * Who may upload or remove an avatar: the user themselves, or a requester whose
+     * role rows grant full access (an ADMIN_EMAILS address alone does not count).
+     * Upload and removal share this so the rule cannot drift between them.
+     */
+    private async canChangeAvatar(requesterId: string, targetId: string): Promise<boolean> {
+        if (requesterId === targetId) return true
+        return hasFullAccess(await this.service.getUserRoles(requesterId))
+    }
+
     router(): Router {
         const router = express.Router()
 
@@ -196,12 +206,8 @@ export class UsersController {
                 const requesterId = authReq.user?.userId
 
                 // Check authorization: must be self or admin
-                if (requesterId !== id) {
-                    const userRoles = await this.service.getUserRoles(requesterId!)
-                    const isAdmin = hasFullAccess(userRoles)
-                    if (!isAdmin) {
-                        return res.status(403).json({ error: 'Unauthorized to update another user\'s avatar' })
-                    }
+                if (!(await this.canChangeAvatar(requesterId!, id))) {
+                    return res.status(403).json({ error: 'Unauthorized to update another user\'s avatar' })
                 }
 
                 // Accept base64 data URI or a URL string
@@ -227,6 +233,42 @@ export class UsersController {
             } catch (error) {
                 logger.error('Avatar upload error:', error)
                 res.status(500).json({ error: 'Failed to update avatar' })
+            }
+        })
+
+        // Remove user avatar (2026-10-30): User.avatar becomes null and the UI falls back to
+        // its placeholder. Same permission rule as the upload above. A user with no photo is
+        // a no-op 200; an empty string (PATCH /:id stores one for an empty avatar) becomes null.
+        router.delete('/:id/avatar', authenticateToken, async (req: Request, res: Response) => {
+            try {
+                const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+                const authReq = req as AuthRequest
+                const requesterId = authReq.user?.userId
+                if (!requesterId) {
+                    return res.status(401).json({ error: 'Authentication required' })
+                }
+
+                if (!(await this.canChangeAvatar(requesterId, id))) {
+                    return res.status(403).json({ error: 'Unauthorized to update another user\'s avatar' })
+                }
+
+                const existingUser = await this.service.findById(id)
+                if (!existingUser) {
+                    return res.status(404).json({ error: 'User not found' })
+                }
+
+                // The update returns scalars only, so the roles and profile come from the read above.
+                const user = existingUser.avatar === null
+                    ? existingUser
+                    : { ...existingUser, ...await this.service.update(id, { avatar: null }) }
+
+                res.json({
+                    success: true,
+                    user: requesterId === id ? serializeAuthUser(user) : sanitizeUserForDirectory(user),
+                })
+            } catch (error) {
+                logger.error('Avatar removal error:', error)
+                res.status(500).json({ error: 'Failed to remove avatar' })
             }
         })
 

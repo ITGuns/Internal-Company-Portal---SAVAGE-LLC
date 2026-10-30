@@ -1,5 +1,31 @@
 # Development Notes
 
+## 2026-10-30 - Production deploy of the 28 Oct work, onboarding links, CI repair
+
+### Completed
+- mydeskii.com runs b1531ad (payslip sign-off, tax rules, employee history, employment categories, org chart, concerns, Manila calendar fixes, review hardening). Pol pasted the three migrations into the Supabase SQL editor as one run ("Success. No rows returned"), then main was pushed; the Vercel GitHub deployment record went READY at 12:42 UTC. `/org-chart` and `/concerns` answer 200 and the onboarding role list shows Disbursement Officer.
+- Onboarding setup links through Operations > Onboarding for Guns (it3.digitalconnections@gmail.com, Gemfield Developer - Website Developers, the same role Pol holds) and Abigail Padua (abigailf.padua@gmail.com, Contractor & Salary Payments - Payroll / Finance). The link sets the password; nothing is emailed.
+- Clear profile picture: the Profile page "Remove photo" button now clears the photo at once after an inline confirm ("Remove your photo?", Remove photo / Keep photo) through the new `DELETE /api/users/:id/avatar` (own photo, or full access for anyone else, shared `canChangeAvatar` helper with upload; already empty is a 200 no-op; a leftover empty string becomes null). Header, sidebar, drawer, card and cached lists update immediately. The old Remove only took effect on Save Changes and stored an empty string. Tests: `backend/tests/users.avatar.test.ts`, `frontend/tests/profile-photo.test.mjs`; 21 of 21 localhost checks in `assets/verify/profile-picture/`.
+- CI: e4dfb82 made the two adjustment-form tests zone independent (`now` is noon Manila written with its offset). b819807 added `backend/scripts/provision-test-database.mjs` and pointed Backend CI, CI and the Production Deploy release gate at it instead of `prisma db push`.
+
+### Decisions Made
+- The Vercel build (`vercel.json` buildCommand) only compiles; it never applies migrations. Production migrations are pasted first, then main is pushed. The migrate-production workflow fires on prisma changes but only applies when `PRODUCTION_DIRECT_DATABASE_URL` is set.
+- The migration history cannot replay from an empty database (202605210001 alters "Task" without creating it), and `db push` skips the rows the data migrations seed (five payroll schemes, payment frequencies, employment categories, the Disbursement Officer role). The provisioning script pushes the schema as of the baseline `202610140002_user_notifications` (commit a941563), marks the 24 migrations up to it as applied, deploys the rest, then regenerates the Prisma client. It refuses a database that already has tables and restores `prisma/schema.prisma` whatever happens.
+- Abigail has payroll management, not the signer role. Add Disbursement Officer as a second role from Operations > Members if she signs payslips.
+- Claude neither creates accounts nor types passwords on production: it fills the onboarding form, the admin clicks Generate Link and sets the password from the link.
+
+### How to Test
+- Fresh database: create an empty one, then from `backend/` run `DATABASE_URL=<url> node scripts/provision-test-database.mjs` and `npm test`. Verified locally on 30 Oct: 5 schemes, 6 employment types, 29 migrations, the suite green.
+- Production: `GET https://mydeskii.com/health` reports the database connected; `/org-chart` and `/concerns` return 200 for a signed-in user.
+
+### Known gaps
+- The CI workflow step "Audit Frontend Dependencies" stays red (next, body-parser, shadcn and zod advisories): a dependency upgrade in its own change.
+- "Mirror Backend To Deploy Repo" fails on the missing `DESKIBACKEND_TOKEN` secret (Render path).
+- The local test container deskii-pg3 has superuser `admin`; the `test` role cannot create databases.
+
+### Next Steps
+- Clock in and clock out on production checked by Pol (pending when this was written).
+- Upload still waits for Save Changes while Remove photo is immediate; upload does not refresh cached lists (org chart can lag up to 2 minutes). Light theme and screen reader not checked for the new confirm.
 ## 2026-10-28 - Review fixes: concerns, sign-off, pay and delete guards
 
 An independent review of the day's uncommitted work (payslip sign-off and tax, org chart and concerns, employee categories and history, calendar fixes) listed 13 must-fix items. This entry covers them; nothing was committed.

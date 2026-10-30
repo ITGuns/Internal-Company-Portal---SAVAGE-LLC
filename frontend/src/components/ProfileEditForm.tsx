@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import Button from "@/components/Button";
 import ProfileFormInput from "@/components/ProfileFormInput";
 import UserAvatar from "@/assets/icons/UserAvatar";
 import { useToast } from "@/components/ToastProvider";
 import { useUser } from "@/contexts/UserContext";
-import { updateUserProfile, uploadAvatar } from "@/lib/api";
+import { removeAvatar, updateUserProfile, uploadAvatar } from "@/lib/api";
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from "@/lib/upload-limits";
 import { Camera, Calendar, Mail, MapPin, Phone, User, Shield } from "lucide-react";
 
@@ -79,18 +80,29 @@ function buildProfileFormData(user: EditableUserProfile | null): ProfileFormStat
 export default function ProfileEditForm({ user, onSave, onCancel }: ProfileEditFormProps) {
   const { showToast } = useToast();
   const { updateUser } = useUser();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<ProfileFormState>(() => buildProfileFormData(user));
   const [avatarPreview, setAvatarPreview] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [isRemovingPhoto, setIsRemovingPhoto] = useState(false);
   const displayRoles = user?.roles?.length ? user.roles : user?.role ? [user.role] : [];
+  const savedAvatar = user?.avatar || "";
+  // Primitive effect keys (DESIGN.md). Remove photo saves at once and changes only the
+  // avatar, so it must not reset the fields that are still being edited.
+  const savedFieldsKey = JSON.stringify({ ...buildProfileFormData(user), avatar: "" });
 
   useEffect(() => {
-    setFormData(buildProfileFormData(user));
-    setAvatarPreview(user?.avatar || "");
+    setFormData((current) => ({ ...(JSON.parse(savedFieldsKey) as ProfileFormState), avatar: current.avatar }));
     setErrors({});
-  }, [user]);
+  }, [savedFieldsKey]);
+
+  useEffect(() => {
+    setAvatarPreview(savedAvatar);
+    setFormData((current) => ({ ...current, avatar: savedAvatar }));
+  }, [savedAvatar]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -149,11 +161,31 @@ export default function ProfileEditForm({ user, onSave, onCancel }: ProfileEditF
     reader.readAsDataURL(file);
   };
 
-  const handleRemoveAvatar = () => {
+  const clearPickedPhoto = () => {
     setAvatarPreview("");
     setFormData((current) => ({ ...current, avatar: "" }));
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  };
+
+  // A saved photo is removed on the server right away, after the inline confirm. A photo
+  // that was picked but never saved is only cleared (see the Remove photo button).
+  const handleRemovePhoto = async () => {
+    if (!user?.id) return;
+    setIsRemovingPhoto(true);
+    try {
+      const response = await removeAvatar(user.id);
+      clearPickedPhoto();
+      updateUser(response.user);
+      // Cached lists (org chart, members, concerns, tasks) carry this avatar too.
+      void queryClient.invalidateQueries();
+      showToast("success", "Photo removed");
+    } catch (error) {
+      showToast("error", error instanceof Error ? error.message : "Could not remove the photo");
+    } finally {
+      setIsRemovingPhoto(false);
+      setConfirmingRemove(false);
     }
   };
 
@@ -180,9 +212,8 @@ export default function ProfileEditForm({ user, onSave, onCancel }: ProfileEditF
     setIsSubmitting(true);
 
     try {
-      const hasAvatarChanged = formData.avatar !== (user.avatar || "");
-      const shouldUploadAvatar = hasAvatarChanged && Boolean(formData.avatar);
-      const shouldClearAvatar = hasAvatarChanged && !formData.avatar;
+      // Remove photo saves on its own (DELETE /users/:id/avatar); Save only uploads a newly picked photo.
+      const shouldUploadAvatar = Boolean(formData.avatar) && formData.avatar !== (user.avatar || "");
       const profileResponse = await updateUserProfile(user.id, {
         name: formData.name,
         email: formData.email,
@@ -191,7 +222,6 @@ export default function ProfileEditForm({ user, onSave, onCancel }: ProfileEditF
         birthday: formData.birthday || null,
         address: formData.address.trim() || null,
         city: formData.city.trim() || null,
-        ...(shouldClearAvatar ? { avatar: "" } : {}),
       });
 
       let finalUser = {
@@ -247,16 +277,45 @@ export default function ProfileEditForm({ user, onSave, onCancel }: ProfileEditF
           className="hidden"
           aria-label="Upload profile picture"
         />
-        <div className="mt-3 flex flex-wrap justify-center gap-2">
-          <Button type="button" variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>
-            Upload Photo
-          </Button>
-          {avatarPreview ? (
-            <Button type="button" variant="ghost" size="sm" onClick={handleRemoveAvatar}>
-              Remove
+        {confirmingRemove ? (
+          <div key="confirm-remove" role="group" aria-label="Remove photo" className="mt-3 flex flex-wrap items-center justify-center gap-2 text-sm text-[var(--foreground)]">
+            <span>Remove your photo?</span>
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              onClick={(event) => {
+                // A double-click on the Remove photo trigger lands its second click here: ignore it.
+                if (event.detail > 1) return;
+                void handleRemovePhoto();
+              }}
+              loading={isRemovingPhoto}
+              disabled={isSubmitting}
+            >
+              Remove photo
             </Button>
-          ) : null}
-        </div>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmingRemove(false)} disabled={isRemovingPhoto} autoFocus>
+              Keep photo
+            </Button>
+          </div>
+        ) : (
+          <div key="photo-actions" className="mt-3 flex flex-wrap justify-center gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>
+              Upload photo
+            </Button>
+            {avatarPreview ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={savedAvatar ? () => setConfirmingRemove(true) : clearPickedPhoto}
+                disabled={isSubmitting}
+              >
+                Remove photo
+              </Button>
+            ) : null}
+          </div>
+        )}
         <p className="mt-2 text-xs text-[var(--muted)]">JPG, PNG or GIF. Max size {MAX_UPLOAD_LABEL}.</p>
       </div>
 
@@ -297,10 +356,10 @@ export default function ProfileEditForm({ user, onSave, onCancel }: ProfileEditF
       </div>
 
       <div className="flex flex-col gap-3 pt-2 sm:flex-row">
-        <Button type="button" variant="secondary" className="flex-1" onClick={resetForm} disabled={isSubmitting}>
+        <Button type="button" variant="secondary" className="flex-1" onClick={resetForm} disabled={isSubmitting || isRemovingPhoto}>
           Cancel
         </Button>
-        <Button type="submit" variant="primary" className="flex-1" loading={isSubmitting} disabled={isSubmitting}>
+        <Button type="submit" variant="primary" className="flex-1" loading={isSubmitting} disabled={isSubmitting || isRemovingPhoto}>
           Save Changes
         </Button>
       </div>

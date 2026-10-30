@@ -158,7 +158,7 @@ export interface ResetMemberPasswordInput {
 
 export interface UpdateUserDto {
     name?: string
-    avatar?: string
+    avatar?: string | null // null removes the photo (DELETE /users/:id/avatar)
     email?: string       // Recovery/Primary email
     birthday?: string    // ISO date string (YYYY-MM-DD)
     phone?: string       // Phone number with country code

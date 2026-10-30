@@ -386,6 +386,17 @@ export const uploadAvatar = async (userId: string | number, file: File | string)
         throw error;
     }
 };
+
+/**
+ * Remove a user's avatar (DELETE /users/:id/avatar, 2026-10-30): the stored avatar becomes null.
+ * Unlike uploadAvatar it leaves the cached current user alone, because the target may be
+ * someone else; the caller updates the user context. apiFetch throws the server's error.
+ * @returns `{ success, user }` with `user.avatar` null
+ */
+export const removeAvatar = async (userId: string | number) => {
+    const response = await apiFetch(`/users/${userId}/avatar`, { method: 'DELETE' });
+    return response.json();
+};
 // ============================================
 // ROLES API
 // ============================================
