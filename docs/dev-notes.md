@@ -7,6 +7,7 @@
 - Onboarding setup links through Operations > Onboarding for Guns (it3.digitalconnections@gmail.com, Gemfield Developer - Website Developers, the same role Pol holds) and Abigail Padua (abigailf.padua@gmail.com, Contractor & Salary Payments - Payroll / Finance). The link sets the password; nothing is emailed.
 - Clear profile picture: the Profile page "Remove photo" button now clears the photo at once after an inline confirm ("Remove your photo?", Remove photo / Keep photo) through the new `DELETE /api/users/:id/avatar` (own photo, or full access for anyone else, shared `canChangeAvatar` helper with upload; already empty is a 200 no-op; a leftover empty string becomes null). Header, sidebar, drawer, card and cached lists update immediately. The old Remove only took effect on Save Changes and stored an empty string. Tests: `backend/tests/users.avatar.test.ts`, `frontend/tests/profile-photo.test.mjs`; 21 of 21 localhost checks in `assets/verify/profile-picture/`.
 - CI: e4dfb82 made the two adjustment-form tests zone independent (`now` is noon Manila written with its offset). b819807 added `backend/scripts/provision-test-database.mjs` and pointed Backend CI, CI and the Production Deploy release gate at it instead of `prisma db push`.
+- Clock in and clock out verified on production (30 Oct, Pol supervising, Savage Admin account): Clock In, one minute, Clock Out answered 200 and the dashboard showed 2 minutes tracked. That two-minute test entry stays on admin@savage.com until Pol asks for its removal, together with his earlier production test data.
 
 ### Decisions Made
 - The Vercel build (`vercel.json` buildCommand) only compiles; it never applies migrations. Production migrations are pasted first, then main is pushed. The migrate-production workflow fires on prisma changes but only applies when `PRODUCTION_DIRECT_DATABASE_URL` is set.
@@ -24,7 +25,9 @@
 - The local test container deskii-pg3 has superuser `admin`; the `test` role cannot create databases.
 
 ### Next Steps
-- Clock in and clock out on production checked by Pol (pending when this was written).
+- Abigail to confirm the tax model before tax rules go on real payslips: a flat rate on gross (contractor-style withholding), no graduated employee table. Add Disbursement Officer as her second role from Operations > Members if she signs payslips.
+- Guns and Abigail set their passwords from their setup links before first sign-in; the links were handed over by Pol, nothing was emailed.
+- Remove Pol's production test data and the admin test time entry when Pol says so.
 - Upload still waits for Save Changes while Remove photo is immediate; upload does not refresh cached lists (org chart can lag up to 2 minutes). Light theme and screen reader not checked for the new confirm.
 ## 2026-10-28 - Review fixes: concerns, sign-off, pay and delete guards
 
