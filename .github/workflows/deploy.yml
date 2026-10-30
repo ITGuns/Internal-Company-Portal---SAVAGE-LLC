@@ -99,7 +99,7 @@ jobs:
         run: |
           npx prisma validate
           npx prisma generate
-          npx prisma migrate deploy
+          node scripts/provision-test-database.mjs
           npm test
           npm run build
           npm audit --audit-level=critical

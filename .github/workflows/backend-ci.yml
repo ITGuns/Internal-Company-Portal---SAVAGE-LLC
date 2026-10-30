@@ -82,7 +82,7 @@ jobs:
         run: npx prisma generate
 
       - name: Provision test database schema
-        run: npx prisma migrate deploy
+        run: node scripts/provision-test-database.mjs
 
       - name: Test
         run: npm test
