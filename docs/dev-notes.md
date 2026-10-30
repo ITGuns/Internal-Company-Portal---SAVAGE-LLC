@@ -19,7 +19,7 @@
 - Production: `GET https://mydeskii.com/health` reports the database connected; `/org-chart` and `/concerns` return 200 for a signed-in user.
 
 ### Known gaps
-- The CI workflow step "Audit Frontend Dependencies" stays red (next, body-parser, shadcn and zod advisories): a dependency upgrade in its own change.
+- Frontend dependency audit: `npm audit fix` (lockfile only) moved next 16.3.8 to 16.4.3, shadcn 4.0.2 to 4.23.0 and zod 4.3.6 to 4.6.7, and dropped the transitive body-parser, express and qs; high and critical advisories are gone, five lows remain. Frontend gate green and a localhost click-through (sign in, clock in and out, payroll calendar, profile) passed on the new version.
 - "Mirror Backend To Deploy Repo" fails on the missing `DESKIBACKEND_TOKEN` secret (Render path).
 - The local test container deskii-pg3 has superuser `admin`; the `test` role cannot create databases.
 
