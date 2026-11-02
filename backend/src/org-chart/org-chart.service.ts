@@ -1,6 +1,7 @@
 import { prisma } from '../database/prisma.service'
 import { isAdminEmail } from '../config/env.config'
 import { hasManagementAccess } from '../org/org-access-policy'
+import { excludeSystemAccounts } from '../org/system-accounts'
 import { isClientOnlyAccount } from '../employees/employees.security'
 
 // Statuses the user directory treats as active (UsersService.findAll). Pending and
@@ -98,10 +99,14 @@ export function toOrgChartMembers(rows: MemberRow[]): OrgChartMember[] {
 export class OrgChartService {
   constructor(private readonly db = prisma) {}
 
-  /** Every active, approved internal member, with report counts taken from the same set. */
+  /**
+   * Every active, approved internal member, with report counts taken from the same
+   * set. System accounts (org/system-accounts.ts) are left out; a member who reports
+   * to one keeps that managerId and the page shows them as a root.
+   */
   async listMembers(): Promise<OrgChartMember[]> {
     const rows = await this.db.user.findMany({
-      where: ACTIVE_MEMBER_WHERE,
+      where: { ...ACTIVE_MEMBER_WHERE, ...excludeSystemAccounts() },
       select: memberSelect,
       orderBy: [{ name: 'asc' }, { email: 'asc' }],
     })

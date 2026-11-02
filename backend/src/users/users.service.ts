@@ -4,6 +4,7 @@ import { PrismaClient, User, Prisma } from '@prisma/client'
 import { prisma } from '../database/prisma.service'
 import { isAdminEmail } from '../config/env.config'
 import { hasFullAccess } from '../org/org-access-policy'
+import { excludeSystemAccounts, isSystemAccountEmail } from '../org/system-accounts'
 import { revokeAllRefreshSessionsForUser } from '../auth/refresh-session.service'
 import { clearAccountStatusCache } from '../auth/account-status'
 import { payrollOptionsService } from '../payroll/payroll-options.service'
@@ -55,6 +56,11 @@ const directoryUserSelect = {
 } satisfies Prisma.UserSelect
 
 type DirectoryUser = Prisma.UserGetPayload<{ select: typeof directoryUserSelect }>
+
+/** A member who reports to a system account lists no manager, as on the org chart. */
+function hideSystemAccountManager(user: DirectoryUser): DirectoryUser {
+    return user.manager && isSystemAccountEmail(user.manager.email) ? { ...user, manager: null } : user
+}
 
 export interface CreateUserDto {
     email: string
@@ -195,7 +201,8 @@ export class UsersService {
     }
 
     /**
-     * Get all users (with optional pagination)
+     * Get all users (with optional pagination). System accounts
+     * (org/system-accounts.ts) keep their access but are not listed or counted.
      */
     async findAll(page?: number, limit?: number): Promise<DirectoryUser[] | {
         data: DirectoryUser[]
@@ -204,10 +211,11 @@ export class UsersService {
         limit: number
         totalPages: number
     }> {
-        const where = {
+        const where: Prisma.UserWhereInput = {
             status: {
                 in: ['active', 'vacation', 'leave', 'verified'] as string[],
             },
+            ...excludeSystemAccounts(),
         }
 
         const orderBy = { createdAt: 'desc' as const }
@@ -223,14 +231,15 @@ export class UsersService {
                 }),
                 this.prisma.user.count({ where }),
             ])
-            return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
+            return { data: data.map(hideSystemAccountManager), total, page, limit, totalPages: Math.ceil(total / limit) }
         }
 
-        return this.prisma.user.findMany({
+        const users = await this.prisma.user.findMany({
             where,
             select: directoryUserSelect,
             orderBy,
         })
+        return users.map(hideSystemAccountManager)
     }
 
     /**
@@ -546,10 +555,10 @@ export class UsersService {
     }
 
     /**
-     * Search users by name or email
+     * Search users by name or email (system accounts are left out, as in findAll)
      */
     async search(query: string): Promise<DirectoryUser[]> {
-        return this.prisma.user.findMany({
+        const users = await this.prisma.user.findMany({
             where: {
                 status: {
                     in: ['active', 'vacation', 'leave', 'verified'],
@@ -558,9 +567,11 @@ export class UsersService {
                     { email: { contains: query, mode: 'insensitive' } },
                     { name: { contains: query, mode: 'insensitive' } },
                 ],
+                ...excludeSystemAccounts(),
             },
             select: directoryUserSelect,
         })
+        return users.map(hideSystemAccountManager)
     }
 
     /**

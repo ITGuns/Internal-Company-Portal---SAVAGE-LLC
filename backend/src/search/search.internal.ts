@@ -1,4 +1,5 @@
 import { prisma } from '../database/prisma.service'
+import { excludeSystemAccounts } from '../org/system-accounts'
 import { getTaskVisibilityFilter } from '../tasks/tasks.permissions'
 import type { GlobalSearchAccess } from './search.access'
 import type { GlobalSearchResult } from './search.types'
@@ -20,6 +21,8 @@ export async function searchPeople(query: string, limit: number): Promise<Global
   const users = await prisma.user.findMany({
     where: {
       status: { in: ACTIVE_USER_STATUSES },
+      // System accounts (org/system-accounts.ts) are not people: left out here as in GET /users.
+      ...excludeSystemAccounts(),
       roles: {
         some: {
           role: { notIn: CLIENT_DIRECTORY_ONLY_ROLES },

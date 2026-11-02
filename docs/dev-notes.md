@@ -1,5 +1,22 @@
 # Development Notes
 
+## 2026-11-03 - System account hidden from member lists
+
+### Completed
+- The bootstrap admin admin@savage.com ("Savage Admin", Owner / Founder) is no longer listed as a person. `GET /api/users` (plain and paginated, `total` included), `GET /api/users/search`, `GET /api/org-chart` and the People section of global search (`GET /api/search`, `searchPeople`) leave out system accounts, so it is gone from Operations > Members, the Operations org chart, /org-chart, the search bar and the pickers those routes feed (task assignee, chat, payroll calendar and time entry, client staff, concern recipients). Its sign-in, roles and full access are unchanged, and `GET /api/users/:id` still returns it. Code: `backend/src/org/system-accounts.ts`, used by `UsersService.findAll` and `search` and by `OrgChartService.listMembers`. Tests: `backend/tests/system-accounts.test.ts`.
+- A member who reports to the hidden admin keeps that `managerId`. Both org charts already show a member whose manager is not on the list as a root (`frontend/tests/org-chart.test.mjs`, `frontend/tests/operations-org-chart.test.mjs`), so the frontend is unchanged. `GET /api/users` and `GET /api/users/search` leave out the embedded `manager` when it is a system account, so the Operations org chart never reads "Reports to Savage Admin".
+
+### Decisions Made
+- System accounts come from `SYSTEM_ACCOUNT_EMAILS` (comma separated, case ignored). Unset means admin@savage.com, so production needs no new variable; an empty value hides nobody. `ADMIN_EMAILS` was not reused because it may name real people and it grants access.
+- Hiding is a list filter only. Sign-in, `hasFullAccess`, `requireRole`, payroll lists, concerns (`findMemberEligibility`) and `GET /api/users/:id` do not read the list.
+
+### How to Test
+- From `backend/`: `DATABASE_URL=<test database> node -r ts-node/register tests/system-accounts.test.ts`, then `npm test`.
+- Signed in as another member: Operations > Members, Operations > Org Chart and /org-chart do not show Savage Admin, and anyone who reported to it sits at the top. Signed in as admin@savage.com: Operations and the admin pages still open.
+
+### Known gaps
+- Records that already point at the admin keep working but read differently: a client ticket assigned to it shows "Unknown staff" in the client workspace, and the task edit form shows "Select a person" for a task assigned to it (saving keeps the assignee).
+
 ## 2026-10-30 - Production deploy of the 28 Oct work, onboarding links, CI repair
 
 ### Completed

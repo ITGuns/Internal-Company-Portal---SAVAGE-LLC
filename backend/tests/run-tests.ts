@@ -77,6 +77,7 @@ const tests = [
   'chat.attachments.test.ts',
   'org-chart.routes.test.ts',
   'concerns.routes.test.ts',
+  'system-accounts.test.ts',
 ]
 
 function runTest(test: string): Promise<void> {
